@@ -1,0 +1,94 @@
+{
+  "format": "zenfg.frame-graph-snapshot",
+  "version": {
+    "major": 1,
+    "minor": 0
+  },
+  "producer": {
+    "name": "conformance"
+  },
+  "capture": {
+    "frameIndex": 0
+  },
+  "graph": {
+    "groups": [],
+    "nodes": [
+      {
+        "id": "node:x",
+        "recordingOrder": 0,
+        "kind": "render",
+        "sideEffect": true,
+        "compileState": {
+          "status": "retained",
+          "executionOrder": 0
+        }
+      }
+    ],
+    "resources": [
+      {
+        "id": "resource:x",
+        "kind": "texture",
+        "origin": "imported",
+        "usageFlags": [
+          "texture-binding"
+        ],
+        "initialContents": "defined"
+      }
+    ],
+    "textureViews": [],
+    "accesses": [
+      {
+        "id": "access:x",
+        "nodeId": "node:x",
+        "resourceId": "resource:x",
+        "access": "texture-sampled",
+        "mode": "read",
+        "producesValue": false,
+        "textureRegion": {
+          "baseMipLevel": 0,
+          "mipLevelCount": 1,
+          "baseArrayLayer": 0,
+          "arrayLayerCount": 1,
+          "baseDepthSlice": 0,
+          "depthSliceCount": 1,
+          "aspect": "all"
+        }
+      }
+    ],
+    "dependencies": [],
+    "roots": [
+      {
+        "reason": "side-effect",
+        "nodeId": "node:x"
+      }
+    ],
+    "segments": [
+      {
+        "id": "segment:0",
+        "order": 0,
+        "kind": "frame-graph",
+        "nodeIds": [
+          "node:x"
+        ]
+      }
+    ]
+  },
+  "memory": {
+    "allocationReport": {
+      "status": "unavailable",
+      "reason": "not-captured"
+    },
+    "poolReport": {
+      "status": "unavailable",
+      "reason": "not-captured"
+    }
+  },
+  "timings": {
+    "gpu": {
+      "status": "unavailable",
+      "reason": "not-captured"
+    }
+  },
+  "diagnostics": [],
+  "extensions": {}
+}

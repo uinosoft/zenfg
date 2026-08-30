@@ -1,0 +1,29 @@
+{
+  "name": "@zenfg/inspector",
+  "version": "0.1.0",
+  "description": "Embeddable Inspector for ZenFG Snapshot files and live captures",
+  "type": "module",
+  "sideEffects": false,
+  "exports": { ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js" } },
+  "types": "./dist/index.d.ts",
+  "files": ["dist", "README.md", "LICENSE"],
+  "dependencies": {
+    "@zenfg/snapshot": "^0.1.0",
+    "cytoscape": "^3.34.1",
+    "elkjs": "^0.12.0"
+  },
+  "scripts": {
+    "build": "node ../../scripts/build-package.mjs",
+    "build:watch": "node ../../scripts/build-package.mjs --watch",
+    "prepack": "npm run build --workspace @zenfg/snapshot && npm run build",
+    "pack:dry-run": "npm pack --dry-run --json",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "node ../../scripts/run-tests.mjs packages/inspector/tests"
+  },
+  "publishConfig": { "access": "public", "registry": "https://registry.npmjs.org/" },
+  "license": "MIT",
+  "repository": { "type": "git", "url": "git+https://github.com/uinosoft/zenfg.git", "directory": "packages/inspector" },
+  "homepage": "https://github.com/uinosoft/zenfg/tree/main/packages/inspector",
+  "bugs": { "url": "https://github.com/uinosoft/zenfg/issues" },
+  "keywords": ["framegraph", "inspector", "webgpu", "wgpu", "diagnostics"]
+}

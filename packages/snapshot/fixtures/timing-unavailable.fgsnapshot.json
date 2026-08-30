@@ -1,0 +1,75 @@
+{
+  "format": "zenfg.frame-graph-snapshot",
+  "version": {
+    "major": 1,
+    "minor": 0
+  },
+  "producer": {
+    "name": "fixture",
+    "runtime": {
+      "implementation": "browser",
+      "graphicsApi": "WebGPU"
+    }
+  },
+  "capture": {
+    "frameIndex": 17
+  },
+  "graph": {
+    "groups": [],
+    "nodes": [
+      {
+        "id": "node:present",
+        "recordingOrder": 0,
+        "kind": "render",
+        "label": "present",
+        "sideEffect": true,
+        "compileState": {
+          "status": "retained",
+          "executionOrder": 0
+        }
+      }
+    ],
+    "resources": [],
+    "textureViews": [],
+    "accesses": [],
+    "dependencies": [],
+    "roots": [
+      {
+        "reason": "side-effect",
+        "nodeId": "node:present"
+      }
+    ],
+    "segments": [
+      {
+        "id": "segment:0",
+        "order": 0,
+        "kind": "frame-graph",
+        "nodeIds": [
+          "node:present"
+        ]
+      }
+    ]
+  },
+  "memory": {
+    "allocationReport": {
+      "status": "available",
+      "allocations": []
+    },
+    "poolReport": {
+      "status": "available",
+      "acquireCount": 0,
+      "reuseCount": 0,
+      "createdCount": 0,
+      "retainedCount": 0,
+      "estimatedRetainedBytes": 0
+    }
+  },
+  "timings": {
+    "gpu": {
+      "status": "unavailable",
+      "reason": "timestamp-query-unsupported"
+    }
+  },
+  "diagnostics": [],
+  "extensions": {}
+}

@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 1,
+  "projectionVersion": 1,
+  "cases": [
+    { "name": "linear-dependency", "golden": "goldens/linear-dependency.projection.json" },
+    { "name": "overwrite-culling", "golden": "goldens/overwrite-culling.projection.json" },
+    { "name": "preserve-discard", "golden": "goldens/preserve-discard.projection.json" },
+    { "name": "buffer-range", "golden": "goldens/buffer-range.projection.json" },
+    { "name": "texture-subresource", "golden": "goldens/texture-subresource.projection.json" },
+    { "name": "external-submission", "golden": "goldens/external-submission.projection.json" },
+    { "name": "aliasing", "golden": "goldens/aliasing.projection.json" }
+  ]
+}

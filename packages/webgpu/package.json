@@ -1,0 +1,29 @@
+{
+  "name": "@zenfg/webgpu",
+  "version": "0.1.0",
+  "description": "A standalone FrameGraph compiler and transient-resource runtime for WebGPU",
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js" },
+    "./snapshot": { "types": "./dist/snapshot.d.ts", "import": "./dist/snapshot.js" }
+  },
+  "types": "./dist/index.d.ts",
+  "files": ["dist", "README.md", "README.zh-CN.md", "LICENSE"],
+  "dependencies": { "@zenfg/snapshot": "^0.1.0" },
+  "scripts": {
+    "benchmark:compile": "node ../../scripts/run-webgpu-compile-benchmark.mjs",
+    "build": "node ../../scripts/build-package.mjs",
+    "build:watch": "node ../../scripts/build-package.mjs --watch",
+    "prepack": "npm run build --workspace @zenfg/snapshot && npm run build",
+    "pack:dry-run": "npm pack --dry-run --json",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "node ../../scripts/run-tests.mjs packages/webgpu/tests"
+  },
+  "publishConfig": { "access": "public", "registry": "https://registry.npmjs.org/" },
+  "license": "MIT",
+  "repository": { "type": "git", "url": "git+https://github.com/uinosoft/zenfg.git", "directory": "packages/webgpu" },
+  "homepage": "https://github.com/uinosoft/zenfg/tree/main/packages/webgpu",
+  "bugs": { "url": "https://github.com/uinosoft/zenfg/issues" },
+  "keywords": ["webgpu", "framegraph", "rendering", "graphics"]
+}

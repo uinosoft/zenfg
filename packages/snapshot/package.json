@@ -1,0 +1,31 @@
+{
+  "name": "@zenfg/snapshot",
+  "version": "0.1.0",
+  "description": "Portable ZenFG Snapshot V1 types, codec, validator, schema, and conformance corpus",
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js" },
+    "./format": { "types": "./dist/format.d.ts", "import": "./dist/format.js" },
+    "./schema/v1.json": "./schema/frame-graph-snapshot-v1.schema.json",
+    "./fixtures/*": "./fixtures/*",
+    "./conformance/*": "./conformance/*"
+  },
+  "types": "./dist/index.d.ts",
+  "files": ["dist", "schema", "fixtures", "conformance", "SPEC.md", "README.md", "LICENSE"],
+  "scripts": {
+    "build": "node ../../scripts/build-package.mjs",
+    "build:watch": "node ../../scripts/build-package.mjs --watch",
+    "prepack": "npm run build",
+    "pack:dry-run": "npm pack --dry-run --json",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "node ../../scripts/run-tests.mjs packages/snapshot/tests"
+  },
+  "devDependencies": { "ajv": "^8.20.0" },
+  "publishConfig": { "access": "public", "registry": "https://registry.npmjs.org/" },
+  "license": "MIT",
+  "repository": { "type": "git", "url": "git+https://github.com/uinosoft/zenfg.git", "directory": "packages/snapshot" },
+  "homepage": "https://github.com/uinosoft/zenfg/tree/main/packages/snapshot",
+  "bugs": { "url": "https://github.com/uinosoft/zenfg/issues" },
+  "keywords": ["framegraph", "snapshot", "validation", "webgpu", "wgpu"]
+}

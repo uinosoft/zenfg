@@ -1,0 +1,9 @@
+error[E0382]: borrow of moved value: `frame`
+ --> tests/ui/compile_consumes_frame.rs:7:13
+  |
+5 |     let mut frame = graph.begin_frame();
+  |         --------- move occurs because `frame` has type `Frame<'_>`, which does not implement the `Copy` trait
+6 |     frame.compile(CompileOptions::default()).unwrap();
+  |     ----- value moved here
+7 |     let _ = frame.create_buffer(BufferDesc::new("late", 4));
+  |             ^^^^^ value borrowed here after move

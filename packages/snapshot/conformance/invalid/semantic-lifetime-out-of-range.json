@@ -1,0 +1,78 @@
+{
+  "format": "zenfg.frame-graph-snapshot",
+  "version": {
+    "major": 1,
+    "minor": 0
+  },
+  "producer": {
+    "name": "conformance"
+  },
+  "capture": {
+    "frameIndex": 0
+  },
+  "graph": {
+    "groups": [],
+    "nodes": [
+      {
+        "id": "node:x",
+        "recordingOrder": 0,
+        "kind": "render",
+        "sideEffect": true,
+        "compileState": {
+          "status": "retained",
+          "executionOrder": 0
+        }
+      }
+    ],
+    "resources": [
+      {
+        "id": "resource:x",
+        "kind": "buffer",
+        "origin": "transient",
+        "lifetime": {
+          "firstUse": 0,
+          "lastUse": 1
+        },
+        "usageFlags": [],
+        "initialContents": "undefined"
+      }
+    ],
+    "textureViews": [],
+    "accesses": [],
+    "dependencies": [],
+    "roots": [
+      {
+        "reason": "side-effect",
+        "nodeId": "node:x"
+      }
+    ],
+    "segments": [
+      {
+        "id": "segment:0",
+        "order": 0,
+        "kind": "frame-graph",
+        "nodeIds": [
+          "node:x"
+        ]
+      }
+    ]
+  },
+  "memory": {
+    "allocationReport": {
+      "status": "unavailable",
+      "reason": "not-captured"
+    },
+    "poolReport": {
+      "status": "unavailable",
+      "reason": "not-captured"
+    }
+  },
+  "timings": {
+    "gpu": {
+      "status": "unavailable",
+      "reason": "not-captured"
+    }
+  },
+  "diagnostics": [],
+  "extensions": {}
+}

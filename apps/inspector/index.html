@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="color-scheme" content="dark">
+  <title>ZenFG Inspector</title>
+</head>
+<body>
+  <header class="app-header">
+    <div>
+      <h1>ZenFG Inspector</h1>
+      <p>Open a <code>.fgsnapshot.json</code> capture locally. Nothing is uploaded.</p>
+    </div>
+    <label class="file-button" for="snapshot-file">Open snapshot</label>
+    <input id="snapshot-file" type="file" accept=".json,.fgsnapshot.json,application/json">
+  </header>
+  <main id="drop-zone" aria-label="ZenFG Inspector workspace">
+    <p class="drop-hint">Drop a ZenFG Snapshot anywhere in this window</p>
+    <div id="inspector-host"></div>
+  </main>
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>

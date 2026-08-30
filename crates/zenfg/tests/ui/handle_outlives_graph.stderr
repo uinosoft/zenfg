@@ -1,0 +1,12 @@
+error[E0597]: `graph` does not live long enough
+ --> tests/ui/handle_outlives_graph.rs:6:25
+  |
+4 |     let handle = {
+  |         ------ borrow later stored here
+5 |         let mut graph = FrameGraph::new();
+  |             --------- binding `graph` declared here
+6 |         let mut frame = graph.begin_frame();
+  |                         ^^^^^ borrowed value does not live long enough
+7 |         frame.create_buffer(BufferDesc::new("buffer", 4)).unwrap()
+8 |     };
+  |     - `graph` dropped here while still borrowed

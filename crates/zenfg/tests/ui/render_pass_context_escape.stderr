@@ -1,0 +1,10 @@
+error[E0521]: borrowed data escapes outside of closure
+  --> tests/ui/render_pass_context_escape.rs:21:9
+   |
+ 6 |     let mut escaped = None;
+   |         ----------- `escaped` declared here, outside of the closure body
+...
+20 |     pass.finish_render(|ctx| {
+   |                         --- `ctx` is a reference that is only valid in the closure body
+21 |         escaped = Some(ctx.pass);
+   |         ^^^^^^^ `ctx` escapes the closure body here

@@ -1,0 +1,647 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://uinosoft.github.io/zenfg/schema/frame-graph-snapshot-v1.schema.json",
+  "title": "ZenFG FrameGraph Snapshot V1",
+  "description": "Portable diagnostic data for one compiled FrameGraph frame. This format is not replayable.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["format", "version", "producer", "capture", "graph", "memory", "timings", "diagnostics", "extensions"],
+  "properties": {
+    "format": { "const": "zenfg.frame-graph-snapshot" },
+    "version": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["major", "minor"],
+      "properties": {
+        "major": { "const": 1 },
+        "minor": { "const": 0 }
+      }
+    },
+    "producer": { "$ref": "#/$defs/producer" },
+    "capture": { "$ref": "#/$defs/capture" },
+    "graph": { "$ref": "#/$defs/graph" },
+    "memory": { "$ref": "#/$defs/memory" },
+    "timings": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["gpu"],
+      "properties": { "gpu": { "$ref": "#/$defs/gpuTimings" } }
+    },
+    "diagnostics": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/diagnostic" }
+    },
+    "extensions": {
+      "type": "object",
+      "propertyNames": { "pattern": "^.+\\..+$" },
+      "additionalProperties": { "$ref": "#/$defs/jsonValue" }
+    }
+  },
+  "allOf": [
+    {
+      "if": { "$ref": "#/$defs/recordingOrderUnavailable" },
+      "then": {
+        "properties": { "graph": { "properties": { "nodes": { "items": { "not": { "required": ["recordingOrder"] } } } } } }
+      },
+      "else": {
+        "properties": { "graph": { "properties": { "nodes": { "items": { "required": ["recordingOrder"] } } } } }
+      }
+    },
+    {
+      "if": { "$ref": "#/$defs/accessRegionsUnavailable" },
+      "else": {
+        "properties": {
+          "graph": {
+            "properties": {
+              "accesses": {
+                "items": {
+                  "oneOf": [
+                    { "properties": { "access": { "pattern": "^texture-" } }, "required": ["textureRegion"] },
+                    { "properties": { "access": { "pattern": "^buffer-" } }, "required": ["bufferRange"] }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": { "$ref": "#/$defs/groupsUnavailable" },
+      "then": { "properties": { "graph": { "properties": { "groups": { "maxItems": 0 } } } } }
+    },
+    {
+      "if": { "$ref": "#/$defs/textureViewsUnavailable" },
+      "then": { "properties": { "graph": { "properties": { "textureViews": { "maxItems": 0 } } } } }
+    }
+  ],
+  "$defs": {
+    "safeInteger": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    },
+    "positiveSafeInteger": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 9007199254740991
+    },
+    "finiteNumber": { "type": "number", "minimum": 0 },
+    "migrationContains": {
+      "type": "object",
+      "required": ["capture"],
+      "properties": {
+        "capture": {
+          "type": "object",
+          "required": ["migration"],
+          "properties": {
+            "migration": {
+              "type": "object",
+              "required": ["unavailableFacts"]
+            }
+          }
+        }
+      }
+    },
+    "recordingOrderUnavailable": {
+      "allOf": [
+        { "$ref": "#/$defs/migrationContains" },
+        { "properties": { "capture": { "properties": { "migration": { "properties": { "unavailableFacts": { "contains": { "const": "graph.nodes.recordingOrder" } } } } } } } }
+      ]
+    },
+    "accessRegionsUnavailable": {
+      "allOf": [
+        { "$ref": "#/$defs/migrationContains" },
+        { "properties": { "capture": { "properties": { "migration": { "properties": { "unavailableFacts": { "contains": { "const": "graph.accesses.regions" } } } } } } } }
+      ]
+    },
+    "groupsUnavailable": {
+      "allOf": [
+        { "$ref": "#/$defs/migrationContains" },
+        { "properties": { "capture": { "properties": { "migration": { "properties": { "unavailableFacts": { "contains": { "const": "graph.groups" } } } } } } } }
+      ]
+    },
+    "textureViewsUnavailable": {
+      "allOf": [
+        { "$ref": "#/$defs/migrationContains" },
+        { "properties": { "capture": { "properties": { "migration": { "properties": { "unavailableFacts": { "contains": { "const": "graph.textureViews" } } } } } } } }
+      ]
+    },
+    "groupId": { "type": "string", "pattern": "^group:.+$" },
+    "nodeId": { "type": "string", "pattern": "^node:.+$" },
+    "resourceId": { "type": "string", "pattern": "^resource:.+$" },
+    "viewId": { "type": "string", "pattern": "^view:.+$" },
+    "accessId": { "type": "string", "pattern": "^access:.+$" },
+    "segmentId": { "type": "string", "pattern": "^segment:.+$" },
+    "allocationId": { "type": "string", "pattern": "^allocation:.+$" },
+    "compatibilityId": { "type": "string", "pattern": "^compatibility:.+$" },
+    "jsonValue": {
+      "oneOf": [
+        { "type": ["string", "number", "boolean", "null"] },
+        { "type": "array", "items": { "$ref": "#/$defs/jsonValue" } },
+        { "type": "object", "additionalProperties": { "$ref": "#/$defs/jsonValue" } }
+      ]
+    },
+    "producer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "version": { "type": "string", "minLength": 1 },
+        "language": { "type": "string", "minLength": 1 },
+        "runtime": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "implementation": { "type": "string", "minLength": 1 },
+            "graphicsApi": { "type": "string", "minLength": 1 },
+            "backend": { "type": "string", "minLength": 1 }
+          }
+        }
+      }
+    },
+    "capture": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["frameIndex"],
+      "properties": {
+        "frameIndex": { "$ref": "#/$defs/safeInteger" },
+        "capturedAt": { "type": "string" },
+        "migration": { "$ref": "#/$defs/migration" }
+      }
+    },
+    "migration": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sourceFormat", "unavailableFacts"],
+      "properties": {
+        "sourceFormat": { "enum": ["legacy-v0", "t3d-v1"] },
+        "unavailableFacts": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "enum": ["graph.groups", "graph.textureViews", "graph.nodes.recordingOrder", "graph.accesses.regions"]
+          }
+        }
+      }
+    },
+    "group": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "label"],
+      "properties": {
+        "id": { "$ref": "#/$defs/groupId" },
+        "parentId": { "$ref": "#/$defs/groupId" },
+        "label": { "type": "string", "minLength": 1 },
+        "stableKey": { "type": "string" }
+      }
+    },
+    "node": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "kind", "sideEffect", "compileState"],
+      "properties": {
+        "id": { "$ref": "#/$defs/nodeId" },
+        "stableKey": { "type": "string" },
+        "recordingOrder": { "$ref": "#/$defs/safeInteger" },
+        "kind": {
+          "enum": ["render", "compute", "copy", "clear-buffer", "command", "external-submission"]
+        },
+        "label": { "type": "string" },
+        "sideEffect": { "type": "boolean" },
+        "groupId": { "$ref": "#/$defs/groupId" },
+        "compileState": {
+          "oneOf": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["status", "executionOrder"],
+              "properties": {
+                "status": { "const": "retained" },
+                "executionOrder": { "$ref": "#/$defs/safeInteger" }
+              }
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["status", "reason"],
+              "properties": {
+                "status": { "const": "culled" },
+                "reason": { "type": "string", "minLength": 1 }
+              }
+            }
+          ]
+        }
+      }
+    },
+    "textureDescriptor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "format", "size", "dimension", "mipLevelCount", "sampleCount", "viewFormats"],
+      "properties": {
+        "kind": { "const": "texture" },
+        "format": { "type": "string", "minLength": 1 },
+        "size": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["width", "height", "depthOrArrayLayers"],
+          "properties": {
+            "width": { "$ref": "#/$defs/positiveSafeInteger" },
+            "height": { "$ref": "#/$defs/positiveSafeInteger" },
+            "depthOrArrayLayers": { "$ref": "#/$defs/positiveSafeInteger" }
+          }
+        },
+        "dimension": { "type": "string", "minLength": 1 },
+        "mipLevelCount": { "$ref": "#/$defs/positiveSafeInteger" },
+        "sampleCount": { "$ref": "#/$defs/positiveSafeInteger" },
+        "viewFormats": { "type": "array", "items": { "type": "string", "minLength": 1 }, "uniqueItems": true }
+      }
+    },
+    "bufferDescriptor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "size"],
+      "properties": {
+        "kind": { "const": "buffer" },
+        "size": { "$ref": "#/$defs/safeInteger" }
+      }
+    },
+    "resourceBase": {
+      "type": "object",
+      "required": ["id", "kind", "origin", "usageFlags"],
+      "properties": {
+        "id": { "$ref": "#/$defs/resourceId" },
+        "stableKey": { "type": "string" },
+        "label": { "type": "string" },
+        "origin": { "enum": ["transient", "imported", "surface"] },
+        "initialContents": { "enum": ["defined", "undefined"] },
+        "groupId": { "$ref": "#/$defs/groupId" },
+        "lifetime": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["firstUse", "lastUse"],
+          "properties": {
+            "firstUse": { "$ref": "#/$defs/safeInteger" },
+            "lastUse": { "$ref": "#/$defs/safeInteger" }
+          }
+        },
+        "allocationId": { "$ref": "#/$defs/allocationId" },
+        "estimatedByteSize": { "$ref": "#/$defs/safeInteger" }
+      }
+    },
+    "resource": {
+      "oneOf": [
+        {
+          "allOf": [
+            { "$ref": "#/$defs/resourceBase" },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["id", "kind", "origin", "usageFlags"],
+              "properties": {
+                "id": { "$ref": "#/$defs/resourceId" },
+                "stableKey": { "type": "string" },
+                "label": { "type": "string" },
+                "kind": { "const": "texture" },
+                "origin": { "enum": ["transient", "imported", "surface"] },
+                "initialContents": { "enum": ["defined", "undefined"] },
+                "groupId": { "$ref": "#/$defs/groupId" },
+                "lifetime": { "$ref": "#/$defs/lifetime" },
+                "allocationId": { "$ref": "#/$defs/allocationId" },
+                "estimatedByteSize": { "$ref": "#/$defs/safeInteger" },
+                "descriptor": { "$ref": "#/$defs/textureDescriptor" },
+                "usageFlags": {
+                  "type": "array",
+                  "items": { "enum": ["copy-src", "copy-dst", "texture-binding", "storage-binding", "render-attachment"] },
+                  "uniqueItems": true
+                }
+              }
+            }
+          ]
+        },
+        {
+          "allOf": [
+            { "$ref": "#/$defs/resourceBase" },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["id", "kind", "origin", "usageFlags"],
+              "properties": {
+                "id": { "$ref": "#/$defs/resourceId" },
+                "stableKey": { "type": "string" },
+                "label": { "type": "string" },
+                "kind": { "const": "buffer" },
+                "origin": { "enum": ["transient", "imported", "surface"] },
+                "initialContents": { "enum": ["defined", "undefined"] },
+                "groupId": { "$ref": "#/$defs/groupId" },
+                "lifetime": { "$ref": "#/$defs/lifetime" },
+                "allocationId": { "$ref": "#/$defs/allocationId" },
+                "estimatedByteSize": { "$ref": "#/$defs/safeInteger" },
+                "descriptor": { "$ref": "#/$defs/bufferDescriptor" },
+                "usageFlags": {
+                  "type": "array",
+                  "items": { "enum": ["map-read", "map-write", "copy-src", "copy-dst", "index", "vertex", "uniform", "storage", "indirect", "query-resolve"] },
+                  "uniqueItems": true
+                }
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "lifetime": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["firstUse", "lastUse"],
+      "properties": {
+        "firstUse": { "$ref": "#/$defs/safeInteger" },
+        "lastUse": { "$ref": "#/$defs/safeInteger" }
+      }
+    },
+    "textureView": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "resourceId", "format", "dimension", "aspect", "baseMipLevel", "mipLevelCount", "baseArrayLayer", "arrayLayerCount", "swizzle"],
+      "properties": {
+        "id": { "$ref": "#/$defs/viewId" },
+        "stableKey": { "type": "string" },
+        "resourceId": { "$ref": "#/$defs/resourceId" },
+        "label": { "type": "string" },
+        "format": { "type": "string", "minLength": 1 },
+        "dimension": { "type": "string", "minLength": 1 },
+        "aspect": { "type": "string", "minLength": 1 },
+        "baseMipLevel": { "$ref": "#/$defs/safeInteger" },
+        "mipLevelCount": { "$ref": "#/$defs/positiveSafeInteger" },
+        "baseArrayLayer": { "$ref": "#/$defs/safeInteger" },
+        "arrayLayerCount": { "$ref": "#/$defs/positiveSafeInteger" },
+        "swizzle": { "type": "string", "minLength": 1 }
+      }
+    },
+    "textureRegion": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["baseMipLevel", "mipLevelCount", "aspect"],
+      "oneOf": [
+        {
+          "required": ["baseArrayLayer", "arrayLayerCount"],
+          "not": { "anyOf": [{ "required": ["baseDepthSlice"] }, { "required": ["depthSliceCount"] }] }
+        },
+        {
+          "required": ["baseDepthSlice", "depthSliceCount"],
+          "not": { "anyOf": [{ "required": ["baseArrayLayer"] }, { "required": ["arrayLayerCount"] }] }
+        }
+      ],
+      "properties": {
+        "baseMipLevel": { "$ref": "#/$defs/safeInteger" },
+        "mipLevelCount": { "$ref": "#/$defs/positiveSafeInteger" },
+        "baseArrayLayer": { "$ref": "#/$defs/safeInteger" },
+        "arrayLayerCount": { "$ref": "#/$defs/positiveSafeInteger" },
+        "baseDepthSlice": { "$ref": "#/$defs/safeInteger" },
+        "depthSliceCount": { "$ref": "#/$defs/positiveSafeInteger" },
+        "aspect": { "type": "string", "minLength": 1 }
+      }
+    },
+    "bufferRange": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["offset"],
+      "properties": {
+        "offset": { "$ref": "#/$defs/safeInteger" },
+        "size": { "$ref": "#/$defs/safeInteger" }
+      }
+    },
+    "accessBaseProperties": {
+      "type": "object",
+      "required": ["id", "nodeId", "resourceId", "access", "mode", "producesValue"],
+      "properties": {
+        "id": { "$ref": "#/$defs/accessId" },
+        "nodeId": { "$ref": "#/$defs/nodeId" },
+        "resourceId": { "$ref": "#/$defs/resourceId" },
+        "access": {
+          "enum": ["texture-sampled", "texture-storage-read", "texture-storage-write", "texture-color-attachment-write", "texture-depth-read", "texture-depth-write", "texture-copy-src", "texture-copy-dst", "buffer-uniform", "buffer-storage-read", "buffer-storage-write", "buffer-vertex", "buffer-index", "buffer-indirect", "buffer-copy-src", "buffer-copy-dst"]
+        },
+        "textureViewId": { "$ref": "#/$defs/viewId" },
+        "textureRegion": { "$ref": "#/$defs/textureRegion" },
+        "bufferRange": { "$ref": "#/$defs/bufferRange" }
+      }
+    },
+    "access": {
+      "oneOf": [
+        {
+          "allOf": [
+            { "$ref": "#/$defs/accessBaseProperties" },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["id", "nodeId", "resourceId", "access", "mode", "producesValue"],
+              "properties": {
+                "id": { "$ref": "#/$defs/accessId" },
+                "nodeId": { "$ref": "#/$defs/nodeId" },
+                "resourceId": { "$ref": "#/$defs/resourceId" },
+                "access": { "$ref": "#/$defs/accessKind" },
+                "textureViewId": { "$ref": "#/$defs/viewId" },
+                "textureRegion": { "$ref": "#/$defs/textureRegion" },
+                "bufferRange": { "$ref": "#/$defs/bufferRange" },
+                "mode": { "const": "read" },
+                "producesValue": { "const": false }
+              }
+            }
+          ]
+        },
+        {
+          "allOf": [
+            { "$ref": "#/$defs/accessBaseProperties" },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["id", "nodeId", "resourceId", "access", "mode", "contents", "producesValue"],
+              "properties": {
+                "id": { "$ref": "#/$defs/accessId" },
+                "nodeId": { "$ref": "#/$defs/nodeId" },
+                "resourceId": { "$ref": "#/$defs/resourceId" },
+                "access": { "$ref": "#/$defs/accessKind" },
+                "textureViewId": { "$ref": "#/$defs/viewId" },
+                "textureRegion": { "$ref": "#/$defs/textureRegion" },
+                "bufferRange": { "$ref": "#/$defs/bufferRange" },
+                "mode": { "const": "write" },
+                "contents": { "enum": ["overwrite", "preserve"] },
+                "producesValue": { "type": "boolean" }
+              }
+            }
+          ]
+        }
+      ],
+      "allOf": [
+        {
+          "if": { "properties": { "access": { "enum": ["texture-sampled", "texture-storage-read", "texture-depth-read", "texture-copy-src", "buffer-uniform", "buffer-storage-read", "buffer-vertex", "buffer-index", "buffer-indirect", "buffer-copy-src"] } } },
+          "then": { "properties": { "mode": { "const": "read" } } }
+        },
+        {
+          "if": { "properties": { "access": { "enum": ["texture-storage-write", "texture-color-attachment-write", "texture-depth-write", "texture-copy-dst", "buffer-storage-write", "buffer-copy-dst"] } } },
+          "then": { "properties": { "mode": { "const": "write" } } }
+        },
+        {
+          "if": { "properties": { "access": { "pattern": "^texture-" } } },
+          "then": { "not": { "required": ["bufferRange"] } }
+        },
+        {
+          "if": { "properties": { "access": { "pattern": "^buffer-" } } },
+          "then": { "not": { "anyOf": [{ "required": ["textureRegion"] }, { "required": ["textureViewId"] }] } }
+        },
+        {
+          "if": { "properties": { "access": { "enum": ["texture-copy-src", "texture-copy-dst"] } } },
+          "then": { "not": { "required": ["textureViewId"] } }
+        }
+      ]
+    },
+    "accessKind": {
+      "enum": ["texture-sampled", "texture-storage-read", "texture-storage-write", "texture-color-attachment-write", "texture-depth-read", "texture-depth-write", "texture-copy-src", "texture-copy-dst", "buffer-uniform", "buffer-storage-read", "buffer-storage-write", "buffer-vertex", "buffer-index", "buffer-indirect", "buffer-copy-src", "buffer-copy-dst"]
+    },
+    "dependency": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["fromNodeId", "toNodeId", "resourceId", "kind"],
+      "properties": {
+        "fromNodeId": { "$ref": "#/$defs/nodeId" },
+        "toNodeId": { "$ref": "#/$defs/nodeId" },
+        "resourceId": { "$ref": "#/$defs/resourceId" },
+        "kind": { "enum": ["value", "ordering"] }
+      }
+    },
+    "root": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["reason"],
+      "oneOf": [{ "required": ["nodeId"] }, { "required": ["resourceId"] }],
+      "properties": {
+        "reason": { "enum": ["present", "output", "readback", "side-effect", "debug-capture", "persistent-state"] },
+        "nodeId": { "$ref": "#/$defs/nodeId" },
+        "resourceId": { "$ref": "#/$defs/resourceId" }
+      }
+    },
+    "segment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "order", "kind", "nodeIds"],
+      "properties": {
+        "id": { "$ref": "#/$defs/segmentId" },
+        "order": { "$ref": "#/$defs/safeInteger" },
+        "kind": { "enum": ["frame-graph", "external-submission"] },
+        "nodeIds": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/nodeId" }, "uniqueItems": true }
+      }
+    },
+    "graph": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["groups", "nodes", "resources", "textureViews", "accesses", "dependencies", "roots", "segments"],
+      "properties": {
+        "groups": { "type": "array", "items": { "$ref": "#/$defs/group" } },
+        "nodes": { "type": "array", "items": { "$ref": "#/$defs/node" } },
+        "resources": { "type": "array", "items": { "$ref": "#/$defs/resource" } },
+        "textureViews": { "type": "array", "items": { "$ref": "#/$defs/textureView" } },
+        "accesses": { "type": "array", "items": { "$ref": "#/$defs/access" } },
+        "dependencies": { "type": "array", "items": { "$ref": "#/$defs/dependency" } },
+        "roots": { "type": "array", "items": { "$ref": "#/$defs/root" } },
+        "segments": { "type": "array", "items": { "$ref": "#/$defs/segment" } }
+      }
+    },
+    "allocation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "kind", "compatibilityClassId"],
+      "properties": {
+        "id": { "$ref": "#/$defs/allocationId" },
+        "kind": { "enum": ["texture", "buffer"] },
+        "compatibilityClassId": { "$ref": "#/$defs/compatibilityId" },
+        "estimatedByteSize": { "$ref": "#/$defs/safeInteger" }
+      }
+    },
+    "memory": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["allocationReport", "poolReport"],
+      "properties": {
+        "allocationReport": {
+          "oneOf": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["status", "allocations"],
+              "properties": {
+                "status": { "const": "available" },
+                "allocations": { "type": "array", "items": { "$ref": "#/$defs/allocation" } }
+              }
+            },
+            { "$ref": "#/$defs/unavailable" }
+          ]
+        },
+        "poolReport": {
+          "oneOf": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["status", "acquireCount", "reuseCount", "createdCount", "retainedCount"],
+              "properties": {
+                "status": { "const": "available" },
+                "acquireCount": { "$ref": "#/$defs/safeInteger" },
+                "reuseCount": { "$ref": "#/$defs/safeInteger" },
+                "createdCount": { "$ref": "#/$defs/safeInteger" },
+                "retainedCount": { "$ref": "#/$defs/safeInteger" },
+                "estimatedRetainedBytes": { "$ref": "#/$defs/safeInteger" }
+              }
+            },
+            { "$ref": "#/$defs/unavailable" }
+          ]
+        }
+      }
+    },
+    "unavailable": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "reason"],
+      "properties": {
+        "status": { "const": "unavailable" },
+        "reason": { "type": "string", "minLength": 1 }
+      }
+    },
+    "gpuTimings": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["status", "frameSpanMicros", "nodes"],
+          "properties": {
+            "status": { "const": "available" },
+            "frameSpanMicros": { "$ref": "#/$defs/finiteNumber" },
+            "nodes": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["nodeId", "durationMicros"],
+                "properties": {
+                  "nodeId": { "$ref": "#/$defs/nodeId" },
+                  "durationMicros": { "$ref": "#/$defs/finiteNumber" }
+                }
+              }
+            }
+          }
+        },
+        { "$ref": "#/$defs/unavailable" }
+      ]
+    },
+    "diagnostic": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["severity", "code", "message"],
+      "properties": {
+        "severity": { "enum": ["info", "warning", "error"] },
+        "code": { "type": "string", "minLength": 1 },
+        "message": { "type": "string" },
+        "nodeId": { "$ref": "#/$defs/nodeId" },
+        "resourceId": { "$ref": "#/$defs/resourceId" }
+      }
+    }
+  }
+}

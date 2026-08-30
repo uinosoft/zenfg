@@ -1,0 +1,14 @@
+ZenFG Inspector third-party notices
+====================================
+
+Cytoscape.js (cytoscape)
+Copyright (c) 2016-2026, The Cytoscape Consortium
+License: MIT
+https://github.com/cytoscape/cytoscape.js
+
+Eclipse Layout Kernel JavaScript bundle (elkjs)
+Copyright (c) Eclipse contributors and others
+License: Eclipse Public License 2.0
+https://github.com/kieler/elkjs
+
+Build tooling is not shipped as part of the application runtime bundle.

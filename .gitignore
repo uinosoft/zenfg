@@ -1,0 +1,16 @@
+node_modules/
+dist/
+.test-dist/
+.benchmark-dist/
+.cargo-target/
+target/
+coverage/
+.coverage/
+.env*
+!.env.example
+.idea/
+.vscode/
+*.tgz
+*.log
+.DS_Store
+Thumbs.db

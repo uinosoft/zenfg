@@ -1,0 +1,133 @@
+{
+  "format": "zenfg.frame-graph-snapshot",
+  "version": {
+    "major": 1,
+    "minor": 0
+  },
+  "producer": {
+    "name": "legacy-unversioned"
+  },
+  "capture": {
+    "frameIndex": 4,
+    "migration": {
+      "sourceFormat": "legacy-v0",
+      "unavailableFacts": [
+        "graph.textureViews",
+        "graph.nodes.recordingOrder",
+        "graph.accesses.regions"
+      ]
+    }
+  },
+  "graph": {
+    "groups": [
+      {
+        "id": "group:1",
+        "label": "Main"
+      }
+    ],
+    "nodes": [
+      {
+        "id": "node:1",
+        "kind": "render",
+        "label": "present",
+        "sideEffect": true,
+        "groupId": "group:1",
+        "compileState": {
+          "status": "retained",
+          "executionOrder": 0
+        }
+      },
+      {
+        "id": "node:2",
+        "kind": "compute",
+        "label": "unused",
+        "sideEffect": false,
+        "compileState": {
+          "status": "culled",
+          "reason": "not-reachable-from-root"
+        }
+      }
+    ],
+    "resources": [
+      {
+        "id": "resource:1",
+        "label": "backbuffer",
+        "origin": "surface",
+        "kind": "texture",
+        "usageFlags": [
+          "render-attachment"
+        ],
+        "initialContents": "undefined"
+      },
+      {
+        "id": "resource:2",
+        "label": "data",
+        "origin": "transient",
+        "allocationId": "allocation:1",
+        "kind": "buffer",
+        "usageFlags": [
+          "copy-src",
+          "copy-dst",
+          "storage"
+        ],
+        "initialContents": "undefined"
+      }
+    ],
+    "textureViews": [],
+    "accesses": [
+      {
+        "id": "access:1",
+        "nodeId": "node:1",
+        "resourceId": "resource:1",
+        "access": "texture-color-attachment-write",
+        "mode": "write",
+        "contents": "overwrite",
+        "producesValue": true
+      }
+    ],
+    "dependencies": [],
+    "roots": [
+      {
+        "reason": "side-effect",
+        "nodeId": "node:1"
+      }
+    ],
+    "segments": [
+      {
+        "id": "segment:0",
+        "order": 0,
+        "kind": "frame-graph",
+        "nodeIds": [
+          "node:1"
+        ]
+      }
+    ]
+  },
+  "memory": {
+    "allocationReport": {
+      "status": "available",
+      "allocations": [
+        {
+          "id": "allocation:1",
+          "kind": "buffer",
+          "compatibilityClassId": "compatibility:9"
+        }
+      ]
+    },
+    "poolReport": {
+      "status": "available",
+      "acquireCount": 1,
+      "reuseCount": 0,
+      "createdCount": 1,
+      "retainedCount": 1
+    }
+  },
+  "timings": {
+    "gpu": {
+      "status": "unavailable",
+      "reason": "unsupported"
+    }
+  },
+  "diagnostics": [],
+  "extensions": {}
+}

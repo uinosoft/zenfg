@@ -1,0 +1,44 @@
+{
+  "format": "zenfg.frame-graph-snapshot",
+  "version": {
+    "major": 1,
+    "minor": 0
+  },
+  "producer": {
+    "name": "fixture",
+    "version": "1.0.0",
+    "language": "TypeScript"
+  },
+  "capture": {
+    "frameIndex": 0,
+    "capturedAt": "2026-01-01T00:00:00.000Z"
+  },
+  "graph": {
+    "groups": [],
+    "nodes": [],
+    "resources": [],
+    "textureViews": [],
+    "accesses": [],
+    "dependencies": [],
+    "roots": [],
+    "segments": []
+  },
+  "memory": {
+    "allocationReport": {
+      "status": "unavailable",
+      "reason": "not-requested"
+    },
+    "poolReport": {
+      "status": "unavailable",
+      "reason": "not-requested"
+    }
+  },
+  "timings": {
+    "gpu": {
+      "status": "unavailable",
+      "reason": "unsupported"
+    }
+  },
+  "diagnostics": [],
+  "extensions": {}
+}

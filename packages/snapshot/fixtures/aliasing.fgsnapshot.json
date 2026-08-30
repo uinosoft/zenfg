@@ -1,0 +1,168 @@
+{
+  "format": "zenfg.frame-graph-snapshot",
+  "version": {
+    "major": 1,
+    "minor": 0
+  },
+  "producer": {
+    "name": "fixture"
+  },
+  "capture": {
+    "frameIndex": 9
+  },
+  "graph": {
+    "groups": [],
+    "nodes": [
+      {
+        "id": "node:first",
+        "recordingOrder": 0,
+        "kind": "compute",
+        "sideEffect": true,
+        "compileState": {
+          "status": "retained",
+          "executionOrder": 0
+        }
+      },
+      {
+        "id": "node:second",
+        "recordingOrder": 1,
+        "kind": "compute",
+        "sideEffect": true,
+        "compileState": {
+          "status": "retained",
+          "executionOrder": 1
+        }
+      }
+    ],
+    "resources": [
+      {
+        "id": "resource:first",
+        "kind": "buffer",
+        "origin": "transient",
+        "lifetime": {
+          "firstUse": 0,
+          "lastUse": 0
+        },
+        "allocationId": "allocation:shared",
+        "estimatedByteSize": 1024,
+        "descriptor": {
+          "kind": "buffer",
+          "size": 1024
+        },
+        "usageFlags": [
+          "storage"
+        ],
+        "initialContents": "undefined"
+      },
+      {
+        "id": "resource:second",
+        "kind": "buffer",
+        "origin": "transient",
+        "lifetime": {
+          "firstUse": 1,
+          "lastUse": 1
+        },
+        "allocationId": "allocation:shared",
+        "estimatedByteSize": 1024,
+        "descriptor": {
+          "kind": "buffer",
+          "size": 1024
+        },
+        "usageFlags": [
+          "storage"
+        ],
+        "initialContents": "undefined"
+      }
+    ],
+    "textureViews": [],
+    "accesses": [
+      {
+        "id": "access:first",
+        "nodeId": "node:first",
+        "resourceId": "resource:first",
+        "access": "buffer-storage-write",
+        "bufferRange": {
+          "offset": 0,
+          "size": 1024
+        },
+        "mode": "write",
+        "contents": "overwrite",
+        "producesValue": true
+      },
+      {
+        "id": "access:second",
+        "nodeId": "node:second",
+        "resourceId": "resource:second",
+        "access": "buffer-storage-write",
+        "bufferRange": {
+          "offset": 0,
+          "size": 1024
+        },
+        "mode": "write",
+        "contents": "overwrite",
+        "producesValue": true
+      }
+    ],
+    "dependencies": [],
+    "roots": [
+      {
+        "reason": "side-effect",
+        "nodeId": "node:first"
+      },
+      {
+        "reason": "side-effect",
+        "nodeId": "node:second"
+      }
+    ],
+    "segments": [
+      {
+        "id": "segment:0",
+        "order": 0,
+        "kind": "frame-graph",
+        "nodeIds": [
+          "node:first",
+          "node:second"
+        ]
+      }
+    ]
+  },
+  "memory": {
+    "allocationReport": {
+      "status": "available",
+      "allocations": [
+        {
+          "id": "allocation:shared",
+          "kind": "buffer",
+          "compatibilityClassId": "compatibility:storage-1024",
+          "estimatedByteSize": 1024
+        }
+      ]
+    },
+    "poolReport": {
+      "status": "available",
+      "acquireCount": 2,
+      "reuseCount": 1,
+      "createdCount": 1,
+      "retainedCount": 1,
+      "estimatedRetainedBytes": 1024
+    }
+  },
+  "timings": {
+    "gpu": {
+      "status": "available",
+      "frameSpanMicros": 25,
+      "nodes": [
+        {
+          "nodeId": "node:first",
+          "durationMicros": 10
+        },
+        {
+          "nodeId": "node:second",
+          "durationMicros": 12
+        }
+      ]
+    }
+  },
+  "diagnostics": [],
+  "extensions": {}
+}

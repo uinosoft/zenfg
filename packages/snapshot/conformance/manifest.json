@@ -1,0 +1,153 @@
+{
+  "manifestVersion": 1,
+  "schema": "../schema/frame-graph-snapshot-v1.schema.json",
+  "requiredIssueCodes": {
+    "validator": ["duplicate-dependency", "duplicate-id", "duplicate-segment-node", "duplicate-timing", "duplicate-value", "empty-string", "group-cycle", "invalid-access-mode", "invalid-access-range", "invalid-access-view", "invalid-dependency-order", "invalid-enum", "invalid-execution-order", "invalid-extension-name", "invalid-group-order", "invalid-id", "invalid-initial-contents", "invalid-integer", "invalid-lifetime", "invalid-literal", "invalid-migration-availability", "invalid-number", "invalid-read", "invalid-recording-order", "invalid-root", "invalid-segment-kind", "invalid-segment-order", "invalid-segment-sequence", "invalid-texture-region", "invalid-type", "missing-initial-contents", "missing-property", "missing-reference", "missing-segment-node", "reference-kind", "reference-mismatch", "reference-state", "unexpected-property"],
+    "codec": ["invalid-json", "unsupported-format", "unsupported-version"],
+    "legacy": ["legacy-access-contents", "legacy-access-value", "legacy-boolean", "legacy-enum", "legacy-number", "legacy-root", "legacy-string", "legacy-structure", "legacy-texture-region", "legacy-unknown-usage"],
+    "migrationWarnings": ["legacy-v0-migrated", "t3d-v1-migrated"],
+    "typescriptOnly": ["invalid-json-value"]
+  },
+  "cases": [
+    { "id": "valid-minimal", "file": "../fixtures/minimal.fgsnapshot.json", "input": "v1", "category": "valid", "schemaValid": true, "runtimeValid": true },
+    { "id": "valid-full-webgpu", "file": "../fixtures/full-webgpu.fgsnapshot.json", "input": "v1", "category": "valid", "schemaValid": true, "runtimeValid": true },
+    { "id": "valid-aliasing", "file": "../fixtures/aliasing.fgsnapshot.json", "input": "v1", "category": "valid", "schemaValid": true, "runtimeValid": true },
+    { "id": "valid-timing-unavailable", "file": "../fixtures/timing-unavailable.fgsnapshot.json", "input": "v1", "category": "valid", "schemaValid": true, "runtimeValid": true },
+    { "id": "valid-stable-keys", "file": "../fixtures/stable-keys.fgsnapshot.json", "input": "v1", "category": "valid", "schemaValid": true, "runtimeValid": true },
+    { "id": "valid-legacy-canonical", "file": "../fixtures/legacy-v0.expected.fgsnapshot.json", "input": "v1", "category": "valid", "schemaValid": true, "runtimeValid": true },
+    { "id": "valid-t3d-canonical", "file": "../fixtures/legacy-t3d-v1.expected.fgsnapshot.json", "input": "v1", "category": "valid", "schemaValid": true, "runtimeValid": true },
+    { "id": "legacy-v0", "file": "../fixtures/legacy-v0.json", "input": "legacy-v0", "category": "valid", "schemaValid": "not-applicable", "runtimeValid": true, "canonical": "../fixtures/legacy-v0.expected.fgsnapshot.json", "issues": [{ "code": "legacy-v0-migrated", "path": "", "message": "The unversioned debug capture was migrated to FrameGraph Snapshot 1.0." }] },
+    { "id": "t3d-v1", "file": "../fixtures/legacy-t3d-v1-canonical.json", "input": "t3d-v1", "category": "valid", "schemaValid": "not-applicable", "runtimeValid": true, "canonical": "../fixtures/legacy-t3d-v1.expected.fgsnapshot.json", "issues": [{ "code": "t3d-v1-migrated", "path": "", "message": "The t3d V1 candidate was migrated to ZenFG Snapshot 1.0." }] },
+
+    { "id": "validator-basic-shape", "file": "invalid/structural-basic-shape.json", "input": "validator", "category": "structural-invalid", "schemaValid": false, "runtimeValid": false, "issues": [
+      { "code": "unexpected-property", "path": "/capture/extra", "message": "Property \"extra\" is not part of Snapshot 1.0." },
+      { "code": "invalid-integer", "path": "/capture/frameIndex", "message": "Expected a non-negative safe integer." },
+      { "code": "missing-property", "path": "/capture/frameIndex", "message": "Required property \"frameIndex\" is missing." },
+      { "code": "invalid-extension-name", "path": "/extensions/invalid", "message": "Extension names must be namespace-qualified." },
+      { "code": "invalid-literal", "path": "/format", "message": "Expected \"zenfg.frame-graph-snapshot\"." },
+      { "code": "invalid-id", "path": "/graph/nodes/0/id", "message": "Entity id must use a type-prefixed string such as \"node:1\"." },
+      { "code": "invalid-enum", "path": "/graph/nodes/0/kind", "message": "Expected one of: render, compute, copy, clear-buffer, command, external-submission." },
+      { "code": "invalid-type", "path": "/producer/name", "message": "Expected a string." },
+      { "code": "invalid-number", "path": "/timings/gpu/frameSpanMicros", "message": "Expected a finite non-negative number." }
+    ] },
+    { "id": "structural-empty-group-label", "file": "invalid/structural-empty-group-label.json", "input": "v1", "category": "structural-invalid", "schemaValid": false, "runtimeValid": false, "issues": [{ "code": "empty-string", "path": "/graph/groups/0/label", "message": "Expected a non-empty string." }] },
+    { "id": "structural-zero-texture-width", "file": "invalid/structural-zero-texture-width.json", "input": "v1", "category": "structural-invalid", "schemaValid": false, "runtimeValid": false, "issues": [{ "code": "invalid-integer", "path": "/graph/resources/0/descriptor/size/width", "message": "Expected a positive safe integer." }] },
+    { "id": "structural-access-mode", "file": "invalid/structural-access-mode.json", "input": "v1", "category": "structural-invalid", "schemaValid": false, "runtimeValid": false, "issues": [{ "code": "invalid-access-mode", "path": "/graph/accesses/0/mode", "message": "Access kind \"texture-sampled\" requires mode \"read\"." }] },
+    { "id": "structural-texture-region-both", "file": "invalid/structural-texture-region-both.json", "input": "v1", "category": "structural-invalid", "schemaValid": false, "runtimeValid": false, "issues": [{ "code": "invalid-texture-region", "path": "/graph/accesses/0/textureRegion", "message": "Texture region must contain exactly one array-layer or depth-slice interval." }] },
+    { "id": "structural-extension-name", "file": "invalid/structural-extension-name.json", "input": "v1", "category": "structural-invalid", "schemaValid": false, "runtimeValid": false, "issues": [{ "code": "invalid-extension-name", "path": "/extensions/invalid", "message": "Extension names must be namespace-qualified." }] },
+    { "id": "structural-resource-rules", "file": "invalid/structural-resource-rules.json", "input": "v1", "category": "structural-invalid", "schemaValid": false, "runtimeValid": false, "issues": [
+      { "code": "invalid-initial-contents", "path": "/graph/resources/0/initialContents", "message": "transient resources must begin with undefined contents." },
+      { "code": "invalid-lifetime", "path": "/graph/resources/0/lifetime", "message": "lastUse must be greater than or equal to firstUse." },
+      { "code": "duplicate-value", "path": "/graph/resources/0/usageFlags/1", "message": "Duplicate value \"texture-binding\"." }
+    ] },
+    { "id": "structural-access-rules", "file": "invalid/structural-access-rules.json", "input": "v1", "category": "structural-invalid", "schemaValid": false, "runtimeValid": false, "issues": [
+      { "code": "unexpected-property", "path": "/graph/accesses/0/contents", "message": "Read access cannot declare contents." },
+      { "code": "invalid-read", "path": "/graph/accesses/0/producesValue", "message": "Read access must set producesValue to false." },
+      { "code": "invalid-access-mode", "path": "/graph/accesses/1/mode", "message": "Access kind \"texture-sampled\" requires mode \"read\"." },
+      { "code": "invalid-access-range", "path": "/graph/accesses/2/bufferRange", "message": "Texture access cannot contain bufferRange." },
+      { "code": "invalid-access-view", "path": "/graph/accesses/3/textureViewId", "message": "Texture copy access cannot reference a texture view." },
+      { "code": "invalid-access-range", "path": "/graph/accesses/4/textureRegion", "message": "Buffer access cannot contain textureRegion." },
+      { "code": "invalid-access-view", "path": "/graph/accesses/4/textureViewId", "message": "Buffer access cannot reference a texture view." },
+      { "code": "invalid-texture-region", "path": "/graph/accesses/5/textureRegion", "message": "Texture region must contain exactly one array-layer or depth-slice interval." }
+    ] },
+    { "id": "structural-root-segment", "file": "invalid/structural-root-segment.json", "input": "v1", "category": "structural-invalid", "schemaValid": false, "runtimeValid": false, "issues": [
+      { "code": "invalid-root", "path": "/graph/roots/0", "message": "A root must reference exactly one node or resource." },
+      { "code": "invalid-segment-sequence", "path": "/graph/segments/0/nodeIds", "message": "Execution segment must contain at least one node." }
+    ] },
+
+    { "id": "semantic-duplicate-id", "file": "invalid/semantic-duplicate-id.json", "input": "v1", "category": "semantic-invalid", "schemaValid": true, "runtimeValid": false, "issues": [{ "code": "duplicate-id", "path": "/graph/nodes/1/id", "message": "Entity id \"node:x\" is already declared at /graph/nodes/0/id." }] },
+    { "id": "semantic-recording-order-gap", "file": "invalid/semantic-recording-order-gap.json", "input": "v1", "category": "semantic-invalid", "schemaValid": true, "runtimeValid": false, "issues": [{ "code": "invalid-recording-order", "path": "/graph/nodes/1/recordingOrder", "message": "Node recordingOrder must equal its array index." }] },
+    { "id": "semantic-segment-order", "file": "invalid/semantic-segment-order.json", "input": "v1", "category": "semantic-invalid", "schemaValid": true, "runtimeValid": false, "issues": [{ "code": "invalid-segment-order", "path": "/graph/segments/0/order", "message": "Segment order must equal its array index." }] },
+    { "id": "semantic-lifetime-out-of-range", "file": "invalid/semantic-lifetime-out-of-range.json", "input": "v1", "category": "semantic-invalid", "schemaValid": true, "runtimeValid": false, "issues": [{ "code": "invalid-lifetime", "path": "/graph/resources/0/lifetime", "message": "Resource lifetime must use retained execution-order indices." }] },
+    { "id": "semantic-dependency-backward", "file": "invalid/semantic-dependency-backward.json", "input": "v1", "category": "semantic-invalid", "schemaValid": true, "runtimeValid": false, "issues": [{ "code": "invalid-dependency-order", "path": "/graph/dependencies/0/toNodeId", "message": "Dependency edges must point from an earlier retained node to a later retained node." }] },
+    { "id": "semantic-group-cycle", "file": "invalid/semantic-group-cycle.json", "input": "v1", "category": "semantic-invalid", "schemaValid": true, "runtimeValid": false, "issues": [
+      { "code": "invalid-group-order", "path": "/graph/groups/0/parentId", "message": "A group parent must appear before its child." },
+      { "code": "group-cycle", "path": "/graph/groups/0/parentId", "message": "Group parent references form a cycle." },
+      { "code": "group-cycle", "path": "/graph/groups/1/parentId", "message": "Group parent references form a cycle." }
+    ] },
+    { "id": "semantic-diagnostic-references", "file": "invalid/semantic-diagnostic-references.json", "input": "v1", "category": "semantic-invalid", "schemaValid": true, "runtimeValid": false, "issues": [
+      { "code": "missing-reference", "path": "/diagnostics/0/nodeId", "message": "Unknown node id \"node:missing\"." },
+      { "code": "missing-reference", "path": "/diagnostics/0/resourceId", "message": "Unknown resource id \"resource:missing\"." }
+    ] },
+    { "id": "semantic-resource-references", "file": "invalid/semantic-resource-references.json", "input": "v1", "category": "semantic-invalid", "schemaValid": true, "runtimeValid": false, "issues": [
+      { "code": "reference-kind", "path": "/graph/resources/0/allocationId", "message": "Resource and allocation kinds must match." },
+      { "code": "missing-initial-contents", "path": "/graph/resources/0/initialContents", "message": "ZenFG producers must declare the resource initial contents." }
+    ] },
+    { "id": "semantic-reference-mismatch", "file": "invalid/semantic-reference-mismatch.json", "input": "v1", "category": "semantic-invalid", "schemaValid": true, "runtimeValid": false, "issues": [{ "code": "reference-mismatch", "path": "/graph/accesses/0/textureViewId", "message": "Texture view and access must reference the same resource." }] },
+    { "id": "semantic-reference-kinds", "file": "invalid/semantic-reference-kinds.json", "input": "v1", "category": "semantic-invalid", "schemaValid": true, "runtimeValid": false, "issues": [
+      { "code": "reference-kind", "path": "/graph/accesses/0/access", "message": "Access kind does not match the referenced resource kind." },
+      { "code": "invalid-access-range", "path": "/graph/accesses/0/bufferRange", "message": "Buffer access requires bufferRange when access regions are available." },
+      { "code": "reference-kind", "path": "/graph/textureViews/0/resourceId", "message": "Texture view must reference a texture resource." }
+    ] },
+    { "id": "semantic-reference-state", "file": "invalid/semantic-reference-state.json", "input": "v1", "category": "semantic-invalid", "schemaValid": true, "runtimeValid": false, "issues": [
+      { "code": "reference-state", "path": "/graph/dependencies/0/fromNodeId", "message": "Dependency nodes must be retained." },
+      { "code": "reference-state", "path": "/graph/segments/0/nodeIds/1", "message": "Execution segment may only reference retained nodes." },
+      { "code": "reference-state", "path": "/timings/gpu/nodes/0/nodeId", "message": "GPU timing must reference a retained render or compute node." }
+    ] },
+    { "id": "semantic-segment-branches", "file": "invalid/semantic-segment-branches.json", "input": "v1", "category": "semantic-invalid", "schemaValid": true, "runtimeValid": false, "issues": [
+      { "code": "invalid-segment-kind", "path": "/graph/segments/0/nodeIds/0", "message": "External-submission segment must contain an external-submission node." },
+      { "code": "invalid-segment-kind", "path": "/graph/segments/0/nodeIds/1", "message": "External-submission segment must contain an external-submission node." },
+      { "code": "invalid-segment-kind", "path": "/graph/segments/0/nodeIds", "message": "External-submission segment must contain exactly one node." },
+      { "code": "invalid-segment-kind", "path": "/graph/segments/1/nodeIds/0", "message": "FrameGraph segment cannot contain an external-submission node." },
+      { "code": "duplicate-segment-node", "path": "/graph/segments/1/nodeIds/1", "message": "Retained node may appear in only one execution segment." },
+      { "code": "invalid-segment-sequence", "path": "/graph/segments", "message": "Concatenated segment nodes must follow retained execution order." },
+      { "code": "missing-segment-node", "path": "/graph/segments", "message": "Retained node \"node:missing-from-segments\" is not assigned to an execution segment." }
+    ] },
+    { "id": "semantic-duplicate-dependency-timing", "file": "invalid/semantic-duplicate-dependency-timing.json", "input": "v1", "category": "semantic-invalid", "schemaValid": true, "runtimeValid": false, "issues": [
+      { "code": "duplicate-dependency", "path": "/graph/dependencies/1", "message": "Duplicate dependency tuple." },
+      { "code": "duplicate-timing", "path": "/timings/gpu/nodes/1/nodeId", "message": "A node may have only one GPU timing." }
+    ] },
+    { "id": "semantic-execution-order", "file": "invalid/semantic-execution-order.json", "input": "v1", "category": "semantic-invalid", "schemaValid": true, "runtimeValid": false, "issues": [{ "code": "invalid-execution-order", "path": "/graph/nodes/0/compileState/executionOrder", "message": "Retained node executionOrder values must form the contiguous range 0..N-1." }] },
+    { "id": "semantic-migration-availability", "file": "invalid/semantic-migration-availability.json", "input": "v1", "category": "semantic-invalid", "schemaValid": false, "runtimeValid": false, "issues": [
+      { "code": "invalid-migration-availability", "path": "/capture/migration/unavailableFacts", "message": "Access regions may be marked unavailable only when at least one access region is missing." },
+      { "code": "invalid-migration-availability", "path": "/graph/accesses/0/textureViewId", "message": "Texture view references must be absent when texture views are unavailable." },
+      { "code": "invalid-migration-availability", "path": "/graph/groups", "message": "Unavailable groups require Legacy migration provenance and an empty groups table." },
+      { "code": "invalid-migration-availability", "path": "/graph/nodes/0/groupId", "message": "Group references must be absent when groups are unavailable." },
+      { "code": "invalid-migration-availability", "path": "/graph/nodes/0/recordingOrder", "message": "recordingOrder must be absent when recording order is unavailable." },
+      { "code": "invalid-migration-availability", "path": "/graph/resources/0/groupId", "message": "Group references must be absent when groups are unavailable." },
+      { "code": "invalid-migration-availability", "path": "/graph/textureViews", "message": "Unavailable texture views require Legacy migration provenance and an empty textureViews table." }
+    ] },
+    { "id": "semantic-missing-references", "file": "invalid/semantic-missing-references.json", "input": "v1", "category": "semantic-invalid", "schemaValid": true, "runtimeValid": false, "issues": [
+      { "code": "missing-reference", "path": "/diagnostics/0/nodeId", "message": "Unknown node id \"node:missing\"." },
+      { "code": "missing-reference", "path": "/diagnostics/0/resourceId", "message": "Unknown resource id \"resource:missing\"." },
+      { "code": "missing-reference", "path": "/graph/accesses/0/nodeId", "message": "Unknown node id \"node:missing\"." },
+      { "code": "missing-reference", "path": "/graph/accesses/0/resourceId", "message": "Unknown resource id \"resource:missing\"." },
+      { "code": "missing-reference", "path": "/graph/accesses/0/textureViewId", "message": "Unknown texture view id \"view:missing\"." },
+      { "code": "missing-reference", "path": "/graph/dependencies/0/fromNodeId", "message": "Unknown node id \"node:missing-a\"." },
+      { "code": "missing-reference", "path": "/graph/dependencies/0/resourceId", "message": "Unknown resource id \"resource:missing\"." },
+      { "code": "missing-reference", "path": "/graph/dependencies/0/toNodeId", "message": "Unknown node id \"node:missing-b\"." },
+      { "code": "missing-reference", "path": "/graph/groups/0/parentId", "message": "Unknown group id \"group:missing\"." },
+      { "code": "missing-reference", "path": "/graph/nodes/0/groupId", "message": "Unknown group id \"group:missing\"." },
+      { "code": "missing-reference", "path": "/graph/resources/0/allocationId", "message": "Unknown allocation id \"allocation:missing\"." },
+      { "code": "missing-reference", "path": "/graph/resources/0/groupId", "message": "Unknown group id \"group:missing\"." },
+      { "code": "missing-reference", "path": "/graph/roots/0/nodeId", "message": "Unknown node id \"node:missing\"." },
+      { "code": "missing-reference", "path": "/graph/roots/1/resourceId", "message": "Unknown resource id \"resource:missing\"." },
+      { "code": "missing-reference", "path": "/graph/segments/0/nodeIds/0", "message": "Unknown node id \"node:missing\"." },
+      { "code": "invalid-segment-sequence", "path": "/graph/segments", "message": "Concatenated segment nodes must follow retained execution order." },
+      { "code": "missing-segment-node", "path": "/graph/segments", "message": "Retained node \"node:x\" is not assigned to an execution segment." },
+      { "code": "missing-reference", "path": "/graph/textureViews/0/resourceId", "message": "Unknown resource id \"resource:missing\"." },
+      { "code": "missing-reference", "path": "/timings/gpu/nodes/0/nodeId", "message": "Unknown node id \"node:missing\"." }
+    ] },
+
+    { "id": "unsupported-format", "file": "invalid/unsupported-format.json", "input": "v1", "category": "unsupported", "schemaValid": false, "runtimeValid": false, "issues": [{ "code": "unsupported-format", "path": "/format", "message": "Expected FrameGraph Snapshot format \"zenfg.frame-graph-snapshot\"." }] },
+    { "id": "unsupported-version", "file": "invalid/unsupported-version.json", "input": "v1", "category": "unsupported", "schemaValid": false, "runtimeValid": false, "issues": [{ "code": "unsupported-version", "path": "/version", "message": "Snapshot version 2.0 is not supported; this Viewer supports 1.0." }] },
+    { "id": "legacy-null-timing-node", "file": "invalid/legacy-null-timing-node.json", "input": "legacy-v0", "category": "malformed-legacy", "schemaValid": "not-applicable", "runtimeValid": false, "issues": [{ "code": "legacy-structure", "path": "/gpuTiming/nodes/0", "message": "Expected an object." }] },
+    { "id": "legacy-invalid-group-id", "file": "invalid/legacy-invalid-group-id.json", "input": "legacy-v0", "category": "malformed-legacy", "schemaValid": "not-applicable", "runtimeValid": false, "issues": [{ "code": "legacy-number", "path": "/compilation/debugGroups/0/id", "message": "Expected a non-negative safe integer." }] },
+    { "id": "legacy-all-issue-codes", "file": "invalid/legacy-all-issue-codes.json", "input": "legacy-v0", "category": "malformed-legacy", "schemaValid": "not-applicable", "runtimeValid": false, "issues": [
+      { "code": "legacy-access-contents", "path": "/compilation/accesses/0/contents", "message": "Legacy read access cannot declare contents." },
+      { "code": "legacy-access-value", "path": "/compilation/accesses/0/producesValue", "message": "Legacy read access must set producesValue to false." },
+      { "code": "legacy-texture-region", "path": "/compilation/accesses/0/textureRegion", "message": "Legacy texture region must contain exactly one complete array-layer or depth-slice interval." },
+      { "code": "legacy-number", "path": "/compilation/debugGroups/0/id", "message": "Expected a non-negative safe integer." },
+      { "code": "legacy-string", "path": "/compilation/debugGroups/0/label", "message": "Expected a non-empty string." },
+      { "code": "legacy-structure", "path": "/compilation/dependencies", "message": "Expected an array." },
+      { "code": "legacy-enum", "path": "/compilation/nodes/0/kind", "message": "Expected one of: render, compute, copy, clear-buffer, command, external-submission." },
+      { "code": "legacy-string", "path": "/compilation/nodes/0/label", "message": "Expected a string." },
+      { "code": "legacy-boolean", "path": "/compilation/nodes/0/sideEffect", "message": "Expected a boolean." },
+      { "code": "legacy-number", "path": "/compilation/resources/0/descriptor/size/width", "message": "Expected a positive safe integer." },
+      { "code": "legacy-unknown-usage", "path": "/compilation/resources/0/usage", "message": "Legacy texture usage contains unknown bits 0x20." },
+      { "code": "legacy-root", "path": "/compilation/roots/0", "message": "Legacy root must reference exactly one node or resource." },
+      { "code": "legacy-structure", "path": "/gpuTiming/nodes/0", "message": "Expected an object." }
+    ] },
+    { "id": "malformed-json", "file": "invalid/malformed-json.txt", "input": "json-text", "category": "malformed-json", "schemaValid": "not-applicable", "runtimeValid": false, "issues": [{ "code": "invalid-json", "path": "", "message": "Invalid JSON." }] }
+  ]
+}

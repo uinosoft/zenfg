@@ -1,0 +1,65 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  typescript:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-node@v7.0.0
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm install --global npm@11.11.0
+      - run: npm --version
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+      - run: npm run pack:check
+
+  rust:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-node@v7.0.0
+        with:
+          node-version: 24
+      - run: npm install --global npm@11.11.0
+      - run: npm --version
+      - run: rustup toolchain install 1.98.0 --profile minimal --component rustfmt --component clippy
+      - run: rustup default 1.98.0
+      - run: cargo fmt --all --check
+      - run: cargo clippy --workspace --all-targets --all-features -- -D warnings
+      - run: cargo test --workspace --all-features
+      - run: cargo doc --workspace --all-features --no-deps
+        env:
+          RUSTDOCFLAGS: -D warnings
+      - run: npm run cargo:package-check
+
+  cross-language:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-node@v7.0.0
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm install --global npm@11.11.0
+      - run: npm --version
+      - run: npm ci
+      - run: rustup toolchain install 1.98.0 --profile minimal
+      - run: rustup default 1.98.0
+      - run: npm run test:cross-language
+      - if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cross-language-conformance
+          path: .test-dist/cross-language
+          if-no-files-found: ignore

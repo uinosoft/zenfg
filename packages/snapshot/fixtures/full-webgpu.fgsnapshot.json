@@ -1,0 +1,329 @@
+{
+  "format": "zenfg.frame-graph-snapshot",
+  "version": {
+    "major": 1,
+    "minor": 0
+  },
+  "producer": {
+    "name": "@zenfg/webgpu",
+    "version": "0.0.0",
+    "language": "TypeScript",
+    "runtime": {
+      "implementation": "browser",
+      "graphicsApi": "WebGPU",
+      "backend": "d3d12"
+    }
+  },
+  "capture": {
+    "frameIndex": 42,
+    "capturedAt": "2026-06-15T12:34:56.789Z"
+  },
+  "graph": {
+    "groups": [
+      {
+        "id": "group:main",
+        "label": "Main"
+      },
+      {
+        "id": "group:postfx",
+        "parentId": "group:main",
+        "label": "PostFX"
+      }
+    ],
+    "nodes": [
+      {
+        "id": "node:scene",
+        "recordingOrder": 0,
+        "kind": "render",
+        "label": "scene",
+        "sideEffect": false,
+        "groupId": "group:main",
+        "compileState": {
+          "status": "retained",
+          "executionOrder": 0
+        }
+      },
+      {
+        "id": "node:external",
+        "recordingOrder": 1,
+        "kind": "external-submission",
+        "label": "external upload",
+        "sideEffect": true,
+        "compileState": {
+          "status": "retained",
+          "executionOrder": 1
+        }
+      },
+      {
+        "id": "node:present",
+        "recordingOrder": 2,
+        "kind": "render",
+        "label": "present",
+        "sideEffect": true,
+        "groupId": "group:postfx",
+        "compileState": {
+          "status": "retained",
+          "executionOrder": 2
+        }
+      },
+      {
+        "id": "node:unused",
+        "recordingOrder": 3,
+        "kind": "compute",
+        "label": "unused",
+        "sideEffect": false,
+        "compileState": {
+          "status": "culled",
+          "reason": "not-reachable-from-root"
+        }
+      }
+    ],
+    "resources": [
+      {
+        "id": "resource:scene-color",
+        "kind": "texture",
+        "label": "scene-color",
+        "origin": "transient",
+        "groupId": "group:main",
+        "lifetime": {
+          "firstUse": 0,
+          "lastUse": 2
+        },
+        "allocationId": "allocation:texture-0",
+        "estimatedByteSize": 8294400,
+        "descriptor": {
+          "kind": "texture",
+          "format": "rgba16float",
+          "size": {
+            "width": 1920,
+            "height": 1080,
+            "depthOrArrayLayers": 1
+          },
+          "dimension": "2d",
+          "mipLevelCount": 1,
+          "sampleCount": 1,
+          "viewFormats": [
+            "rgba16float"
+          ]
+        },
+        "usageFlags": [
+          "copy-src",
+          "texture-binding",
+          "render-attachment"
+        ],
+        "initialContents": "undefined"
+      },
+      {
+        "id": "resource:backbuffer",
+        "kind": "texture",
+        "label": "backbuffer",
+        "origin": "surface",
+        "descriptor": {
+          "kind": "texture",
+          "format": "bgra8unorm",
+          "size": {
+            "width": 1920,
+            "height": 1080,
+            "depthOrArrayLayers": 1
+          },
+          "dimension": "2d",
+          "mipLevelCount": 1,
+          "sampleCount": 1,
+          "viewFormats": []
+        },
+        "usageFlags": [
+          "render-attachment"
+        ],
+        "initialContents": "undefined"
+      },
+      {
+        "id": "resource:unused-data",
+        "kind": "buffer",
+        "label": "unused-data",
+        "origin": "transient",
+        "descriptor": {
+          "kind": "buffer",
+          "size": 4096
+        },
+        "usageFlags": [
+          "copy-dst",
+          "storage"
+        ],
+        "initialContents": "undefined"
+      }
+    ],
+    "textureViews": [
+      {
+        "id": "view:scene-color-mip0",
+        "resourceId": "resource:scene-color",
+        "label": "scene-color.main",
+        "format": "rgba16float",
+        "dimension": "2d",
+        "aspect": "all",
+        "baseMipLevel": 0,
+        "mipLevelCount": 1,
+        "baseArrayLayer": 0,
+        "arrayLayerCount": 1,
+        "swizzle": "rgba"
+      }
+    ],
+    "accesses": [
+      {
+        "id": "access:scene-write",
+        "nodeId": "node:scene",
+        "resourceId": "resource:scene-color",
+        "access": "texture-color-attachment-write",
+        "textureViewId": "view:scene-color-mip0",
+        "textureRegion": {
+          "baseMipLevel": 0,
+          "mipLevelCount": 1,
+          "baseArrayLayer": 0,
+          "arrayLayerCount": 1,
+          "aspect": "all"
+        },
+        "mode": "write",
+        "contents": "overwrite",
+        "producesValue": true
+      },
+      {
+        "id": "access:present-read",
+        "nodeId": "node:present",
+        "resourceId": "resource:scene-color",
+        "access": "texture-sampled",
+        "textureRegion": {
+          "baseMipLevel": 0,
+          "mipLevelCount": 1,
+          "baseArrayLayer": 0,
+          "arrayLayerCount": 1,
+          "aspect": "all"
+        },
+        "mode": "read",
+        "producesValue": false
+      },
+      {
+        "id": "access:present-write",
+        "nodeId": "node:present",
+        "resourceId": "resource:backbuffer",
+        "access": "texture-color-attachment-write",
+        "textureRegion": {
+          "baseMipLevel": 0,
+          "mipLevelCount": 1,
+          "baseArrayLayer": 0,
+          "arrayLayerCount": 1,
+          "aspect": "all"
+        },
+        "mode": "write",
+        "contents": "overwrite",
+        "producesValue": false
+      },
+      {
+        "id": "access:unused-write",
+        "nodeId": "node:unused",
+        "resourceId": "resource:unused-data",
+        "access": "buffer-storage-write",
+        "bufferRange": {
+          "offset": 0,
+          "size": 4096
+        },
+        "mode": "write",
+        "contents": "overwrite",
+        "producesValue": true
+      }
+    ],
+    "dependencies": [
+      {
+        "fromNodeId": "node:scene",
+        "toNodeId": "node:present",
+        "resourceId": "resource:scene-color",
+        "kind": "value"
+      }
+    ],
+    "roots": [
+      {
+        "reason": "present",
+        "resourceId": "resource:backbuffer"
+      },
+      {
+        "reason": "side-effect",
+        "nodeId": "node:external"
+      }
+    ],
+    "segments": [
+      {
+        "id": "segment:0",
+        "order": 0,
+        "kind": "frame-graph",
+        "nodeIds": [
+          "node:scene"
+        ]
+      },
+      {
+        "id": "segment:1",
+        "order": 1,
+        "kind": "external-submission",
+        "nodeIds": [
+          "node:external"
+        ]
+      },
+      {
+        "id": "segment:2",
+        "order": 2,
+        "kind": "frame-graph",
+        "nodeIds": [
+          "node:present"
+        ]
+      }
+    ]
+  },
+  "memory": {
+    "allocationReport": {
+      "status": "available",
+      "allocations": [
+        {
+          "id": "allocation:texture-0",
+          "kind": "texture",
+          "compatibilityClassId": "compatibility:rgba16float-1920x1080",
+          "estimatedByteSize": 8294400
+        }
+      ]
+    },
+    "poolReport": {
+      "status": "available",
+      "acquireCount": 3,
+      "reuseCount": 2,
+      "createdCount": 1,
+      "retainedCount": 1,
+      "estimatedRetainedBytes": 8294400
+    }
+  },
+  "timings": {
+    "gpu": {
+      "status": "available",
+      "frameSpanMicros": 1850.5,
+      "nodes": [
+        {
+          "nodeId": "node:scene",
+          "durationMicros": 1410.25
+        },
+        {
+          "nodeId": "node:present",
+          "durationMicros": 180.75
+        }
+      ]
+    }
+  },
+  "diagnostics": [
+    {
+      "severity": "warning",
+      "code": "example-warning",
+      "message": "Fixture diagnostic",
+      "resourceId": "resource:scene-color"
+    }
+  ],
+  "extensions": {
+    "dev.t3d-next.fixture": {
+      "captureReason": "golden-test",
+      "quality": 1
+    }
+  }
+}

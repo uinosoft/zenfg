@@ -1,0 +1,90 @@
+:root {
+	font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+	color: #e6edf3;
+	background: #080c11;
+	color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; }
+body { background: radial-gradient(circle at 18% 0%, #132333 0, #080c11 45%); }
+
+.app-header {
+	position: fixed;
+	z-index: 30;
+	top: 0;
+	right: 0;
+	left: 0;
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 18px;
+	height: 72px;
+	padding: 10px 18px;
+	border-bottom: 1px solid rgba(180, 190, 202, 0.16);
+	background: rgba(8, 12, 17, 0.9);
+	backdrop-filter: blur(18px);
+}
+.app-header h1 { margin: 0; font-size: 18px; letter-spacing: 0.01em; }
+.app-header p { margin: 3px 0 0; color: #91a0af; font-size: 12px; }
+.app-header code { color: #bae6fd; }
+
+#snapshot-file { position: absolute; width: 1px; height: 1px; clip-path: inset(50%); }
+.file-button {
+	flex: 0 0 auto;
+	padding: 8px 13px;
+	border: 1px solid rgba(56, 189, 248, 0.55);
+	border-radius: 6px;
+	color: #bae6fd;
+	background: rgba(56, 189, 248, 0.12);
+	font-size: 12px;
+	font-weight: 650;
+	cursor: pointer;
+}
+.file-button:hover { background: rgba(56, 189, 248, 0.2); }
+.file-button:focus-visible { outline: 2px solid #38bdf8; outline-offset: 2px; }
+
+#drop-zone { position: fixed; inset: 72px 0 0; }
+#drop-zone::after {
+	position: absolute;
+	z-index: 40;
+	inset: 12px;
+	display: none;
+	place-items: center;
+	border: 2px dashed #38bdf8;
+	border-radius: 12px;
+	color: #bae6fd;
+	background: rgba(8, 12, 17, 0.86);
+	font-size: 18px;
+	font-weight: 650;
+	content: 'Drop snapshot to open';
+	pointer-events: none;
+}
+#drop-zone.dragging::after { display: grid; }
+.drop-hint {
+	position: absolute;
+	top: 50%;
+	left: 50%;
+	margin: 0;
+	color: #526171;
+	font-size: 14px;
+	transform: translate(-50%, -50%);
+}
+
+#inspector-host {
+	position: absolute;
+	inset: 0;
+	display: flex;
+	align-items: flex-end;
+	justify-content: flex-end;
+	padding: 12px;
+	pointer-events: none;
+	--zenfg-inspector-edge: 12px;
+}
+#inspector-host > .zenfg-inspector-shell { pointer-events: auto; }
+
+@media (max-width: 640px) {
+	.app-header p { display: none; }
+	.app-header { height: 60px; }
+	#drop-zone { top: 60px; }
+}

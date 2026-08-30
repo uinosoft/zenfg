@@ -1,0 +1,47 @@
+[package]
+name = "zenfg"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "A FrameGraph compiler and transient-resource executor for wgpu"
+repository.workspace = true
+homepage.workspace = true
+documentation = "https://docs.rs/zenfg"
+readme = "README.md"
+publish = ["crates-io"]
+keywords = ["wgpu", "framegraph", "rendering", "graphics"]
+categories = ["graphics", "rendering"]
+
+[package.metadata.docs.rs]
+all-features = true
+
+[features]
+default = []
+serde = ["dep:serde", "wgpu/serde"]
+snapshot = ["dep:zenfg-snapshot"]
+
+[dependencies]
+serde = { workspace = true, optional = true }
+thiserror.workspace = true
+wgpu.workspace = true
+zenfg-snapshot = { path = "../zenfg-snapshot", version = "0.1.0", optional = true }
+
+[dev-dependencies]
+proptest = "1"
+serde_json.workspace = true
+trybuild = "1"
+wgpu = { workspace = true, features = ["noop"] }
+
+[[example]]
+name = "compile-bench"
+path = "examples/compile_bench.rs"
+
+[[example]]
+name = "pool-bench"
+path = "examples/pool_bench.rs"
+
+[[test]]
+name = "cross_language_producers"
+path = "tests/cross_language_producers.rs"
+required-features = ["snapshot"]

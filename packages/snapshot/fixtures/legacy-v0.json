@@ -1,0 +1,37 @@
+{
+  "compilation": {
+    "debugGroups": [{ "id": 1, "label": "Main" }],
+    "nodes": [
+      { "id": 1, "kind": "render", "label": "present", "sideEffect": true, "debugGroupId": 1 }
+    ],
+    "culledNodes": [
+      { "id": 2, "kind": "compute", "label": "unused", "sideEffect": false, "reason": "not-reachable-from-root" }
+    ],
+    "resources": [
+      { "id": 1, "kind": "texture", "label": "backbuffer", "origin": "swapchain", "usage": 16 },
+      { "id": 2, "kind": "buffer", "label": "data", "origin": "transient", "usage": 140, "physicalAllocationId": 1 }
+    ],
+    "accesses": [
+      {
+        "id": 1,
+        "nodeId": 1,
+        "resourceId": 1,
+        "access": "texture-color-attachment-write",
+        "mode": "write",
+        "contents": "overwrite",
+        "producesValue": true
+      }
+    ],
+    "dependencies": [],
+    "roots": [{ "reason": "side-effect", "nodeId": 1 }],
+    "allocations": [{ "id": 1, "kind": "buffer", "compatibilityClassId": 9 }],
+    "executionSegments": [{ "index": 0, "kind": "frame-graph", "nodeIds": [1] }]
+  },
+  "gpuTiming": { "status": "unavailable", "frameIndex": 4, "reason": "unsupported" },
+  "resourcePool": {
+    "acquireCount": 1,
+    "reuseCount": 0,
+    "createdCount": 1,
+    "retainedCount": 1
+  }
+}

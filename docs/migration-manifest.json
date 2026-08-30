@@ -1,0 +1,835 @@
+{
+  "schemaVersion": 1,
+  "generatedBy": "scripts/write-migration-manifest.mjs",
+  "sources": {
+    "typescript": {
+      "repository": "t3d-next",
+      "commit": "287ff8c26e018d0905fddf1389181424934d8a3c"
+    },
+    "rust": {
+      "repository": "zen-proto",
+      "commit": "5b8bc75809085195eb386259edd61aacb420e9d0"
+    }
+  },
+  "exclusions": [
+    ".benchmark-dist",
+    ".test-dist",
+    "dist",
+    "node_modules",
+    "target"
+  ],
+  "files": [
+    {
+      "path": "apps/inspector/index.html",
+      "sha256": "23eee8d6f9ca8f760e88d5c9c79051d20f09c10938fdd9c42a09cda67a20944c"
+    },
+    {
+      "path": "apps/inspector/package.json",
+      "sha256": "866e582deb929a99d9fe30464a7069a2711fbbb1b749a415ed5a2c37efd78b29"
+    },
+    {
+      "path": "apps/inspector/public/THIRD_PARTY_NOTICES.txt",
+      "sha256": "d4de588eec18b2bbae8709f288fc1e2d9681b7d6848098e1f4032876f4c57c9b"
+    },
+    {
+      "path": "apps/inspector/README.md",
+      "sha256": "5fb30792e7dd12aa4ec4e7cf2facb82e46155d75b6ce0977dfd6769027a09c79"
+    },
+    {
+      "path": "apps/inspector/src/fileInputs.ts",
+      "sha256": "a987ff7c14f43cbce7d4075cdf8283e12d263348e897e177b9e3f02b604973c0"
+    },
+    {
+      "path": "apps/inspector/src/main.ts",
+      "sha256": "454745ef53d13e634dfc79a1dfe6e06678fc0345032ecb569d95d158fe0297e2"
+    },
+    {
+      "path": "apps/inspector/src/styles.css",
+      "sha256": "f3be9e2ac0e005f9e454db3751d3da7ece43aab7670268f13ca78282c637dd2f"
+    },
+    {
+      "path": "apps/inspector/tests/fileInputs.test.ts",
+      "sha256": "08acb3bbdc05514a092d885e404050a0d532f87af9d9404716d544e20f24a0c1"
+    },
+    {
+      "path": "apps/inspector/tsconfig.json",
+      "sha256": "7d74caf4d3399e10ffdbe490280dbef3a14756e6a2ed96f85560be642daf3185"
+    },
+    {
+      "path": "apps/inspector/vite.config.ts",
+      "sha256": "1cb2d02cab37899ccfecca424f7c4d9fa66eb551efbab721c702356bd153b394"
+    },
+    {
+      "path": "crates/zenfg-snapshot/Cargo.toml",
+      "sha256": "5228ff2a0416a32b0ecca814aa22dac26e5074a69475b3c1730906b1acf32c1e"
+    },
+    {
+      "path": "crates/zenfg-snapshot/LICENSE",
+      "sha256": "c9cf9cf270b3b8b24fddd8d97ea2b753b76b50c29e6fa3a55b58bcc910f6155d"
+    },
+    {
+      "path": "crates/zenfg-snapshot/README.md",
+      "sha256": "3d0b489bf281526d1c00c86e037f6402882cb596336ac771874ef295cc0f651f"
+    },
+    {
+      "path": "crates/zenfg-snapshot/src/codec.rs",
+      "sha256": "9882a30e6b549863861b304c8fec69340820cd55cf83271fa2a6cedbab4d9347"
+    },
+    {
+      "path": "crates/zenfg-snapshot/src/error.rs",
+      "sha256": "5470bd6b10ae982f1725062679ad7328f369432d7d5445ebf49e04170f5c35ea"
+    },
+    {
+      "path": "crates/zenfg-snapshot/src/json.rs",
+      "sha256": "0c6aa86c96607d2d0c05d0c15f83ed1da5dcfd8dad43551d939c59ef70e2a201"
+    },
+    {
+      "path": "crates/zenfg-snapshot/src/lib.rs",
+      "sha256": "02ca54617e8149cd09d6cbc63406c52d9f322f4f825f8b890a7d6deddfde278d"
+    },
+    {
+      "path": "crates/zenfg-snapshot/src/types.rs",
+      "sha256": "82e09830517dc23ad7f02a5da5899e39ba67582ed0de7d4f41d8fc56a29b3114"
+    },
+    {
+      "path": "crates/zenfg-snapshot/src/validator.rs",
+      "sha256": "3968978cdc3bd5750568a0c17ed9509c90d7a21a760a5ab69d546dc61a00afe3"
+    },
+    {
+      "path": "crates/zenfg-snapshot/tests/conformance.rs",
+      "sha256": "1a56b4c23b92e4ec468ef8b54caf174be73ca3fad58299f0b55337804f571384"
+    },
+    {
+      "path": "crates/zenfg/Cargo.toml",
+      "sha256": "6e27f994b114436f62cf364e12ae54f0e9e650d235c8d2e12ef4ba8b3699b090"
+    },
+    {
+      "path": "crates/zenfg/examples/compile_bench.rs",
+      "sha256": "fedafece6a2a67661c8ef75081426fd6392b0e2763244f55f94bf975766573f1"
+    },
+    {
+      "path": "crates/zenfg/examples/pool_bench.rs",
+      "sha256": "ea31ddc0079a96126295ced05bab381b98750b3460de2f6a932e249c0b9e1be3"
+    },
+    {
+      "path": "crates/zenfg/LICENSE",
+      "sha256": "c9cf9cf270b3b8b24fddd8d97ea2b753b76b50c29e6fa3a55b58bcc910f6155d"
+    },
+    {
+      "path": "crates/zenfg/README.md",
+      "sha256": "6d6d651044f4fa7db492e047ec7a9521d424a9b9600d75cae0eb114f4c7786c3"
+    },
+    {
+      "path": "crates/zenfg/src/compiler.rs",
+      "sha256": "a59cdd99090dc9bf2413ce021a99491ee92039446ae7ca09c52a5afeba1abde2"
+    },
+    {
+      "path": "crates/zenfg/src/error.rs",
+      "sha256": "5668d0b0e6cbc673398edc836daae58fdd3368be09cb3920912de9909fb5d8ce"
+    },
+    {
+      "path": "crates/zenfg/src/execution.rs",
+      "sha256": "d38541a56a96ec6cc2b3b5b14d226cfc8452b9c1c8e1ac9ee81f15e903a18612"
+    },
+    {
+      "path": "crates/zenfg/src/gpu_timing.rs",
+      "sha256": "c7e6aa484f9b12b9a34253969ef41ecc52511baf1a799848555cebb3793d3917"
+    },
+    {
+      "path": "crates/zenfg/src/graph.rs",
+      "sha256": "c851ed225bfc31a45ee4fc406b75dba6c04774dd387312ee615eb9915449467a"
+    },
+    {
+      "path": "crates/zenfg/src/ids.rs",
+      "sha256": "2cfb6406191fb7760a2333251658580ed01b223c8cf5cd2ee8e3a3c4490c34a6"
+    },
+    {
+      "path": "crates/zenfg/src/lib.rs",
+      "sha256": "5092a23b9e663bf9d602cf28ff4f68e07800a4f2cc96add456b7d0870cb5ce16"
+    },
+    {
+      "path": "crates/zenfg/src/model.rs",
+      "sha256": "1796f51477ea4094a3da5d315af663bd0344c2d9be05416303f6ede639f27e73"
+    },
+    {
+      "path": "crates/zenfg/src/pass.rs",
+      "sha256": "a8e8fb65e243e8220e4d90fe34939811e0e2b47dbda46b66e39f5008e55ca129"
+    },
+    {
+      "path": "crates/zenfg/src/report.rs",
+      "sha256": "b4d338b5cf74ba903c1404c1044c244c24dbd7f133cd2514040dca9cbb75df6d"
+    },
+    {
+      "path": "crates/zenfg/src/resource_pool.rs",
+      "sha256": "d4122400ad9c2ad05d223d6da4efe8da9620108b2367c6e9fc072847da31b448"
+    },
+    {
+      "path": "crates/zenfg/src/resource.rs",
+      "sha256": "7fbfe7109d99be45928eea9150ddc6ac941371bb9fdbd362bd3eae90df60def2"
+    },
+    {
+      "path": "crates/zenfg/src/snapshot/error.rs",
+      "sha256": "cc42de65fc7406cd5578f3ba2bd7453a052187cb96e3c6dae60e453d80b61214"
+    },
+    {
+      "path": "crates/zenfg/src/snapshot/export.rs",
+      "sha256": "a95233f86918a4cdc6e9bc4b8eb9d88d8c8a279b6746e5e354937a1c871751d1"
+    },
+    {
+      "path": "crates/zenfg/src/snapshot/mod.rs",
+      "sha256": "c0100b27f27e2eff946ac46a8cc732475c30c7d73de17576f73fe283f4908472"
+    },
+    {
+      "path": "crates/zenfg/src/snapshot/tests.rs",
+      "sha256": "31dfac7dc8219290964ef58f73d0a4213a4ea42267ebed39d8d81707da4c5094"
+    },
+    {
+      "path": "crates/zenfg/src/types.rs",
+      "sha256": "f25f63dadfee43c75f856efb0eba353ffb5292c71e6c98cc17debc1f962affa4"
+    },
+    {
+      "path": "crates/zenfg/tests/core.rs",
+      "sha256": "67b29bbd29aaf76a5e39e441eb38007da1c8d002dca5d657d1c5968f4dee33e8"
+    },
+    {
+      "path": "crates/zenfg/tests/cross_language_producers.rs",
+      "sha256": "2e690f1e71728f0945da09e91f127b17b618f32b413a5760fd54a1972c4532b0"
+    },
+    {
+      "path": "crates/zenfg/tests/execution.rs",
+      "sha256": "a65c91af02d34475fafe2f5c790aa256d2dd86c0b23462728f47b1b1597643f4"
+    },
+    {
+      "path": "crates/zenfg/tests/fixtures/snapshot-v1.json",
+      "sha256": "8b6e69204909443955383c99907585f09f3e558693177e7c40d9a260453e046e"
+    },
+    {
+      "path": "crates/zenfg/tests/properties.rs",
+      "sha256": "be2d3744d41a97892eaa07770d338238541148201fd954a1a758a6f44de3199e"
+    },
+    {
+      "path": "crates/zenfg/tests/resource_pool.rs",
+      "sha256": "39cbaf481328f9252e5c39ef8a0b4ddfc6f09e553b126958be4771af4f40367d"
+    },
+    {
+      "path": "crates/zenfg/tests/ui.rs",
+      "sha256": "60e09054028527a9e51f55c6973842ca4a3a488ac630844f62a0c39af39046af"
+    },
+    {
+      "path": "crates/zenfg/tests/ui/callback_context_escape.rs",
+      "sha256": "1f62eb103fba395e1cd1c91e34afa6da6b5e4e07969aab3c4a27064c4bdc17db"
+    },
+    {
+      "path": "crates/zenfg/tests/ui/callback_context_escape.stderr",
+      "sha256": "f643dc0b36d0d91642e9fc613ed868b6ca89b3644f174515f12a6035de3e7283"
+    },
+    {
+      "path": "crates/zenfg/tests/ui/compile_consumes_frame.rs",
+      "sha256": "3dd7f33a5baf17599caac42fc4d946238af793275de5cc44b94f8fb4e5c34fee"
+    },
+    {
+      "path": "crates/zenfg/tests/ui/compile_consumes_frame.stderr",
+      "sha256": "0126c0d11d8bf0f2ead6664ff531f1e98ce543cc9921c5a2860072d892b2879b"
+    },
+    {
+      "path": "crates/zenfg/tests/ui/compute_pass_context_escape.rs",
+      "sha256": "6fb962cef21c9a92c150327b45b6b5ac8c9311a48803cb268781ec27c0882d9a"
+    },
+    {
+      "path": "crates/zenfg/tests/ui/compute_pass_context_escape.stderr",
+      "sha256": "276f473c9052ecfff10706794ba553b1a7b2e4e5ee5888a404fa7cb9902c903e"
+    },
+    {
+      "path": "crates/zenfg/tests/ui/handle_outlives_graph.rs",
+      "sha256": "7c11dd3e35dd4d7a609b4d3894efeebb8285a4f1a4ffbd91686249d766323b89"
+    },
+    {
+      "path": "crates/zenfg/tests/ui/handle_outlives_graph.stderr",
+      "sha256": "09b62f3420f33f12912c391cf9d9b3e6469e998e15fcce579e0ac9bd2152d8ff"
+    },
+    {
+      "path": "crates/zenfg/tests/ui/old_handle_in_new_frame.rs",
+      "sha256": "db82f434d4967456993ad767c125340bf568220cdfe4a78541fbe853bcf9609f"
+    },
+    {
+      "path": "crates/zenfg/tests/ui/old_handle_in_new_frame.stderr",
+      "sha256": "5171a8fdb86c57bffac98c0f5b52d6db8e59c4a10d99e67e491d09ab335f18ff"
+    },
+    {
+      "path": "crates/zenfg/tests/ui/render_pass_context_escape.rs",
+      "sha256": "0ff1ffcdaf500c54deb7c4c884af802c41738d7818aface198d00e501fc9864b"
+    },
+    {
+      "path": "crates/zenfg/tests/ui/render_pass_context_escape.stderr",
+      "sha256": "57a95d8266755c73020275fd9d1b79774e1b0d83eb98f6831203e430e83f562c"
+    },
+    {
+      "path": "crates/zenfg/tests/ui/typed_token_mismatch.rs",
+      "sha256": "8a1c1d3b5fe038238f310dca878b92ee7c3e15b5c0e579399137a33d642bf1a6"
+    },
+    {
+      "path": "crates/zenfg/tests/ui/typed_token_mismatch.stderr",
+      "sha256": "cc358346cd50bae6415735f0136bfd05f562299eb66cb99445b2bdb07cd0ee27"
+    },
+    {
+      "path": "packages/inspector/LICENSE",
+      "sha256": "c9cf9cf270b3b8b24fddd8d97ea2b753b76b50c29e6fa3a55b58bcc910f6155d"
+    },
+    {
+      "path": "packages/inspector/package.json",
+      "sha256": "3386c161111042877173bd988fb18ed8768405a05a85f2834325441dc764542f"
+    },
+    {
+      "path": "packages/inspector/README.md",
+      "sha256": "43ed008157ac31af0a033bae54ec8171eaad9fde6bfa201f7a37796fd9565593"
+    },
+    {
+      "path": "packages/inspector/src/debugCaptureModel.ts",
+      "sha256": "c31075ac754cc0970b24f83bfdcf98a246452f3998ef3e85f063de3e210e480d"
+    },
+    {
+      "path": "packages/inspector/src/FrameGraphInspector.ts",
+      "sha256": "3a33d146c720a255aaf807c04c7639f679d1530eb3d93c59903a41f4f7e15393"
+    },
+    {
+      "path": "packages/inspector/src/index.ts",
+      "sha256": "58aca9f72f4c210c50be9be497091ae2b01f386daca6185f033b07c0acb47874"
+    },
+    {
+      "path": "packages/inspector/src/internal/InspectorShell.ts",
+      "sha256": "5a251fbd02f8e79f9420df39bc6ed9a55f3f2043181fb1c604c7c35d8757199c"
+    },
+    {
+      "path": "packages/inspector/src/internal/shellStyles.ts",
+      "sha256": "42cf9947284c8a2c91666e3a86bf8a575e752b54c84b68002836f4ba5c2d4e92"
+    },
+    {
+      "path": "packages/inspector/src/panelAliasAnalysis.ts",
+      "sha256": "f7a09669bbcd188cefc72d2d84d53f682a5c79e362bb46086ebd967e61ec7add"
+    },
+    {
+      "path": "packages/inspector/src/panelCytoscapeGraphRenderer.ts",
+      "sha256": "ba6f4a6da655afab025082403ce70098f04879e78c76f9d36ba5ed0ba6b04978"
+    },
+    {
+      "path": "packages/inspector/src/panelDiagnosticsView.ts",
+      "sha256": "add5444464492a04d63125f3c4c452052b796aa435a208b7efe0bc6654cf8015"
+    },
+    {
+      "path": "packages/inspector/src/panelDomHelpers.ts",
+      "sha256": "b639206779f2d0e451bb8f84032ba294f8f7cae67ad34d8f5429c89cac597582"
+    },
+    {
+      "path": "packages/inspector/src/panelGraphLayout.ts",
+      "sha256": "2fe550985dcd908ed9d5d7e4d04ffa236854ae37093e4bf9bbe6aa6fdd968e94"
+    },
+    {
+      "path": "packages/inspector/src/panelGraphRenderer.ts",
+      "sha256": "418801c1824e34d34dcf91c811ea77a8b661576ae05b5a548150d909bda07862"
+    },
+    {
+      "path": "packages/inspector/src/panelGraphScene.ts",
+      "sha256": "62d89615efdc224a0be3cb83515ede72b5eba1ac7f99f1eb23c49aff07b46c13"
+    },
+    {
+      "path": "packages/inspector/src/panelGraphView.ts",
+      "sha256": "d89787ce8d87aaa7d89a906c2581418d3bf72c7c760c80f4017b1135883da879"
+    },
+    {
+      "path": "packages/inspector/src/panelGraphVisuals.ts",
+      "sha256": "17e7f15530d11362b0c3193e350944ddbc0d58d55f956d015f6336757d9fd2ef"
+    },
+    {
+      "path": "packages/inspector/src/panelIcons.ts",
+      "sha256": "89178b80e98c2e59540a0bf04f773f21ee1773ce780562f127a08d82ecd6b14f"
+    },
+    {
+      "path": "packages/inspector/src/panelInspectorView.ts",
+      "sha256": "bf4cc6c65a29e9c9bf7ff6ede241ba3a20dabb3c8e2776434290ca4890e9f72e"
+    },
+    {
+      "path": "packages/inspector/src/panelMemoryView.ts",
+      "sha256": "e38b7b431ac7d9c45cb853c8b6afcaecb7a72b41cc8500ebc507c49115a1e9f2"
+    },
+    {
+      "path": "packages/inspector/src/panelPassesView.ts",
+      "sha256": "8d15b1686758ecb543a4640a52af3769b4db8b21a6e41a24ee354da5333c57c7"
+    },
+    {
+      "path": "packages/inspector/src/panelResourcesView.ts",
+      "sha256": "a67e3424078d364d7514f3bbe09518720c086fae78142bc94d2116239976cdf6"
+    },
+    {
+      "path": "packages/inspector/src/panelSelection.ts",
+      "sha256": "a8848ed51096d222143d0a6a6c50881e802bfd9f5fc5d7f472e71d53e5375cd9"
+    },
+    {
+      "path": "packages/inspector/src/panelTypes.ts",
+      "sha256": "cd20f2b97457cdd4339d269c0dc57ae053cb77dc6abc292d2c874ef59833446d"
+    },
+    {
+      "path": "packages/inspector/src/panelVisualTheme.ts",
+      "sha256": "50b2d699c628afd2eb7e3ec271083dc89fbaa4b1bc99f700eb4cf36f455fa911"
+    },
+    {
+      "path": "packages/inspector/src/panelWorkbenchHelpers.ts",
+      "sha256": "bbab6baf8b251743ff355a92f09328766a0642104551359f8bff0f200a43010d"
+    },
+    {
+      "path": "packages/inspector/src/panelWorkbenchView.ts",
+      "sha256": "be0f572dcf6865c569a1f888def41264679c4d9f3a1af7d31f454a461a4e0059"
+    },
+    {
+      "path": "packages/inspector/src/query.ts",
+      "sha256": "310807594bf0e5ac4ee9df5176967e94ebffe47847100247c16f327720f194f9"
+    },
+    {
+      "path": "packages/inspector/src/styles.ts",
+      "sha256": "31030981b47283e58acc21adbc21b9709d611bb67550872a8fbfd5376bd58bd8"
+    },
+    {
+      "path": "packages/inspector/tests/accessKinds.ts",
+      "sha256": "9562ea337efa98dfcbf3a0f689f87f257df4d269adf5373115f30a1e8d813ef2"
+    },
+    {
+      "path": "packages/inspector/tests/FrameGraphInspector.test.ts",
+      "sha256": "4bb6bba26dc77478a58bec634a0c4888b8137c8f5ad8e304ff9ed394b0b5c2fa"
+    },
+    {
+      "path": "packages/inspector/tests/GraphRenderer.test.ts",
+      "sha256": "51790dcd26b69935ef8c8703b26a72272d728a8f6b4c1db0fdc52b9406aca2bf"
+    },
+    {
+      "path": "packages/inspector/tests/GraphScene.test.ts",
+      "sha256": "22ee63e3ce7092ecbcbce1fc1a9ea91b391b53a1e89a8da10eacebaabafdbb9f"
+    },
+    {
+      "path": "packages/inspector/tests/legacySnapshotFixture.ts",
+      "sha256": "1cf8757f1eaee4dd65483a3b6112ae755de147e8980d04e9e0b5d1789bf7b4a9"
+    },
+    {
+      "path": "packages/inspector/tsconfig.build.json",
+      "sha256": "e322fd92d759951a4186f1ed4ea3a5de14aa05000673f7e50941fda54733040c"
+    },
+    {
+      "path": "packages/inspector/tsconfig.json",
+      "sha256": "03ec068ae3d072112fdd2f8fb8d19b6de6385c77281f0c827c2b51c88d3c1c6d"
+    },
+    {
+      "path": "packages/snapshot/conformance/invalid/legacy-all-issue-codes.json",
+      "sha256": "40cadec3a209e2b7779783e74f0d8bee11e1a1514d6be4b97151ca90880ac0f8"
+    },
+    {
+      "path": "packages/snapshot/conformance/invalid/legacy-invalid-group-id.json",
+      "sha256": "9e575eac38e64f8235e67acc8a3c05fdd928d3de23bfc8a45836be0381ae8985"
+    },
+    {
+      "path": "packages/snapshot/conformance/invalid/legacy-null-timing-node.json",
+      "sha256": "6ceb143fa876eec841d3409e13596bf0fac97948198cc7e54acc355950646ce4"
+    },
+    {
+      "path": "packages/snapshot/conformance/invalid/malformed-json.txt",
+      "sha256": "a6fb08fda1acb957b6116bd37811a1fe41a01611c0631edbf786d6889a27a55c"
+    },
+    {
+      "path": "packages/snapshot/conformance/invalid/semantic-dependency-backward.json",
+      "sha256": "3fc2d9055f8af6ca9c399363bdc1a5e5867dda8087bd8b163e7460e9209fe258"
+    },
+    {
+      "path": "packages/snapshot/conformance/invalid/semantic-diagnostic-references.json",
+      "sha256": "df2524cde4a053e7a206b6769019d2e9366f75473bfa33b44cc40ec514ca188c"
+    },
+    {
+      "path": "packages/snapshot/conformance/invalid/semantic-duplicate-dependency-timing.json",
+      "sha256": "e21192f0becfacc5498dc06472fb04ed41766d0062f05cde4100ea0069cdd9b0"
+    },
+    {
+      "path": "packages/snapshot/conformance/invalid/semantic-duplicate-id.json",
+      "sha256": "dd5402df058efd82cba672639156820986959879913caf852c31e241636d6855"
+    },
+    {
+      "path": "packages/snapshot/conformance/invalid/semantic-execution-order.json",
+      "sha256": "dcc5b272e0e114b6166717f9cc3c8b18b15e9bb39b15b07447652ae75512e9cd"
+    },
+    {
+      "path": "packages/snapshot/conformance/invalid/semantic-group-cycle.json",
+      "sha256": "d1c2bfbec396e709b0c1db810d5b7332ec83f0fcd982f881b4742865a14cac47"
+    },
+    {
+      "path": "packages/snapshot/conformance/invalid/semantic-lifetime-out-of-range.json",
+      "sha256": "fbc70c6805ff4e739dbb5ca605a1f473d006b7a5201bc7549c7909d38caaf992"
+    },
+    {
+      "path": "packages/snapshot/conformance/invalid/semantic-migration-availability.json",
+      "sha256": "85b9a0d21ca76bfd11f7ed3eec9f3c98a4a09beb9e31d5030ba2645b8571cea2"
+    },
+    {
+      "path": "packages/snapshot/conformance/invalid/semantic-missing-references.json",
+      "sha256": "3745ddc346dbfb0bdb060b87c2105b3aaf58dd5b6d2de5a2449aec44a4d5a357"
+    },
+    {
+      "path": "packages/snapshot/conformance/invalid/semantic-recording-order-gap.json",
+      "sha256": "14e9d9a43654cbf9392c573caed56ea710986b2d245f922b432a6a8adfbf5de5"
+    },
+    {
+      "path": "packages/snapshot/conformance/invalid/semantic-reference-kinds.json",
+      "sha256": "90a1cc4905389ca2586adb8ba33fbcb93c4171e93870789059f84b89b223e011"
+    },
+    {
+      "path": "packages/snapshot/conformance/invalid/semantic-reference-mismatch.json",
+      "sha256": "6df1b54a6356774eb916c4c1dc79f6aae47b2db4464e2c4dfa9e9abfe5eb837e"
+    },
+    {
+      "path": "packages/snapshot/conformance/invalid/semantic-reference-state.json",
+      "sha256": "0e6060aa914ce37c82758031332d0b656aac4f80d8a5fb3de4ba3e6155f8e060"
+    },
+    {
+      "path": "packages/snapshot/conformance/invalid/semantic-resource-references.json",
+      "sha256": "a6a710a409a51aa1193dc21b17b05ea11326f9040fa6f1c72349bd4a6c4c4497"
+    },
+    {
+      "path": "packages/snapshot/conformance/invalid/semantic-segment-branches.json",
+      "sha256": "97154b251d750b5870ee82603e70c5a3bc1000e1eef3c63d10622ba4f9070a4d"
+    },
+    {
+      "path": "packages/snapshot/conformance/invalid/semantic-segment-order.json",
+      "sha256": "30ada4d89d38e5911be7cdb9e0f912b144bf4258214ba6aee485ce0587a89e09"
+    },
+    {
+      "path": "packages/snapshot/conformance/invalid/structural-access-mode.json",
+      "sha256": "2a45c4b89934ad4d990642f549446d41d16e673def9a03e1860ce04b0c76f326"
+    },
+    {
+      "path": "packages/snapshot/conformance/invalid/structural-access-rules.json",
+      "sha256": "872a8d8989fb17d846f3ca97cc185c3b786b2dc05b1368daebb52d104d8969d3"
+    },
+    {
+      "path": "packages/snapshot/conformance/invalid/structural-basic-shape.json",
+      "sha256": "1e29abcb81ba71c00ef44c569a356c3c2f477e78107d4fe874e5eb1e16041f91"
+    },
+    {
+      "path": "packages/snapshot/conformance/invalid/structural-empty-group-label.json",
+      "sha256": "ff4c6d75dc997896ec2626a9ad7593030286bc40e299a5448ac8e7f615e4f790"
+    },
+    {
+      "path": "packages/snapshot/conformance/invalid/structural-extension-name.json",
+      "sha256": "268d9fd936391e14dc2fe9e27e4ad234540cf5755ae39bc707fe47a9eb052b4c"
+    },
+    {
+      "path": "packages/snapshot/conformance/invalid/structural-resource-rules.json",
+      "sha256": "4e6ddecd978d06e7fead08ccf116184cb910b06be12f032fdd2362c3ca7f7b39"
+    },
+    {
+      "path": "packages/snapshot/conformance/invalid/structural-root-segment.json",
+      "sha256": "200fd3bbcd7864f329b893ffdbfdb660ce2be47321cb3792acc7974b6a62f8bd"
+    },
+    {
+      "path": "packages/snapshot/conformance/invalid/structural-texture-region-both.json",
+      "sha256": "2b7c14d64e12062ea9847d8a482d4ae3c76f862a54513740590dd571fd721bbb"
+    },
+    {
+      "path": "packages/snapshot/conformance/invalid/structural-zero-texture-width.json",
+      "sha256": "4a256775e41ca776bc6023c172efdd4b6ddcde330b2b0a4fcc6d9468b6174568"
+    },
+    {
+      "path": "packages/snapshot/conformance/invalid/unsupported-format.json",
+      "sha256": "7924afa1fb82475d37f5f8dd8572b0f21a45ed8c9999d1d4f3337c246fdf811b"
+    },
+    {
+      "path": "packages/snapshot/conformance/invalid/unsupported-version.json",
+      "sha256": "663bd5e94c794b8ebf216bed914046e77c46bd8fac8d115165d4561bdc052bb8"
+    },
+    {
+      "path": "packages/snapshot/conformance/manifest.json",
+      "sha256": "68c7fcdec3b14c17e5b23993eb0556921788ead06b9a208902f9eb89748ba300"
+    },
+    {
+      "path": "packages/snapshot/conformance/producers/goldens/aliasing.projection.json",
+      "sha256": "3a0078b6db09b56068813548e733f77c0f1b3f5740ddc6f97f5f0c2b9c3b8838"
+    },
+    {
+      "path": "packages/snapshot/conformance/producers/goldens/buffer-range.projection.json",
+      "sha256": "610df9349cc1c82e8fad7a7438a54d0a5495051ba300d7bedde782233fa75e88"
+    },
+    {
+      "path": "packages/snapshot/conformance/producers/goldens/external-submission.projection.json",
+      "sha256": "cc6d424544d9c5b31ce2bc2b01a8ac24eca6373dbd080cc5ad07e6922fd3ddd7"
+    },
+    {
+      "path": "packages/snapshot/conformance/producers/goldens/linear-dependency.projection.json",
+      "sha256": "eb8a26fa8be36f9b949e5c072b92026556b9ca090f6445ffcee5d13efe5e2229"
+    },
+    {
+      "path": "packages/snapshot/conformance/producers/goldens/overwrite-culling.projection.json",
+      "sha256": "3a8ea4e5448d4685caafda325991cadcdc1b939d90ae8713c9245e06c2746e05"
+    },
+    {
+      "path": "packages/snapshot/conformance/producers/goldens/preserve-discard.projection.json",
+      "sha256": "aab8393e6c3674ac9e1601449fc88f2e7a83bc9894f12712d1a34f4ea66f2fe5"
+    },
+    {
+      "path": "packages/snapshot/conformance/producers/goldens/texture-subresource.projection.json",
+      "sha256": "d98fe772df0700ee6ebabb5de7a5c0dc46f21ce6deb57a60948a1f4c984bb928"
+    },
+    {
+      "path": "packages/snapshot/conformance/producers/manifest.json",
+      "sha256": "996395e56e80f13e3e139f719a1b98f0a4352de724ad78108ea46016cc3adfad"
+    },
+    {
+      "path": "packages/snapshot/conformance/producers/README.md",
+      "sha256": "349545db115fbaa87819dc75ebdfac2ae2080a7d4598183ce28c2bd730033254"
+    },
+    {
+      "path": "packages/snapshot/fixtures/aliasing.fgsnapshot.json",
+      "sha256": "bd64e8d2925ce3e88c8ad63573b1864bd80eddac6632de87692029588dcdb2f5"
+    },
+    {
+      "path": "packages/snapshot/fixtures/full-webgpu.fgsnapshot.json",
+      "sha256": "0c34bb7338b083ed9a87074f737571c70f8788dc9c54302f51d0142b70d7a65e"
+    },
+    {
+      "path": "packages/snapshot/fixtures/legacy-t3d-v1-canonical.json",
+      "sha256": "c802f3e7b2c9069b7de146fad1ef5396208774e9d48161b3cd18bae4144fb286"
+    },
+    {
+      "path": "packages/snapshot/fixtures/legacy-t3d-v1.expected.fgsnapshot.json",
+      "sha256": "23ff19ad74dde27cd8580e12b375fc552e06e68a3b8d71aa6241589a9ac76a77"
+    },
+    {
+      "path": "packages/snapshot/fixtures/legacy-t3d-v1.json",
+      "sha256": "1e263d401098432b0057ab95139928b4dc62867b327f381c2d3f03c5c71402ae"
+    },
+    {
+      "path": "packages/snapshot/fixtures/legacy-v0.expected.fgsnapshot.json",
+      "sha256": "6555645e9d2ba88c2c646d05ff54c0c813a7b612253126457e6ca17c63080493"
+    },
+    {
+      "path": "packages/snapshot/fixtures/legacy-v0.json",
+      "sha256": "3481993694ee103dd8a09856bcae96ade55a3dd9e4c0637e11820f4d04f6490b"
+    },
+    {
+      "path": "packages/snapshot/fixtures/minimal.fgsnapshot.json",
+      "sha256": "d7cbd571a9fa0f46429b03c476121edbedcf4a020a311597b4f580672b7a7025"
+    },
+    {
+      "path": "packages/snapshot/fixtures/stable-keys.fgsnapshot.json",
+      "sha256": "022cc43a8572a830e95bfc85eb528077a36ed22eccebfb261f841570c27895f3"
+    },
+    {
+      "path": "packages/snapshot/fixtures/timing-unavailable.fgsnapshot.json",
+      "sha256": "d24fb8001a47e9758942d773b020b38086860e720346f1320c06369a8abb3016"
+    },
+    {
+      "path": "packages/snapshot/LICENSE",
+      "sha256": "c9cf9cf270b3b8b24fddd8d97ea2b753b76b50c29e6fa3a55b58bcc910f6155d"
+    },
+    {
+      "path": "packages/snapshot/package.json",
+      "sha256": "3ddf2cafa5166a3b43548427a4c4f71f90639b1289a5fe88d93c58b15941ba59"
+    },
+    {
+      "path": "packages/snapshot/README.md",
+      "sha256": "a5ebd70debed3ecd558dec756e6ba14ffc67b8229e4ef9f773a80dfd4a1155b3"
+    },
+    {
+      "path": "packages/snapshot/schema/frame-graph-snapshot-v1.schema.json",
+      "sha256": "cc661355eb530aafc0465bf38f6b0f01d56cf62275036320c52ef99d1b46a024"
+    },
+    {
+      "path": "packages/snapshot/SPEC.md",
+      "sha256": "f226da8c7f071f72d8918ae181b1a39fc4744a9561c0072fb2b43e14d05a2bb0"
+    },
+    {
+      "path": "packages/snapshot/src/codec.ts",
+      "sha256": "53b7117d66f58e0ba60ca1f9838e54ba91336b8536b51a0a41e47c351b63ffee"
+    },
+    {
+      "path": "packages/snapshot/src/format.ts",
+      "sha256": "521944c95c2de7335a6ae3898ee1e37d5effead80986bf094cb18f92563344e6"
+    },
+    {
+      "path": "packages/snapshot/src/index.ts",
+      "sha256": "a7fff0d991cb3cf6c0b9d516cfe78b87eee8ee8f08d57b1723b7eeac1577ee6a"
+    },
+    {
+      "path": "packages/snapshot/src/legacy.ts",
+      "sha256": "819298eea9e30f3000ba97537c10ec36f1fc9388ad95939310c5310b1cae2f7a"
+    },
+    {
+      "path": "packages/snapshot/src/types.ts",
+      "sha256": "49f277f36ec27f448e70322732aec40c4295a870631879babfa2c21500d372b0"
+    },
+    {
+      "path": "packages/snapshot/src/validator.ts",
+      "sha256": "09dd869ed7b9b359128686dcb5a3a8ae92d8d97bc97fe0e8348d39792b2e8294"
+    },
+    {
+      "path": "packages/snapshot/tests/SnapshotCodec.test.ts",
+      "sha256": "f05f6a7e6bd005476c4342f83a18cad67c7ef21314b1cdd1a5a7bdbcb84f113b"
+    },
+    {
+      "path": "packages/snapshot/tsconfig.build.json",
+      "sha256": "7cc3c83bcedc663ee64518d2fd598b6a98c83ff9630c043ca89ee2da290cd8e3"
+    },
+    {
+      "path": "packages/snapshot/tsconfig.json",
+      "sha256": "9a4a43a79827db10d7bb6440caeb7eee5a04b7302142fe6547d8fce5bef30403"
+    },
+    {
+      "path": "packages/webgpu/benchmarks/cli.ts",
+      "sha256": "47571ef56b98f2ec49f8f4814885eb65549caeade18bd61066ccea0c74dae755"
+    },
+    {
+      "path": "packages/webgpu/benchmarks/FrameGraphCompileBenchmark.ts",
+      "sha256": "adf27317c5e2113e86a34409e58cc50636c0c0f704aa9223a0f8d38b779b418f"
+    },
+    {
+      "path": "packages/webgpu/benchmarks/README.md",
+      "sha256": "481c93e587b4c3b630d8967f447e05dd67bfe110cc72b1f1c16407fbc7605cc4"
+    },
+    {
+      "path": "packages/webgpu/LICENSE",
+      "sha256": "c9cf9cf270b3b8b24fddd8d97ea2b753b76b50c29e6fa3a55b58bcc910f6155d"
+    },
+    {
+      "path": "packages/webgpu/package.json",
+      "sha256": "981dc9991b15353f36d850db31c7fffa34e9beb1d2936a56eab5850ec3bf1fe4"
+    },
+    {
+      "path": "packages/webgpu/README.md",
+      "sha256": "5ff7ce39b0f2323a5800c9e8b42ef9742814a5fce22851a245faa72834386cf1"
+    },
+    {
+      "path": "packages/webgpu/README.zh-CN.md",
+      "sha256": "51e6c3f647a83a67daeeaf40880029620f5443752c30f4e216b551643ffb7f97"
+    },
+    {
+      "path": "packages/webgpu/src/copyValidation.ts",
+      "sha256": "8fca945ccc83834ed80415c5f66325d97b5c75b85d64cd9c648afd74e89bcc9c"
+    },
+    {
+      "path": "packages/webgpu/src/formatCaps.ts",
+      "sha256": "bea0e99725b3d89b4492d9c039a0564728511d92b8730a9d9712466fe986145c"
+    },
+    {
+      "path": "packages/webgpu/src/frameGraph.ts",
+      "sha256": "1d00606d3ff44302b8592f51868228f7971d4d5d84fcc06554cbd19a4adbeb91"
+    },
+    {
+      "path": "packages/webgpu/src/gpuProfiler.ts",
+      "sha256": "52e888442cc2019f2b12b3b7a310549d8e9b037165cb19644fe0fdd7c10865a4"
+    },
+    {
+      "path": "packages/webgpu/src/graphCompiler.ts",
+      "sha256": "0d2bad0101700a5857a92d7b95576c13529eac7d9b0ed6c28d3134ac998e3036"
+    },
+    {
+      "path": "packages/webgpu/src/handles.ts",
+      "sha256": "97effdfbabb9d23061cd928ace2dda2e5edfd2e0e76ba1f9b257441b929bb804"
+    },
+    {
+      "path": "packages/webgpu/src/index.ts",
+      "sha256": "23e0cef0ba1907ce582f07009c5da25095386a0af57a73c9fff8da82d72b3cc7"
+    },
+    {
+      "path": "packages/webgpu/src/internalTypes.ts",
+      "sha256": "0c15cef611c74cf589465b89a6558a5ed2d0c9d5187e2b003c7fc5821d957ea1"
+    },
+    {
+      "path": "packages/webgpu/src/numericValidation.ts",
+      "sha256": "90398dbdf35fb23324b9169d1d6c5e6051b41f072d0983c89a20f4bb20ac1251"
+    },
+    {
+      "path": "packages/webgpu/src/resourceDescriptors.ts",
+      "sha256": "a7bf2506352d66974ebcb756502f38528a5c57557ae571ea5c86bccdf3c9fdb4"
+    },
+    {
+      "path": "packages/webgpu/src/resourcePool.ts",
+      "sha256": "df30cd490949c2ddc52d9208d74a3fe20babf0ff2c2c99374434d5e06a9381d9"
+    },
+    {
+      "path": "packages/webgpu/src/snapshot.ts",
+      "sha256": "2c09ab59b575e1b36062d4241493dc08353019cadd0eb9cab1cababe22db125a"
+    },
+    {
+      "path": "packages/webgpu/src/textureViews.ts",
+      "sha256": "6d124720bb2c6c2fd1279ea4eb0468c4128acbbf7e5a09de17e95bb8a313502b"
+    },
+    {
+      "path": "packages/webgpu/src/types.ts",
+      "sha256": "1b88b7b9b7375cf5a9c97ec2eaaa550f1cebff67c72252abd5cc437e10868a33"
+    },
+    {
+      "path": "packages/webgpu/src/usage.ts",
+      "sha256": "8240c3be04bb7d58d609db82d0dfd9e2094c5fe6c649b7984dea1eec65a94b41"
+    },
+    {
+      "path": "packages/webgpu/tests/compileBenchmark.test.ts",
+      "sha256": "749a3dd5c72b8f6c3aaf84e2e8ed3ae6e6756c3fb1eb4f736deac67881186234"
+    },
+    {
+      "path": "packages/webgpu/tests/crossLanguageProducerCases.ts",
+      "sha256": "f0f816122c83e04cb9c6d5ef75155df8aa7546525f86ea66870447ca2354c0f3"
+    },
+    {
+      "path": "packages/webgpu/tests/debugSnapshot.test.ts",
+      "sha256": "6a60fa27fd46c47ee62bfc0ad565b040910f84aad583190c5c19d8e53d463b1c"
+    },
+    {
+      "path": "packages/webgpu/tests/dependencyAnalysis.test.ts",
+      "sha256": "83abbcaeb59fff2d83df353bfeb44b248dcfcc4179f107963f9286e8d6681073"
+    },
+    {
+      "path": "packages/webgpu/tests/execution.test.ts",
+      "sha256": "19c690e2669acc206ed2d07060179180ee1940b6551c326d4d8152d910b7a370"
+    },
+    {
+      "path": "packages/webgpu/tests/executionState.test.ts",
+      "sha256": "da59d531831691297da00db01449d45bf4f84d8bf8f5e6cb4efc578a127141b0"
+    },
+    {
+      "path": "packages/webgpu/tests/numericValidation.test.ts",
+      "sha256": "0adb926dc1be9111912dc439369cd8852702a742433624d3090b95b89df2e8ba"
+    },
+    {
+      "path": "packages/webgpu/tests/publicContracts.test.ts",
+      "sha256": "59a2e48e0c6a3f6c41d82fc0b4ab30d72e3d0b4cf0221899e52c863c1523e5aa"
+    },
+    {
+      "path": "packages/webgpu/tests/rangeAlgebra.test.ts",
+      "sha256": "6616feb54bc9378916dfee3fb91cce7fbbcf83b9f173665aec1dc2563ab54f3c"
+    },
+    {
+      "path": "packages/webgpu/tests/reports.test.ts",
+      "sha256": "7f246fb8cb916eadaa9384021b1c58a5c0abe951cd43b642829a29ce25074ea3"
+    },
+    {
+      "path": "packages/webgpu/tests/resourceAllocation.test.ts",
+      "sha256": "08339a08327b6fbcb064565c80280fd1a4e06fd2b18ed9f17ed155b69ba8962e"
+    },
+    {
+      "path": "packages/webgpu/tests/resourcePool.test.ts",
+      "sha256": "77fdd82ca96da05c406af510a588d28bfe44bbb2dc25cf98409179a8c6056738"
+    },
+    {
+      "path": "packages/webgpu/tests/run-tests.mjs",
+      "sha256": "3b853ac4d2a97d267037403d6432514a10f9cdec125067cb3e1366cf430ef318"
+    },
+    {
+      "path": "packages/webgpu/tests/testUtils.ts",
+      "sha256": "82c87608c3f32453d75e173b90a913f72a0c7ea3164555e25ec2bce48bbf9f27"
+    },
+    {
+      "path": "packages/webgpu/tests/validation.test.ts",
+      "sha256": "fff1a32f8d815dcc01f24f6727e9660bc3d2c3506e3dc1436b5ca6411731e674"
+    },
+    {
+      "path": "packages/webgpu/tsconfig.build.json",
+      "sha256": "70c015fcbd4abee109757129c4d34fd389d07250d1b168e32985755a40dbf3ff"
+    },
+    {
+      "path": "packages/webgpu/tsconfig.json",
+      "sha256": "a2459fe5c2dbd410c358d45bda848d2c7b010b66582921b09219d53bafe66785"
+    }
+  ]
+}
