@@ -11,7 +11,7 @@ mod validator;
 
 pub use codec::{decode_frame_graph_snapshot, parse_frame_graph_snapshot};
 pub use error::{SnapshotDecodeError, SnapshotIssue, SnapshotIssueSeverity, SnapshotJsonError};
-pub use json::{to_json, to_json_pretty};
+pub use json::{to_json, to_json_pretty, validate_typed_frame_graph_snapshot};
 pub use types::*;
 pub use validator::validate_frame_graph_snapshot;
 

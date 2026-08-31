@@ -15,10 +15,10 @@ use crate::{
 use super::{
     CreateFrameGraphSnapshotOptions, SnapshotAccessKind, SnapshotAccessMode,
     SnapshotAllocationReport, SnapshotDependencyKind, SnapshotDiagnosticSeverity,
-    SnapshotExportError, SnapshotGpuTimings, SnapshotNodeCompileState, SnapshotNodeKind,
-    SnapshotPoolReport, SnapshotResourceKind, SnapshotResourceOrigin, SnapshotRootReason,
-    SnapshotSegmentKind, SnapshotUsageFlag, SnapshotWriteContents, create_frame_graph_snapshot,
-    to_json_pretty,
+    SnapshotExportError, SnapshotGpuTimings, SnapshotJsonError, SnapshotNodeCompileState,
+    SnapshotNodeKind, SnapshotPoolReport, SnapshotResourceKind, SnapshotResourceOrigin,
+    SnapshotRootReason, SnapshotSegmentKind, SnapshotUsageFlag, SnapshotWriteContents,
+    create_frame_graph_snapshot, to_json_pretty, validate_typed_frame_graph_snapshot,
 };
 
 #[test]
@@ -168,6 +168,71 @@ fn snapshot_rejects_unknown_usage_bits_and_illegal_accesses() {
     report.full.as_mut().unwrap().accesses[1].mode = AccessMode::Write;
     assert!(matches!(
         create_frame_graph_snapshot(&report, CreateFrameGraphSnapshotOptions::new(7)),
+        Err(SnapshotExportError::InvalidReport { .. })
+    ));
+}
+
+#[test]
+fn snapshot_validates_the_typed_result_before_returning() {
+    let (report, _, _) = fixture_report();
+    let mut options = CreateFrameGraphSnapshotOptions::new(7);
+    options.backend = Some("");
+    let error = create_frame_graph_snapshot(&report, options).unwrap_err();
+    match error {
+        SnapshotExportError::InvalidSnapshot {
+            source: SnapshotJsonError::Validation { issues },
+        } => {
+            assert!(issues.iter().any(|issue| {
+                issue.code == "empty-string" && issue.path == "/producer/runtime/backend"
+            }));
+        }
+        other => panic!("expected typed Snapshot validation error, got {other:?}"),
+    }
+
+    let (report, _, _) = fixture_report();
+    let snapshot =
+        create_frame_graph_snapshot(&report, CreateFrameGraphSnapshotOptions::new(7)).unwrap();
+    assert!(validate_typed_frame_graph_snapshot(&snapshot).is_ok());
+}
+
+#[test]
+fn snapshot_rejects_malformed_texture_view_ranges_without_panicking() {
+    let (mut report, _, _) = fixture_report();
+    report.full.as_mut().unwrap().views[0]
+        .descriptor
+        .base_mip_level = 99;
+    let result = std::panic::catch_unwind(|| {
+        create_frame_graph_snapshot(&report, CreateFrameGraphSnapshotOptions::new(7))
+    });
+    assert!(
+        result.is_ok(),
+        "malformed view range must return an error, not panic"
+    );
+    assert!(matches!(
+        result.unwrap(),
+        Err(SnapshotExportError::InvalidReport { .. })
+    ));
+}
+
+#[test]
+fn snapshot_rejects_malformed_resource_descriptors_without_panicking() {
+    let (mut report, _, _) = fixture_report();
+    let full = report.full.as_mut().unwrap();
+    full.resources[0].descriptor = ResourceDescriptor::Buffer(BufferDesc {
+        label: "wrong-kind".into(),
+        size: 256,
+        usage: UsagePolicy::Infer,
+    });
+    full.resources[0].effective_usage = ResourceUsage::Buffer(wgpu::BufferUsages::STORAGE);
+    let result = std::panic::catch_unwind(|| {
+        create_frame_graph_snapshot(&report, CreateFrameGraphSnapshotOptions::new(7))
+    });
+    assert!(
+        result.is_ok(),
+        "malformed resource data must return an error, not panic"
+    );
+    assert!(matches!(
+        result.unwrap(),
         Err(SnapshotExportError::InvalidReport { .. })
     ));
 }

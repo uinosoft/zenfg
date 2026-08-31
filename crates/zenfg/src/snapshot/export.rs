@@ -23,6 +23,7 @@ use super::{
     SnapshotTextureRegion, SnapshotTextureSize, SnapshotTextureView, SnapshotTimings,
     SnapshotUsageFlag, SnapshotWriteContents,
 };
+use zenfg_snapshot::validate_typed_frame_graph_snapshot;
 
 const MAX_SAFE_INTEGER: u64 = 9_007_199_254_740_991;
 
@@ -58,7 +59,8 @@ impl<'a> CreateFrameGraphSnapshotOptions<'a> {
 ///
 /// The returned value is entirely in memory; file naming and persistence remain
 /// caller-owned. The report must come from [`CompileOptions::full_report`](crate::CompileOptions::full_report).
-/// Optional timing data must carry the same frame index as `options`.
+/// Optional timing data must carry the same frame index as `options`. A successful
+/// result has passed the complete Snapshot 1.0 typed validation pipeline.
 pub fn create_frame_graph_snapshot(
     report: &CompilationReport,
     options: CreateFrameGraphSnapshotOptions<'_>,
@@ -70,7 +72,7 @@ pub fn create_frame_graph_snapshot(
         .ok_or(SnapshotExportError::FullReportRequired)?;
     let context = ExportContext::new(full)?;
 
-    Ok(FrameGraphSnapshotV1 {
+    let snapshot = FrameGraphSnapshotV1 {
         format: FRAME_GRAPH_SNAPSHOT_FORMAT.into(),
         version: FRAME_GRAPH_SNAPSHOT_VERSION,
         producer: SnapshotProducer {
@@ -95,7 +97,10 @@ pub fn create_frame_graph_snapshot(
         },
         diagnostics: context.diagnostics()?,
         extensions: Default::default(),
-    })
+    };
+    validate_typed_frame_graph_snapshot(&snapshot)
+        .map_err(|source| SnapshotExportError::InvalidSnapshot { source })?;
+    Ok(snapshot)
 }
 
 struct ExportContext<'a> {
@@ -375,22 +380,63 @@ impl<'a> ExportContext<'a> {
                         wgpu::TextureDimension::D2 => wgpu::TextureViewDimension::D2Array,
                         wgpu::TextureDimension::D3 => wgpu::TextureViewDimension::D3,
                     });
-                let mip_level_count = view
-                    .descriptor
-                    .mip_level_count
-                    .unwrap_or(texture.mip_level_count - view.descriptor.base_mip_level);
-                let (base_array_layer, array_layer_count) = if texture.dimension
-                    == wgpu::TextureDimension::D3
-                {
-                    (0, 1)
-                } else {
-                    (
-                        view.descriptor.base_array_layer,
-                        view.descriptor.array_layer_count.unwrap_or(
-                            texture.size.depth_or_array_layers - view.descriptor.base_array_layer,
-                        ),
-                    )
+                let mip_level_count = match view.descriptor.mip_level_count {
+                    Some(count) => {
+                        if count == 0
+                            || view
+                                .descriptor
+                                .base_mip_level
+                                .checked_add(count)
+                                .is_none_or(|end| end > texture.mip_level_count)
+                        {
+                            return invalid(format!(
+                                "texture view {} has an invalid mip range",
+                                view.id
+                            ));
+                        }
+                        count
+                    }
+                    None => texture
+                        .mip_level_count
+                        .checked_sub(view.descriptor.base_mip_level)
+                        .filter(|count| *count > 0)
+                        .ok_or_else(|| SnapshotExportError::InvalidReport {
+                            message: format!("texture view {} has an invalid mip range", view.id),
+                        })?,
                 };
+                let (base_array_layer, array_layer_count) =
+                    if texture.dimension == wgpu::TextureDimension::D3 {
+                        (0, 1)
+                    } else {
+                        let base_array_layer = view.descriptor.base_array_layer;
+                        let array_layer_count = match view.descriptor.array_layer_count {
+                            Some(count) => {
+                                if count == 0
+                                    || base_array_layer
+                                        .checked_add(count)
+                                        .is_none_or(|end| end > texture.size.depth_or_array_layers)
+                                {
+                                    return invalid(format!(
+                                        "texture view {} has an invalid array-layer range",
+                                        view.id
+                                    ));
+                                }
+                                count
+                            }
+                            None => texture
+                                .size
+                                .depth_or_array_layers
+                                .checked_sub(base_array_layer)
+                                .filter(|count| *count > 0)
+                                .ok_or_else(|| SnapshotExportError::InvalidReport {
+                                    message: format!(
+                                        "texture view {} has an invalid array-layer range",
+                                        view.id
+                                    ),
+                                })?,
+                        };
+                        (base_array_layer, array_layer_count)
+                    };
                 if mip_level_count == 0 || array_layer_count == 0 {
                     return invalid(format!("texture view {} has a zero count", view.id));
                 }
@@ -525,7 +571,10 @@ impl<'a> ExportContext<'a> {
                         ));
                     }
                     let ResourceDescriptor::Texture(texture) = &resource.descriptor else {
-                        unreachable!()
+                        return invalid(format!(
+                            "texture access {} has a resource descriptor mismatch",
+                            access.id
+                        ));
                     };
                     for (index, region) in regions.iter().enumerate() {
                         if region.mip_level_count == 0 || region.slice_count == 0 {

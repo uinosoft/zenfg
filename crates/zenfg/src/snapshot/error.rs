@@ -46,6 +46,14 @@ pub enum SnapshotExportError {
         timing_frame: u64,
     },
 
+    /// The projected value does not satisfy Snapshot 1.0 invariants.
+    #[error("invalid FrameGraph Snapshot: {source}")]
+    InvalidSnapshot {
+        /// Validation or serialization failure from the Snapshot codec.
+        #[source]
+        source: zenfg_snapshot::SnapshotJsonError,
+    },
+
     /// The supplied report violates an invariant needed for wire conversion.
     #[error("invalid compilation report for Snapshot export: {message}")]
     InvalidReport {

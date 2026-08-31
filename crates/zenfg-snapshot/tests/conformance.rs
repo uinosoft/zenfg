@@ -7,7 +7,7 @@ use serde_json::Value;
 use zenfg_snapshot::{
     FRAME_GRAPH_SNAPSHOT_MAX_EXTENSION_DEPTH, SnapshotDecodeSource, SnapshotJsonError,
     decode_frame_graph_snapshot, parse_frame_graph_snapshot, to_json, to_json_pretty,
-    validate_frame_graph_snapshot,
+    validate_frame_graph_snapshot, validate_typed_frame_graph_snapshot,
 };
 
 fn corpus() -> PathBuf {
@@ -206,6 +206,37 @@ fn validates_before_encoding_and_accepts_json_integer_notation() {
     value["capture"]["frameIndex"] = Value::from(0.0);
     assert!(validate_frame_graph_snapshot(&value).is_empty());
     assert!(decode_frame_graph_snapshot(value).is_ok());
+}
+
+#[test]
+fn typed_validation_reuses_encoding_validation_without_serializing_text() {
+    let snapshot =
+        parse_frame_graph_snapshot(&read(corpus().join("fixtures/minimal.fgsnapshot.json")))
+            .unwrap()
+            .snapshot;
+    assert!(validate_typed_frame_graph_snapshot(&snapshot).is_ok());
+
+    let mut invalid = snapshot.clone();
+    invalid.producer.name.clear();
+    let error = validate_typed_frame_graph_snapshot(&invalid).unwrap_err();
+    assert!(matches!(error, SnapshotJsonError::Validation { .. }));
+    assert_eq!(error.issues().unwrap()[0].code, "empty-string");
+
+    let mut invalid_timing = snapshot;
+    invalid_timing.timings.gpu = zenfg_snapshot::SnapshotGpuTimings::Available {
+        frame_span_micros: f64::NAN,
+        nodes: Vec::new(),
+    };
+    let error = validate_typed_frame_graph_snapshot(&invalid_timing).unwrap_err();
+    assert!(matches!(error, SnapshotJsonError::Validation { .. }));
+    assert_eq!(
+        error.issues().unwrap()[0].path,
+        "/timings/gpu/frameSpanMicros"
+    );
+    assert!(matches!(
+        to_json(&invalid_timing),
+        Err(SnapshotJsonError::Validation { .. })
+    ));
 }
 
 #[test]
