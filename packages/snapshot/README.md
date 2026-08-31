@@ -28,6 +28,7 @@ import {
   FRAME_GRAPH_SNAPSHOT_MAX_EXTENSION_DEPTH,
   FRAME_GRAPH_SNAPSHOT_VERSION,
   decodeFrameGraphSnapshot,
+  finalizeFrameGraphSnapshot,
   parseFrameGraphSnapshot,
   stringifyFrameGraphSnapshot,
   validateFrameGraphSnapshot,
@@ -51,6 +52,13 @@ serialization never writes Legacy V0.
 Programmatic decode inputs are treated as read-only: migration never mutates
 the supplied value, and malformed programmatic values are returned as stable
 validation issues instead of leaking native cloning or serialization errors.
+
+`finalizeFrameGraphSnapshot()` is for Snapshot producers that assemble an
+in-memory draft. It removes `undefined` object properties from optional fields,
+then performs the same JSON-safety and Snapshot V1 semantic checks before
+returning a detached canonical value or throwing `FrameGraphSnapshotValidationError`.
+Use `validateFrameGraphSnapshot()` or `decodeFrameGraphSnapshot()` for externally
+supplied values, where own `undefined` properties remain invalid JSON values.
 
 Unknown versions are rejected. Viewers must add an explicit migration before
 accepting another version rather than guessing at compatible fields.

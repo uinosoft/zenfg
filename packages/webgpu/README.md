@@ -599,9 +599,17 @@ const snapshot = createFrameGraphSnapshot({
 ```
 
 The builder normalizes numeric runtime IDs, WebGPU usage masks, surface origins,
-timing availability, and physical allocations into Snapshot V1. Unknown usage
-bits throw instead of being dropped. The builder performs work only when called;
-ordinary compile and execute paths do not create Snapshots.
+timing availability, and physical allocations into a detached canonical Snapshot
+V1. It rejects Snapshot-invalid values, including invalid numeric values and
+dangling timing references; available timing kinds must also match their
+compilation nodes. Unknown usage bits throw instead of being dropped. The builder
+performs work only when called; ordinary compile and execute paths do not create
+Snapshots.
+
+The three independently supplied reports do not carry a shared compiled-frame
+identity. Supplying compilation and timing from the same `CompiledFrame` remains
+a caller requirement; pool counters are aggregate runtime statistics rather than
+per-frame measurements.
 
 ## Validation And Current Limits
 

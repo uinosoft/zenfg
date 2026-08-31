@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { validateFrameGraphSnapshot } from '@zenfg/snapshot';
+import { FrameGraphSnapshotValidationError, validateFrameGraphSnapshot } from '@zenfg/snapshot';
 
 import { createFrameGraphSnapshot } from '../src/snapshot.ts';
 import { FrameGraph, TextureAccess } from '../src/index.ts';
@@ -155,4 +155,56 @@ test('maps GPU timing and rejects unknown WebGPU usage bits', () => {
 		gpuTiming: { status: 'unavailable', frameIndex: 3, reason: 'unsupported' },
 		resourcePool: { acquireCount: 0, reuseCount: 0, createdCount: 0, retainedCount: 0, estimatedRetainedBytes: 0 },
 	}), /unknown bits 0x20/);
+});
+
+test('rejects Snapshot-invalid producer inputs and incoherent GPU timing kinds', () => {
+	const recorder = new FrameGraph(mockDevice()).beginFrame();
+	const target = recorder.createTexture({ label: 'target', format: 'rgba8unorm', size: [1, 1] });
+	recorder.render({
+		label: 'render',
+		sideEffect: true,
+		colorAttachments: [{
+			target,
+			loadOp: 'clear',
+			storeOp: 'store',
+			clearValue: { r: 0, g: 0, b: 0, a: 1 },
+		}],
+	});
+	const compilation = recorder.compile({ report: true }).compilationReport;
+	const nodeId = compilation.nodes[0]!.id;
+	const validOptions = {
+		compilation,
+		gpuTiming: {
+			status: 'available' as const,
+			frameIndex: 3,
+			frameDurationMicros: 12.5,
+			nodes: [{ nodeId, kind: 'render' as const, durationMicros: 10 }],
+		},
+		resourcePool: {
+			acquireCount: 0,
+			reuseCount: 0,
+			createdCount: 0,
+			retainedCount: 0,
+			estimatedRetainedBytes: 0,
+		},
+	};
+	const expectValidationError = (mutate: (options: any) => void, path: string) => {
+		const options = structuredClone(validOptions);
+		mutate(options);
+		assert.throws(
+			() => createFrameGraphSnapshot(options),
+			(error: unknown) => error instanceof FrameGraphSnapshotValidationError
+				&& error.issues.some((issue) => issue.path === path),
+		);
+	};
+
+	expectValidationError((options) => { options.producerVersion = ''; }, '/producer/version');
+	expectValidationError((options) => { options.runtime = { backend: '' }; }, '/producer/runtime/backend');
+	expectValidationError((options) => { options.gpuTiming.frameIndex = Number.NaN; }, '/capture/frameIndex');
+	expectValidationError((options) => { options.gpuTiming.frameDurationMicros = Number.POSITIVE_INFINITY; }, '/timings/gpu/frameSpanMicros');
+	expectValidationError((options) => { options.gpuTiming.nodes[0].durationMicros = -1; }, '/timings/gpu/nodes/0/durationMicros');
+	expectValidationError((options) => { options.gpuTiming.nodes[0].nodeId = 999; }, '/timings/gpu/nodes/0/nodeId');
+	expectValidationError((options) => { options.gpuTiming.nodes.push({ nodeId, kind: 'render', durationMicros: 1 }); }, '/timings/gpu/nodes/1/nodeId');
+	expectValidationError((options) => { options.resourcePool.createdCount = -1; }, '/memory/poolReport/createdCount');
+	expectValidationError((options) => { options.gpuTiming.nodes[0].kind = 'compute'; }, '/timings/gpu/nodes/0');
 });

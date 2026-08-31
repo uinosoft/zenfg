@@ -12,6 +12,7 @@ import {
 	FRAME_GRAPH_SNAPSHOT_VERSION,
 	FrameGraphSnapshotValidationError,
 	decodeFrameGraphSnapshot,
+	finalizeFrameGraphSnapshot,
 	parseFrameGraphSnapshot,
 	stringifyFrameGraphSnapshot,
 	validateFrameGraphSnapshot,
@@ -63,6 +64,32 @@ test('pretty and compact encoding round-trip through canonical V1', () => {
 		const decoded = parseFrameGraphSnapshot(json);
 		assert.equal(decoded.ok, true);
 		if (decoded.ok) assert.deepEqual(decoded.snapshot, fixture);
+	}
+});
+
+test('finalizes producer drafts by omitting undefined properties and returning a detached canonical Snapshot', () => {
+	const draft: any = clone(decodeFixture('minimal.fgsnapshot.json'));
+	draft.producer.version = undefined;
+	const finalized = finalizeFrameGraphSnapshot(draft);
+	assert.equal(Object.hasOwn(finalized.producer, 'version'), false);
+	draft.producer.name = 'mutated-after-finalization';
+	assert.notEqual(finalized.producer.name, draft.producer.name);
+});
+
+test('rejects invalid producer drafts with structured finalization errors', () => {
+	for (const [path, mutate] of [
+		['/producer/version', (value: any) => { value.producer.version = ''; }],
+		['/producer/runtime/backend', (value: any) => { value.producer.runtime = { backend: '' }; }],
+		['/capture/frameIndex', (value: any) => { value.capture.frameIndex = Number.NaN; }],
+		['/timings/gpu/frameSpanMicros', (value: any) => { value.timings.gpu.frameSpanMicros = Number.POSITIVE_INFINITY; }],
+	] as const) {
+		const draft: any = clone(decodeFixture('full-webgpu.fgsnapshot.json'));
+		mutate(draft);
+		assert.throws(
+			() => finalizeFrameGraphSnapshot(draft),
+			(error: unknown) => error instanceof FrameGraphSnapshotValidationError
+				&& error.issues.some((issue) => issue.path === path),
+		);
 	}
 });
 

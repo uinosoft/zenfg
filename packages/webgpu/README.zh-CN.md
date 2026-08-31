@@ -475,6 +475,14 @@ discarded write 仍然可见，但不会被报告为 value producer。
 `getResourcePoolStats()` 同步报告 acquisition、reuse、creation、保留 allocation 数量和
 估算保留字节，并有意不暴露 allocator-private bucket key。
 
+要导出 portable Snapshot，应只在三个 report 对应同一已执行 frame 时调用
+`createFrameGraphSnapshot()`。它会把数值 runtime id、WebGPU usage mask、surface origin、
+timing availability 和 physical allocation 规范化为独立的 canonical Snapshot V1，并拒绝
+非法数值、悬空 timing reference 和不匹配 compilation node 的 timing kind。未知 usage bit
+不会被静默丢弃。三个独立 report 不携带共同的 compiled-frame identity，因此 compilation 与
+timing 是否来自同一 `CompiledFrame` 仍是调用方约定；pool counter 是 runtime 的累计统计，
+不是单 frame 度量。
+
 ## 校验与当前限制
 
 注册和编译会在无效数据影响 dependency 或 allocation 计算之前，拒绝无效资源尺寸、unsafe

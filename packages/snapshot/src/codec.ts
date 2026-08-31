@@ -52,6 +52,23 @@ export function validateFrameGraphSnapshot(value: unknown): readonly FrameGraphS
 }
 
 /**
+ * Finalizes a producer-owned Snapshot draft into a canonical Snapshot 1.0 value.
+ *
+ * @remarks Object properties whose value is `undefined` are omitted to support
+ * producer drafts assembled from optional fields. The result is detached from
+ * the draft and has passed JSON-safety and semantic validation.
+ * @throws {@link FrameGraphSnapshotValidationError} when the draft cannot be
+ * finalized as a valid Snapshot 1.0 document.
+ */
+export function finalizeFrameGraphSnapshot(draft: unknown): FrameGraphSnapshot {
+	const cloned = cloneGeneratedSnapshotJsonValue(draft);
+	if (!cloned.ok) throw new FrameGraphSnapshotValidationError(cloned.issues);
+	const issues = validateSnapshotV1(cloned.value);
+	if (issues.length > 0) throw new FrameGraphSnapshotValidationError(issues);
+	return cloned.value as FrameGraphSnapshot;
+}
+
+/**
  * Decodes an already-parsed value into a canonical Snapshot 1.0 document.
  *
  * @remarks Supported Legacy V0 and Legacy Candidate V1 captures are migrated

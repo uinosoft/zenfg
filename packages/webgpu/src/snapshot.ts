@@ -5,6 +5,8 @@
  * Capture inputs from the same compiled frame: compile with `{ report: true }`,
  * execute with `{ gpuTiming: true }`, await that timing result, and read pool
  * statistics after execution before calling {@link createFrameGraphSnapshot}.
+ * Report provenance is a caller-owned convention because independently supplied
+ * report values do not carry a shared compiled-frame identity.
  *
  * @packageDocumentation
  */
@@ -13,10 +15,15 @@ import {
 	FRAME_GRAPH_SNAPSHOT_FORMAT,
 	FRAME_GRAPH_SNAPSHOT_VERSION,
 } from '@zenfg/snapshot/format';
+import {
+	FrameGraphSnapshotValidationError,
+	finalizeFrameGraphSnapshot,
+} from '@zenfg/snapshot';
 import type {
 	FrameGraphSnapshot,
 	FrameGraphSnapshotAccess,
 	FrameGraphSnapshotBufferUsageFlag,
+	FrameGraphSnapshotIssue,
 	FrameGraphSnapshotProducer,
 	FrameGraphSnapshotResource,
 	FrameGraphSnapshotTextureUsageFlag,
@@ -88,8 +95,10 @@ const BUFFER_USAGE_FLAGS: readonly [number, FrameGraphSnapshotBufferUsageFlag][]
  * timing availability, and resource-pool counters. The returned object is a
  * deep JSON clone and does not retain references to the supplied reports.
  *
- * @throws If a compilation resource contains WebGPU usage bits that Snapshot
- * 1.0 cannot represent.
+ * @throws {@link FrameGraphSnapshotValidationError} if the projected draft does
+ * not satisfy Snapshot 1.0, or if an available timing kind disagrees with its
+ * compilation node. Also throws if a compilation resource contains WebGPU usage
+ * bits that Snapshot 1.0 cannot represent.
  *
  * @example
  * ```ts
@@ -114,6 +123,7 @@ const BUFFER_USAGE_FLAGS: readonly [number, FrameGraphSnapshotBufferUsageFlag][]
  */
 export function createFrameGraphSnapshot(options: CreateFrameGraphSnapshotOptions): FrameGraphSnapshot {
 	const { compilation, gpuTiming, resourcePool } = options;
+	validateGpuTimingCoherence(compilation, gpuTiming);
 	const executionOrderByNodeId = new Map(compilation.nodes.map((node, order) => [node.id, order]));
 	const nodes = [...compilation.nodes, ...compilation.culledNodes]
 		.sort((a, b) => a.recordingOrder - b.recordingOrder)
@@ -264,7 +274,29 @@ export function createFrameGraphSnapshot(options: CreateFrameGraphSnapshotOption
 		diagnostics: [],
 		extensions: {},
 	};
-	return JSON.parse(JSON.stringify(snapshot)) as FrameGraphSnapshot;
+	return finalizeFrameGraphSnapshot(snapshot);
+}
+
+function validateGpuTimingCoherence(
+	compilation: FrameGraphCompilationReport,
+	gpuTiming: FrameGraphGpuTimingReport,
+): void {
+	if (gpuTiming.status !== 'available') return;
+	const nodeById = new Map(compilation.nodes.map((node) => [node.id, node]));
+	const issues: FrameGraphSnapshotIssue[] = [];
+	for (let index = 0; index < gpuTiming.nodes.length; index++) {
+		const timing = gpuTiming.nodes[index]!;
+		const node = nodeById.get(timing.nodeId);
+		if (node !== undefined && node.kind !== timing.kind) {
+			issues.push({
+				severity: 'error',
+				code: 'timing-kind-mismatch',
+				path: `/timings/gpu/nodes/${index}`,
+				message: `GPU timing kind "${timing.kind}" does not match compilation node kind "${node.kind}".`,
+			});
+		}
+	}
+	if (issues.length > 0) throw new FrameGraphSnapshotValidationError(issues);
 }
 
 function decodeUsage(kind: 'texture', usage: number): FrameGraphSnapshotTextureUsageFlag[];

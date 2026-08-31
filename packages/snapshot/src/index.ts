@@ -19,6 +19,7 @@ export type * from './types.ts';
 export {
 	FrameGraphSnapshotValidationError,
 	decodeFrameGraphSnapshot,
+	finalizeFrameGraphSnapshot,
 	parseFrameGraphSnapshot,
 	stringifyFrameGraphSnapshot,
 	validateFrameGraphSnapshot,
