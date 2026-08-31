@@ -1,10 +1,10 @@
 {
   "format": "zenfg.frame-graph-snapshot",
   "version": { "major": 1, "minor": 0 },
-  "producer": { "name": "t3d-candidate-fixture", "language": "TypeScript" },
+  "producer": { "name": "legacy-candidate-fixture", "language": "TypeScript" },
   "capture": {
     "frameIndex": 8,
-    "migration": { "sourceFormat": "t3d-v1", "unavailableFacts": [] }
+    "migration": { "sourceFormat": "legacy-candidate-v1", "unavailableFacts": [] }
   },
   "graph": {
     "groups": [{ "id": "group:main", "label": "Main", "stableKey": "group/main" }],
@@ -70,5 +70,5 @@
   },
   "timings": { "gpu": { "status": "unavailable", "reason": "not-requested" } },
   "diagnostics": [{ "severity": "info", "code": "candidate", "message": "Preserve me", "resourceId": "resource:input" }],
-  "extensions": { "dev.t3d-next.fixture": { "preserved": true } }
+  "extensions": { "dev.zenfg.legacy-fixture": { "preserved": true } }
 }

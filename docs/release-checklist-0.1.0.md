@@ -8,11 +8,9 @@
 
 This checklist defines and records the local `0.1.0` release candidate. Rows
 1-14 and 16-22 contain the fresh 2026-08-31 release-closure rerun; row 15 records
-the final commit boundary. Registry login and token permissions remain a
-post-push publish gate. The public GitHub repository was created separately and
-the local `origin` is configured, but this checklist does not create tags,
-publish packages, or switch downstream consumers. The frozen migration manifest
-is not regenerated during release preparation.
+the commit boundary. Registry login and token permissions remain a publication
+gate. The public GitHub repository and local `origin` are configured, but this
+checklist does not create tags or publish packages.
 
 ## Repository and registry identities
 
@@ -45,11 +43,11 @@ result before committing the candidate.
 | 8 | `cargo clippy --workspace --all-targets --all-features -- -D warnings` | Passed |
 | 9 | `cargo test --workspace --all-features` | Passed: 100 `zenfg` test functions, seven trybuild cases, six `zenfg-snapshot` tests, and four README doctests |
 | 10 | `RUSTDOCFLAGS="-D warnings" cargo doc --workspace --all-features --no-deps` | Passed for both crates |
-| 11 | `npm run cargo:package-check` | Passed: Snapshot 13 files/150.3 KiB (28.7 KiB compressed); runtime 52 files/527.9 KiB (95.3 KiB compressed); both extracted archives and their examples compile externally |
+| 11 | `npm run cargo:package-check` | Passed: Snapshot 13 files/150.5 KiB (28.7 KiB compressed); runtime 52 files/527.9 KiB (95.3 KiB compressed); both extracted archives and their examples compile externally |
 | 12 | `cargo publish --dry-run -p zenfg-snapshot --locked --allow-dirty` | Passed with the single accepted warning below |
 | 13 | Confirm no obsolete organization-owned repository URLs remain | Passed |
-| 14 | Recheck credentials, licenses, package contents, and downstream coupling | Passed for the local candidate: no embedded credential or forbidden dependency hits, all six LICENSE copies are identical, and all five archives were inspected; npm login/2FA and crates.io token permissions remain a post-push publish gate |
-| 15 | `git diff --cached --check`; commit; clean status with the expected remote and no tag | Passed at the closure boundary: the staged diff was validated before `fix(snapshot): harden decoding and bound extension depth`; branch is `main`, `origin` points to `uinosoft/zenfg`, the post-commit worktree is clean, and there are zero tags |
+| 14 | Recheck credentials, licenses, package contents, and package boundaries | Passed for the local candidate: no embedded credential or forbidden dependency hits, all six LICENSE copies are identical, and all five archives were inspected; npm login/2FA and crates.io token permissions remain a post-push publish gate |
+| 15 | `git diff --cached --check`; commit; clean status with the expected remote and no tag | Passed for the cleanup candidate: the staged diff was validated before `refactor(snapshot): anonymize legacy candidate migration`; branch is `main`, `origin` points to `uinosoft/zenfg`, and there are zero tags |
 
 The counts and sizes in rows 2, 6, 9, 11, and 22 are observed results from the
 fresh 2026-08-31 rerun. Re-run and update them again if the candidate changes
@@ -62,13 +60,13 @@ authorize publishing or tagging on their own.
 
 | # | Check | Result |
 | ---: | --- | --- |
-| 16 | `npm run docs:check` validates package-root public documentation and internal documentation links | Passed: five TypeScript entrypoints, 120 exports, 39 public methods, 68 deferred Rust top-level types, and 49 local Markdown links |
+| 16 | `npm run docs:check` validates package-root public documentation and internal documentation links | Passed: five TypeScript entrypoints, 120 exports, 39 public methods, 68 deferred Rust top-level types, and 47 local Markdown links |
 | 17 | `npx tsc --project packages/webgpu/examples/tsconfig.json --noEmit` checks all seven public-entrypoint TypeScript recipes | Passed: all seven recipes compile under the package-local strict consumer config |
 | 18 | `cargo test --workspace --all-features --doc` and `cargo check --workspace --all-features --examples` check README doctests and all seven Rust recipes | Passed: four README doctests, seven mirrored runtime recipes, and the Snapshot `basic` example |
 | 19 | Run `minimal-frame`, `snapshot-export` with feature `snapshot`, and `zenfg-snapshot`'s `basic` example; GPU-dependent recipes require compile checks only | Passed: all three CPU-only examples executed successfully; every GPU-dependent recipe compiled |
 | 20 | From actual npm tarballs, compile the documented package Quick Starts and recipes with TypeScript 6, `skipLibCheck: false`, and no workspace path aliases | Passed: Snapshot, WebGPU, and Inspector Quick Starts plus all seven packaged recipes under TypeScript 6.0.3 |
 | 21 | Verify every published `.d.ts.map` uses relative sources that exist in the same tarball; reject absolute paths and workspace leakage | Passed: every declaration map resolves only to packaged `src/` files |
-| 22 | Inspect all five package archives, then replace historical file counts and sizes in this checklist with observed values | Passed: npm Snapshot 88 files/105.0 KiB (588.7 KiB unpacked), WebGPU 88/213.6 KiB (1065.8 KiB unpacked), Inspector 133/206.2 KiB (1049.8 KiB unpacked); Cargo Snapshot 13/150.3 KiB (28.7 KiB compressed) and runtime 52/527.9 KiB (95.3 KiB compressed) |
+| 22 | Inspect all five package archives, then replace historical file counts and sizes in this checklist with observed values | Passed: npm Snapshot 88 files/105.1 KiB (589.4 KiB unpacked), WebGPU 88/213.6 KiB (1065.8 KiB unpacked), Inspector 133/206.2 KiB (1049.9 KiB unpacked); Cargo Snapshot 13/150.5 KiB (28.7 KiB compressed) and runtime 52/527.9 KiB (95.3 KiB compressed) |
 
 Step 5 must start without generated package output. The package-level `prepack`
 scripts must rebuild the required artifacts, and the tarball smoke test must
@@ -101,10 +99,8 @@ verification, create these annotated tags at the same release commit:
 
 ## Publication handoff
 
-1. Use the empty public GitHub repository at `uinosoft/zenfg` without generated
-   README, license, or ignore files. The local `origin` is already configured as
-   `git@github.com:uinosoft/zenfg.git`.
-2. Push `main` and wait for the `typescript`, `rust`, and `cross-language` CI
+1. Push the release-candidate update to the configured `origin`.
+2. Wait for the `typescript`, `rust`, and `cross-language` CI
    jobs to pass.
 3. Configure branch protection to prevent force-push and deletion.
 4. Publish `@zenfg/snapshot@0.1.0` under the npm `next` tag.
@@ -128,5 +124,3 @@ to match.
   publish the fix as `0.1.1`.
 - Cargo versions cannot be overwritten. Yank a faulty crate version and
   publish `0.1.1`.
-- Do not delete the t3d-next or zen-proto implementations until registry
-  publication and downstream replacement are both complete.

@@ -12,5 +12,7 @@ coverage/
 .vscode/
 *.tgz
 *.log
+.npmrc
+*.tsbuildinfo
 .DS_Store
 Thumbs.db

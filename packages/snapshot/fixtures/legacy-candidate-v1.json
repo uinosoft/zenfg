@@ -1,8 +1,8 @@
 {
-  "format": "t3d.frame-graph-snapshot",
+  "format": "zenfg.frame-graph-snapshot-candidate",
   "version": { "major": 1, "minor": 0 },
   "producer": {
-    "name": "@t3d-next/frame-graph",
+    "name": "legacy-candidate-fixture",
     "version": "0.0.0",
     "language": "TypeScript",
     "runtime": { "implementation": "browser", "graphicsApi": "WebGPU", "backend": "d3d12" }
@@ -154,6 +154,6 @@
     }
   ],
   "extensions": {
-    "dev.t3d-next.fixture": { "captureReason": "golden-test", "quality": 1 }
+    "dev.zenfg.legacy-fixture": { "captureReason": "golden-test", "quality": 1 }
   }
 }

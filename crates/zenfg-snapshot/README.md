@@ -54,7 +54,7 @@ assert!(canonical_json.contains("zenfg.frame-graph-snapshot"));
 
 The crate exports `FrameGraphSnapshotV1` and all wire types with both
 `Serialize` and `Deserialize`. Decoding accepts canonical ZenFG V1, the
-historical unversioned Legacy V0 shape, and the pre-release t3d V1 candidate.
+historical unversioned Legacy V0 shape, and Legacy Candidate V1.
 Successful migrations always return ZenFG V1 with explicit migration
 provenance; unknown formats and versions are rejected.
 

@@ -82,7 +82,7 @@ export type FrameGraphSnapshotUnavailableFact =
 
 /** Migration provenance retained on a canonicalized legacy capture. */
 export type FrameGraphSnapshotMigration = {
-	readonly sourceFormat: 'legacy-v0' | 't3d-v1';
+	readonly sourceFormat: 'legacy-v0' | 'legacy-candidate-v1';
 	readonly unavailableFacts: readonly FrameGraphSnapshotUnavailableFact[];
 };
 
@@ -371,7 +371,7 @@ export type FrameGraphSnapshotDecodeResult =
 	| {
 		readonly ok: true;
 		readonly snapshot: FrameGraphSnapshot;
-		readonly source: 'v1' | 'legacy-v0' | 't3d-v1';
+		readonly source: 'v1' | 'legacy-v0' | 'legacy-candidate-v1';
 		readonly migrated: boolean;
 		readonly issues: readonly FrameGraphSnapshotIssue[];
 	}

@@ -5,7 +5,7 @@
     "validator": ["duplicate-dependency", "duplicate-id", "duplicate-segment-node", "duplicate-timing", "duplicate-value", "empty-string", "extension-depth-exceeded", "group-cycle", "invalid-access-mode", "invalid-access-range", "invalid-access-view", "invalid-dependency-order", "invalid-enum", "invalid-execution-order", "invalid-extension-name", "invalid-group-order", "invalid-id", "invalid-initial-contents", "invalid-integer", "invalid-lifetime", "invalid-literal", "invalid-migration-availability", "invalid-number", "invalid-read", "invalid-recording-order", "invalid-root", "invalid-segment-kind", "invalid-segment-order", "invalid-segment-sequence", "invalid-texture-region", "invalid-type", "missing-initial-contents", "missing-property", "missing-reference", "missing-segment-node", "reference-kind", "reference-mismatch", "reference-state", "unexpected-property"],
     "codec": ["invalid-json", "unsupported-format", "unsupported-version"],
     "legacy": ["legacy-access-contents", "legacy-access-value", "legacy-boolean", "legacy-enum", "legacy-number", "legacy-root", "legacy-string", "legacy-structure", "legacy-texture-region", "legacy-unknown-usage"],
-    "migrationWarnings": ["legacy-v0-migrated", "t3d-v1-migrated"],
+    "migrationWarnings": ["legacy-v0-migrated", "legacy-candidate-v1-migrated"],
     "typescriptOnly": ["invalid-json-value"]
   },
   "cases": [
@@ -16,9 +16,9 @@
     { "id": "valid-stable-keys", "file": "../fixtures/stable-keys.fgsnapshot.json", "input": "v1", "category": "valid", "schemaValid": true, "runtimeValid": true },
     { "id": "valid-extension-depth-64", "file": "../fixtures/extension-depth-64.fgsnapshot.json", "input": "v1", "category": "valid", "schemaValid": true, "runtimeValid": true },
     { "id": "valid-legacy-canonical", "file": "../fixtures/legacy-v0.expected.fgsnapshot.json", "input": "v1", "category": "valid", "schemaValid": true, "runtimeValid": true },
-    { "id": "valid-t3d-canonical", "file": "../fixtures/legacy-t3d-v1.expected.fgsnapshot.json", "input": "v1", "category": "valid", "schemaValid": true, "runtimeValid": true },
+    { "id": "valid-legacy-candidate-canonical", "file": "../fixtures/legacy-candidate-v1.expected.fgsnapshot.json", "input": "v1", "category": "valid", "schemaValid": true, "runtimeValid": true },
     { "id": "legacy-v0", "file": "../fixtures/legacy-v0.json", "input": "legacy-v0", "category": "valid", "schemaValid": "not-applicable", "runtimeValid": true, "canonical": "../fixtures/legacy-v0.expected.fgsnapshot.json", "issues": [{ "code": "legacy-v0-migrated", "path": "", "message": "The unversioned debug capture was migrated to FrameGraph Snapshot 1.0." }] },
-    { "id": "t3d-v1", "file": "../fixtures/legacy-t3d-v1-canonical.json", "input": "t3d-v1", "category": "valid", "schemaValid": "not-applicable", "runtimeValid": true, "canonical": "../fixtures/legacy-t3d-v1.expected.fgsnapshot.json", "issues": [{ "code": "t3d-v1-migrated", "path": "", "message": "The t3d V1 candidate was migrated to ZenFG Snapshot 1.0." }] },
+    { "id": "legacy-candidate-v1", "file": "../fixtures/legacy-candidate-v1-canonical.json", "input": "legacy-candidate-v1", "category": "valid", "schemaValid": "not-applicable", "runtimeValid": true, "canonical": "../fixtures/legacy-candidate-v1.expected.fgsnapshot.json", "issues": [{ "code": "legacy-candidate-v1-migrated", "path": "", "message": "Legacy Candidate V1 was migrated to ZenFG Snapshot 1.0." }] },
 
     { "id": "validator-basic-shape", "file": "invalid/structural-basic-shape.json", "input": "validator", "category": "structural-invalid", "schemaValid": false, "runtimeValid": false, "issues": [
       { "code": "unexpected-property", "path": "/capture/extra", "message": "Property \"extra\" is not part of Snapshot 1.0." },

@@ -41,7 +41,6 @@ See the [quick reference](docs/quick-reference.md),
 [semantic model](docs/semantic-model.md),
 [integration guide](docs/integration.md),
 [compatibility matrix](docs/compatibility.md), and
-[migration baseline](docs/migration-baseline.md). The extraction acceptance run
-is recorded in [migration validation](docs/validation.md). Release changes are
+[release validation](docs/release-validation.md). Release changes are
 tracked in the [changelog](CHANGELOG.md); the first candidate has a dedicated
 [0.1.0 release checklist](docs/release-checklist-0.1.0.md).

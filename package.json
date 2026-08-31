@@ -23,8 +23,7 @@
     "typecheck:examples": "tsc --noEmit -p packages/webgpu/examples/tsconfig.json",
     "typecheck": "npm run build:packages && npm run typecheck:examples && npm run typecheck --workspaces --if-present",
     "test": "node ./scripts/run-tests.mjs",
-    "pack:check": "node ./scripts/check-packages.mjs",
-    "migration:manifest": "node ./scripts/write-migration-manifest.mjs"
+    "pack:check": "node ./scripts/check-packages.mjs"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",

@@ -13,7 +13,7 @@ The first coordinated release is tracked in the
 4. Verify the compatibility matrix and changelogs.
 5. Publish protocol packages first, runtimes second, and Inspector last.
 6. Test each published artifact from a clean temporary consumer before
-   switching downstream repositories.
+   promoting it to the stable release channel.
 
 Before `zenfg-snapshot 0.1.0` exists in crates.io, a normal `cargo package -p
 zenfg` cannot resolve that optional registry dependency. `npm run

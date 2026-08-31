@@ -299,7 +299,7 @@ export class FrameGraphInspector {
 			});
 			const sourceFormat = decoded.snapshot.capture.migration?.sourceFormat;
 			if (sourceFormat) {
-				const sourceLabel = sourceFormat === 'legacy-v0' ? 'Legacy V0' : 't3d V1 candidate';
+				const sourceLabel = sourceFormat === 'legacy-v0' ? 'Legacy V0' : 'Legacy Candidate V1';
 				this.statusMessage = decoded.migrated
 					? `Imported ${sourceLabel} and migrated it to ZenFG Snapshot V1.`
 					: `Imported Snapshot V1 with ${sourceLabel} migration provenance.`;

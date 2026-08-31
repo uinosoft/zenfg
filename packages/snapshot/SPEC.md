@@ -186,17 +186,18 @@ Consumers MUST preserve extensions they do not understand.
 ## 8. Historical migration
 
 Readers recognize the unversioned `{ compilation, gpuTiming, resourcePool }`
-Legacy V0 capture and the `t3d.frame-graph-snapshot` V1 candidate. A Legacy V0 migration converts numeric
+Legacy V0 capture and the `zenfg.frame-graph-snapshot-candidate` Legacy
+Candidate V1 format. A Legacy V0 migration converts numeric
 IDs to prefixed strings, joins retained and culled nodes, converts WebGPU usage
 bits to V1 tokens, and converts `swapchain` origin to `surface`.
 
-The t3d V1 candidate retains its graph facts, stable keys, and namespaced
+Legacy Candidate V1 retains its graph facts, stable keys, and namespaced
 extensions, changes the format identifier, sets transient/surface contents to
 `undefined`, and removes any imported `initialContents` value so that the
 historical state is represented as Unknown. Successful migration records
-`capture.migration.sourceFormat` as `legacy-v0` or `t3d-v1`. A historical Rust
-capture that already encoded persistent state as `side-effect` remains
-unchanged because that intent cannot be reconstructed.
+`capture.migration.sourceFormat` as `legacy-v0` or `legacy-candidate-v1`. A
+historical Rust capture that already encoded persistent state as `side-effect`
+remains unchanged because that intent cannot be reconstructed.
 
 Migration MUST validate source values before conversion and MUST reject unknown
 usage bits or malformed fields. It MUST NOT invent stable keys, descriptors,

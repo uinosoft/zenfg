@@ -76,18 +76,27 @@ fn migrates_both_supported_historical_encodings() {
     .unwrap();
     assert_eq!(serde_json::to_value(&legacy.snapshot).unwrap(), expected);
 
-    let t3d = parse_frame_graph_snapshot(&read(
-        corpus().join("fixtures/legacy-t3d-v1-canonical.json"),
+    let legacy_candidate = parse_frame_graph_snapshot(&read(
+        corpus().join("fixtures/legacy-candidate-v1-canonical.json"),
     ))
     .unwrap();
-    assert_eq!(t3d.source, SnapshotDecodeSource::T3dV1);
-    assert!(t3d.migrated);
-    assert_eq!(t3d.issues[0].code, "t3d-v1-migrated");
+    assert_eq!(
+        legacy_candidate.source,
+        SnapshotDecodeSource::LegacyCandidateV1
+    );
+    assert!(legacy_candidate.migrated);
+    assert_eq!(
+        legacy_candidate.issues[0].code,
+        "legacy-candidate-v1-migrated"
+    );
     let expected: Value = serde_json::from_str(&read(
-        corpus().join("fixtures/legacy-t3d-v1.expected.fgsnapshot.json"),
+        corpus().join("fixtures/legacy-candidate-v1.expected.fgsnapshot.json"),
     ))
     .unwrap();
-    assert_eq!(serde_json::to_value(&t3d.snapshot).unwrap(), expected);
+    assert_eq!(
+        serde_json::to_value(&legacy_candidate.snapshot).unwrap(),
+        expected
+    );
 }
 
 #[test]

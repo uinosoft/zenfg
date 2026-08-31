@@ -37,8 +37,8 @@ release:
 
 - TypeScript programmatic decode, validation, and encoding reject non-JSON
   runtime values without invoking getters or `toJSON` hooks or leaking native
-  serialization errors; t3d V1 migration is copy-on-write and never mutates
-  the caller's input or silently discards invalid data;
+  serialization errors; Legacy Candidate V1 migration is copy-on-write and
+  never mutates the caller's input or silently discards invalid data;
 - Snapshot 1.0 defines a shared maximum of 64 object/array container levels for
   each extension value, enforced by the Schema and both TypeScript and Rust
   validators with the stable `extension-depth-exceeded` issue code.

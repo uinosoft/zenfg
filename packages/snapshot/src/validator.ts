@@ -452,7 +452,7 @@ function validateCapture(value: unknown, issues: Issues): void {
 		const migration = record(capture.migration, '/capture/migration', issues);
 		if (migration) {
 			keys(migration, '/capture/migration', ['sourceFormat', 'unavailableFacts'], [], issues);
-			enumValue(migration.sourceFormat, ['legacy-v0', 't3d-v1'], '/capture/migration/sourceFormat', issues);
+			enumValue(migration.sourceFormat, ['legacy-v0', 'legacy-candidate-v1'], '/capture/migration/sourceFormat', issues);
 			stringArray(migration.unavailableFacts, '/capture/migration/unavailableFacts', issues, false, UNAVAILABLE_FACTS);
 		}
 	}

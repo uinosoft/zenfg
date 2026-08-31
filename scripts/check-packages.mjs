@@ -50,8 +50,8 @@ const packages = [
             'conformance/producers/goldens/texture-subresource.projection.json',
             'fixtures/full-webgpu.fgsnapshot.json',
             'fixtures/stable-keys.fgsnapshot.json',
-            'fixtures/legacy-t3d-v1-canonical.json',
-            'fixtures/legacy-t3d-v1.expected.fgsnapshot.json',
+            'fixtures/legacy-candidate-v1-canonical.json',
+            'fixtures/legacy-candidate-v1.expected.fgsnapshot.json',
         ],
     },
     {

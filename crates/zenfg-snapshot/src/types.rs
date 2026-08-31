@@ -87,7 +87,7 @@ pub struct SnapshotMigration {
 #[serde(rename_all = "kebab-case")]
 pub enum SnapshotMigrationSourceFormat {
     LegacyV0,
-    T3dV1,
+    LegacyCandidateV1,
 }
 
 /// Canonical graph fact that a historical source format could not represent.
@@ -456,8 +456,8 @@ pub enum SnapshotDecodeSource {
     V1,
     /// Historical unversioned debug-capture shape.
     LegacyV0,
-    /// Historical pre-release `t3d.frame-graph-snapshot` V1 candidate.
-    T3dV1,
+    /// Historical pre-release Legacy Candidate V1 format.
+    LegacyCandidateV1,
 }
 
 /// Canonical snapshot plus provenance and non-fatal migration diagnostics.

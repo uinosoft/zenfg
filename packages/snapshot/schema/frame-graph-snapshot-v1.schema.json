@@ -619,7 +619,7 @@
       "additionalProperties": false,
       "required": ["sourceFormat", "unavailableFacts"],
       "properties": {
-        "sourceFormat": { "enum": ["legacy-v0", "t3d-v1"] },
+        "sourceFormat": { "enum": ["legacy-v0", "legacy-candidate-v1"] },
         "unavailableFacts": {
           "type": "array",
           "uniqueItems": true,

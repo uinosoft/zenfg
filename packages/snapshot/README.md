@@ -37,12 +37,12 @@ import {
 
 `decodeFrameGraphSnapshot()` accepts canonical V1 data, the historical
 unversioned `{ compilation, gpuTiming, resourcePool }` shape, and the
-`t3d.frame-graph-snapshot` V1 candidate. Legacy numeric
+`zenfg.frame-graph-snapshot-candidate` Legacy Candidate V1 format. Legacy numeric
 IDs, usage masks, split retained/culled nodes, and `swapchain` origins are
 migrated to V1. Missing historical facts remain absent (Unknown); the adapter
 does not invent descriptors, texture views, estimates, groups, access regions,
-recording order, or stable keys. The t3d V1 adapter preserves existing stable
-keys and namespaced extensions while discarding imported `initialContents`,
+recording order, or stable keys. The Legacy Candidate V1 adapter preserves
+existing stable keys and namespaced extensions while discarding imported `initialContents`,
 whose historical meaning cannot be recovered reliably. Persistent
 `capture.migration` metadata keeps Unknown table-level facts distinguishable
 from known-empty arrays.
@@ -93,7 +93,7 @@ resolution and use a module mode that supports import attributes. For example:
 The source schema is Draft 2020-12 and lives under `schema/`. Golden fixtures
 under `fixtures/` cover minimal data, a complete WebGPU capture, aliasing,
 unavailable timing, all four `stableKey` locations, the accepted 64-level
-extension boundary, and exact Legacy V0/t3d V1 canonical migration.
+extension boundary, and exact Legacy V0/Legacy Candidate V1 canonical migration.
 `conformance/manifest.json` classifies valid,
 structural-invalid, semantic-invalid, and malformed Legacy cases, records the
 required public issue-code coverage, and compares the complete issue multiset

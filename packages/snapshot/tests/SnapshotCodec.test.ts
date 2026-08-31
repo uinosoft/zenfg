@@ -28,7 +28,7 @@ const validFixtureNames = [
 	'timing-unavailable.fgsnapshot.json',
 	'stable-keys.fgsnapshot.json',
 	'legacy-v0.expected.fgsnapshot.json',
-	'legacy-t3d-v1.expected.fgsnapshot.json',
+	'legacy-candidate-v1.expected.fgsnapshot.json',
 ] as const;
 
 test('accepts every V1 golden fixture with both the runtime validator and published schema', () => {
@@ -118,25 +118,25 @@ test('migrates Legacy V0 and only re-exports canonical V1', () => {
 	}
 });
 
-test('migrates the t3d V1 candidate and preserves unknown imported initial contents', () => {
-	const decoded = decodeFrameGraphSnapshot(readJson('../fixtures/legacy-t3d-v1.json'));
+test('migrates Legacy Candidate V1 and preserves unknown imported initial contents', () => {
+	const decoded = decodeFrameGraphSnapshot(readJson('../fixtures/legacy-candidate-v1.json'));
 	assert.equal(decoded.ok, true);
 	if (!decoded.ok) return;
-	assert.equal(decoded.source, 't3d-v1');
+	assert.equal(decoded.source, 'legacy-candidate-v1');
 	assert.equal(decoded.migrated, true);
 	assert.equal(decoded.snapshot.format, FRAME_GRAPH_SNAPSHOT_FORMAT);
-	assert.deepEqual(decoded.snapshot.capture.migration, { sourceFormat: 't3d-v1', unavailableFacts: [] });
+	assert.deepEqual(decoded.snapshot.capture.migration, { sourceFormat: 'legacy-candidate-v1', unavailableFacts: [] });
 	for (const resource of decoded.snapshot.graph.resources) {
 		if (resource.origin === 'imported') assert.equal(resource.initialContents, undefined);
 		else assert.equal(resource.initialContents, 'undefined');
 	}
-	assert.ok(decoded.issues.some((issue) => issue.code === 't3d-v1-migrated'));
+	assert.ok(decoded.issues.some((issue) => issue.code === 'legacy-candidate-v1-migrated'));
 });
 
-test('matches the canonical t3d V1 migration value exactly', () => {
-	const input = readJson('../fixtures/legacy-t3d-v1-canonical.json');
+test('matches the canonical Legacy Candidate V1 migration value exactly', () => {
+	const input = readJson('../fixtures/legacy-candidate-v1-canonical.json');
 	const original = clone(input);
-	const expected = readJson('../fixtures/legacy-t3d-v1.expected.fgsnapshot.json');
+	const expected = readJson('../fixtures/legacy-candidate-v1.expected.fgsnapshot.json');
 	const decoded = decodeFrameGraphSnapshot(input);
 	assert.equal(decoded.ok, true);
 	if (!decoded.ok) return;
@@ -146,13 +146,13 @@ test('matches the canonical t3d V1 migration value exactly', () => {
 	const imported = decoded.snapshot.graph.resources.find((resource) => resource.origin === 'imported');
 	assert.equal(imported?.initialContents, undefined);
 	assert.equal(imported?.stableKey, 'resource/input');
-	assert.deepEqual(decoded.snapshot.extensions['dev.t3d-next.fixture'], { preserved: true });
+	assert.deepEqual(decoded.snapshot.extensions['dev.zenfg.legacy-fixture'], { preserved: true });
 });
 
-test('returns detached canonical and t3d snapshots without serialization hooks', () => {
+test('returns detached canonical and Legacy Candidate snapshots without serialization hooks', () => {
 	for (const [file, source] of [
 		['minimal.fgsnapshot.json', 'v1'],
-		['legacy-t3d-v1-canonical.json', 't3d-v1'],
+		['legacy-candidate-v1-canonical.json', 'legacy-candidate-v1'],
 	] as const) {
 		const input: any = readJson(`../fixtures/${file}`);
 		const decoded = decodeFrameGraphSnapshot(input);
@@ -271,22 +271,22 @@ test('rejects cyclic and non-JSON programmatic extension values without overflow
 	const cyclic: any = {};
 	cyclic.self = cyclic;
 	const snapshot: any = clone(decodeFixture('minimal.fgsnapshot.json'));
-	snapshot.extensions['dev.t3d.cyclic'] = cyclic;
-	assertIssue(snapshot, 'invalid-json-value', '/extensions/dev.t3d.cyclic/self');
+	snapshot.extensions['dev.zenfg.legacy.cyclic'] = cyclic;
+	assertIssue(snapshot, 'invalid-json-value', '/extensions/dev.zenfg.legacy.cyclic/self');
 	assert.throws(() => stringifyFrameGraphSnapshot(snapshot), (error: unknown) => (
 		error instanceof Error && error.name === 'FrameGraphSnapshotValidationError'
 	));
 
 	for (const value of [undefined, 1n, () => undefined, Symbol('x'), new Date()]) {
 		const invalid: any = clone(decodeFixture('minimal.fgsnapshot.json'));
-		invalid.extensions['dev.t3d.invalid'] = value;
-		assertIssue(invalid, 'invalid-json-value', '/extensions/dev.t3d.invalid');
+		invalid.extensions['dev.zenfg.legacy.invalid'] = value;
+		assertIssue(invalid, 'invalid-json-value', '/extensions/dev.zenfg.legacy.invalid');
 	}
 	const sparse: any[] = [];
 	sparse.length = 1;
 	const invalidSparse: any = clone(decodeFixture('minimal.fgsnapshot.json'));
-	invalidSparse.extensions['dev.t3d.sparse'] = sparse;
-	assertIssue(invalidSparse, 'invalid-json-value', '/extensions/dev.t3d.sparse/0');
+	invalidSparse.extensions['dev.zenfg.legacy.sparse'] = sparse;
+	assertIssue(invalidSparse, 'invalid-json-value', '/extensions/dev.zenfg.legacy.sparse/0');
 });
 
 test('preflights non-extension values and sparse arrays through every public codec entrypoint', () => {
@@ -498,16 +498,16 @@ test('reports one escaped root issue per over-depth extension and preserves acti
 	]);
 });
 
-test('rejects pathological and non-JSON t3d inputs before cloning without mutating them', () => {
+test('rejects pathological and non-JSON Legacy Candidate inputs before cloning without mutating them', () => {
 	for (const [value, path] of [
-		[{ nested: undefined }, '/extensions/dev.t3d.invalid/nested'],
-		[[1n], '/extensions/dev.t3d.invalid/0'],
-		[[() => undefined], '/extensions/dev.t3d.invalid/0'],
-		[{ nested: Symbol('x') }, '/extensions/dev.t3d.invalid/nested'],
-		[[new Date()], '/extensions/dev.t3d.invalid/0'],
+		[{ nested: undefined }, '/extensions/dev.zenfg.legacy.invalid/nested'],
+		[[1n], '/extensions/dev.zenfg.legacy.invalid/0'],
+		[[() => undefined], '/extensions/dev.zenfg.legacy.invalid/0'],
+		[{ nested: Symbol('x') }, '/extensions/dev.zenfg.legacy.invalid/nested'],
+		[[new Date()], '/extensions/dev.zenfg.legacy.invalid/0'],
 	] as const) {
-		const input: any = readJson('../fixtures/legacy-t3d-v1-canonical.json');
-		input.extensions['dev.t3d.invalid'] = value;
+		const input: any = readJson('../fixtures/legacy-candidate-v1-canonical.json');
+		input.extensions['dev.zenfg.legacy.invalid'] = value;
 		const result = decodeFrameGraphSnapshot(input);
 		assert.equal(result.ok, false);
 		if (!result.ok) {
@@ -520,18 +520,18 @@ test('rejects pathological and non-JSON t3d inputs before cloning without mutati
 
 	const cyclic: any = {};
 	cyclic.self = cyclic;
-	const cyclicInput: any = readJson('../fixtures/legacy-t3d-v1-canonical.json');
-	cyclicInput.extensions['dev.t3d.cyclic'] = cyclic;
+	const cyclicInput: any = readJson('../fixtures/legacy-candidate-v1-canonical.json');
+	cyclicInput.extensions['dev.zenfg.legacy.cyclic'] = cyclic;
 	const cyclicResult = decodeFrameGraphSnapshot(cyclicInput);
 	assert.equal(cyclicResult.ok, false);
 	if (!cyclicResult.ok) {
 		assert.ok(cyclicResult.issues.some((issue) => (
 			issue.code === 'invalid-json-value'
-			&& issue.path === '/extensions/dev.t3d.cyclic/self'
+			&& issue.path === '/extensions/dev.zenfg.legacy.cyclic/self'
 		)));
 	}
 
-	const sparseInput: any = readJson('../fixtures/legacy-t3d-v1-canonical.json');
+	const sparseInput: any = readJson('../fixtures/legacy-candidate-v1-canonical.json');
 	const resources = sparseInput.graph.resources as unknown[];
 	resources.length += 1;
 	const sparseResult = decodeFrameGraphSnapshot(sparseInput);
@@ -543,10 +543,10 @@ test('rejects pathological and non-JSON t3d inputs before cloning without mutati
 		)));
 	}
 
-	for (const format of [FRAME_GRAPH_SNAPSHOT_FORMAT, 't3d.frame-graph-snapshot'] as const) {
+	for (const format of [FRAME_GRAPH_SNAPSHOT_FORMAT, 'zenfg.frame-graph-snapshot-candidate'] as const) {
 		const input: any = format === FRAME_GRAPH_SNAPSHOT_FORMAT
 			? clone(decodeFixture('minimal.fgsnapshot.json'))
-			: readJson('../fixtures/legacy-t3d-v1-canonical.json');
+			: readJson('../fixtures/legacy-candidate-v1-canonical.json');
 		input.format = format;
 		input.extensions['dev.zenfg.pathological'] = nestedContainers(10_000, 'alternating');
 		const result = decodeFrameGraphSnapshot(input);
@@ -644,7 +644,7 @@ test('matches the published structural and semantic conformance manifest', () =>
 	type ManifestCase = {
 		readonly id: string;
 		readonly file: string;
-		readonly input: 'v1' | 'legacy-v0' | 't3d-v1' | 'json-text' | 'validator';
+		readonly input: 'v1' | 'legacy-v0' | 'legacy-candidate-v1' | 'json-text' | 'validator';
 		readonly schemaValid: boolean | 'not-applicable';
 		readonly runtimeValid: boolean;
 		readonly canonical?: string;

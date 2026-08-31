@@ -35,6 +35,6 @@ Inspector；执行 `npm run test:cross-language` 可运行 TypeScript/Rust 双�
 
 进一步说明请参阅 [架构](docs/architecture.md)、[语义模型](docs/semantic-model.md)、
 [集成层级](docs/integration.md)、[兼容矩阵](docs/compatibility.md)与
-[迁移基线](docs/migration-baseline.md)。发布变更记录在 [CHANGELOG](CHANGELOG.md)，
+[发布验证](docs/release-validation.md)。发布变更记录在 [CHANGELOG](CHANGELOG.md)，
 首版候选的验收过程见 [0.1.0 发布清单](docs/release-checklist-0.1.0.md)。英文文档是
 规范正文。

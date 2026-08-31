@@ -205,7 +205,7 @@ fn validate_capture(value: Option<&Value>, issues: &mut Vec<SnapshotIssue>) {
         );
         enum_value(
             migration.get("sourceFormat"),
-            &["legacy-v0", "t3d-v1"],
+            &["legacy-v0", "legacy-candidate-v1"],
             "/capture/migration/sourceFormat",
             issues,
         );

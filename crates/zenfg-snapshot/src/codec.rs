@@ -2,8 +2,8 @@ use serde_json::{Map, Value, json};
 
 use crate::{
     FRAME_GRAPH_SNAPSHOT_FORMAT, FRAME_GRAPH_SNAPSHOT_VERSION, FrameGraphSnapshotV1,
-    SnapshotDecodeError, SnapshotDecodeResult, SnapshotDecodeSource, SnapshotIssue,
-    T3D_FRAME_GRAPH_SNAPSHOT_FORMAT, validate_frame_graph_snapshot,
+    LEGACY_CANDIDATE_FRAME_GRAPH_SNAPSHOT_FORMAT, SnapshotDecodeError, SnapshotDecodeResult,
+    SnapshotDecodeSource, SnapshotIssue, validate_frame_graph_snapshot,
 };
 
 const MAX_SAFE_INTEGER: u64 = 9_007_199_254_740_991;
@@ -46,7 +46,7 @@ const ROOT_REASONS: &[&str] = &[
 /// Parses, migrates when necessary, and validates a Snapshot JSON document.
 ///
 /// Canonical ZenFG V1, the historical unversioned Legacy V0 shape, and the
-/// pre-release t3d V1 candidate are accepted. Successful legacy decodes return
+/// pre-release Legacy Candidate V1 format are accepted. Successful legacy decodes return
 /// a canonical [`FrameGraphSnapshotV1`] with migration provenance and warning
 /// issues in [`SnapshotDecodeResult::issues`]. Invalid JSON, unknown formats or
 /// versions, and schema/semantic validation failures return a
@@ -91,16 +91,16 @@ pub fn decode_frame_graph_snapshot(
         );
     };
     match root.get("format").and_then(Value::as_str) {
-        Some(T3D_FRAME_GRAPH_SNAPSHOT_FORMAT) => {
+        Some(LEGACY_CANDIDATE_FRAME_GRAPH_SNAPSHOT_FORMAT) => {
             check_version(root)?;
             finish(
-                migrate_t3d_v1(value),
-                SnapshotDecodeSource::T3dV1,
+                migrate_legacy_candidate_v1(value),
+                SnapshotDecodeSource::LegacyCandidateV1,
                 true,
                 vec![SnapshotIssue::warning(
-                    "t3d-v1-migrated",
+                    "legacy-candidate-v1-migrated",
                     "",
-                    "The t3d V1 candidate was migrated to ZenFG Snapshot 1.0.",
+                    "Legacy Candidate V1 was migrated to ZenFG Snapshot 1.0.",
                 )],
             )
         }
@@ -165,7 +165,7 @@ fn check_version(root: &Map<String, Value>) -> Result<(), SnapshotDecodeError> {
     )
 }
 
-fn migrate_t3d_v1(mut value: Value) -> Value {
+fn migrate_legacy_candidate_v1(mut value: Value) -> Value {
     let root = value.as_object_mut().expect("checked object");
     root.insert(
         "format".into(),
@@ -174,7 +174,7 @@ fn migrate_t3d_v1(mut value: Value) -> Value {
     if let Some(capture) = root.get_mut("capture").and_then(Value::as_object_mut) {
         capture.insert(
             "migration".into(),
-            json!({ "sourceFormat": "t3d-v1", "unavailableFacts": [] }),
+            json!({ "sourceFormat": "legacy-candidate-v1", "unavailableFacts": [] }),
         );
     }
     if let Some(resources) = root

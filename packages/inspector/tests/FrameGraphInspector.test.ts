@@ -321,23 +321,23 @@ test('imports V1 and Legacy JSON atomically without removing the live provider',
 	testWindow.close();
 });
 
-test('imports the t3d V1 candidate with canonical migration provenance and feedback', async () => {
+test('imports Legacy Candidate V1 with canonical migration provenance and feedback', async () => {
 	const testWindow = installDom();
 	const panel = new FrameGraphInspector();
-	const candidate = readWorkspaceJson('packages/snapshot/fixtures/legacy-t3d-v1.json');
+	const candidate = readWorkspaceJson('packages/snapshot/fixtures/legacy-candidate-v1.json');
 
 	await panel.importSnapshot(new testWindow.File(
 		[JSON.stringify(candidate)],
-		'legacy-t3d-v1.json',
+		'legacy-candidate-v1.json',
 		{ type: 'application/json' },
 	) as unknown as File);
 
 	const snapshot = panel.getSnapshot();
 	assert.equal(snapshot?.format, 'zenfg.frame-graph-snapshot');
 	assert.equal(snapshot?.capture.frameIndex, 42);
-	assert.equal(snapshot?.capture.migration?.sourceFormat, 't3d-v1');
+	assert.equal(snapshot?.capture.migration?.sourceFormat, 'legacy-candidate-v1');
 	const status = panel.dom.querySelector<HTMLElement>('.zenfg-inspector-command-status');
-	assert.match(status?.textContent ?? '', /Imported t3d V1 candidate and migrated it to ZenFG Snapshot V1/);
+	assert.match(status?.textContent ?? '', /Imported Legacy Candidate V1 and migrated it to ZenFG Snapshot V1/);
 	assert.equal(status?.dataset.tone, 'neutral');
 
 	panel.destroy();

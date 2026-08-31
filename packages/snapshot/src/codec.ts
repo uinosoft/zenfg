@@ -2,7 +2,7 @@ import {
 	FRAME_GRAPH_SNAPSHOT_FORMAT,
 	FRAME_GRAPH_SNAPSHOT_MAX_EXTENSION_DEPTH,
 	FRAME_GRAPH_SNAPSHOT_VERSION,
-	T3D_FRAME_GRAPH_SNAPSHOT_FORMAT,
+	LEGACY_CANDIDATE_FRAME_GRAPH_SNAPSHOT_FORMAT,
 } from './format.ts';
 import {
 	isLegacyFrameGraphCapture,
@@ -54,7 +54,7 @@ export function validateFrameGraphSnapshot(value: unknown): readonly FrameGraphS
 /**
  * Decodes an already-parsed value into a canonical Snapshot 1.0 document.
  *
- * @remarks Supported legacy V0 and pre-release `t3d` V1 captures are migrated
+ * @remarks Supported Legacy V0 and Legacy Candidate V1 captures are migrated
  * before validation. Successful results identify the source format and carry
  * migration warnings; unsupported, malformed, or semantically invalid values
  * return `{ ok: false, issues }` and do not throw. Decoding and migration do
@@ -90,8 +90,8 @@ export function decodeFrameGraphSnapshot(value: unknown): FrameGraphSnapshotDeco
 		};
 	}
 	const root = asRecord(safeValue);
-	if (root?.format === T3D_FRAME_GRAPH_SNAPSHOT_FORMAT) {
-		return migrateT3dV1(root);
+	if (root?.format === LEGACY_CANDIDATE_FRAME_GRAPH_SNAPSHOT_FORMAT) {
+		return migrateLegacyCandidateV1(root);
 	}
 	if (!root || root.format !== FRAME_GRAPH_SNAPSHOT_FORMAT) {
 		return failure('unsupported-format', '/format', `Expected FrameGraph Snapshot format "${FRAME_GRAPH_SNAPSHOT_FORMAT}".`);
@@ -120,7 +120,7 @@ export function decodeFrameGraphSnapshot(value: unknown): FrameGraphSnapshotDeco
 	};
 }
 
-function migrateT3dV1(value: Record<string, unknown>): FrameGraphSnapshotDecodeResult {
+function migrateLegacyCandidateV1(value: Record<string, unknown>): FrameGraphSnapshotDecodeResult {
 	const version = asRecord(value.version);
 	if (!version || version.major !== 1 || version.minor !== 0) {
 		const actual = version ? `${String(version.major)}.${String(version.minor)}` : 'missing';
@@ -138,7 +138,7 @@ function migrateT3dV1(value: Record<string, unknown>): FrameGraphSnapshotDecodeR
 	}
 	candidate.capture = {
 		...capture,
-		migration: { sourceFormat: 't3d-v1', unavailableFacts: [] },
+		migration: { sourceFormat: 'legacy-candidate-v1', unavailableFacts: [] },
 	};
 	const resources = Array.from(graph.resources, (entry) => {
 		const resource = asRecord(entry);
@@ -157,13 +157,13 @@ function migrateT3dV1(value: Record<string, unknown>): FrameGraphSnapshotDecodeR
 	return {
 		ok: true,
 		snapshot: candidate as FrameGraphSnapshot,
-		source: 't3d-v1',
+		source: 'legacy-candidate-v1',
 		migrated: true,
 		issues: [{
 			severity: 'warning',
-			code: 't3d-v1-migrated',
+			code: 'legacy-candidate-v1-migrated',
 			path: '',
-			message: 'The t3d V1 candidate was migrated to ZenFG Snapshot 1.0.',
+			message: 'Legacy Candidate V1 was migrated to ZenFG Snapshot 1.0.',
 		}],
 	};
 }

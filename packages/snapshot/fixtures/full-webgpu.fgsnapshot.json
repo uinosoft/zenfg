@@ -321,7 +321,7 @@
     }
   ],
   "extensions": {
-    "dev.t3d-next.fixture": {
+    "dev.zenfg.legacy-fixture": {
       "captureReason": "golden-test",
       "quality": 1
     }
