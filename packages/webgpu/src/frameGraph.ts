@@ -30,6 +30,7 @@ import {
 	type ResourceAccess,
 	type ResourceHandle,
 	type ResourceUse,
+	type SynchronousCallback,
 	type TextureDesc,
 	type TextureHandle,
 	type TextureUse,
@@ -149,6 +150,26 @@ function isPromiseLike(value: unknown): value is PromiseLike<unknown> {
 	return value !== null
 		&& (typeof value === 'object' || typeof value === 'function')
 		&& typeof (value as { readonly then?: unknown }).then === 'function';
+}
+
+function assertSynchronousCallbackResult(name: string, result: unknown): void {
+	if (!isPromiseLike(result)) {
+		return;
+	}
+	// Consume a later rejection while preserving the synchronous contract error.
+	void Promise.resolve(result).catch(() => undefined);
+	throw new Error(`${name} callback must complete synchronously.`);
+}
+
+function invokeSynchronousCallback<TContext>(
+	name: string,
+	callback: ((context: TContext) => unknown) | undefined,
+	context: TContext,
+): void {
+	if (!callback) {
+		return;
+	}
+	assertSynchronousCallbackResult(name, callback(context));
 }
 
 function snapshotColor(value: GPUColor | undefined, field: string): GPUColorDict | undefined {
@@ -354,9 +375,7 @@ class FrameGraphRecorderImpl implements FrameGraphRecorder {
 		this.pushDebugGroup(label);
 		try {
 			const result = record();
-			if (isPromiseLike(result)) {
-				throw new Error('FrameGraph.withDebugGroup() callback must complete synchronously.');
-			}
+			assertSynchronousCallbackResult('FrameGraph.withDebugGroup()', result);
 			return result;
 		}
 		finally {
@@ -1349,6 +1368,7 @@ class FrameGraphRecorderImpl implements FrameGraphRecorder {
 			throw new Error('CompiledFrame has no executable plan.');
 		}
 		const frameIndex = options.frameIndex ?? 0;
+		assertNonNegativeSafeInteger(frameIndex, 'CompiledFrame.execute() frameIndex');
 		const resourceByLogicalId = new Map<number, GPUTexture | GPUBuffer>();
 		const resourceByAllocationId = new Map<number, GPUTexture | GPUBuffer>();
 		const textureViewCache = new Map<string, GPUTextureView>();
@@ -1446,7 +1466,7 @@ class FrameGraphRecorderImpl implements FrameGraphRecorder {
 				if (gpuDebugGroups) {
 					this.syncGpuDebugGroups(commandEncoder, activeDebugGroupPath, []);
 				}
-				options.beforeSubmit?.({
+				invokeSynchronousCallback('FrameGraph.beforeSubmit', options.beforeSubmit, {
 					device: this.device,
 					commandEncoder,
 					frameIndex,
@@ -1459,7 +1479,7 @@ class FrameGraphRecorderImpl implements FrameGraphRecorder {
 				this.device.queue.submit([commandEncoder.finish()]);
 				frameGraphSegmentIndex++;
 			}
-			options.afterSubmit?.({ device: this.device, frameIndex });
+			invokeSynchronousCallback('FrameGraph.afterSubmit', options.afterSubmit, { device: this.device, frameIndex });
 			readGpuTimingFrame(this.gpuProfiler, gpuTiming?.frame);
 		}
 		catch (error) {
@@ -1535,7 +1555,7 @@ class FrameGraphRecorderImpl implements FrameGraphRecorder {
 		}
 		const ctx = this.createExecuteContext(node, { ...options, commandEncoder: undefined });
 		try {
-			node.externalSubmit({
+			invokeSynchronousCallback('FrameGraph.externalSubmit', node.externalSubmit, {
 				frameIndex: ctx.frameIndex,
 				device: ctx.device,
 				unwrap: ctx.unwrap,
@@ -1563,7 +1583,7 @@ class FrameGraphRecorderImpl implements FrameGraphRecorder {
 				case 'render': {
 					const renderPass = options.commandEncoder.beginRenderPass(this.createRenderPassDescriptor(node, baseContext, options.gpuTimingQuery));
 					try {
-						node.renderEncode?.({ frameIndex: baseContext.frameIndex, device: baseContext.device, pass: renderPass, unwrap: baseContext.unwrap });
+						invokeSynchronousCallback('FrameGraph.render encode', node.renderEncode, { frameIndex: baseContext.frameIndex, device: baseContext.device, pass: renderPass, unwrap: baseContext.unwrap });
 					}
 					finally {
 						renderPass.end();
@@ -1573,7 +1593,7 @@ class FrameGraphRecorderImpl implements FrameGraphRecorder {
 				case 'compute': {
 					const computePass = options.commandEncoder.beginComputePass(this.createComputePassDescriptor(node, options.gpuTimingQuery));
 					try {
-						node.computeEncode?.({ frameIndex: baseContext.frameIndex, device: baseContext.device, pass: computePass, unwrap: baseContext.unwrap });
+						invokeSynchronousCallback('FrameGraph.compute encode', node.computeEncode, { frameIndex: baseContext.frameIndex, device: baseContext.device, pass: computePass, unwrap: baseContext.unwrap });
 					}
 					finally {
 						computePass.end();
@@ -1587,7 +1607,7 @@ class FrameGraphRecorderImpl implements FrameGraphRecorder {
 					this.executeClearBufferOperations(node, options.commandEncoder, baseContext);
 					return;
 				case 'command':
-					node.commandEncode?.({ frameIndex: baseContext.frameIndex, device: baseContext.device, encoder: options.commandEncoder, unwrap: baseContext.unwrap });
+					invokeSynchronousCallback('FrameGraph.command encode', node.commandEncode, { frameIndex: baseContext.frameIndex, device: baseContext.device, encoder: options.commandEncoder, unwrap: baseContext.unwrap });
 					return;
 				case 'external-submission':
 					throw new Error(`External submission node "${node.label ?? node.id}" cannot execute inside a FrameGraph command segment.`);
@@ -1830,10 +1850,10 @@ class FrameGraphRecorderImpl implements FrameGraphRecorder {
 		readonly renderPass?: InternalNode['renderPass'];
 		readonly copyOperations?: readonly CopyOperation[];
 		readonly clearBufferOperations?: readonly ClearBufferOperation[];
-		readonly renderEncode?: (ctx: RenderEncodeContext) => void;
-		readonly computeEncode?: (ctx: ComputeEncodeContext) => void;
-		readonly commandEncode?: (ctx: CommandEncodeContext) => void;
-		readonly externalSubmit?: (ctx: ExternalSubmissionContext) => void;
+		readonly renderEncode?: SynchronousCallback<RenderEncodeContext>;
+		readonly computeEncode?: SynchronousCallback<ComputeEncodeContext>;
+		readonly commandEncode?: SynchronousCallback<CommandEncodeContext>;
+		readonly externalSubmit?: SynchronousCallback<ExternalSubmissionContext>;
 	}): void {
 		// A node observes one pre-node value regardless of declaration order. Reads
 		// therefore enter dependency analysis before writes so a same-node write

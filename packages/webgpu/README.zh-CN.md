@@ -366,8 +366,11 @@ submission：
   和 uncaptured error 由调用方处理。
 - 导入资源和 callback 使用的 GPU 状态必须属于该 device；WebGPU 没有可移植的 device
   identity 检查。
-- 节点 callback、external `submit`、`beforeSubmit` 和 `afterSubmit` 都是同步的；返回值
-  会被忽略，绝不会被 await。
+- 节点 callback、external `submit`、`beforeSubmit` 和 `afterSubmit` 都是同步的；返回类型
+  必须是 `undefined`。async 函数、Promise-like 返回值和其他返回值都会被拒绝。运行时也会
+  保护 JavaScript 调用方以及被擦除或强制转换的 TypeScript 代码。
+- `execute({ frameIndex })` 要求传入非负安全整数。非法值会在资源申请、GPU timing 初始化和
+  callback 执行之前被拒绝。
 - Queue submission 不是事务。已经成功提交的 segment 无法在后续 encoding、callback 或
   submission 失败时回滚。
 - Transient pool 没有自动显存预算或淘汰策略。资源会一直保留到复用、
@@ -418,6 +421,8 @@ External contract 很严格：
 - Transient 资源必须通过当前 `unwrap()` 获取，不能逃逸同步 callback，也不能被稍后入队的
   工作使用。
 - 所有图可见工作都必须在 callback 返回前入队到传入的 `device.queue`。
+- 返回 Promise-like 值违反同步契约。FrameGraph 会拒绝它且不会 await；callback 返回前已经
+  执行的工作无法回滚。
 - FrameGraph 无法检查不透明 command，也无法确认实际访问与声明一致。
 
 Opacity 与 retention 是两件事。External node 默认是 side effect；不可达的
@@ -431,7 +436,7 @@ segment 不触发它。
 
 `afterSubmit` 在所有保留 segment 成功之后、transient 资源归还 pool 之前执行一次。此时
 queue submission 已发生，但不代表 GPU 已完成。它适合 post-submit bookkeeping 或启动
-调用方自有 readback polling。
+调用方自有 readback polling，并且必须同步返回 `undefined`。
 
 多次执行会复用完全相同的已记录 callback 和导入对象。FrameGraph 不验证它们是否持续有效，
 因此 conditional re-execution 由调用方决策，通常不适用于 swapchain recording。

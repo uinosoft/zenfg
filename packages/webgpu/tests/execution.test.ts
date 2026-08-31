@@ -64,22 +64,22 @@ test('retained nodes execute as a stable subsequence of recording order', () => 
 		label: 'producer',
 		sideEffect: false,
 		uses: [write],
-		encode: () => events.push('producer'),
+		encode: () => { events.push('producer'); },
 	});
 	const read = graph.use(token, BufferAccess.StorageRead);
 	graph.command({
 		label: 'dependent',
 		uses: [read],
-		encode: () => events.push('dependent'),
+		encode: () => { events.push('dependent'); },
 	});
 	graph.command({
 		label: 'culled',
 		sideEffect: false,
-		encode: () => events.push('culled'),
+		encode: () => { events.push('culled'); },
 	});
 	graph.command({
 		label: 'independent',
-		encode: () => events.push('independent'),
+		encode: () => { events.push('independent'); },
 	});
 
 	const compiled = graph.compile({ report: true });
@@ -108,7 +108,7 @@ test('WebGPU debug groups stay disabled by default', () => {
 	});
 	const graph = new FrameGraph(mockDevice(commandEncoder)).beginFrame();
 	graph.withDebugGroup('Feature', () => {
-		graph.command({ encode: () => calls.push('node') });
+		graph.command({ encode: () => { calls.push('node'); } });
 	});
 
 	graph.compile().execute();
@@ -132,23 +132,23 @@ test('WebGPU debug groups follow retained recording paths without requiring a re
 	});
 	const graph = new FrameGraph(mockDevice(commandEncoder)).beginFrame();
 	graph.withDebugGroup('Culled', () => {
-		graph.command({ sideEffect: false, encode: () => calls.push('culled') });
+		graph.command({ sideEffect: false, encode: () => { calls.push('culled'); } });
 	});
 	graph.withDebugGroup('PostFX', () => {
 		graph.withDebugGroup('Bloom', () => {
-			graph.command({ encode: () => calls.push('bloom-1') });
-			graph.command({ encode: () => calls.push('bloom-2') });
+			graph.command({ encode: () => { calls.push('bloom-1'); } });
+			graph.command({ encode: () => { calls.push('bloom-2'); } });
 		});
 		graph.withDebugGroup('FXAA', () => {
-			graph.command({ encode: () => calls.push('fxaa') });
+			graph.command({ encode: () => { calls.push('fxaa'); } });
 		});
-		graph.command({ encode: () => calls.push('postfx') });
+		graph.command({ encode: () => { calls.push('postfx'); } });
 	});
-	graph.command({ encode: () => calls.push('present') });
+	graph.command({ encode: () => { calls.push('present'); } });
 
 	graph.compile().execute({
 		gpuDebugGroups: true,
-		beforeSubmit: () => calls.push('beforeSubmit'),
+		beforeSubmit: () => { calls.push('beforeSubmit'); },
 	});
 
 	assert.deepEqual(calls, [
@@ -180,10 +180,10 @@ test('adjacent duplicate debug group labels emit independent WebGPU markers', ()
 	});
 	const graph = new FrameGraph(mockDevice(commandEncoder)).beginFrame();
 	graph.withDebugGroup(' Same ', () => {
-		graph.command({ encode: () => calls.push('first') });
+		graph.command({ encode: () => { calls.push('first'); } });
 	});
 	graph.withDebugGroup('Same', () => {
-		graph.command({ encode: () => calls.push('second') });
+		graph.command({ encode: () => { calls.push('second'); } });
 	});
 
 	graph.compile().execute({ gpuDebugGroups: true });
@@ -226,19 +226,19 @@ test('WebGPU debug groups reopen around external submission segments', () => {
 	} as unknown as GPUDevice;
 	const graph = new FrameGraph(device).beginFrame();
 	graph.withDebugGroup('PostFX', () => {
-		graph.command({ encode: () => calls.push('before') });
+		graph.command({ encode: () => { calls.push('before'); } });
 		graph.externalSubmission({
 			submit(ctx) {
 				calls.push('external');
 				ctx.device.queue.submit([]);
 			},
 		});
-		graph.command({ encode: () => calls.push('after') });
+		graph.command({ encode: () => { calls.push('after'); } });
 	});
 
 	graph.compile().execute({
 		gpuDebugGroups: true,
-		beforeSubmit: ({ segmentIndex }) => calls.push(`beforeSubmit:${segmentIndex}`),
+		beforeSubmit: ({ segmentIndex }) => { calls.push(`beforeSubmit:${segmentIndex}`); },
 	});
 
 	assert.deepEqual(calls, [
@@ -1056,4 +1056,157 @@ test('execute rejects resolving resources not declared by the node', () => {
 	});
 
 	assert.throws(() => executeCompiled(graph), /was not declared.*node/);
+});
+
+test('execute rejects asynchronous render and compute callbacks before submission', () => {
+	let endCount = 0;
+	let submitCount = 0;
+	const commandEncoder = mockCommandEncoder({
+		beginRenderPass() {
+			return { end() { endCount++; } };
+		},
+		beginComputePass() {
+			return { end() { endCount++; } };
+		},
+	});
+	const device = {
+		...mockDevice(commandEncoder),
+		queue: { submit() { submitCount++; } },
+	} as unknown as GPUDevice;
+
+	const renderGraph = new FrameGraph(device).beginFrame();
+	const color = renderGraph.createTexture({ format: 'rgba8unorm', size: [1, 1] });
+	renderGraph.render({
+		colorAttachments: [{ target: color, loadOp: 'clear', storeOp: 'store' }],
+		encode: (async () => {}) as unknown as never,
+	});
+	renderGraph.markOutput(color);
+	assert.throws(() => renderGraph.compile().execute(), /FrameGraph\.render encode callback must complete synchronously/);
+	assert.equal(endCount, 1);
+	assert.equal(submitCount, 0);
+
+	const computeGraph = new FrameGraph(device).beginFrame();
+	computeGraph.compute({ sideEffect: true, encode: (async () => {}) as unknown as never });
+	assert.throws(() => computeGraph.compile().execute(), /FrameGraph\.compute encode callback must complete synchronously/);
+	assert.equal(endCount, 2);
+	assert.equal(submitCount, 0);
+});
+
+test('execute rejects asynchronous command callbacks before finishing the encoder', () => {
+	let finishCount = 0;
+	const commandEncoder = mockCommandEncoder({
+		finish() {
+			finishCount++;
+			return {} as GPUCommandBuffer;
+		},
+	});
+	const graph = new FrameGraph(mockDevice(commandEncoder)).beginFrame();
+	graph.command({ encode: (async () => {}) as unknown as never });
+
+	assert.throws(() => graph.compile().execute(), /FrameGraph\.command encode callback must complete synchronously/);
+	assert.equal(finishCount, 0);
+});
+
+test('execute rejects asynchronous external, beforeSubmit, and afterSubmit callbacks', () => {
+	let submitCount = 0;
+	let encoderCount = 0;
+	const device = {
+		...mockDevice(),
+		createCommandEncoder() {
+			encoderCount++;
+			return mockCommandEncoder();
+		},
+		queue: { submit() { submitCount++; } },
+	} as unknown as GPUDevice;
+
+	const externalGraph = new FrameGraph(device).beginFrame();
+	externalGraph.externalSubmission({ submit: (async () => {}) as unknown as never });
+	assert.throws(() => externalGraph.compile().execute(), /FrameGraph\.externalSubmit callback must complete synchronously/);
+	assert.equal(encoderCount, 0);
+	assert.equal(submitCount, 0);
+
+	const beforeGraph = new FrameGraph(device).beginFrame();
+	beforeGraph.command({ encode() {} });
+	assert.throws(
+		() => beforeGraph.compile().execute({ beforeSubmit: (async () => {}) as unknown as never }),
+		/FrameGraph\.beforeSubmit callback must complete synchronously/,
+	);
+	assert.equal(submitCount, 0);
+
+	const afterGraph = new FrameGraph(device).beginFrame();
+	afterGraph.command({ encode() {} });
+	assert.throws(
+		() => afterGraph.compile().execute({ afterSubmit: (async () => {}) as unknown as never }),
+		/FrameGraph\.afterSubmit callback must complete synchronously/,
+	);
+	assert.equal(submitCount, 1);
+});
+
+test('execute rejects custom thenables at synchronous callback boundaries', () => {
+	const thenable = { then() {} };
+	const graph = new FrameGraph(mockDevice()).beginFrame();
+	graph.command({ encode: (() => thenable) as unknown as never });
+
+	assert.throws(() => graph.compile().execute(), /FrameGraph\.command encode callback must complete synchronously/);
+});
+
+test('execute consumes rejected asynchronous callback results', async () => {
+	let unhandled = false;
+	const onUnhandledRejection = () => {
+		unhandled = true;
+	};
+	process.once('unhandledRejection', onUnhandledRejection);
+	try {
+		const graph = new FrameGraph(mockDevice()).beginFrame();
+		graph.command({
+			encode: (async () => {
+				throw new Error('late callback failure');
+			}) as unknown as never,
+		});
+		assert.throws(() => graph.compile().execute(), /FrameGraph\.command encode callback must complete synchronously/);
+		await new Promise<void>((resolve) => setImmediate(resolve));
+		assert.equal(unhandled, false);
+	}
+	finally {
+		process.removeListener('unhandledRejection', onUnhandledRejection);
+	}
+});
+
+test('execute validates frameIndex before allocating or executing', () => {
+	let encoderCount = 0;
+	let resourceCount = 0;
+	let callbackCount = 0;
+	const baseDevice = mockDevice();
+	const device = {
+		...baseDevice,
+		createCommandEncoder() {
+			encoderCount++;
+			return mockCommandEncoder();
+		},
+		createBuffer(desc: GPUBufferDescriptor) {
+			resourceCount++;
+			return baseDevice.createBuffer(desc);
+		},
+	} as unknown as GPUDevice;
+	const graph = new FrameGraph(device).beginFrame();
+	const output = graph.createBuffer({ size: 4 });
+	graph.command({
+		uses: [graph.use(output, BufferAccess.StorageWrite, { contents: 'overwrite' })],
+		encode() { callbackCount++; },
+	});
+	graph.markOutput(output);
+	const compiled = graph.compile();
+
+	for (const frameIndex of [Number.NaN, Number.POSITIVE_INFINITY, -1, 1.5, Number.MAX_SAFE_INTEGER + 1]) {
+		assert.throws(
+			() => compiled.execute({ frameIndex }),
+			/CompiledFrame\.execute\(\) frameIndex must be a non-negative safe integer/,
+			String(frameIndex),
+		);
+	}
+	assert.equal(encoderCount, 0);
+	assert.equal(resourceCount, 0);
+	assert.equal(callbackCount, 0);
+
+	assert.doesNotThrow(() => compiled.execute({ frameIndex: Number.MAX_SAFE_INTEGER }));
 });

@@ -90,6 +90,8 @@ test('public recording and compiled-frame types enforce lifecycle and typed-use 
 				void [view, nativeBuffer, wrongBuffer, forged, bufferSize];
 			},
 		});
+		// @ts-expect-error Render encode callbacks must return undefined synchronously.
+		recorder.render({ encode: async () => {} });
 		recorder.compute({
 			uses: [sampled],
 			encode(ctx) {
@@ -97,6 +99,8 @@ test('public recording and compiled-frame types enforce lifecycle and typed-use 
 				ctx.encoder;
 			},
 		});
+		// @ts-expect-error Compute encode callbacks must return undefined synchronously.
+		recorder.compute({ encode: async () => {} });
 		recorder.command({
 			uses: [copied],
 			encode(ctx) {
@@ -104,6 +108,12 @@ test('public recording and compiled-frame types enforce lifecycle and typed-use 
 				void [ctx.encoder, nativeTexture];
 			},
 		});
+		// @ts-expect-error Command encode callbacks must return undefined synchronously.
+		recorder.command({ encode: async () => {} });
+		// @ts-expect-error Command encode callback return values are ignored.
+		recorder.command({ encode: () => 1 });
+		// @ts-expect-error External submit callbacks must return undefined synchronously.
+		recorder.externalSubmission({ submit: async () => {} });
 		const groupedValue: number = recorder.withDebugGroup('Typed Group', () => 1);
 		// @ts-expect-error Debug group recording must be synchronous.
 		recorder.withDebugGroup('Async Group', async () => {});
@@ -114,6 +124,10 @@ test('public recording and compiled-frame types enforce lifecycle and typed-use 
 		void groupedValue;
 
 		const plain = runtime.beginFrame().compile();
+		// @ts-expect-error beforeSubmit callbacks must return undefined synchronously.
+		plain.execute({ beforeSubmit: async () => {} });
+		// @ts-expect-error afterSubmit callbacks must return undefined synchronously.
+		plain.execute({ afterSubmit: async () => {} });
 		plain.execute({ gpuDebugGroups: true });
 		// @ts-expect-error Plain compiled frames do not expose a compilation report.
 		plain.compilationReport;

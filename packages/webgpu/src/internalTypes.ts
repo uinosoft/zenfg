@@ -15,6 +15,7 @@ import type {
 	ResourceHandle,
 	ResourceKind,
 	ResourceOrigin,
+	SynchronousCallback,
 	InitialContents,
 	TextureDesc,
 	TextureAccess,
@@ -137,10 +138,10 @@ export type InternalNode = {
 	};
 	readonly copyOperations?: readonly CopyOperation[];
 	readonly clearBufferOperations?: readonly ClearBufferOperation[];
-	readonly renderEncode?: (ctx: RenderEncodeContext) => void;
-	readonly computeEncode?: (ctx: ComputeEncodeContext) => void;
-	readonly commandEncode?: (ctx: CommandEncodeContext) => void;
-	readonly externalSubmit?: (ctx: ExternalSubmissionContext) => void;
+	readonly renderEncode?: SynchronousCallback<RenderEncodeContext>;
+	readonly computeEncode?: SynchronousCallback<ComputeEncodeContext>;
+	readonly commandEncode?: SynchronousCallback<CommandEncodeContext>;
+	readonly externalSubmit?: SynchronousCallback<ExternalSubmissionContext>;
 };
 
 export type PhysicalAllocation = {

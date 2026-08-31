@@ -419,7 +419,11 @@ encoding, and queue submission within these limits:
 - Imported resources and callback-owned GPU state must belong to that device;
   WebGPU exposes no portable device-identity check.
 - Node callbacks, external `submit`, `beforeSubmit`, and `afterSubmit` are
-  synchronous. Their return values are ignored and never awaited.
+  synchronous. Their return type is `undefined`; async functions, Promise-like
+  results, and other return values are rejected. Runtime checks also protect
+  JavaScript callers and erased or cast TypeScript code.
+- `execute({ frameIndex })` requires a non-negative safe integer. Invalid values
+  are rejected before resource acquisition, GPU timing setup, or callback execution.
 - Queue submission is not transactional. Successfully submitted segments cannot
   be rolled back if later encoding, callbacks, or submissions fail.
 - The transient pool has no automatic memory budget or eviction policy. Resources
@@ -477,6 +481,9 @@ The external contract is strict:
   escape the synchronous callback or be used by work enqueued later.
 - All graph-visible work must be enqueued on the supplied `device.queue` before
   the callback returns.
+- Returning a Promise-like value is a synchronous contract violation. FrameGraph
+  rejects it and does not await it; work already performed before the callback
+  returned cannot be rolled back.
 - FrameGraph cannot inspect opaque commands or verify that actual accesses match
   declarations.
 
@@ -493,7 +500,7 @@ after graph nodes and before that segment is finished. It receives
 `afterSubmit` runs once after every retained segment succeeds and before transient
 resources return to the pool. Queue submission has occurred, but GPU completion is
 not implied. It is suitable for post-submit bookkeeping or starting caller-owned
-readback polling.
+readback polling. It must return `undefined` synchronously.
 
 Multiple executions reuse the exact recorded callbacks and imported objects.
 FrameGraph does not verify their continued validity, so conditional re-execution

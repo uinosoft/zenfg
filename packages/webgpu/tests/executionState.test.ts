@@ -14,9 +14,10 @@ for (const source of ['node', 'external-submission', 'beforeSubmit', 'afterSubmi
 		const recorder = runtime.beginFrame();
 		let compiled!: CompiledFrame;
 		let callbackCount = 0;
-		const recurse = () => {
+		const recurse = (): undefined => {
 			callbackCount++;
 			assertNestedExecute(() => compiled.execute());
+			return undefined;
 		};
 		if (source === 'external-submission') recorder.externalSubmission({ submit: recurse });
 		else recorder.command({ sideEffect: true, encode: source === 'node' ? recurse : undefined });

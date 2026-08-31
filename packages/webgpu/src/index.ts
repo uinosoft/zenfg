@@ -68,6 +68,7 @@ export type {
 	WriteContents,
 	WriteUseOptions,
 	NormalizedTextureViewDesc,
+	SynchronousCallback,
 	FrameGraphRecorder,
 	FrameGraphRecording,
 } from './types.ts';

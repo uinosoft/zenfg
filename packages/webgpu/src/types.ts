@@ -612,6 +612,9 @@ type ResourceUnwrapContext = {
 	unwrap<TUse extends ResourceUse>(use: TUse): UnwrappedResource<TUse>;
 };
 
+/** A callback whose result is intentionally ignored and must complete synchronously. */
+export type SynchronousCallback<TContext> = (ctx: TContext) => undefined;
+
 /** Context for a synchronous render-pass encode callback. */
 export type RenderEncodeContext = ResourceUnwrapContext & {
 	readonly pass: GPURenderPassEncoder;
@@ -657,7 +660,7 @@ export type RenderPassNodeDesc = {
 	/** Retains the node even when no marked root consumes its outputs. Defaults to `false`. */
 	readonly sideEffect?: boolean;
 	/** Synchronous render command callback. */
-	readonly encode?: (ctx: RenderEncodeContext) => void;
+	readonly encode?: SynchronousCallback<RenderEncodeContext>;
 };
 
 /**
@@ -673,7 +676,7 @@ export type ComputePassNodeDesc = {
 	/** Retains the node even when no marked root consumes its outputs. Defaults to `false`. */
 	readonly sideEffect?: boolean;
 	/** Synchronous compute command callback. */
-	readonly encode?: (ctx: ComputeEncodeContext) => void;
+	readonly encode?: SynchronousCallback<ComputeEncodeContext>;
 };
 
 /**
@@ -820,8 +823,8 @@ export type CommandNodeDesc = {
 	readonly uses?: readonly ResourceUse[];
 	/** Whether the command node is a retention root. Defaults to `true`. */
 	readonly sideEffect?: boolean;
-	/** Synchronous command-recording callback. */
-	readonly encode?: (ctx: CommandEncodeContext) => void;
+	/** Synchronous command-recording callback that must return `undefined`. */
+	readonly encode?: SynchronousCallback<CommandEncodeContext>;
 };
 
 /**
@@ -849,9 +852,9 @@ export type ExternalSubmissionNodeDesc = {
 	/**
 	 * Must enqueue all graph-visible GPU work on `ctx.device.queue` before
 	 * returning. Resolved transient resources must not escape the callback.
-	 * FrameGraph ignores the return value and does not await this callback.
+	 * The callback must return `undefined`; FrameGraph does not await it.
 	 */
-	readonly submit: (ctx: ExternalSubmissionContext) => void;
+	readonly submit: SynchronousCallback<ExternalSubmissionContext>;
 };
 
 type FrameGraphCompilationAccessBase = {
@@ -1081,7 +1084,8 @@ export type CompiledFrameAfterSubmitContext = {
  */
 export type CompiledFrameExecuteOptions = {
 	/**
-	 * Logical frame identifier used by callbacks and GPU timing reports.
+	 * Logical frame identifier used by callbacks and GPU timing reports. It must
+	 * be a non-negative safe integer.
 	 *
 	 * @defaultValue `0`
 	 */
@@ -1097,15 +1101,15 @@ export type CompiledFrameExecuteOptions = {
 	/**
 	 * Records caller-owned commands after graph nodes have been encoded and
 	 * before the command buffer is finished and submitted. This callback must
-	 * complete synchronously; its return value is ignored and not awaited.
+	 * complete synchronously and return `undefined`; FrameGraph does not await it.
 	 */
-	readonly beforeSubmit?: (ctx: CompiledFrameSubmitContext) => void;
+	readonly beforeSubmit?: SynchronousCallback<CompiledFrameSubmitContext>;
 	/**
 	 * Runs after queue submission and before transient resources are released
-	 * back to the pool. This callback must complete synchronously; its return
-	 * value is ignored and not awaited.
+	 * back to the pool. This callback must complete synchronously and return
+	 * `undefined`; FrameGraph does not await it.
 	 */
-	readonly afterSubmit?: (ctx: CompiledFrameAfterSubmitContext) => void;
+	readonly afterSubmit?: SynchronousCallback<CompiledFrameAfterSubmitContext>;
 };
 
 /**

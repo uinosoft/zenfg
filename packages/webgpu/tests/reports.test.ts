@@ -44,7 +44,7 @@ function recordTimedGraph(recorder: FrameGraphRecorder, onExecute?: (frameIndex:
 	recorder.compute({
 		label: 'compute-output',
 		uses: [write],
-		encode: ({ frameIndex }) => onExecute?.(frameIndex),
+		encode: ({ frameIndex }) => { onExecute?.(frameIndex); },
 	});
 	recorder.markOutput(output);
 }

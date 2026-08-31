@@ -5,7 +5,11 @@ packages use independent versions; component tags identify each release.
 
 ## [Unreleased]
 
-No user-facing changes have been recorded after the `0.1.0` release candidate.
+The WebGPU runtime now enforces synchronous execution callbacks in both its
+TypeScript types and runtime checks. Render, compute, command, external
+submission, `beforeSubmit`, and `afterSubmit` callbacks must return `undefined`;
+Promise-like results are rejected without being awaited. `execute()` also rejects
+invalid `frameIndex` values before allocating resources or starting GPU work.
 
 ## 0.1.0 release candidate - 2026-08-31
 
