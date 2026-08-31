@@ -43,6 +43,14 @@ const ROOT_REASONS: &[&str] = &[
     "debug-capture",
 ];
 
+/// Parses, migrates when necessary, and validates a Snapshot JSON document.
+///
+/// Canonical ZenFG V1, the historical unversioned Legacy V0 shape, and the
+/// pre-release t3d V1 candidate are accepted. Successful legacy decodes return
+/// a canonical [`FrameGraphSnapshotV1`] with migration provenance and warning
+/// issues in [`SnapshotDecodeResult::issues`]. Invalid JSON, unknown formats or
+/// versions, and schema/semantic validation failures return a
+/// [`SnapshotDecodeError`].
 pub fn parse_frame_graph_snapshot(text: &str) -> Result<SnapshotDecodeResult, SnapshotDecodeError> {
     let value = serde_json::from_str(text).map_err(|_| {
         SnapshotDecodeError::new(vec![SnapshotIssue::error(
@@ -54,6 +62,11 @@ pub fn parse_frame_graph_snapshot(text: &str) -> Result<SnapshotDecodeResult, Sn
     decode_frame_graph_snapshot(value)
 }
 
+/// Migrates when necessary, validates, and deserializes an arbitrary JSON value.
+///
+/// Use this when JSON parsing is already owned by the caller. Accepted formats
+/// and result semantics are the same as [`parse_frame_graph_snapshot`]. The
+/// input value is consumed so migration can avoid an unnecessary deep clone.
 pub fn decode_frame_graph_snapshot(
     value: Value,
 ) -> Result<SnapshotDecodeResult, SnapshotDecodeError> {

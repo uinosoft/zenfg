@@ -18,8 +18,10 @@
     "benchmark:webgpu": "npm run benchmark:compile --workspace @zenfg/webgpu --",
     "cargo:package-check": "node ./scripts/check-cargo-packages.mjs",
     "dev:inspector": "npm run build:packages && npm run dev --workspace @zenfg/inspector-app",
+    "docs:check": "node ./scripts/check-public-docs.mjs",
     "test:cross-language": "npm run build:packages && node ./scripts/run-cross-language-conformance.mjs",
-    "typecheck": "npm run build:packages && npm run typecheck --workspaces --if-present",
+    "typecheck:examples": "tsc --noEmit -p packages/webgpu/examples/tsconfig.json",
+    "typecheck": "npm run build:packages && npm run typecheck:examples && npm run typecheck --workspaces --if-present",
     "test": "node ./scripts/run-tests.mjs",
     "pack:check": "node ./scripts/check-packages.mjs",
     "migration:manifest": "node ./scripts/write-migration-manifest.mjs"

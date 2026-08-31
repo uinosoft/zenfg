@@ -25,17 +25,49 @@ import { ensureFrameGraphInspectorStyles } from './styles.ts';
 import { sameSelection, type WorkbenchCallbacks } from './panelWorkbenchHelpers.ts';
 import { FrameGraphDebugWorkbench } from './panelWorkbenchView.ts';
 
+/** Construction and safety limits for an embedded {@link FrameGraphInspector}. */
 export type FrameGraphInspectorOptions = {
+	/**
+	 * Produces a live snapshot when capture is requested. The inspector awaits
+	 * promises and displays thrown or rejected errors in its status area.
+	 */
 	captureSnapshot?: () => FrameGraphSnapshot | undefined | Promise<FrameGraphSnapshot | undefined>;
+	/**
+	 * Maximum accepted import size in bytes.
+	 *
+	 * @defaultValue `67108864` (64 MiB)
+	 */
 	maxImportBytes?: number;
-	/** Maximum graph nodes plus edges accepted by automatic layout. Defaults to 5,000. */
+	/**
+	 * Maximum graph nodes plus edges accepted by automatic layout.
+	 *
+	 * @defaultValue `5000`
+	 */
 	maxGraphElements?: number;
 };
 
 const DEFAULT_MAX_IMPORT_BYTES = 64 * 1024 * 1024;
 const DEFAULT_MAX_GRAPH_ELEMENTS = 5_000;
 
+/**
+ * Browser lifecycle controller for one embeddable FrameGraph inspector.
+ *
+ * @remarks The constructor creates, but does not append, {@link dom}. Use
+ * {@link mountFrameGraphInspector} for the common append-and-return workflow.
+ * Async capture, import, and clipboard failures are reported in the UI. Call
+ * {@link destroy} when the controller is no longer needed.
+ *
+ * @example
+ * ```ts
+ * const inspector = new FrameGraphInspector({ captureSnapshot: capture });
+ * document.body.append(inspector.dom);
+ * inspector.setExpanded(true);
+ * // Later:
+ * inspector.destroy();
+ * ```
+ */
 export class FrameGraphInspector {
+	/** Root element owned by this inspector instance. */
 	readonly dom: HTMLElement;
 
 	private readonly shell: InspectorShell;
@@ -63,6 +95,12 @@ export class FrameGraphInspector {
 	private copyFeedbackTimeout: number | undefined;
 	private readonly maxImportBytes: number;
 
+	/**
+	 * Creates a detached inspector UI.
+	 *
+	 * @throws If a configured numeric limit is not a non-negative safe integer,
+	 * or if browser DOM globals are unavailable.
+	 */
 	constructor(options: FrameGraphInspectorOptions = {}) {
 		ensureFrameGraphInspectorStyles();
 		this.captureSnapshotCallback = options.captureSnapshot;
@@ -135,14 +173,25 @@ export class FrameGraphInspector {
 		this.showEmptyState();
 	}
 
+	/** Whether the inspector shell is currently expanded. */
 	get expanded(): boolean {
 		return this.shell.expanded;
 	}
 
+	/**
+	 * Expands or collapses the shell. The first expansion may automatically
+	 * request a live capture when a provider is configured.
+	 */
 	setExpanded(expanded: boolean): void {
 		this.shell.setExpanded(expanded);
 	}
 
+	/**
+	 * Replaces or removes the live-capture provider.
+	 *
+	 * @remarks Installing a provider while expanded may immediately begin an
+	 * asynchronous capture when no snapshot is displayed.
+	 */
 	setCaptureSnapshotProvider(provider: FrameGraphInspectorOptions['captureSnapshot']): void {
 		const changed = this.captureSnapshotCallback !== provider;
 		this.captureSnapshotCallback = provider;
@@ -152,6 +201,13 @@ export class FrameGraphInspector {
 		if (this.expanded) this.maybeAutoCapture();
 	}
 
+	/**
+	 * Requests and displays a live snapshot from the configured provider.
+	 *
+	 * @remarks Concurrent requests are coalesced. Provider errors, invalid
+	 * snapshots, and an unavailable provider are displayed in the inspector and
+	 * do not reject the returned promise.
+	 */
 	async captureSnapshot(): Promise<void> {
 		if (this.destroyed || this.capturing) return;
 		if (!this.captureSnapshotCallback) {
@@ -190,6 +246,11 @@ export class FrameGraphInspector {
 		}
 	}
 
+	/**
+	 * Validates and synchronously displays a programmatic Snapshot 1.0 value.
+	 *
+	 * @throws {@link FrameGraphSnapshotValidationError} if `snapshot` is invalid.
+	 */
 	setSnapshot(snapshot: FrameGraphSnapshot): void {
 		if (this.destroyed) return;
 		this.operationRevision += 1;
@@ -200,10 +261,17 @@ export class FrameGraphInspector {
 		this.applySnapshot(decoded.snapshot, { kind: 'programmatic', label: 'Programmatic' });
 	}
 
+	/** Returns the currently displayed canonical snapshot, if any. */
 	getSnapshot(): FrameGraphSnapshot | undefined {
 		return this.protocolSnapshot;
 	}
 
+	/**
+	 * Reads, migrates, validates, and displays a snapshot JSON file.
+	 *
+	 * @remarks Files above `maxImportBytes`, read failures, invalid JSON, and
+	 * validation failures are displayed in the UI and do not reject the promise.
+	 */
 	async importSnapshot(file: File): Promise<void> {
 		if (this.destroyed) return;
 		const revision = ++this.operationRevision;
@@ -249,6 +317,7 @@ export class FrameGraphInspector {
 		}
 	}
 
+	/** Downloads the displayed snapshot as pretty-printed canonical JSON. */
 	downloadSnapshot(): void {
 		if (this.destroyed || !this.protocolSnapshot) return;
 		const json = stringifyFrameGraphSnapshot(this.protocolSnapshot, { pretty: true });
@@ -260,6 +329,13 @@ export class FrameGraphInspector {
 		URL.revokeObjectURL(url);
 	}
 
+	/**
+	 * Copies the displayed snapshot as pretty-printed canonical JSON.
+	 *
+	 * @remarks Clipboard failures are shown in the UI and do not reject the
+	 * returned promise. A legacy `document.execCommand` fallback is used when the
+	 * async Clipboard API is unavailable.
+	 */
 	async copySnapshotJson(): Promise<void> {
 		if (this.destroyed || this.copying || !this.protocolSnapshot) return;
 		const snapshot = this.protocolSnapshot;
@@ -316,6 +392,10 @@ export class FrameGraphInspector {
 		this.updateGraphModeButtonState();
 	}
 
+	/**
+	 * Idempotently cancels pending UI results, releases graph resources, and
+	 * removes the inspector shell. Do not reuse the controller afterward.
+	 */
 	destroy(): void {
 		if (this.destroyed) return;
 		this.destroyed = true;
@@ -430,6 +510,12 @@ export class FrameGraphInspector {
 	}
 }
 
+/**
+ * Creates an inspector, appends its root element to `host`, and returns its
+ * lifecycle controller.
+ *
+ * @throws If inspector construction fails; see {@link FrameGraphInspector}.
+ */
 export function mountFrameGraphInspector(host: HTMLElement, options?: FrameGraphInspectorOptions): FrameGraphInspector {
 	const inspector = new FrameGraphInspector(options);
 	host.appendChild(inspector.dom);

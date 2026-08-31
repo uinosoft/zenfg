@@ -13,6 +13,10 @@ and optional diagnostics. Callers continue to own scene data, pipelines, bind
 groups, samplers, long-lived GPU resources, setup and resize policy, and concrete
 draw or dispatch behavior.
 
+For a compact package/feature chooser, lifecycle and ownership summary,
+TypeScript/Rust name map, troubleshooting table, and complete recipes, see the
+[ZenFG quick reference](https://github.com/uinosoft/zenfg/blob/main/docs/quick-reference.md).
+
 ```txt
 Caller-owned state -> graph node declarations -> FrameGraph -> ordered GPU commands
 ```
@@ -614,6 +618,10 @@ These checks protect FrameGraph's model; they do not reproduce the complete
 WebGPU descriptor validation matrix or guarantee allocation success.
 
 ## Development
+
+The seven complete, public-entrypoint recipes under [`examples/`](./examples/)
+are type-checked in CI and cover minimal presentation, transient resources,
+imports, persistent state, external submissions, Snapshot export, and GPU timing.
 
 Package-local build and checks:
 

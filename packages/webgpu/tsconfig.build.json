@@ -4,6 +4,7 @@
 		"noEmit": false,
 		"noEmitOnError": true,
 		"declaration": true,
+		"declarationMap": true,
 		"removeComments": false,
 		"sourceMap": true,
 		"inlineSources": true,

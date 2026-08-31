@@ -8,6 +8,10 @@ ZenFG 只管理图可见的 GPU 工作：依赖、顺序、内容有效性、裁
 transient allocation、执行分段与诊断。Scene、Material、Pipeline、Bind Group、
 Camera、surface presentation 和业务策略始终由调用方持有。
 
+开发者与 AI 集成请从英文
+[Quick Reference](docs/quick-reference.md) 开始；它是包与 feature 选择、生命周期、
+ownership/content 语义、双语言 API 映射、常见错误和完整示例索引的单一事实源。
+
 ## 发布物
 
 | 包 | 用途 |

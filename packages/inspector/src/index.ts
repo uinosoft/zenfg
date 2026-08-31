@@ -1,3 +1,14 @@
+/**
+ * Embeds an interactive viewer for live or imported ZenFG FrameGraph Snapshot
+ * documents in a browser page.
+ *
+ * {@link mountFrameGraphInspector} appends the inspector to a host element and
+ * returns its lifecycle controller. Call {@link FrameGraphInspector.destroy}
+ * before discarding the host or replacing the inspector.
+ *
+ * @packageDocumentation
+ */
+
 export type {
 	FrameGraphSnapshot,
 	FrameGraphSnapshotDecodeResult,

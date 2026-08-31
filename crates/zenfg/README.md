@@ -8,6 +8,10 @@ graphs materialize that plan through a cross-frame resource pool and can encode
 and submit retained render, compute, copy, clear, command, and
 external-submission nodes over transient and caller-owned imported resources.
 
+For package and feature selection, cross-language lifecycle and ownership
+mapping, troubleshooting, and links to complete recipes, see the
+[ZenFG quick reference](https://github.com/uinosoft/zenfg/blob/main/docs/quick-reference.md).
+
 ## Installation
 
 ```sh
@@ -18,7 +22,7 @@ cargo add zenfg
 
 | Feature | Enabled by default | Description |
 | --- | --- | --- |
-| `default` | Yes | Core FrameGraph compiler and executor without optional serialization or Snapshot support. |
+| `default` | Yes | Empty feature set; the core FrameGraph compiler and executor are always available. |
 | `serde` | No | Enables Serde serialization for internal report types. |
 | `snapshot` | No | Adds `zenfg-snapshot`, re-exports the Snapshot 1.0 wire API, and enables runtime report export. |
 

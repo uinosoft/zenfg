@@ -71,6 +71,16 @@ const UNAVAILABLE_FACTS: &[&str] = &[
     "graph.accesses.regions",
 ];
 
+/// Validates an arbitrary JSON value against Snapshot 1.0.
+///
+/// The validator checks the wire shape as well as cross-record invariants such
+/// as unique IDs, references, resource/access compatibility, retained state,
+/// migration availability, and JavaScript-safe integers. It accumulates issues
+/// where possible instead of stopping at the first failure. An empty vector
+/// means the value can be decoded as canonical ZenFG V1.
+///
+/// This function does not migrate legacy formats. Use
+/// [`crate::decode_frame_graph_snapshot`] when migration is desired.
 pub fn validate_frame_graph_snapshot(value: &Value) -> Vec<SnapshotIssue> {
     let mut issues = Vec::new();
     let Some(root) = record(Some(value), "", &mut issues) else {

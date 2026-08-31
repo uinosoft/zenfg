@@ -6,7 +6,7 @@
   "sideEffects": false,
   "exports": { ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js" } },
   "types": "./dist/index.d.ts",
-  "files": ["dist", "README.md", "LICENSE"],
+  "files": ["dist", "src", "README.md", "LICENSE"],
   "dependencies": {
     "@zenfg/snapshot": "^0.1.0",
     "cytoscape": "^3.34.1",

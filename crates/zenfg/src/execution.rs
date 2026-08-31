@@ -137,34 +137,69 @@ pub(crate) enum NodeExecutor<'frame> {
     External(ExternalCallback<'frame>),
 }
 
+/// Synchronous callback context for one retained structured render node.
+///
+/// The pass and resolved resources are valid only for this callback invocation.
+/// End the callback normally to end the native render pass.
 pub struct RenderPassContext<'execute> {
+    /// Device that owns the pass resources.
     pub device: &'execute wgpu::Device,
+    /// Active render pass used to set state and issue draw commands.
     pub pass: wgpu::RenderPass<'execute>,
+    /// Resolver for access tokens declared by this graph node.
     pub resources: ExecutionResources<'execute>,
+    /// Caller-defined identity from [`ExecutionOptions`](crate::ExecutionOptions).
     pub frame_index: u64,
 }
 
+/// Synchronous callback context for one retained structured compute node.
 pub struct ComputePassContext<'execute> {
+    /// Device that owns the pass resources.
     pub device: &'execute wgpu::Device,
+    /// Active compute pass used to set state and dispatch workgroups.
     pub pass: wgpu::ComputePass<'execute>,
+    /// Resolver for access tokens declared by this graph node.
     pub resources: ExecutionResources<'execute>,
+    /// Caller-defined identity from [`ExecutionOptions`](crate::ExecutionOptions).
     pub frame_index: u64,
 }
 
+/// Synchronous callback context for direct command encoding.
+///
+/// The encoder is FrameGraph-owned. The callback must not finish or submit it.
 pub struct CommandContext<'execute> {
+    /// Device that owns the encoder and resolved resources.
     pub device: &'execute wgpu::Device,
+    /// Current FrameGraph-owned command encoder.
     pub encoder: &'execute mut wgpu::CommandEncoder,
+    /// Resolver for access tokens declared by this graph node.
     pub resources: ExecutionResources<'execute>,
+    /// Caller-defined identity from [`ExecutionOptions`](crate::ExecutionOptions).
     pub frame_index: u64,
 }
 
+/// Synchronous callback context for caller-controlled queue submission.
+///
+/// FrameGraph submits and closes its preceding encoder segment before invoking
+/// the callback, then starts a new segment for following nodes. The callback may
+/// create its own encoder and submit command buffers through [`Self::queue`].
 pub struct ExternalSubmissionContext<'execute> {
+    /// Device used for caller-owned encoding.
     pub device: &'execute wgpu::Device,
+    /// Queue on which this frame is executing.
     pub queue: &'execute wgpu::Queue,
+    /// Resolver for access tokens declared by this graph node.
     pub resources: ExecutionResources<'execute>,
+    /// Caller-defined identity from [`ExecutionOptions`](crate::ExecutionOptions).
     pub frame_index: u64,
 }
 
+/// Pass-scoped resolver for logical resources declared by typed access tokens.
+///
+/// A token can be resolved only while its declaring pass is executing. Returned
+/// references remain valid only for the callback lifetime. Transient wgpu handles
+/// must not be cloned or retained across callbacks or frames; imported resources
+/// remain caller-owned and may also be held independently by the caller.
 #[derive(Clone, Copy)]
 pub struct ExecutionResources<'execute> {
     pass: PassId,
@@ -174,6 +209,11 @@ pub struct ExecutionResources<'execute> {
 }
 
 impl<'execute> ExecutionResources<'execute> {
+    /// Resolves a buffer access token declared by the executing pass.
+    ///
+    /// Returns [`FrameGraphError::WrongPassToken`] if the token belongs to a
+    /// different pass, or [`FrameGraphError::MissingNativeBinding`] when an
+    /// imported buffer was not bound.
     pub fn buffer<Role: BufferAccessMarker>(
         &self,
         token: AccessToken<'_, Role>,
@@ -191,6 +231,10 @@ impl<'execute> ExecutionResources<'execute> {
         }
     }
 
+    /// Resolves the underlying texture for a texture access token.
+    ///
+    /// Prefer [`Self::texture_view`] when binding or attaching the exact declared
+    /// view. The same pass and native-binding checks as [`Self::buffer`] apply.
     pub fn texture<Role: TextureAccessMarker>(
         &self,
         token: AccessToken<'_, Role>,
@@ -208,6 +252,10 @@ impl<'execute> ExecutionResources<'execute> {
         }
     }
 
+    /// Resolves the normalized native view for a declared texture access.
+    ///
+    /// Repeated compatible accesses share a view within this execution. The view
+    /// is never retained in the cross-frame resource pool.
     pub fn texture_view<Role: TextureAccessMarker>(
         &self,
         token: AccessToken<'_, Role>,

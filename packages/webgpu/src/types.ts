@@ -256,11 +256,23 @@ export type TextureDesc = {
 	readonly viewFormats?: readonly GPUTextureFormat[];
 	/** Positive uint32 texture extent. */
 	readonly size: TextureSize;
-	/** Texture dimension; defaults to `2d`. */
+	/**
+	 * Texture dimension.
+	 *
+	 * @defaultValue `'2d'`
+	 */
 	readonly dimension?: GPUTextureDimension;
-	/** Positive mip level count within the extent-derived maximum; defaults to `1`. */
+	/**
+	 * Positive mip level count within the extent-derived maximum.
+	 *
+	 * @defaultValue `1`
+	 */
 	readonly mipLevelCount?: number;
-	/** Sample count `1` or `4`; defaults to `1`. */
+	/**
+	 * Sample count `1` or `4`.
+	 *
+	 * @defaultValue `1`
+	 */
 	readonly sampleCount?: number;
 	/** Explicit allocation usage, or derived usage when omitted. */
 	readonly usage?: GPUTextureUsageFlags;
@@ -315,13 +327,25 @@ export type NormalizedTextureViewDesc = {
  * @beta
  */
 export type ImportTextureOptions = {
-	/** Optional graph-local label; defaults to the native texture label. */
+	/**
+	 * Optional graph-local label.
+	 *
+	 * @defaultValue The native texture label.
+	 */
 	readonly label?: string;
 	/** Alternate view formats available on the physical texture. */
 	readonly viewFormats?: readonly GPUTextureFormat[];
-	/** Graph-visible usage flags; defaults to the native texture usage. */
+	/**
+	 * Graph-visible usage flags.
+	 *
+	 * @defaultValue The native texture usage.
+	 */
 	readonly exposedUsage?: GPUTextureUsageFlags;
-	/** Initial logical-content state; defaults to `defined`. */
+	/**
+	 * Initial logical-content state.
+	 *
+	 * @defaultValue `'defined'`
+	 */
 	readonly initialContents?: InitialContents;
 };
 
@@ -352,13 +376,29 @@ export type BufferDesc = {
  * @beta
  */
 export type ImportBufferOptions = {
-	/** Optional graph-local label; defaults to the native buffer label. */
+	/**
+	 * Optional graph-local label.
+	 *
+	 * @defaultValue The native buffer label.
+	 */
 	readonly label?: string;
-	/** Graph-visible prefix size in bytes; defaults to the native buffer size. */
+	/**
+	 * Graph-visible prefix size in bytes.
+	 *
+	 * @defaultValue The native buffer size.
+	 */
 	readonly exposedSize?: number;
-	/** Graph-visible usage flags; defaults to the native buffer usage. */
+	/**
+	 * Graph-visible usage flags.
+	 *
+	 * @defaultValue The native buffer usage.
+	 */
 	readonly exposedUsage?: GPUBufferUsageFlags;
-	/** Initial logical-content state; defaults to `defined`. */
+	/**
+	 * Initial logical-content state.
+	 *
+	 * @defaultValue `'defined'`
+	 */
 	readonly initialContents?: InitialContents;
 };
 
@@ -1040,12 +1080,18 @@ export type CompiledFrameAfterSubmitContext = {
  * @beta
  */
 export type CompiledFrameExecuteOptions = {
-	/** Logical frame identifier used by callbacks and GPU timing reports. Defaults to `0`. */
+	/**
+	 * Logical frame identifier used by callbacks and GPU timing reports.
+	 *
+	 * @defaultValue `0`
+	 */
 	readonly frameIndex?: number;
 	/**
 	 * Emits retained recording groups through WebGPU debug commands. Groups are
 	 * balanced independently per FrameGraph-owned execution segment; opaque
-	 * external submissions are not wrapped. Defaults to `false`.
+	 * external submissions are not wrapped.
+	 *
+	 * @defaultValue `false`
 	 */
 	readonly gpuDebugGroups?: boolean;
 	/**
@@ -1085,7 +1131,13 @@ export interface FrameGraphRecording {
 		label: string,
 		record: () => (T extends PromiseLike<unknown> ? never : T),
 	): T;
-	/** Registers a transient texture owned by this recording. */
+	/**
+	 * Registers a transient texture owned by this recording.
+	 *
+	 * @remarks The descriptor is snapshotted and physical allocation is deferred
+	 * until execution.
+	 * @throws If the descriptor is invalid, or the runtime/recorder is unusable.
+	 */
 	createTexture(desc: TextureDesc): TextureHandle;
 	/** Returns snapshotted metadata for a texture owned by this recording. */
 	getTextureDesc(handle: TextureHandle): Readonly<TextureDesc>;
@@ -1097,7 +1149,12 @@ export interface FrameGraphRecording {
 	createBuffer(desc: BufferDesc): BufferHandle;
 	/** Returns snapshotted metadata for a buffer owned by this recording. */
 	getBufferDesc(handle: BufferHandle): Readonly<BufferDesc>;
-	/** Borrows a caller-owned texture with fixed identity for this recording. */
+	/**
+	 * Borrows a caller-owned texture with fixed identity for this recording.
+	 *
+	 * @remarks Ownership and destruction remain with the caller.
+	 * @throws If the exposure options conflict with the native texture.
+	 */
 	importTexture(texture: GPUTexture, options?: ImportTextureOptions): TextureHandle;
 	/**
 	 * Borrows the current swapchain texture; call `markPresent()` separately and
@@ -1118,7 +1175,11 @@ export interface FrameGraphRecording {
 	use<TAccess extends BufferReadAccess>(resource: BufferHandle, access: TAccess, options?: BufferUseOptions): BufferUse<TAccess>;
 	/** Creates a reusable buffer-write declaration with range and content semantics. */
 	use<TAccess extends BufferWriteAccess>(resource: BufferHandle, access: TAccess, options: BufferWriteUseOptions): BufferUse<TAccess>;
-	/** Declares a render-pass node. */
+	/**
+	 * Declares a render-pass node.
+	 *
+	 * @throws If an attachment, declared use, or encode callback contract is invalid.
+	 */
 	render(desc: RenderPassNodeDesc): void;
 	/** Declares a compute-pass node. */
 	compute(desc: ComputePassNodeDesc): void;
@@ -1128,7 +1189,12 @@ export interface FrameGraphRecording {
 	clearBuffer(desc: ClearBufferNodeDesc): void;
 	/** Declares caller-defined commands encoded into a FrameGraph-owned segment. */
 	command(desc: CommandNodeDesc): void;
-	/** Declares an opaque caller-owned submission node; retained nodes split execution segments. */
+	/**
+	 * Declares an opaque caller-owned submission node; retained nodes split
+	 * execution segments.
+	 *
+	 * @remarks The callback is an ordering boundary, not a GPU-completion fence.
+	 */
 	externalSubmission(desc: ExternalSubmissionNodeDesc): void;
 	/** Retains the final visible producer of a swapchain texture for presentation. */
 	markPresent(resource: TextureHandle): void;
@@ -1157,9 +1223,21 @@ export interface FrameGraphRecording {
  * its captured callbacks and borrowed GPU resources remain valid.
  */
 export interface CompiledFrame {
-	/** Executes synchronously without GPU timestamp readback. */
+	/**
+	 * Executes synchronously without GPU timestamp readback.
+	 *
+	 * @throws If encoding, submission, or a callback fails; the runtime was
+	 * destroyed; or another compiled frame is executing.
+	 */
 	execute(options?: CompiledFrameExecuteOptions & { readonly gpuTiming?: false }): void;
-	/** Executes synchronously and returns a promise for GPU timestamp readback. */
+	/**
+	 * Executes synchronously and returns a promise for GPU timestamp readback.
+	 *
+	 * @remarks An unsupported or busy timestamp implementation resolves to an
+	 * `unavailable` report rather than rejecting solely for that condition.
+	 * @throws Synchronously if encoding, submission, or a callback fails; the
+	 * runtime was destroyed; or another compiled frame is executing.
+	 */
 	execute(options: CompiledFrameExecuteOptions & { readonly gpuTiming: true }): Promise<FrameGraphGpuTimingReport>;
 	execute(options: CompiledFrameExecuteOptions & { readonly gpuTiming?: boolean }): void | Promise<FrameGraphGpuTimingReport>;
 }
@@ -1174,6 +1252,10 @@ export interface FrameGraphRecorder extends FrameGraphRecording {
 	/**
 	 * Consumes this recorder and resolves ordered logical values into a compact,
 	 * conditionally re-executable payload.
+	 *
+	 * @remarks The recorder is consumed atomically even when compilation fails.
+	 * @throws If declarations are inconsistent or invalid, a debug group remains
+	 * open, the runtime was destroyed, or this recorder was already consumed.
 	 */
 	compile(): CompiledFrame;
 	compile(options: { readonly report?: false }): CompiledFrame;

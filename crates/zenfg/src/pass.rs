@@ -16,14 +16,18 @@ mod sealed {
     pub trait Sealed {}
 }
 
+/// Sealed type-level role carried by an [`AccessToken`].
 pub trait AccessMarker: sealed::Sealed + Copy {}
 
+/// Access role that resolves to a [`wgpu::Buffer`] during execution.
 pub trait BufferAccessMarker: AccessMarker {}
 
+/// Access role that resolves to a [`wgpu::Texture`] or [`wgpu::TextureView`].
 pub trait TextureAccessMarker: AccessMarker {}
 
 macro_rules! define_marker {
     ($($name:ident),+ $(,)?) => {$ (
+        #[doc = concat!("Type marker for the `", stringify!($name), "` access role.")]
         #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
         pub struct $name;
         impl sealed::Sealed for $name {}
@@ -93,20 +97,28 @@ pub struct AccessToken<'frame, Role: AccessMarker> {
 }
 
 impl<Role: AccessMarker> AccessToken<'_, Role> {
+    /// Returns the pass that declared this access.
     pub const fn pass_id(self) -> PassId {
         self.pass
     }
 
+    /// Returns the recording-local identity of this access.
     pub const fn access_id(self) -> AccessId {
         self.access
     }
 
+    /// Returns the logical resource accessed by this token.
     pub const fn resource_id(self) -> ResourceId {
         self.resource
     }
 }
 
-/// Builder for one graph node. It must be completed with [`Self::finish`].
+/// Builder for one graph node and its declared resource accesses.
+///
+/// Access declarations validate ranges and conflicting roles immediately and
+/// return typed tokens for callback-time resolution. Finish the builder with the
+/// method matching its node kind. Dropping an open builder records an
+/// [`FrameGraphError::UnclosedPass`] that is returned by compilation.
 pub struct PassBuilder<'a, 'frame> {
     frame: &'a mut Frame<'frame>,
     node: Option<NodeRecord>,
@@ -142,15 +154,21 @@ impl<'a, 'frame> PassBuilder<'a, 'frame> {
         }
     }
 
+    /// Returns the recording-local identity reserved for this node.
     pub fn id(&self) -> PassId {
         self.node.as_ref().expect("open pass").id
     }
 
+    /// Controls whether this node is retained independently of output roots.
+    ///
+    /// Command and external-submission nodes begin side-effecting; structured
+    /// render, compute, and copy nodes begin non-side-effecting.
     pub fn set_side_effect(&mut self, side_effect: bool) -> &mut Self {
         self.node.as_mut().expect("open pass").side_effect = side_effect;
         self
     }
 
+    /// Declares a read-only sampled-texture access.
     pub fn sampled_texture(
         &mut self,
         target: impl Into<TextureTarget<'frame>>,
@@ -164,6 +182,7 @@ impl<'a, 'frame> PassBuilder<'a, 'frame> {
         )
     }
 
+    /// Declares a read-only storage-texture access.
     pub fn storage_texture_read(
         &mut self,
         target: impl Into<TextureTarget<'frame>>,
@@ -177,6 +196,10 @@ impl<'a, 'frame> PassBuilder<'a, 'frame> {
         )
     }
 
+    /// Declares a writable storage-texture access.
+    ///
+    /// [`WriteContents::Preserve`] requires defined input contents; `Overwrite`
+    /// starts a new value without consuming the previous value.
     pub fn storage_texture_write(
         &mut self,
         target: impl Into<TextureTarget<'frame>>,
@@ -191,6 +214,10 @@ impl<'a, 'frame> PassBuilder<'a, 'frame> {
         )
     }
 
+    /// Declares and configures one writable color attachment.
+    ///
+    /// Loading requires defined contents. Discarding makes the selected
+    /// subresources undefined after the pass.
     pub fn color_attachment(
         &mut self,
         target: impl Into<TextureTarget<'frame>>,
@@ -212,6 +239,10 @@ impl<'a, 'frame> PassBuilder<'a, 'frame> {
         Ok(token)
     }
 
+    /// Declares a multisampled color attachment and its single-sample resolve target.
+    ///
+    /// The source token is returned. Formats, extents, sample counts, and resolve
+    /// compatibility are validated when the pass is finished.
     pub fn color_attachment_with_resolve(
         &mut self,
         source: impl Into<TextureTarget<'frame>>,
@@ -241,6 +272,7 @@ impl<'a, 'frame> PassBuilder<'a, 'frame> {
         Ok(source)
     }
 
+    /// Declares and configures one writable depth attachment.
     pub fn depth_attachment(
         &mut self,
         target: impl Into<TextureTarget<'frame>>,
@@ -262,6 +294,7 @@ impl<'a, 'frame> PassBuilder<'a, 'frame> {
         Ok(token)
     }
 
+    /// Declares a read-only depth attachment that preserves defined contents.
     pub fn depth_attachment_read_only(
         &mut self,
         target: impl Into<TextureTarget<'frame>>,
@@ -285,6 +318,7 @@ impl<'a, 'frame> PassBuilder<'a, 'frame> {
         Ok(token)
     }
 
+    /// Declares a texture copy-source read.
     pub fn texture_copy_src(
         &mut self,
         target: impl Into<TextureTarget<'frame>>,
@@ -298,6 +332,7 @@ impl<'a, 'frame> PassBuilder<'a, 'frame> {
         )
     }
 
+    /// Declares a texture copy-destination write.
     pub fn texture_copy_dst(
         &mut self,
         target: impl Into<TextureTarget<'frame>>,
@@ -312,6 +347,7 @@ impl<'a, 'frame> PassBuilder<'a, 'frame> {
         )
     }
 
+    /// Declares a uniform-buffer read over `range`.
     pub fn uniform_buffer(
         &mut self,
         buffer: Buffer<'frame>,
@@ -327,6 +363,7 @@ impl<'a, 'frame> PassBuilder<'a, 'frame> {
         )
     }
 
+    /// Declares a read-only storage-buffer access over `range`.
     pub fn storage_buffer_read(
         &mut self,
         buffer: Buffer<'frame>,
@@ -342,6 +379,7 @@ impl<'a, 'frame> PassBuilder<'a, 'frame> {
         )
     }
 
+    /// Declares a writable storage-buffer access over `range`.
     pub fn storage_buffer_write(
         &mut self,
         buffer: Buffer<'frame>,
@@ -358,6 +396,7 @@ impl<'a, 'frame> PassBuilder<'a, 'frame> {
         )
     }
 
+    /// Declares a vertex-buffer read over `range`.
     pub fn vertex_buffer(
         &mut self,
         buffer: Buffer<'frame>,
@@ -373,6 +412,7 @@ impl<'a, 'frame> PassBuilder<'a, 'frame> {
         )
     }
 
+    /// Declares an index-buffer read over `range`.
     pub fn index_buffer(
         &mut self,
         buffer: Buffer<'frame>,
@@ -388,6 +428,7 @@ impl<'a, 'frame> PassBuilder<'a, 'frame> {
         )
     }
 
+    /// Declares an indirect-command buffer read over `range`.
     pub fn indirect_buffer(
         &mut self,
         buffer: Buffer<'frame>,
@@ -403,6 +444,7 @@ impl<'a, 'frame> PassBuilder<'a, 'frame> {
         )
     }
 
+    /// Declares a buffer copy-source read over `range`.
     pub fn buffer_copy_src(
         &mut self,
         buffer: Buffer<'frame>,
@@ -418,6 +460,7 @@ impl<'a, 'frame> PassBuilder<'a, 'frame> {
         )
     }
 
+    /// Declares a buffer copy-destination write over `range`.
     pub fn buffer_copy_dst(
         &mut self,
         buffer: Buffer<'frame>,
@@ -434,6 +477,10 @@ impl<'a, 'frame> PassBuilder<'a, 'frame> {
         )
     }
 
+    /// Appends one validated buffer-to-buffer operation to a copy node.
+    ///
+    /// Offsets and the non-zero size must be four-byte aligned. Source and
+    /// destination ranges are declared automatically.
     pub fn copy_buffer_to_buffer(
         &mut self,
         source: Buffer<'frame>,
@@ -467,6 +514,10 @@ impl<'a, 'frame> PassBuilder<'a, 'frame> {
         Ok(self)
     }
 
+    /// Appends one validated buffer-to-texture operation to a copy node.
+    ///
+    /// Copy footprint alignment, bounds, format, aspect, and affected resource
+    /// ranges are validated and declared automatically.
     pub fn copy_buffer_to_texture(
         &mut self,
         source: BufferTextureCopyLocation<'frame>,
@@ -511,6 +562,7 @@ impl<'a, 'frame> PassBuilder<'a, 'frame> {
         Ok(self)
     }
 
+    /// Appends one validated texture-to-buffer operation to a copy node.
     pub fn copy_texture_to_buffer(
         &mut self,
         source: TextureCopyLocation<'frame>,
@@ -554,6 +606,10 @@ impl<'a, 'frame> PassBuilder<'a, 'frame> {
         Ok(self)
     }
 
+    /// Appends one validated texture-to-texture operation to a copy node.
+    ///
+    /// Source and destination formats, dimensions, aspects, and bounds must be
+    /// copy-compatible.
     pub fn copy_texture_to_texture(
         &mut self,
         source: TextureCopyLocation<'frame>,
@@ -602,10 +658,21 @@ impl<'a, 'frame> PassBuilder<'a, 'frame> {
         Ok(self)
     }
 
+    /// Completes a declarative node without installing a callback.
+    ///
+    /// Use this for copy nodes and CPU-only planning examples. Retained render,
+    /// compute, command, or external nodes require their kind-specific finish
+    /// method before GPU execution.
     pub fn finish(mut self) -> Result<PassId, FrameGraphError> {
         self.finish_node()
     }
 
+    /// Completes a render node with a synchronous, one-shot execution callback.
+    ///
+    /// At least one color or depth attachment is required. The callback receives
+    /// an active native render pass and may resolve only tokens declared by this
+    /// builder. Returning a [`FrameGraphError`] aborts execution and propagates
+    /// that structured error to the caller.
     pub fn finish_render<F>(mut self, callback: F) -> Result<PassId, FrameGraphError>
     where
         F: for<'execute> FnOnce(crate::RenderPassContext<'execute>) -> Result<(), FrameGraphError>
@@ -632,6 +699,7 @@ impl<'a, 'frame> PassBuilder<'a, 'frame> {
         self.finish_node()
     }
 
+    /// Completes a compute node with a synchronous, one-shot execution callback.
     pub fn finish_compute<F>(mut self, callback: F) -> Result<PassId, FrameGraphError>
     where
         F: for<'execute> FnOnce(crate::ComputePassContext<'execute>) -> Result<(), FrameGraphError>
@@ -646,6 +714,9 @@ impl<'a, 'frame> PassBuilder<'a, 'frame> {
         self.finish_node()
     }
 
+    /// Completes a command node with direct access to the current graph encoder.
+    ///
+    /// The callback must not finish or submit the borrowed encoder.
     pub fn finish_command<F>(mut self, callback: F) -> Result<PassId, FrameGraphError>
     where
         F: for<'execute> FnOnce(crate::CommandContext<'execute>) -> Result<(), FrameGraphError>
@@ -667,6 +738,10 @@ impl<'a, 'frame> PassBuilder<'a, 'frame> {
         self.finish_node()
     }
 
+    /// Completes an external-submission node with direct queue access.
+    ///
+    /// The preceding FrameGraph encoder segment is submitted before this callback;
+    /// following retained work is encoded into a fresh segment.
     pub fn finish_external<F>(mut self, callback: F) -> Result<PassId, FrameGraphError>
     where
         F: for<'execute> FnOnce(

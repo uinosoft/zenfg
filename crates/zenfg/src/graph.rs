@@ -19,7 +19,12 @@ use crate::{
 
 static NEXT_OWNER_ID: AtomicU64 = AtomicU64::new(1);
 
-/// Long-lived owner of frame identities and an optional wgpu execution device.
+/// Long-lived owner of frame identities, transient allocations, and GPU timing state.
+///
+/// Use [`FrameGraph::new`] for CPU-only recording and compilation. Use
+/// [`FrameGraph::with_device`] when compiled frames will be executed. Only one
+/// [`Frame`] may borrow a graph at a time; dropping or compiling it permits the
+/// next recording to begin.
 #[derive(Debug)]
 pub struct FrameGraph {
     owner: u64,
@@ -31,6 +36,11 @@ pub struct FrameGraph {
 }
 
 impl FrameGraph {
+    /// Creates a CPU-only graph compiler.
+    ///
+    /// Frames from this graph can be recorded, validated, compiled, reported,
+    /// and exported, but [`CompiledFrame::execute`](crate::CompiledFrame::execute)
+    /// returns [`FrameGraphError::MissingGpuDevice`].
     pub fn new() -> Self {
         Self {
             owner: NEXT_OWNER_ID.fetch_add(1, Ordering::Relaxed),
@@ -42,6 +52,11 @@ impl FrameGraph {
         }
     }
 
+    /// Creates a graph backed by a cloned wgpu device handle.
+    ///
+    /// The graph owns its transient resource pool and GPU timing resources. The
+    /// queue, imported resources, pipelines, bind groups, and surface remain
+    /// caller-owned.
     pub fn with_device(device: &wgpu::Device) -> Self {
         Self {
             owner: NEXT_OWNER_ID.fetch_add(1, Ordering::Relaxed),
@@ -65,6 +80,11 @@ impl FrameGraph {
         self.resource_pool.clear();
     }
 
+    /// Begins a fresh, single-use frame recording.
+    ///
+    /// Logical handles returned by the frame cannot outlive this exclusive graph
+    /// borrow. [`Frame::compile`] consumes the recording and returns a compiled
+    /// frame that continues to hold the graph borrow through optional execution.
     pub fn begin_frame(&mut self) -> Frame<'_> {
         let owner = self.owner;
         let recording = self.next_recording;
@@ -95,6 +115,11 @@ impl Default for FrameGraph {
 }
 
 /// A single-use FrameGraph recording.
+///
+/// Create or import logical resources, declare accesses through pass builders,
+/// and mark observable roots before calling [`Self::compile`]. Handles and
+/// callbacks are tied to this recording. A pass builder must be finished; if it
+/// is dropped open, compilation returns [`FrameGraphError::UnclosedPass`].
 pub struct Frame<'frame> {
     pub(crate) graph: &'frame mut FrameGraph,
     pub(crate) owner: u64,
@@ -113,6 +138,10 @@ pub struct Frame<'frame> {
 }
 
 impl<'frame> Frame<'frame> {
+    /// Creates an undefined transient texture whose usage is derived at compile time.
+    ///
+    /// The descriptor is validated immediately. Native allocation is deferred
+    /// until execution and only occurs if retained work uses the resource.
     pub fn create_texture(
         &mut self,
         desc: TextureDesc,
@@ -126,6 +155,11 @@ impl<'frame> Frame<'frame> {
         )
     }
 
+    /// Imports a caller-owned logical texture.
+    ///
+    /// Importing does not clone or bind a native texture. Device-backed execution
+    /// additionally requires [`Self::bind_imported_texture`]. `options` defines
+    /// whether reads may consume initial contents and which usage flags are exposed.
     pub fn import_texture(
         &mut self,
         desc: TextureDesc,
@@ -140,6 +174,11 @@ impl<'frame> Frame<'frame> {
         )
     }
 
+    /// Imports one caller-acquired surface texture for a present root.
+    ///
+    /// Surface contents always begin undefined. The caller remains responsible
+    /// for acquisition and presentation, and must bind the acquired native texture
+    /// before execution.
     pub fn import_surface_texture(
         &mut self,
         desc: TextureDesc,
@@ -179,6 +218,7 @@ impl<'frame> Frame<'frame> {
         })
     }
 
+    /// Creates an undefined transient buffer whose usage is derived at compile time.
     pub fn create_buffer(&mut self, desc: BufferDesc) -> Result<Buffer<'frame>, FrameGraphError> {
         self.register_buffer(
             desc,
@@ -188,6 +228,10 @@ impl<'frame> Frame<'frame> {
         )
     }
 
+    /// Imports a caller-owned logical buffer.
+    ///
+    /// Importing only records its contract. Device-backed execution additionally
+    /// requires [`Self::bind_imported_buffer`].
     pub fn import_buffer(
         &mut self,
         desc: BufferDesc,
@@ -201,6 +245,11 @@ impl<'frame> Frame<'frame> {
         )
     }
 
+    /// Binds a native caller-owned buffer to an imported logical buffer.
+    ///
+    /// The native size and exposed usage are checked immediately. A native object
+    /// may be bound to only one logical resource in a recording. The graph keeps a
+    /// cloned wgpu handle through execution but never destroys the imported buffer.
     pub fn bind_imported_buffer(
         &mut self,
         buffer: Buffer<'frame>,
@@ -245,6 +294,10 @@ impl<'frame> Frame<'frame> {
         Ok(())
     }
 
+    /// Binds a native caller-owned texture to an imported or surface texture.
+    ///
+    /// Size, format, dimension, mip count, sample count, and exposed usage must
+    /// match the logical descriptor. The graph never acquires or presents a surface.
     pub fn bind_imported_texture(
         &mut self,
         texture: Texture<'frame>,
@@ -329,6 +382,10 @@ impl<'frame> Frame<'frame> {
         })
     }
 
+    /// Creates and validates an explicit logical view of a texture.
+    ///
+    /// Descriptor defaults are resolved against the snapshotted texture metadata.
+    /// View handles remain valid only for this frame recording.
     pub fn create_texture_view(
         &mut self,
         texture: Texture<'frame>,
@@ -397,22 +454,41 @@ impl<'frame> Frame<'frame> {
         Ok(normalize_texture_view_descriptor(texture, &view.descriptor))
     }
 
+    /// Starts a structured render node.
+    ///
+    /// Finish it with [`PassBuilder::finish_render`] after declaring at least one
+    /// color or depth attachment.
     pub fn render_pass(&mut self, label: impl Into<String>) -> PassBuilder<'_, 'frame> {
         self.pass(NodeKind::Render, label, false)
     }
 
+    /// Starts a structured compute node, finished with [`PassBuilder::finish_compute`].
     pub fn compute_pass(&mut self, label: impl Into<String>) -> PassBuilder<'_, 'frame> {
         self.pass(NodeKind::Compute, label, false)
     }
 
+    /// Starts a declarative copy node.
+    ///
+    /// Copy operations encode themselves during execution; finish with
+    /// [`PassBuilder::finish`] rather than supplying a callback.
     pub fn copy_pass(&mut self, label: impl Into<String>) -> PassBuilder<'_, 'frame> {
         self.pass(NodeKind::Copy, label, false)
     }
 
+    /// Starts a direct command-encoder callback node.
+    ///
+    /// Command nodes are side-effecting by default and are finished with
+    /// [`PassBuilder::finish_command`]. Declare every resource touched by the
+    /// callback so validation, ordering, usage inference, and allocation stay sound.
     pub fn command_pass(&mut self, label: impl Into<String>) -> PassBuilder<'_, 'frame> {
         self.pass(NodeKind::Command, label, true)
     }
 
+    /// Starts a callback that may submit caller-owned command buffers directly.
+    ///
+    /// The node splits FrameGraph-owned command encoders into ordered execution
+    /// segments. It is side-effecting by default and is finished with
+    /// [`PassBuilder::finish_external`].
     pub fn external_submission(&mut self, label: impl Into<String>) -> PassBuilder<'_, 'frame> {
         self.pass(NodeKind::ExternalSubmission, label, true)
     }
@@ -484,6 +560,10 @@ impl<'frame> Frame<'frame> {
         self.debug_group_stack.last().copied()
     }
 
+    /// Records one aligned zero-fill operation as a graph node.
+    ///
+    /// The range must be non-empty, within the logical buffer, and aligned to
+    /// [`wgpu::COPY_BUFFER_ALIGNMENT`].
     pub fn clear_buffer(
         &mut self,
         label: impl Into<String>,
@@ -551,6 +631,11 @@ impl<'frame> Frame<'frame> {
         Ok(id)
     }
 
+    /// Marks a buffer range as observable after graph execution.
+    ///
+    /// The selected range must contain defined data after retained work.
+    /// `Present` is invalid for buffers; `Readback` and `PersistentState` impose
+    /// stricter imported-resource usage contracts.
     pub fn mark_buffer_root(
         &mut self,
         buffer: Buffer<'frame>,
@@ -571,6 +656,10 @@ impl<'frame> Frame<'frame> {
         Ok(())
     }
 
+    /// Marks a texture or view range as observable after graph execution.
+    ///
+    /// Present roots accept only surface textures; persistent-state roots accept
+    /// only imported resources. The selected range must end with defined contents.
     pub fn mark_texture_root(
         &mut self,
         target: impl Into<TextureTarget<'frame>>,
@@ -587,10 +676,12 @@ impl<'frame> Frame<'frame> {
         Ok(())
     }
 
+    /// Marks an entire surface texture as the frame's presentation output.
     pub fn mark_present(&mut self, texture: Texture<'frame>) -> Result<(), FrameGraphError> {
         self.mark_texture_root(texture, RootReason::Present)
     }
 
+    /// Marks an imported `MAP_READ | COPY_DST` buffer range for caller readback.
     pub fn mark_readback(
         &mut self,
         buffer: Buffer<'frame>,
@@ -599,6 +690,13 @@ impl<'frame> Frame<'frame> {
         self.mark_buffer_root(buffer, range, RootReason::Readback)
     }
 
+    /// Consumes this recording and builds a validated execution plan.
+    ///
+    /// Compilation derives dependencies and usages, removes work unreachable
+    /// from roots or side effects, validates the content model, assigns compatible
+    /// non-overlapping transients to physical allocations, and optionally creates
+    /// a report. No GPU commands are encoded. Recording errors such as an
+    /// unfinished pass or debug group are returned here.
     pub fn compile(
         self,
         options: CompileOptions,

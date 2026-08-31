@@ -1,9 +1,17 @@
 use crate::{FrameGraphSnapshotV1, SnapshotJsonError, validate_frame_graph_snapshot};
 
+/// Validates and serializes a canonical Snapshot as compact JSON.
+///
+/// Encoding never writes to the filesystem. Invalid in-memory snapshots return
+/// [`SnapshotJsonError::Validation`] instead of producing non-conforming JSON.
 pub fn to_json(snapshot: &FrameGraphSnapshotV1) -> Result<String, SnapshotJsonError> {
     encode(snapshot, false)
 }
 
+/// Validates and serializes a canonical Snapshot as human-readable JSON.
+///
+/// This has the same validation and error behavior as [`to_json`]; only
+/// whitespace differs.
 pub fn to_json_pretty(snapshot: &FrameGraphSnapshotV1) -> Result<String, SnapshotJsonError> {
     encode(snapshot, true)
 }

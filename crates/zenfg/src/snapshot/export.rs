@@ -29,14 +29,20 @@ const MAX_SAFE_INTEGER: u64 = 9_007_199_254_740_991;
 /// Capture-time facts that are not part of the compilation report itself.
 #[derive(Clone, Copy, Debug)]
 pub struct CreateFrameGraphSnapshotOptions<'a> {
+    /// Caller-defined frame identity written to the capture record.
     pub frame_index: u64,
+    /// Optional caller-formatted capture timestamp.
     pub captured_at: Option<&'a str>,
+    /// Optional native backend name such as `vulkan` or `metal`.
     pub backend: Option<&'a str>,
+    /// Optional timing result for the same frame index.
     pub gpu_timing: Option<&'a GpuTimingReport>,
+    /// Optional cross-frame transient pool counters.
     pub pool_stats: Option<ResourcePoolStats>,
 }
 
 impl<'a> CreateFrameGraphSnapshotOptions<'a> {
+    /// Creates export options with only the required frame identity.
     pub const fn new(frame_index: u64) -> Self {
         Self {
             frame_index,
@@ -49,6 +55,10 @@ impl<'a> CreateFrameGraphSnapshotOptions<'a> {
 }
 
 /// Converts a full native compilation report into the Snapshot 1.0 wire model.
+///
+/// The returned value is entirely in memory; file naming and persistence remain
+/// caller-owned. The report must come from [`CompileOptions::full_report`](crate::CompileOptions::full_report).
+/// Optional timing data must carry the same frame index as `options`.
 pub fn create_frame_graph_snapshot(
     report: &CompilationReport,
     options: CreateFrameGraphSnapshotOptions<'_>,

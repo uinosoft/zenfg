@@ -2,8 +2,9 @@
  * Declares, compiles, and executes per-frame WebGPU work while leaving scene
  * data, pipelines, bind groups, and long-lived GPU resources caller-owned.
  *
- * All exports are currently beta. The package has one supported entrypoint;
- * implementation modules under `src` and `dist` are not public subpaths.
+ * All exports are currently beta. The package supports this primary entrypoint
+ * and `@zenfg/webgpu/snapshot`; other implementation modules under `src` and
+ * `dist` are not public subpaths.
  *
  * @packageDocumentation
  */

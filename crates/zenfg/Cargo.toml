@@ -41,6 +41,35 @@ path = "examples/compile_bench.rs"
 name = "pool-bench"
 path = "examples/pool_bench.rs"
 
+[[example]]
+name = "minimal-frame"
+path = "examples/minimal_frame.rs"
+
+[[example]]
+name = "transient-to-present"
+path = "examples/transient_to_present.rs"
+
+[[example]]
+name = "imported-resource"
+path = "examples/imported_resource.rs"
+
+[[example]]
+name = "persistent-state"
+path = "examples/persistent_state.rs"
+
+[[example]]
+name = "external-submission"
+path = "examples/external_submission.rs"
+
+[[example]]
+name = "snapshot-export"
+path = "examples/snapshot_export.rs"
+required-features = ["snapshot"]
+
+[[example]]
+name = "gpu-timing"
+path = "examples/gpu_timing.rs"
+
 [[test]]
 name = "cross_language_producers"
 path = "tests/cross_language_producers.rs"

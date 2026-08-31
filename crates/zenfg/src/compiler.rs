@@ -103,7 +103,13 @@ impl PhysicalAllocationPlan {
     }
 }
 
-/// An owned compilation result. GPU execution is available for device-backed graphs.
+/// An owned, single-use compilation result.
+///
+/// The plan holds the exclusive [`FrameGraph`](crate::FrameGraph) borrow and any
+/// retained callbacks/native bindings until it is dropped or executed. CPU-only
+/// callers may inspect reports and planning facts without executing. Execution
+/// consumes the value, performs a complete preflight, encodes retained work, and
+/// returns transient allocations to the owning graph's pool.
 pub struct CompiledFrame<'frame> {
     pub(crate) graph: &'frame mut crate::FrameGraph,
     pub(crate) plan: CompiledPlan,
@@ -127,6 +133,11 @@ impl fmt::Debug for CompiledFrame<'_> {
 }
 
 impl<'frame> CompiledFrame<'frame> {
+    /// Returns the requested compilation report, if reporting was enabled.
+    ///
+    /// [`CompileOptions::default`] produces no report. Summary and full reports
+    /// are selected with [`CompileOptions::summary_report`] and
+    /// [`CompileOptions::full_report`].
     pub fn report(&self) -> Option<&CompilationReport> {
         self.report.as_ref()
     }
@@ -136,26 +147,41 @@ impl<'frame> CompiledFrame<'frame> {
         self.report.take()
     }
 
+    /// Returns the number of nodes that survived dead-work elimination.
     pub fn retained_node_count(&self) -> usize {
         self.plan.retained_nodes.len()
     }
 
+    /// Returns the wgpu usage inferred for a retained logical resource.
+    ///
+    /// `None` means the identity is unknown. A known resource with no retained
+    /// accesses may report empty inferred usage or its explicit fixed/exposed usage.
     pub fn resource_usage(&self, resource: ResourceId) -> Option<ResourceUsage> {
         self.plan.usages.get(&resource).copied()
     }
 
+    /// Returns the transient physical allocation plan.
+    ///
+    /// Imported and surface resources do not receive pool allocations.
     pub fn allocations(&self) -> &[AllocationReport] {
         &self.plan.allocations
     }
 
+    /// Returns ordered encoder/submission segments in the retained plan.
     pub fn execution_segments(&self) -> &[ExecutionSegmentReport] {
         &self.plan.execution_segments
     }
 
+    /// Executes once with default execution options.
+    ///
+    /// The queue must belong to the device passed to
+    /// [`FrameGraph::with_device`](crate::FrameGraph::with_device). All failures
+    /// are reported before the first command is encoded whenever possible.
     pub fn execute(self, queue: &wgpu::Queue) -> Result<(), FrameGraphError> {
         self.execute_with_options(queue, ExecutionOptions::default())
     }
 
+    /// Executes once with caller-selected debug markers and frame identity.
     pub fn execute_with_options(
         self,
         queue: &wgpu::Queue,
@@ -164,7 +190,13 @@ impl<'frame> CompiledFrame<'frame> {
         crate::execution::execute(self, queue, options)
     }
 
-    /// Executes this frame once and starts a non-blocking GPU timestamp readback.
+    /// Executes once and starts a non-blocking GPU timestamp readback.
+    ///
+    /// Timing is best-effort: unsupported timestamp queries, a busy prior
+    /// readback, readback failure, or too many timed nodes produce an
+    /// [`GpuTimingReport::Unavailable`](crate::GpuTimingReport::Unavailable)
+    /// result while graph execution still succeeds. Only retained render and
+    /// compute nodes are timed.
     pub fn execute_with_gpu_timing(
         self,
         queue: &wgpu::Queue,

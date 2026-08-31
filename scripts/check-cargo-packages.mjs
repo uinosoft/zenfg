@@ -82,8 +82,26 @@ try {
     ]);
 
     for (const [crate, requiredFiles] of [
-        [snapshotCrate, ['Cargo.toml', 'LICENSE', 'README.md', 'src/lib.rs']],
-        [runtimeCrate, ['Cargo.toml', 'LICENSE', 'README.md', 'src/lib.rs']],
+        [snapshotCrate, [
+            'Cargo.toml',
+            'LICENSE',
+            'README.md',
+            'examples/basic.rs',
+            'src/lib.rs',
+        ]],
+        [runtimeCrate, [
+            'Cargo.toml',
+            'LICENSE',
+            'README.md',
+            'examples/external_submission.rs',
+            'examples/gpu_timing.rs',
+            'examples/imported_resource.rs',
+            'examples/minimal_frame.rs',
+            'examples/persistent_state.rs',
+            'examples/snapshot_export.rs',
+            'examples/transient_to_present.rs',
+            'src/lib.rs',
+        ]],
     ]) {
         const archive = cratePath(crate);
         const listing = spawnSync('tar', ['-tf', archive], {
@@ -106,6 +124,22 @@ try {
         run('tar', ['-xzf', archive, '-C', temporaryDirectory]);
     }
 
+    const snapshotDirectory = join(temporaryDirectory, snapshotCrate.archiveRoot);
+    run('cargo', [
+        'check',
+        '--manifest-path',
+        join(snapshotDirectory, 'Cargo.toml'),
+        '--example',
+        'basic',
+    ], {
+        cwd: snapshotDirectory,
+        env: {
+            ...process.env,
+            CARGO_TARGET_DIR: join(temporaryDirectory, 'target'),
+            RUSTUP_TOOLCHAIN: '1.98.0',
+        },
+    });
+
     const runtimeDirectory = join(temporaryDirectory, runtimeCrate.archiveRoot);
     const cargoConfigDirectory = join(runtimeDirectory, '.cargo');
     mkdirSync(cargoConfigDirectory, { recursive: true });
@@ -119,6 +153,7 @@ try {
         '--manifest-path',
         join(runtimeDirectory, 'Cargo.toml'),
         '--all-features',
+        '--examples',
     ], {
         cwd: runtimeDirectory,
         env: {
@@ -128,7 +163,7 @@ try {
         },
     });
     process.stdout.write(
-        'Verified both crate archives; zenfg compiled outside the workspace with all features.\n',
+        'Verified both crate archives and their public examples outside the workspace.\n',
     );
 } finally {
     rmSync(temporaryDirectory, { recursive: true, force: true });

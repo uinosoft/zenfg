@@ -1,14 +1,25 @@
 import { spawnSync } from 'node:child_process';
 import {
+    copyFileSync,
     existsSync,
     mkdirSync,
     mkdtempSync,
+    readdirSync,
     readFileSync,
     rmSync,
     writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { basename, join, resolve } from 'node:path';
+import {
+    basename,
+    dirname,
+    isAbsolute,
+    join,
+    posix,
+    relative,
+    resolve,
+    win32,
+} from 'node:path';
 
 const rootDir = resolve(import.meta.dirname, '..');
 const npmCli = process.env.npm_execpath;
@@ -24,7 +35,9 @@ const packages = [
             'README.md',
             'SPEC.md',
             'dist/index.d.ts',
+            'dist/index.d.ts.map',
             'dist/index.js',
+            'src/index.ts',
             'schema/frame-graph-snapshot-v1.schema.json',
             'conformance/manifest.json',
             'conformance/producers/manifest.json',
@@ -48,9 +61,21 @@ const packages = [
             'LICENSE',
             'README.md',
             'dist/index.d.ts',
+            'dist/index.d.ts.map',
             'dist/index.js',
             'dist/snapshot.d.ts',
+            'dist/snapshot.d.ts.map',
             'dist/snapshot.js',
+            'src/index.ts',
+            'examples/README.md',
+            'examples/tsconfig.json',
+            'examples/minimal-frame.ts',
+            'examples/transient-to-present.ts',
+            'examples/imported-resource.ts',
+            'examples/persistent-state.ts',
+            'examples/external-submission.ts',
+            'examples/snapshot-export.ts',
+            'examples/gpu-timing.ts',
         ],
     },
     {
@@ -60,7 +85,9 @@ const packages = [
             'LICENSE',
             'README.md',
             'dist/index.d.ts',
+            'dist/index.d.ts.map',
             'dist/index.js',
+            'src/index.ts',
         ],
     },
 ];
@@ -95,6 +122,74 @@ function parsePackOutput(output, label) {
         return parsed[0];
     } catch (error) {
         throw new Error(`Could not parse npm pack output for ${label}: ${error}`);
+    }
+}
+
+function filesBelow(directory) {
+    return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
+        const path = join(directory, entry.name);
+        return entry.isDirectory() ? filesBelow(path) : [path];
+    });
+}
+
+function isOutside(parent, child) {
+    const path = relative(parent, child);
+    return path === '..' || path.startsWith(`..${win32.sep}`) || path.startsWith(`..${posix.sep}`) || isAbsolute(path);
+}
+
+function isAbsoluteMapPath(path) {
+    return isAbsolute(path) || win32.isAbsolute(path) || posix.isAbsolute(path) || /^[a-z][a-z0-9+.-]*:/iu.test(path);
+}
+
+function validateDeclarationMaps(packageName, packageDirectory) {
+    const distDirectory = join(packageDirectory, 'dist');
+    const declarations = filesBelow(distDirectory).filter((file) => file.endsWith('.d.ts'));
+    if (declarations.length === 0) {
+        throw new Error(`${packageName} contains no declaration files.`);
+    }
+    for (const declaration of declarations) {
+        const mapPath = `${declaration}.map`;
+        if (!existsSync(mapPath)) {
+            throw new Error(`${packageName} is missing a declaration map for ${relative(packageDirectory, declaration)}.`);
+        }
+        let map;
+        try {
+            map = JSON.parse(readFileSync(mapPath, 'utf8'));
+        }
+        catch (error) {
+            throw new Error(`${packageName} has an invalid declaration map at ${relative(packageDirectory, mapPath)}: ${error}`);
+        }
+        if (
+            typeof map.file !== 'string'
+            || map.file.length === 0
+            || isAbsoluteMapPath(map.file)
+            || resolve(dirname(mapPath), map.file) !== resolve(declaration)
+        ) {
+            throw new Error(`${packageName} declaration map ${relative(packageDirectory, mapPath)} has an invalid declaration target.`);
+        }
+        if (map.sourceRoot !== undefined && typeof map.sourceRoot !== 'string') {
+            throw new Error(`${packageName} declaration map ${relative(packageDirectory, mapPath)} has an invalid sourceRoot.`);
+        }
+        const sourceRoot = map.sourceRoot ?? '';
+        if (isAbsoluteMapPath(sourceRoot)) {
+            throw new Error(`${packageName} declaration map ${relative(packageDirectory, mapPath)} has an absolute sourceRoot.`);
+        }
+        if (!Array.isArray(map.sources) || map.sources.length === 0) {
+            throw new Error(`${packageName} declaration map ${relative(packageDirectory, mapPath)} has no sources.`);
+        }
+        for (const source of map.sources) {
+            if (typeof source !== 'string' || source.length === 0 || isAbsoluteMapPath(source)) {
+                throw new Error(`${packageName} declaration map ${relative(packageDirectory, mapPath)} has an invalid or absolute source path.`);
+            }
+            const target = resolve(dirname(mapPath), sourceRoot, source);
+            if (isOutside(packageDirectory, target)) {
+                throw new Error(`${packageName} declaration map ${relative(packageDirectory, mapPath)} escapes the package: ${source}`);
+            }
+            const packagedPath = relative(packageDirectory, target).replaceAll('\\', '/');
+            if (!packagedPath.startsWith('src/') || !existsSync(target)) {
+                throw new Error(`${packageName} declaration map ${relative(packageDirectory, mapPath)} points to missing packaged source: ${source}`);
+            }
+        }
     }
 }
 
@@ -173,18 +268,34 @@ try {
     run(process.execPath, ['--input-type=module', '--eval', smokeTest], { cwd: consumerDirectory });
 
     for (const { name } of tarballs) {
-        const packageJson = JSON.parse(readFileSync(join(
+        const installedPackageDirectory = join(
             consumerDirectory,
             'node_modules',
             ...name.split('/'),
-            'package.json',
-        ), 'utf8'));
+        );
+        const packageJson = JSON.parse(readFileSync(join(installedPackageDirectory, 'package.json'), 'utf8'));
         if (Object.values(packageJson.dependencies ?? {}).some((value) => String(value).startsWith('workspace:'))) {
             throw new Error(`${packageJson.name} contains a workspace dependency in its published manifest.`);
         }
         if (packageJson.dependencies?.['@webgpu/types'] !== undefined) {
             throw new Error(`${packageJson.name} must not expose @webgpu/types as a runtime dependency.`);
         }
+        validateDeclarationMaps(packageJson.name, installedPackageDirectory);
+    }
+
+    const exampleDirectory = join(consumerDirectory, 'examples');
+    mkdirSync(exampleDirectory, { recursive: true });
+    const installedWebGpuExamples = join(consumerDirectory, 'node_modules', '@zenfg', 'webgpu', 'examples');
+    for (const example of [
+        'minimal-frame.ts',
+        'transient-to-present.ts',
+        'imported-resource.ts',
+        'persistent-state.ts',
+        'external-submission.ts',
+        'snapshot-export.ts',
+        'gpu-timing.ts',
+    ]) {
+        copyFileSync(join(installedWebGpuExamples, example), join(exampleDirectory, example));
     }
 
     writeFileSync(join(consumerDirectory, 'tsconfig.json'), `${JSON.stringify({
@@ -199,18 +310,86 @@ try {
             resolveJsonModule: true,
             noEmit: true,
         },
-        include: ['index.ts'],
+        include: ['index.ts', 'examples/**/*.ts'],
     }, null, 2)}\n`);
     writeFileSync(join(consumerDirectory, 'index.ts'), [
-        "import * as snapshot from '@zenfg/snapshot';",
-        "import * as webgpu from '@zenfg/webgpu';",
-        "import * as webgpuSnapshot from '@zenfg/webgpu/snapshot';",
-        "import * as inspector from '@zenfg/inspector';",
+        'import {',
+        '    decodeFrameGraphSnapshot,',
+        '    parseFrameGraphSnapshot,',
+        '    stringifyFrameGraphSnapshot,',
+        '    type FrameGraphSnapshot,',
+        "} from '@zenfg/snapshot';",
+        "import { FrameGraph, type TextureSize } from '@zenfg/webgpu';",
+        "import { createFrameGraphSnapshot } from '@zenfg/webgpu/snapshot';",
+        'import {',
+        '    mountFrameGraphInspector,',
+        '    type FrameGraphInspectorOptions,',
+        "} from '@zenfg/inspector';",
         "import schema from '@zenfg/snapshot/schema/v1.json' with { type: 'json' };",
         '',
-        'const textureSize: webgpu.TextureSize = [1, 1, 1];',
+        '// Snapshot README Quick Start: parse/decode, narrow the result, and stringify.',
+        'export function normalizeSnapshots(jsonText: string, value: unknown): readonly string[] {',
+        '    const canonicalJson: string[] = [];',
+        '    const parsed = parseFrameGraphSnapshot(jsonText);',
+        '    if (parsed.ok) {',
+        '        canonicalJson.push(stringifyFrameGraphSnapshot(parsed.snapshot, { pretty: true }));',
+        '        void [parsed.source, parsed.migrated, parsed.issues];',
+        '    } else {',
+        '        void parsed.issues;',
+        '    }',
+        '',
+        '    const decoded = decodeFrameGraphSnapshot(value);',
+        '    if (decoded.ok) {',
+        '        canonicalJson.push(stringifyFrameGraphSnapshot(decoded.snapshot));',
+        '        void [decoded.source, decoded.migrated, decoded.issues];',
+        '    } else {',
+        '        void decoded.issues;',
+        '    }',
+        '    return canonicalJson;',
+        '}',
+        '',
+        '// WebGPU README Quick Start: compile and execute a clear-only surface frame.',
+        'declare const device: GPUDevice;',
+        'declare const context: GPUCanvasContext;',
+        'declare let frameIndex: number;',
+        'const graph = new FrameGraph(device);',
+        '',
+        'export function renderFrame(): void {',
+        '    const recorder = graph.beginFrame();',
+        '    const backbuffer = recorder.importSwapchainTexture(',
+        '        context.getCurrentTexture(),',
+        "        { label: 'backbuffer' },",
+        '    );',
+        '    recorder.render({',
+        "        label: 'clear-backbuffer',",
+        '        colorAttachments: [{',
+        '            target: backbuffer,',
+        "            loadOp: 'clear',",
+        "            storeOp: 'store',",
+        '            clearValue: { r: 0.04, g: 0.06, b: 0.1, a: 1 },',
+        '        }],',
+        '    });',
+        '    recorder.markPresent(backbuffer);',
+        '    recorder.compile().execute({ frameIndex: frameIndex++ });',
+        '}',
+        '',
+        '// Inspector README Quick Start: mount with options, update, and clean up.',
+        'export function mountInspector(host: HTMLElement, existingSnapshot: FrameGraphSnapshot): void {',
+        '    const options: FrameGraphInspectorOptions = {',
+        '        captureSnapshot: () => existingSnapshot,',
+        '        maxImportBytes: 64 * 1024 * 1024,',
+        '        maxGraphElements: 5_000,',
+        '    };',
+        '    const inspector = mountFrameGraphInspector(host, options);',
+        '    inspector.setExpanded(true);',
+        '    inspector.setSnapshot(existingSnapshot);',
+        '    inspector.destroy();',
+        '}',
+        '',
+        '// Other supported declarations and entrypoints.',
+        'const textureSize: TextureSize = [1, 1, 1];',
         'const schemaId: string = schema.$id;',
-        'void [snapshot, webgpu, webgpuSnapshot, inspector, textureSize, schemaId];',
+        'void [createFrameGraphSnapshot, textureSize, schemaId];',
         '',
     ].join('\n'));
     const tscPath = join(consumerDirectory, 'node_modules', 'typescript', 'bin', 'tsc');
@@ -223,7 +402,7 @@ try {
     }
     run(process.execPath, [tscPath, '--project', 'tsconfig.json'], { cwd: consumerDirectory });
 
-    process.stdout.write(`Verified npm tarball contents, runtime imports, and ${typescriptVersion} declarations from a temporary empty project.\n`);
+    process.stdout.write(`Verified npm tarball contents, source-backed declaration maps, runtime imports, and ${typescriptVersion} declarations plus recipes from a temporary empty project.\n`);
 } finally {
     rmSync(temporaryDirectory, { recursive: true, force: true });
 }

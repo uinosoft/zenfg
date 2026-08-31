@@ -1,3 +1,14 @@
+/**
+ * Converts a full `@zenfg/webgpu` compilation report, execution timing result,
+ * and resource-pool snapshot into the portable ZenFG Snapshot 1.0 wire model.
+ *
+ * Capture inputs from the same compiled frame: compile with `{ report: true }`,
+ * execute with `{ gpuTiming: true }`, await that timing result, and read pool
+ * statistics after execution before calling {@link createFrameGraphSnapshot}.
+ *
+ * @packageDocumentation
+ */
+
 import {
 	FRAME_GRAPH_SNAPSHOT_FORMAT,
 	FRAME_GRAPH_SNAPSHOT_VERSION,
@@ -16,12 +27,36 @@ import type {
 	FrameGraphResourcePoolStats,
 } from './types.ts';
 
+/** Inputs required to project one WebGPU frame into a portable snapshot. */
 export type CreateFrameGraphSnapshotOptions = {
+	/**
+	 * Full immutable report returned by `recorder.compile({ report: true })`.
+	 * It must describe the same compiled frame represented by `gpuTiming`.
+	 */
 	readonly compilation: FrameGraphCompilationReport;
+	/**
+	 * Timing result returned by `compiled.execute({ gpuTiming: true })`.
+	 * Its frame index becomes `snapshot.capture.frameIndex`; unavailable timing
+	 * remains an explicit unavailable timing record.
+	 */
 	readonly gpuTiming: FrameGraphGpuTimingReport;
+	/**
+	 * Aggregate pool counters to record with the capture. Read them after frame
+	 * execution when the snapshot should include that execution's releases.
+	 */
 	readonly resourcePool: FrameGraphResourcePoolStats;
+	/**
+	 * ISO-8601 capture timestamp.
+	 *
+	 * @defaultValue The current time from `new Date().toISOString()`.
+	 */
 	readonly capturedAt?: string;
+	/** Version of the application or library producing this capture. */
 	readonly producerVersion?: string;
+	/**
+	 * Optional runtime implementation, graphics API, and backend metadata.
+	 * `graphicsApi` defaults to `'webgpu'` when omitted.
+	 */
 	readonly runtime?: NonNullable<FrameGraphSnapshotProducer['runtime']>;
 };
 
@@ -45,6 +80,38 @@ const BUFFER_USAGE_FLAGS: readonly [number, FrameGraphSnapshotBufferUsageFlag][]
 	[0x0200, 'query-resolve'],
 ];
 
+/**
+ * Creates an independent canonical Snapshot 1.0 value from one executed frame.
+ *
+ * @remarks The conversion preserves retained and culled nodes, normalized
+ * accesses and dependencies, execution segments, allocation planning, GPU
+ * timing availability, and resource-pool counters. The returned object is a
+ * deep JSON clone and does not retain references to the supplied reports.
+ *
+ * @throws If a compilation resource contains WebGPU usage bits that Snapshot
+ * 1.0 cannot represent.
+ *
+ * @example
+ * ```ts
+ * import { FrameGraph } from '@zenfg/webgpu';
+ * import { createFrameGraphSnapshot } from '@zenfg/webgpu/snapshot';
+ *
+ * const graph = new FrameGraph(device);
+ * const recorder = graph.beginFrame();
+ * const scratch = recorder.createBuffer({ size: 256 });
+ * recorder.clearBuffer({
+ *   operations: [{ target: scratch }],
+ *   sideEffect: true,
+ * });
+ * const compiled = recorder.compile({ report: true });
+ * const gpuTiming = await compiled.execute({ frameIndex: 7, gpuTiming: true });
+ * const snapshot = createFrameGraphSnapshot({
+ *   compilation: compiled.compilationReport,
+ *   gpuTiming,
+ *   resourcePool: graph.getResourcePoolStats(),
+ * });
+ * ```
+ */
 export function createFrameGraphSnapshot(options: CreateFrameGraphSnapshotOptions): FrameGraphSnapshot {
 	const { compilation, gpuTiming, resourcePool } = options;
 	const executionOrderByNodeId = new Map(compilation.nodes.map((node, order) => [node.id, order]));

@@ -1007,6 +1007,12 @@ button[aria-busy='true'] > .zenfg-inspector-control-icon {
 }
 `;
 
+/**
+ * Installs the inspector's shared stylesheet in the current document once.
+ *
+ * @remarks This is safe to call repeatedly and is a no-op during server-side
+ * rendering. `FrameGraphInspector` calls it automatically.
+ */
 export function ensureFrameGraphInspectorStyles(): void {
 	if (typeof document === 'undefined' || document.getElementById(STYLE_ELEMENT_ID)) {
 		return;

@@ -10,17 +10,24 @@ use crate::{DebugGroupId, DebugGroupReport, NodeKind, PassId, model::NodeRecord}
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[non_exhaustive]
 pub enum GpuTimingNodeKind {
+    /// Structured render pass measured with begin/end timestamp writes.
     Render,
+    /// Structured compute pass measured with begin/end timestamp writes.
     Compute,
 }
 
 /// GPU duration for one retained render or compute pass.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct GpuTimingNodeReport {
+    /// Recording-local pass identity.
     pub pass: PassId,
+    /// Kind of timed pass.
     pub kind: GpuTimingNodeKind,
+    /// Pass label recorded by the caller.
     pub label: String,
+    /// Innermost recording debug group, when present.
     pub debug_group: Option<DebugGroupId>,
+    /// Timestamp-derived GPU duration.
     pub duration: Duration,
 }
 
@@ -28,9 +35,13 @@ pub struct GpuTimingNodeReport {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[non_exhaustive]
 pub enum GpuTimingUnavailableReason {
+    /// The device does not expose timestamp-query support.
     Unsupported,
+    /// A previous timing readback on this graph is still pending.
     Busy,
+    /// Mapping, device polling, or readback decoding failed.
     ReadbackFailed,
+    /// The number of retained timed nodes exceeded the query-set limit.
     TooManyTimedNodes,
 }
 
@@ -38,14 +49,22 @@ pub enum GpuTimingUnavailableReason {
 #[derive(Clone, Debug, PartialEq, Eq)]
 #[non_exhaustive]
 pub enum GpuTimingReport {
+    /// Timestamp results were read back successfully.
     Available {
+        /// Caller-defined frame identity supplied at execution.
         frame_index: u64,
+        /// Span from the first timed node begin to the last timed node end.
         frame_duration: Duration,
+        /// Timings in retained execution order.
         nodes: Vec<GpuTimingNodeReport>,
+        /// Minimal recording group table needed to interpret `nodes`.
         debug_groups: Vec<DebugGroupReport>,
     },
+    /// Graph execution succeeded but timing data was unavailable.
     Unavailable {
+        /// Caller-defined frame identity supplied at execution.
         frame_index: u64,
+        /// Non-fatal reason no timestamp values are present.
         reason: GpuTimingUnavailableReason,
     },
 }
@@ -120,6 +139,7 @@ pub struct GpuTimingReadback {
 }
 
 impl GpuTimingReadback {
+    /// Returns the caller-defined identity of the timed execution.
     pub fn frame_index(&self) -> u64 {
         self.frame_index
     }

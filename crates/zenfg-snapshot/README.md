@@ -3,6 +3,10 @@
 Portable, `wgpu`-independent wire types, JSON codec, validator, and legacy
 migration support for ZenFG Snapshot 1.0.
 
+For package selection, Snapshot/runtime boundaries, TypeScript/Rust API mapping,
+and common integration failures, see the
+[ZenFG quick reference](https://github.com/uinosoft/zenfg/blob/main/docs/quick-reference.md).
+
 The canonical format identifier is `zenfg.frame-graph-snapshot`; encoded files
 use the `.fgsnapshot.json` extension.
 
@@ -18,10 +22,33 @@ use zenfg_snapshot::{
     validate_frame_graph_snapshot,
 };
 
+let json_text = r#"{
+  "format": "zenfg.frame-graph-snapshot",
+  "version": { "major": 1, "minor": 0 },
+  "producer": { "name": "example" },
+  "capture": { "frameIndex": 0 },
+  "graph": {
+    "groups": [], "nodes": [], "resources": [], "textureViews": [],
+    "accesses": [], "dependencies": [], "roots": [], "segments": []
+  },
+  "memory": {
+    "allocationReport": { "status": "available", "allocations": [] },
+    "poolReport": { "status": "unavailable", "reason": "not captured" }
+  },
+  "timings": {
+    "gpu": { "status": "unavailable", "reason": "not captured" }
+  },
+  "diagnostics": [],
+  "extensions": {}
+}"#;
 let decoded = parse_frame_graph_snapshot(json_text)?;
 let value = serde_json::to_value(&decoded.snapshot)?;
 let issues = validate_frame_graph_snapshot(&value);
+assert!(issues.is_empty());
+let decoded_from_value = decode_frame_graph_snapshot(value)?;
+assert_eq!(decoded_from_value.snapshot, decoded.snapshot);
 let canonical_json = to_json_pretty(&decoded.snapshot)?;
+assert!(canonical_json.contains("zenfg.frame-graph-snapshot"));
 # Ok::<(), Box<dyn std::error::Error>>(())
 ```
 

@@ -9,7 +9,7 @@
     "./snapshot": { "types": "./dist/snapshot.d.ts", "import": "./dist/snapshot.js" }
   },
   "types": "./dist/index.d.ts",
-  "files": ["dist", "README.md", "README.zh-CN.md", "LICENSE"],
+  "files": ["dist", "src", "examples", "README.md", "README.zh-CN.md", "LICENSE"],
   "dependencies": { "@zenfg/snapshot": "^0.1.0" },
   "scripts": {
     "benchmark:compile": "node ../../scripts/run-webgpu-compile-benchmark.mjs",

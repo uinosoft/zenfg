@@ -12,7 +12,7 @@
     "./conformance/*": "./conformance/*"
   },
   "types": "./dist/index.d.ts",
-  "files": ["dist", "schema", "fixtures", "conformance", "SPEC.md", "README.md", "LICENSE"],
+  "files": ["dist", "src", "schema", "fixtures", "conformance", "SPEC.md", "README.md", "LICENSE"],
   "scripts": {
     "build": "node ../../scripts/build-package.mjs",
     "build:watch": "node ../../scripts/build-package.mjs --watch",

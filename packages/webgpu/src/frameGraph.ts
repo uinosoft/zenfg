@@ -188,6 +188,23 @@ type CompiledGpuDebugGroups = {
  * Long-lived device-bound runtime shared by independent recordings and compiled
  * frames. It owns only the transient pool and GPU profiler.
  *
+ * @remarks A `FrameGraph` may create many independent single-use recorders, but
+ * only one compiled frame may execute at a time. Imported textures and buffers
+ * always remain caller-owned. Call {@link FrameGraph.destroy} before releasing
+ * the device-bound runtime.
+ *
+ * @example
+ * ```ts
+ * import { FrameGraph } from '@zenfg/webgpu';
+ *
+ * const graph = new FrameGraph(device);
+ * const frame = graph.beginFrame();
+ * const buffer = frame.createBuffer({ label: 'scratch', size: 256 });
+ * frame.clearBuffer({ operations: [{ target: buffer }], sideEffect: true });
+ * frame.compile().execute();
+ * graph.destroy();
+ * ```
+ *
  * @beta
  */
 export class FrameGraph {
@@ -204,19 +221,32 @@ export class FrameGraph {
 		};
 	}
 
-	/** Starts an independent single-use recording. */
+	/**
+	 * Starts an independent single-use recording.
+	 *
+	 * @throws If this runtime has been destroyed.
+	 */
 	beginFrame(): FrameGraphRecorder {
 		this.assertNotDestroyed();
 		return new FrameGraphRecorderImpl(this.runtime);
 	}
 
-	/** Returns aggregate transient-pool counters and retained-byte estimates. */
+	/**
+	 * Returns aggregate transient-pool counters and retained-byte estimates.
+	 *
+	 * @throws If this runtime has been destroyed.
+	 */
 	getResourcePoolStats(): FrameGraphResourcePoolStats {
 		this.assertNotDestroyed();
 		return this.runtime.pool.getStats();
 	}
 
-	/** Destroys resources retained for reuse while preserving historical counters. */
+	/**
+	 * Destroys resources retained for reuse while preserving historical counters.
+	 *
+	 * @throws If this runtime has been destroyed or a compiled frame is currently
+	 * executing.
+	 */
 	clearResourcePool(): void {
 		this.assertNotDestroyed();
 		this.assertNotExecuting('clearResourcePool');
@@ -226,6 +256,9 @@ export class FrameGraph {
 	/**
 	 * Permanently releases runtime-owned resources and invalidates outstanding
 	 * recorders and compiled frames. Imported resources remain caller-owned.
+	 * Repeated calls after successful destruction are no-ops.
+	 *
+	 * @throws If a compiled frame is currently executing.
 	 */
 	destroy(): void {
 		if (this.runtime.isDestroyed) {

@@ -7,7 +7,7 @@ packages use independent versions; component tags identify each release.
 
 No user-facing changes have been recorded after the `0.1.0` release candidate.
 
-## 0.1.0 release candidate - 2026-08-30
+## 0.1.0 release candidate - 2026-08-31
 
 Initial release candidate for the coordinated first publication of:
 
@@ -20,6 +20,17 @@ Initial release candidate for the coordinated first publication of:
 This candidate establishes the standalone TypeScript/WebGPU and Rust/wgpu
 FrameGraph runtimes, the renderer-independent Inspector, cross-language
 conformance fixtures, and manual package-verification workflows.
+
+Developer and coding-agent usability is part of the candidate contract:
+
+- one compact Quick Reference maps package choice, lifecycle, ownership,
+  content semantics, common tasks, TypeScript/Rust names, and failure fixes;
+- public TSDoc/rustdoc, self-contained package READMEs, and complete compiled
+  recipes document the supported workflows without requiring repository search;
+- npm declaration maps point to packaged sources, while Rust crate READMEs serve
+  as tested crate-level documentation;
+- documentation, recipes, package contents, and link integrity are guarded by
+  release checks without changing runtime APIs or Snapshot 1.0 semantics.
 
 The package versions are independent of the ZenFG FrameGraph Snapshot wire
 format, which is version `1.0` in this candidate.

@@ -1,7 +1,8 @@
 use core::fmt;
 
 macro_rules! define_id {
-    ($name:ident) => {
+    ($(#[$meta:meta])* $name:ident) => {
+        $(#[$meta])*
         #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
         #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
         #[repr(transparent)]
@@ -26,10 +27,31 @@ macro_rules! define_id {
     };
 }
 
-define_id!(ResourceId);
-define_id!(ViewId);
-define_id!(PassId);
-define_id!(AccessId);
-define_id!(ValueId);
-define_id!(AllocationId);
-define_id!(DebugGroupId);
+define_id!(
+    /// Recording-local identity of a logical resource.
+    ResourceId
+);
+define_id!(
+    /// Recording-local identity of a logical texture view.
+    ViewId
+);
+define_id!(
+    /// Recording-local identity of a graph node/pass.
+    PassId
+);
+define_id!(
+    /// Recording-local identity of a declared resource access.
+    AccessId
+);
+define_id!(
+    /// Recording-local identity of a logical content value.
+    ValueId
+);
+define_id!(
+    /// Compilation-local identity of a physical allocation.
+    AllocationId
+);
+define_id!(
+    /// Recording-local identity of a diagnostic debug group.
+    DebugGroupId
+);

@@ -1,4 +1,5 @@
-//! Renderer-agnostic, wgpu-specific FrameGraph compilation and transient-resource execution.
+#![doc = include_str!("../README.md")]
+#![warn(missing_docs)]
 
 mod compiler;
 mod error;
@@ -8,6 +9,8 @@ mod graph;
 mod ids;
 mod model;
 mod pass;
+// Public report types are documented; item-level allows in `report.rs` defer
+// only exhaustive field and variant documentation for the data-heavy tables.
 mod report;
 mod resource;
 mod resource_pool;

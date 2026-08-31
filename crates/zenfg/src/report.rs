@@ -4,6 +4,8 @@ use crate::{
     RootReason, TextureDesc, TextureViewDesc, UndefinedCause, ValueId, ViewId,
 };
 
+/// CPU time spent in each compilation phase, in nanoseconds.
+#[allow(missing_docs)]
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct CompilationTimings {
@@ -15,6 +17,8 @@ pub struct CompilationTimings {
     pub total_ns: u64,
 }
 
+/// Counts, memory estimates, and timings available at summary report level.
+#[allow(missing_docs)]
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct CompilationSummary {
@@ -32,6 +36,8 @@ pub struct CompilationSummary {
     pub timings: CompilationTimings,
 }
 
+/// Effective native usage inferred for a retained logical resource.
+#[allow(missing_docs)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum ResourceUsage {
@@ -40,6 +46,7 @@ pub enum ResourceUsage {
 }
 
 impl ResourceUsage {
+    /// Returns the native wgpu bit representation as a common integer type.
     pub const fn bits(self) -> u64 {
         match self {
             Self::Texture(value) => value.bits() as u64,
@@ -48,6 +55,8 @@ impl ResourceUsage {
     }
 }
 
+/// Snapshotted logical descriptor of a reported resource.
+#[allow(missing_docs)]
 #[derive(Clone, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum ResourceDescriptor {
@@ -55,6 +64,8 @@ pub enum ResourceDescriptor {
     Buffer(BufferDesc),
 }
 
+/// One retained node in original recording order.
+#[allow(missing_docs)]
 #[derive(Clone, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct NodeReport {
@@ -68,6 +79,8 @@ pub struct NodeReport {
     pub debug_group: Option<DebugGroupId>,
 }
 
+/// Why a recorded node was removed from the retained plan.
+#[allow(missing_docs)]
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[non_exhaustive]
@@ -76,6 +89,8 @@ pub enum CulledNodeReason {
     NotReachableFromRoot,
 }
 
+/// One removed node in original recording order.
+#[allow(missing_docs)]
 #[derive(Clone, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct CulledNodeReport {
@@ -91,6 +106,8 @@ pub struct CulledNodeReport {
     pub reason: CulledNodeReason,
 }
 
+/// Descriptor, usage, lifetime, and allocation facts for one logical resource.
+#[allow(missing_docs)]
 #[derive(Clone, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct ResourceReport {
@@ -109,6 +126,7 @@ pub struct ResourceReport {
 }
 
 /// One recording-only diagnostic scope in group-open order.
+#[allow(missing_docs)]
 #[derive(Clone, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct DebugGroupReport {
@@ -117,6 +135,8 @@ pub struct DebugGroupReport {
     pub label: String,
 }
 
+/// One normalized logical texture view.
+#[allow(missing_docs)]
 #[derive(Clone, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct ViewReport {
@@ -126,6 +146,8 @@ pub struct ViewReport {
     pub range: ResourceRange,
 }
 
+/// One declared resource access in recording order.
+#[allow(missing_docs)]
 #[derive(Clone, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct AccessReport {
@@ -141,6 +163,8 @@ pub struct AccessReport {
     pub value: Option<ValueId>,
 }
 
+/// Origin of one logical content value.
+#[allow(missing_docs)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum ValueKind {
@@ -148,6 +172,8 @@ pub enum ValueKind {
     Write,
 }
 
+/// One initial or pass-produced logical content value.
+#[allow(missing_docs)]
 #[derive(Clone, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct ValueReport {
@@ -158,6 +184,8 @@ pub struct ValueReport {
     pub range: ResourceRange,
 }
 
+/// One value-carrying or ordering dependency between graph nodes.
+#[allow(missing_docs)]
 #[derive(Clone, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct DependencyReport {
@@ -170,6 +198,8 @@ pub struct DependencyReport {
     pub value: Option<ValueId>,
 }
 
+/// One observable resource range and the producers that keep it defined.
+#[allow(missing_docs)]
 #[derive(Clone, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct RootReport {
@@ -179,6 +209,8 @@ pub struct RootReport {
     pub producers: Vec<PassId>,
 }
 
+/// Inclusive retained execution-order interval of one logical resource.
+#[allow(missing_docs)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct ResourceLifetime {
@@ -186,6 +218,8 @@ pub struct ResourceLifetime {
     pub last_use: usize,
 }
 
+/// One physical transient allocation and all aliased logical resources assigned to it.
+#[allow(missing_docs)]
 #[derive(Clone, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct AllocationReport {
@@ -196,6 +230,8 @@ pub struct AllocationReport {
     pub estimated_byte_size: u64,
 }
 
+/// Kind of encoder/submission segment in the retained execution plan.
+#[allow(missing_docs)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum ExecutionSegmentKind {
@@ -203,6 +239,8 @@ pub enum ExecutionSegmentKind {
     ExternalSubmission,
 }
 
+/// Ordered retained nodes belonging to one execution segment.
+#[allow(missing_docs)]
 #[derive(Clone, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct ExecutionSegmentReport {
@@ -210,6 +248,8 @@ pub struct ExecutionSegmentReport {
     pub nodes: Vec<PassId>,
 }
 
+/// Severity of a compilation diagnostic.
+#[allow(missing_docs)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum DiagnosticSeverity {
@@ -218,6 +258,8 @@ pub enum DiagnosticSeverity {
     Error,
 }
 
+/// Structured non-fatal diagnostic attached to a compilation report.
+#[allow(missing_docs)]
 #[derive(Clone, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Diagnostic {
@@ -229,6 +271,10 @@ pub struct Diagnostic {
     pub undefined_cause: Option<UndefinedCause>,
 }
 
+/// Complete recording, retention, dependency, and allocation tables.
+///
+/// This is present only when compilation uses [`CompileOptions::full_report`](crate::CompileOptions::full_report).
+#[allow(missing_docs)]
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct FullCompilationReport {
@@ -247,6 +293,11 @@ pub struct FullCompilationReport {
     pub debug_groups: Vec<DebugGroupReport>,
 }
 
+/// Optional compilation diagnostics selected by [`ReportLevel`](crate::ReportLevel).
+///
+/// The summary is always present when a report exists. [`Self::full`] is present
+/// only at full report level.
+#[allow(missing_docs)]
 #[derive(Clone, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct CompilationReport {

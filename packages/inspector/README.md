@@ -4,6 +4,10 @@
 ZenFG Snapshot data. It depends on `@zenfg/snapshot`, Cytoscape, and ELK; it has
 no WebGPU, wgpu, engine, or host-UI dependency.
 
+For package selection, the capture data flow, version boundaries, and links to
+complete producer recipes, see the
+[ZenFG quick reference](https://github.com/uinosoft/zenfg/blob/main/docs/quick-reference.md).
+
 ## Installation
 
 ```sh

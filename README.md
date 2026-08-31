@@ -9,6 +9,10 @@ pipelines, bind groups, cameras, surface presentation, or application policy.
 Independent renderers can participate through native render/compute/copy
 nodes, command encoding, or opaque external-submission boundaries.
 
+Start with the [developer and AI quick reference](docs/quick-reference.md) for
+package selection, lifecycle and ownership rules, API name mapping, common
+failure fixes, and complete TypeScript/Rust recipes.
+
 ## Packages
 
 | Package | Purpose |
@@ -32,8 +36,9 @@ For local development, install dependencies and start the standalone Inspector
 from a clean checkout with `npm run dev:inspector`. Run the independent
 TypeScript/Rust producer corpus with `npm run test:cross-language`.
 
-See [the architecture guide](docs/architecture.md),
-[semantic model](docs/semantic-model.md), and
+See the [quick reference](docs/quick-reference.md),
+[architecture guide](docs/architecture.md),
+[semantic model](docs/semantic-model.md),
 [integration guide](docs/integration.md),
 [compatibility matrix](docs/compatibility.md), and
 [migration baseline](docs/migration-baseline.md). The extraction acceptance run

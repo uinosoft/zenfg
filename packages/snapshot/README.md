@@ -5,6 +5,10 @@ contract used to move one compiled FrameGraph frame between producers and
 viewers. It contains no DOM, WebGPU, FrameGraph, or runtime third-party
 dependency.
 
+For package selection, Snapshot/runtime boundaries, TypeScript/Rust API mapping,
+and common integration failures, see the
+[ZenFG quick reference](https://github.com/uinosoft/zenfg/blob/main/docs/quick-reference.md).
+
 Snapshot V1 is UTF-8 JSON and conventionally uses the
 `.fgsnapshot.json` extension. It describes compilation, logical resources and
 views, central accesses, retention, execution segments, memory allocation,

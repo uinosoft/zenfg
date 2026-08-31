@@ -15,17 +15,48 @@ import type {
 } from './types.ts';
 import { validateSnapshotV1 } from './validator.ts';
 
+/**
+ * Error thrown when a value cannot be serialized as a valid Snapshot 1.0
+ * document.
+ *
+ * Decode and parse failures are returned as {@link FrameGraphSnapshotIssue}
+ * values instead; this error is reserved for producer-side serialization.
+ */
 export class FrameGraphSnapshotValidationError extends Error {
-	constructor(readonly issues: readonly FrameGraphSnapshotIssue[]) {
+	constructor(
+		/** All validation failures that prevented serialization. */
+		readonly issues: readonly FrameGraphSnapshotIssue[],
+	) {
 		super(issues.map((issue) => `${issue.path || '/'}: ${issue.message}`).join('\n'));
 		this.name = 'FrameGraphSnapshotValidationError';
 	}
 }
 
+/**
+ * Validates an unknown value against the canonical Snapshot 1.0 semantic model.
+ *
+ * @remarks This performs structural and cross-reference checks without
+ * migrating legacy formats or cloning the input. An empty array means valid.
+ */
 export function validateFrameGraphSnapshot(value: unknown): readonly FrameGraphSnapshotIssue[] {
 	return validateSnapshotV1(value);
 }
 
+/**
+ * Decodes an already-parsed value into a canonical Snapshot 1.0 document.
+ *
+ * @remarks Supported legacy V0 and pre-release `t3d` V1 captures are migrated
+ * before validation. Successful results identify the source format and carry
+ * migration warnings; unsupported, malformed, or semantically invalid values
+ * return `{ ok: false, issues }` and do not throw.
+ *
+ * @example
+ * ```ts
+ * const result = decodeFrameGraphSnapshot(untrustedValue);
+ * if (result.ok) console.log(result.snapshot.graph.nodes.length);
+ * else console.error(result.issues);
+ * ```
+ */
 export function decodeFrameGraphSnapshot(value: unknown): FrameGraphSnapshotDecodeResult {
 	if (isLegacyFrameGraphCapture(value)) {
 		const migrated = migrateLegacyFrameGraphCapture(value);
@@ -111,6 +142,13 @@ function migrateT3dV1(value: Record<string, unknown>): FrameGraphSnapshotDecodeR
 	};
 }
 
+/**
+ * Parses JSON text and then applies the same migration and validation pipeline
+ * as {@link decodeFrameGraphSnapshot}.
+ *
+ * @remarks Invalid JSON is represented by an `invalid-json` issue. This
+ * function does not throw for document or validation errors.
+ */
 export function parseFrameGraphSnapshot(text: string): FrameGraphSnapshotDecodeResult {
 	let value: unknown;
 	try {
@@ -126,6 +164,16 @@ export function parseFrameGraphSnapshot(text: string): FrameGraphSnapshotDecodeR
 	return decodeFrameGraphSnapshot(value);
 }
 
+/**
+ * Validates and serializes a canonical Snapshot 1.0 document.
+ *
+ * @param snapshot - Producer-owned snapshot to validate before serialization.
+ * @param options - Formatting options. Omitted options produce compact JSON.
+ * @returns Canonical JSON text without mutating `snapshot`.
+ * @throws {@link FrameGraphSnapshotValidationError} when semantic validation
+ * fails, or a native `TypeError` if JSON serialization encounters unsupported
+ * runtime values.
+ */
 export function stringifyFrameGraphSnapshot(
 	snapshot: FrameGraphSnapshot,
 	options: FrameGraphSnapshotStringifyOptions = {},

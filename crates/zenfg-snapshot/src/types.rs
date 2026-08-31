@@ -2,6 +2,8 @@ use std::collections::BTreeMap;
 
 use serde::{Deserialize, Serialize};
 
+/// Major/minor version carried by every Snapshot document.
+#[allow(missing_docs)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SnapshotVersion {
@@ -9,6 +11,14 @@ pub struct SnapshotVersion {
     pub minor: u32,
 }
 
+/// Canonical, strongly typed ZenFG FrameGraph Snapshot 1.0 document.
+///
+/// This structure mirrors the portable JSON wire model. Prefer
+/// [`crate::parse_frame_graph_snapshot`] or [`crate::decode_frame_graph_snapshot`]
+/// over direct Serde deserialization so format/version checks, migrations, and
+/// cross-record validation are applied. Prefer [`crate::to_json`] or
+/// [`crate::to_json_pretty`] for validated encoding.
+#[allow(missing_docs)]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct FrameGraphSnapshotV1 {
@@ -23,6 +33,8 @@ pub struct FrameGraphSnapshotV1 {
     pub extensions: BTreeMap<String, serde_json::Value>,
 }
 
+/// Identity and optional runtime metadata of the library that produced a capture.
+#[allow(missing_docs)]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SnapshotProducer {
@@ -35,6 +47,8 @@ pub struct SnapshotProducer {
     pub runtime: Option<SnapshotRuntime>,
 }
 
+/// Optional graphics implementation, API, and native backend facts.
+#[allow(missing_docs)]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SnapshotRuntime {
@@ -46,6 +60,8 @@ pub struct SnapshotRuntime {
     pub backend: Option<String>,
 }
 
+/// Frame identity, capture time, and optional migration provenance.
+#[allow(missing_docs)]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SnapshotCapture {
@@ -56,6 +72,8 @@ pub struct SnapshotCapture {
     pub migration: Option<SnapshotMigration>,
 }
 
+/// Provenance and unavailable facts recorded when converting a historical format.
+#[allow(missing_docs)]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SnapshotMigration {
@@ -63,6 +81,8 @@ pub struct SnapshotMigration {
     pub unavailable_facts: Vec<SnapshotUnavailableFact>,
 }
 
+/// Historical wire format from which a canonical V1 document was migrated.
+#[allow(missing_docs)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum SnapshotMigrationSourceFormat {
@@ -70,6 +90,8 @@ pub enum SnapshotMigrationSourceFormat {
     T3dV1,
 }
 
+/// Canonical graph fact that a historical source format could not represent.
+#[allow(missing_docs)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum SnapshotUnavailableFact {
     #[serde(rename = "graph.groups")]
@@ -82,6 +104,8 @@ pub enum SnapshotUnavailableFact {
     GraphAccessRegions,
 }
 
+/// Relational graph tables that make up the portable captured frame.
+#[allow(missing_docs)]
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SnapshotGraph {
@@ -95,6 +119,8 @@ pub struct SnapshotGraph {
     pub segments: Vec<SnapshotSegment>,
 }
 
+/// One recording debug group and its optional parent relationship.
+#[allow(missing_docs)]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SnapshotGroup {
@@ -106,6 +132,8 @@ pub struct SnapshotGroup {
     pub stable_key: Option<String>,
 }
 
+/// One recorded graph node with its original metadata and compile outcome.
+#[allow(missing_docs)]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SnapshotNode {
@@ -123,6 +151,8 @@ pub struct SnapshotNode {
     pub compile_state: SnapshotNodeCompileState,
 }
 
+/// Portable kind of work represented by a captured graph node.
+#[allow(missing_docs)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum SnapshotNodeKind {
@@ -134,6 +164,8 @@ pub enum SnapshotNodeKind {
     ExternalSubmission,
 }
 
+/// Whether a recorded node was retained, and its order or culling reason.
+#[allow(missing_docs)]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "status", rename_all = "kebab-case")]
 pub enum SnapshotNodeCompileState {
@@ -146,6 +178,8 @@ pub enum SnapshotNodeCompileState {
     },
 }
 
+/// One logical resource with descriptor, usage, lifetime, and allocation facts.
+#[allow(missing_docs)]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SnapshotResource {
@@ -171,6 +205,8 @@ pub struct SnapshotResource {
     pub usage_flags: Vec<SnapshotUsageFlag>,
 }
 
+/// Portable texture-or-buffer discriminator.
+#[allow(missing_docs)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum SnapshotResourceKind {
@@ -178,6 +214,8 @@ pub enum SnapshotResourceKind {
     Buffer,
 }
 
+/// Ownership and allocation origin of a captured logical resource.
+#[allow(missing_docs)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum SnapshotResourceOrigin {
@@ -186,6 +224,8 @@ pub enum SnapshotResourceOrigin {
     Surface,
 }
 
+/// Whether a resource range is readable at the start of the captured frame.
+#[allow(missing_docs)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum SnapshotInitialContents {
@@ -193,6 +233,8 @@ pub enum SnapshotInitialContents {
     Undefined,
 }
 
+/// Inclusive retained execution-order interval for one logical resource.
+#[allow(missing_docs)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SnapshotLifetime {
@@ -200,6 +242,8 @@ pub struct SnapshotLifetime {
     pub last_use: u64,
 }
 
+/// Portable physical descriptor for a captured texture or buffer.
+#[allow(missing_docs)]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "kebab-case")]
 pub enum SnapshotResourceDescriptor {
@@ -219,6 +263,8 @@ pub enum SnapshotResourceDescriptor {
     },
 }
 
+/// Three-dimensional texture extent using JSON-safe integer fields.
+#[allow(missing_docs)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SnapshotTextureSize {
@@ -227,6 +273,8 @@ pub struct SnapshotTextureSize {
     pub depth_or_array_layers: u64,
 }
 
+/// One normalized WebGPU usage flag in protocol-defined ordering.
+#[allow(missing_docs)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum SnapshotUsageFlag {
@@ -245,6 +293,8 @@ pub enum SnapshotUsageFlag {
     RenderAttachment,
 }
 
+/// Fully normalized texture-view descriptor referenced by captured accesses.
+#[allow(missing_docs)]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SnapshotTextureView {
@@ -264,6 +314,8 @@ pub struct SnapshotTextureView {
     pub swizzle: String,
 }
 
+/// One declared node-to-resource access and its normalized affected region.
+#[allow(missing_docs)]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SnapshotAccess {
@@ -283,6 +335,8 @@ pub struct SnapshotAccess {
     pub produces_value: bool,
 }
 
+/// Portable pipeline or copy role of one resource access.
+#[allow(missing_docs)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum SnapshotAccessKind {
@@ -304,6 +358,8 @@ pub enum SnapshotAccessKind {
     BufferCopyDst,
 }
 
+/// Whether a captured access reads or writes its resource.
+#[allow(missing_docs)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum SnapshotAccessMode {
@@ -311,6 +367,8 @@ pub enum SnapshotAccessMode {
     Write,
 }
 
+/// Whether a write overwrites or preserves the prior logical value.
+#[allow(missing_docs)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum SnapshotWriteContents {
@@ -318,6 +376,8 @@ pub enum SnapshotWriteContents {
     Preserve,
 }
 
+/// Normalized mip, layer/depth-slice, and aspect region for a texture access.
+#[allow(missing_docs)]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SnapshotTextureRegion {
@@ -334,6 +394,8 @@ pub struct SnapshotTextureRegion {
     pub aspect: String,
 }
 
+/// Byte range for a captured buffer access; absent size means the remaining buffer.
+#[allow(missing_docs)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SnapshotBufferRange {
@@ -342,6 +404,8 @@ pub struct SnapshotBufferRange {
     pub size: Option<u64>,
 }
 
+/// One value-carrying or ordering edge between captured graph nodes.
+#[allow(missing_docs)]
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SnapshotDependency {
@@ -351,6 +415,8 @@ pub struct SnapshotDependency {
     pub kind: SnapshotDependencyKind,
 }
 
+/// Whether a dependency carries a logical value or only constrains ordering.
+#[allow(missing_docs)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum SnapshotDependencyKind {
@@ -358,6 +424,8 @@ pub enum SnapshotDependencyKind {
     Ordering,
 }
 
+/// One observable resource/node root and its retention reason.
+#[allow(missing_docs)]
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SnapshotRoot {
@@ -368,6 +436,8 @@ pub struct SnapshotRoot {
     pub resource_id: Option<String>,
 }
 
+/// Portable reason that a node or resource remains observable after compilation.
+#[allow(missing_docs)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum SnapshotRootReason {
@@ -379,21 +449,32 @@ pub enum SnapshotRootReason {
     PersistentState,
 }
 
+/// Input wire shape recognized by a successful decode.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum SnapshotDecodeSource {
+    /// Canonical ZenFG Snapshot 1.0.
     V1,
+    /// Historical unversioned debug-capture shape.
     LegacyV0,
+    /// Historical pre-release `t3d.frame-graph-snapshot` V1 candidate.
     T3dV1,
 }
 
+/// Canonical snapshot plus provenance and non-fatal migration diagnostics.
 #[derive(Clone, Debug, PartialEq)]
 pub struct SnapshotDecodeResult {
+    /// Validated canonical ZenFG Snapshot 1.0 value.
     pub snapshot: FrameGraphSnapshotV1,
+    /// Original input format recognized by the decoder.
     pub source: SnapshotDecodeSource,
+    /// Whether the decoder transformed a historical input.
     pub migrated: bool,
+    /// Non-fatal warnings, including migration provenance notices.
     pub issues: Vec<crate::SnapshotIssue>,
 }
 
+/// One ordered frame-graph or external-submission execution segment.
+#[allow(missing_docs)]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SnapshotSegment {
@@ -403,6 +484,8 @@ pub struct SnapshotSegment {
     pub node_ids: Vec<String>,
 }
 
+/// Ownership of command submission for one execution segment.
+#[allow(missing_docs)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum SnapshotSegmentKind {
@@ -410,6 +493,8 @@ pub enum SnapshotSegmentKind {
     ExternalSubmission,
 }
 
+/// Allocation-plan and cross-frame resource-pool facts for the capture.
+#[allow(missing_docs)]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SnapshotMemory {
@@ -417,6 +502,8 @@ pub struct SnapshotMemory {
     pub pool_report: SnapshotPoolReport,
 }
 
+/// Available physical allocation table or an explicit unavailability reason.
+#[allow(missing_docs)]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "status", rename_all = "kebab-case")]
 pub enum SnapshotAllocationReport {
@@ -428,6 +515,8 @@ pub enum SnapshotAllocationReport {
     },
 }
 
+/// One physical allocation compatibility class and estimated size.
+#[allow(missing_docs)]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SnapshotAllocation {
@@ -438,6 +527,8 @@ pub struct SnapshotAllocation {
     pub estimated_byte_size: Option<u64>,
 }
 
+/// Available resource-pool counters or an explicit unavailability reason.
+#[allow(missing_docs)]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "status", rename_all = "kebab-case")]
 pub enum SnapshotPoolReport {
@@ -461,12 +552,16 @@ pub enum SnapshotPoolReport {
     },
 }
 
+/// Optional timing families captured alongside the graph.
+#[allow(missing_docs)]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SnapshotTimings {
     pub gpu: SnapshotGpuTimings,
 }
 
+/// Available GPU pass timings or an explicit unavailability reason.
+#[allow(missing_docs)]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "status", rename_all = "kebab-case")]
 pub enum SnapshotGpuTimings {
@@ -480,6 +575,8 @@ pub enum SnapshotGpuTimings {
     },
 }
 
+/// GPU duration, in microseconds, associated with one retained node.
+#[allow(missing_docs)]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SnapshotGpuNodeTiming {
@@ -487,6 +584,8 @@ pub struct SnapshotGpuNodeTiming {
     pub duration_micros: f64,
 }
 
+/// Structured producer diagnostic with optional graph entity references.
+#[allow(missing_docs)]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SnapshotDiagnostic {
@@ -499,6 +598,8 @@ pub struct SnapshotDiagnostic {
     pub resource_id: Option<String>,
 }
 
+/// Portable severity of a captured producer diagnostic.
+#[allow(missing_docs)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum SnapshotDiagnosticSeverity {
