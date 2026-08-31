@@ -1,4 +1,7 @@
-use crate::{FrameGraphSnapshotV1, SnapshotJsonError, validate_frame_graph_snapshot};
+use crate::{
+    FrameGraphSnapshotV1, SnapshotJsonError, validate_frame_graph_snapshot,
+    validator::validate_typed_extension_depths,
+};
 
 /// Validates and serializes a canonical Snapshot as compact JSON.
 ///
@@ -17,6 +20,12 @@ pub fn to_json_pretty(snapshot: &FrameGraphSnapshotV1) -> Result<String, Snapsho
 }
 
 fn encode(snapshot: &FrameGraphSnapshotV1, pretty: bool) -> Result<String, SnapshotJsonError> {
+    let extension_issues = validate_typed_extension_depths(&snapshot.extensions);
+    if !extension_issues.is_empty() {
+        return Err(SnapshotJsonError::Validation {
+            issues: extension_issues,
+        });
+    }
     let mut value = serde_json::to_value(snapshot)?;
     canonicalize_integral_numbers(&mut value);
     let issues = validate_frame_graph_snapshot(&value);

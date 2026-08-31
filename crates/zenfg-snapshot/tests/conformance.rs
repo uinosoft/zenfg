@@ -5,8 +5,9 @@ use std::{
 
 use serde_json::Value;
 use zenfg_snapshot::{
-    SnapshotDecodeSource, SnapshotJsonError, decode_frame_graph_snapshot,
-    parse_frame_graph_snapshot, to_json, validate_frame_graph_snapshot,
+    FRAME_GRAPH_SNAPSHOT_MAX_EXTENSION_DEPTH, SnapshotDecodeSource, SnapshotJsonError,
+    decode_frame_graph_snapshot, parse_frame_graph_snapshot, to_json, to_json_pretty,
+    validate_frame_graph_snapshot,
 };
 
 fn corpus() -> PathBuf {
@@ -196,4 +197,93 @@ fn validates_before_encoding_and_accepts_json_integer_notation() {
     value["capture"]["frameIndex"] = Value::from(0.0);
     assert!(validate_frame_graph_snapshot(&value).is_empty());
     assert!(decode_frame_graph_snapshot(value).is_ok());
+}
+
+#[test]
+fn enforces_extension_depth_across_validation_decoding_parsing_and_encoding() {
+    assert_eq!(FRAME_GRAPH_SNAPSHOT_MAX_EXTENSION_DEPTH, 64);
+
+    let mut valid: Value =
+        serde_json::from_str(&read(corpus().join("fixtures/minimal.fgsnapshot.json"))).unwrap();
+    valid["extensions"]["dev.zenfg.deep"] = nested_extension(64);
+    assert!(validate_frame_graph_snapshot(&valid).is_empty());
+    assert!(decode_frame_graph_snapshot(valid.clone()).is_ok());
+    assert!(parse_frame_graph_snapshot(&serde_json::to_string(&valid).unwrap()).is_ok());
+
+    let mut typed = decode_frame_graph_snapshot(valid).unwrap().snapshot;
+    assert!(to_json(&typed).is_ok());
+    assert!(to_json_pretty(&typed).is_ok());
+
+    let mut valid_empty: Value =
+        serde_json::from_str(&read(corpus().join("fixtures/minimal.fgsnapshot.json"))).unwrap();
+    valid_empty["extensions"]["dev.zenfg.empty"] = wrapped_empty_container(63);
+    assert!(validate_frame_graph_snapshot(&valid_empty).is_empty());
+    let valid_empty_typed = decode_frame_graph_snapshot(valid_empty).unwrap().snapshot;
+    assert!(to_json(&valid_empty_typed).is_ok());
+    assert!(to_json_pretty(&valid_empty_typed).is_ok());
+
+    typed.extensions.insert(
+        "dev.zenfg.deep/~".into(),
+        nested_extension(FRAME_GRAPH_SNAPSHOT_MAX_EXTENSION_DEPTH + 1),
+    );
+    let compact = to_json(&typed).unwrap_err();
+    assert_extension_depth_issue(compact.issues().unwrap());
+    let pretty = to_json_pretty(&typed).unwrap_err();
+    assert_extension_depth_issue(pretty.issues().unwrap());
+
+    let mut invalid: Value =
+        serde_json::from_str(&read(corpus().join("fixtures/minimal.fgsnapshot.json"))).unwrap();
+    invalid["extensions"]["dev.zenfg.deep/~"] =
+        nested_extension(FRAME_GRAPH_SNAPSHOT_MAX_EXTENSION_DEPTH + 1);
+    assert_extension_depth_issue(&validate_frame_graph_snapshot(&invalid));
+    assert_extension_depth_issue(
+        &decode_frame_graph_snapshot(invalid.clone())
+            .unwrap_err()
+            .issues,
+    );
+    assert_extension_depth_issue(
+        &parse_frame_graph_snapshot(&serde_json::to_string(&invalid).unwrap())
+            .unwrap_err()
+            .issues,
+    );
+
+    let mut invalid_empty: Value =
+        serde_json::from_str(&read(corpus().join("fixtures/minimal.fgsnapshot.json"))).unwrap();
+    invalid_empty["extensions"]["dev.zenfg.deep/~"] = wrapped_empty_container(64);
+    assert_extension_depth_issue(&validate_frame_graph_snapshot(&invalid_empty));
+    assert_extension_depth_issue(
+        &decode_frame_graph_snapshot(invalid_empty)
+            .unwrap_err()
+            .issues,
+    );
+}
+
+fn nested_extension(depth: usize) -> Value {
+    (0..depth).fold(Value::String("leaf".into()), |value, index| {
+        if index % 2 == 0 {
+            serde_json::json!({ "value": value })
+        } else {
+            serde_json::json!([value])
+        }
+    })
+}
+
+fn wrapped_empty_container(wrapper_count: usize) -> Value {
+    (0..wrapper_count).fold(serde_json::json!({}), |value, index| {
+        if index % 2 == 0 {
+            serde_json::json!([value])
+        } else {
+            serde_json::json!({ "value": value })
+        }
+    })
+}
+
+fn assert_extension_depth_issue(issues: &[zenfg_snapshot::SnapshotIssue]) {
+    assert_eq!(issues.len(), 1);
+    assert_eq!(issues[0].code, "extension-depth-exceeded");
+    assert_eq!(issues[0].path, "/extensions/dev.zenfg.deep~1~0");
+    assert_eq!(
+        issues[0].message,
+        "Extension JSON nesting depth must not exceed 64 container levels."
+    );
 }

@@ -16,3 +16,9 @@ export const FRAME_GRAPH_SNAPSHOT_VERSION = Object.freeze({
 	major: 1,
 	minor: 0,
 } as const);
+
+/**
+ * Maximum number of nested object/array containers in one extension value.
+ * Primitive roots have depth zero; an object or array root has depth one.
+ */
+export const FRAME_GRAPH_SNAPSHOT_MAX_EXTENSION_DEPTH = 64 as const;

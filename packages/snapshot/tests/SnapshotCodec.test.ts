@@ -2,12 +2,15 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import test from 'node:test';
+import { runInNewContext } from 'node:vm';
 
 import Ajv2020 from 'ajv/dist/2020.js';
 
 import {
 	FRAME_GRAPH_SNAPSHOT_FORMAT,
+	FRAME_GRAPH_SNAPSHOT_MAX_EXTENSION_DEPTH,
 	FRAME_GRAPH_SNAPSHOT_VERSION,
+	FrameGraphSnapshotValidationError,
 	decodeFrameGraphSnapshot,
 	parseFrameGraphSnapshot,
 	stringifyFrameGraphSnapshot,
@@ -132,16 +135,66 @@ test('migrates the t3d V1 candidate and preserves unknown imported initial conte
 
 test('matches the canonical t3d V1 migration value exactly', () => {
 	const input = readJson('../fixtures/legacy-t3d-v1-canonical.json');
+	const original = clone(input);
 	const expected = readJson('../fixtures/legacy-t3d-v1.expected.fgsnapshot.json');
 	const decoded = decodeFrameGraphSnapshot(input);
 	assert.equal(decoded.ok, true);
 	if (!decoded.ok) return;
+	assert.deepEqual(input, original);
 	assert.deepEqual(decoded.snapshot, expected);
 	assert.deepEqual(JSON.parse(stringifyFrameGraphSnapshot(decoded.snapshot)), expected);
 	const imported = decoded.snapshot.graph.resources.find((resource) => resource.origin === 'imported');
 	assert.equal(imported?.initialContents, undefined);
 	assert.equal(imported?.stableKey, 'resource/input');
 	assert.deepEqual(decoded.snapshot.extensions['dev.t3d-next.fixture'], { preserved: true });
+});
+
+test('returns detached canonical and t3d snapshots without serialization hooks', () => {
+	for (const [file, source] of [
+		['minimal.fgsnapshot.json', 'v1'],
+		['legacy-t3d-v1-canonical.json', 't3d-v1'],
+	] as const) {
+		const input: any = readJson(`../fixtures/${file}`);
+		const decoded = decodeFrameGraphSnapshot(input);
+		assert.equal(decoded.ok, true, file);
+		if (!decoded.ok) continue;
+		assert.equal(decoded.source, source);
+		const originalProducer = decoded.snapshot.producer.name;
+		input.producer.name = 'mutated-after-decode';
+		input.extensions['dev.zenfg.after-decode'] = { changed: true };
+		assert.equal(decoded.snapshot.producer.name, originalProducer);
+		assert.equal(decoded.snapshot.extensions['dev.zenfg.after-decode'], undefined);
+	}
+});
+
+test('accepts ordinary cross-realm JSON containers and rehomes decoded output', () => {
+	const expected = readJson('../fixtures/full-webgpu.fgsnapshot.json');
+	const foreign = runInNewContext('JSON.parse(text)', {
+		text: JSON.stringify(expected),
+	}) as FrameGraphSnapshot;
+	assert.notEqual(Object.getPrototypeOf(foreign), Object.prototype);
+	assert.notEqual(Object.getPrototypeOf(foreign.graph.nodes), Array.prototype);
+	assert.deepEqual(validateFrameGraphSnapshot(foreign), []);
+
+	const decoded = decodeFrameGraphSnapshot(foreign);
+	assert.equal(decoded.ok, true);
+	if (!decoded.ok) return;
+	assert.deepEqual(decoded.snapshot, expected);
+	assert.equal(Object.getPrototypeOf(decoded.snapshot), Object.prototype);
+	assert.equal(Object.getPrototypeOf(decoded.snapshot.graph.nodes), Array.prototype);
+	assert.deepEqual(JSON.parse(stringifyFrameGraphSnapshot(foreign)), expected);
+});
+
+test('continues to reject cross-realm class, host, and Array-subclass instances', () => {
+	for (const foreignValue of [
+		runInNewContext('new (class Value { constructor() { this.ok = true; } })()'),
+		runInNewContext('new Map([["ok", true]])'),
+		runInNewContext('new (class Values extends Array {})(true)'),
+	]) {
+		const snapshot: any = clone(decodeFixture('minimal.fgsnapshot.json'));
+		snapshot.extensions['dev.zenfg.foreign-instance'] = foreignValue;
+		assertJsonSafetyRejected(snapshot, '/extensions/dev.zenfg.foreign-instance');
+	}
 });
 
 test('reports stable parse, format, and version failures', () => {
@@ -203,13 +256,15 @@ test('rejects invalid integers, non-finite timing and extension values', () => {
 
 	const timing: any = clone(decodeFixture('full-webgpu.fgsnapshot.json'));
 	if (timing.timings.gpu.status === 'available') timing.timings.gpu.frameSpanMicros = Number.POSITIVE_INFINITY;
-	assertIssue(timing, 'invalid-number', '/timings/gpu/frameSpanMicros');
+	assertIssue(timing, 'invalid-json-value', '/timings/gpu/frameSpanMicros');
+
+	const invalidName = clone(decodeFixture('minimal.fgsnapshot.json'));
+	(invalidName.extensions as Record<string, unknown>).invalid = { value: true };
+	assertIssue(invalidName, 'invalid-extension-name', '/extensions/invalid');
 
 	const extension = clone(decodeFixture('minimal.fgsnapshot.json'));
-	(extension.extensions as Record<string, unknown>)['invalid'] = { value: Number.NaN };
-	const issues = validateFrameGraphSnapshot(extension);
-	assert.ok(issues.some((issue) => issue.code === 'invalid-extension-name' && issue.path === '/extensions/invalid'));
-	assert.ok(issues.some((issue) => issue.code === 'invalid-json-value' && issue.path === '/extensions/invalid/value'));
+	(extension.extensions as Record<string, unknown>)['dev.zenfg.invalid-number'] = { value: Number.NaN };
+	assertIssue(extension, 'invalid-json-value', '/extensions/dev.zenfg.invalid-number/value');
 });
 
 test('rejects cyclic and non-JSON programmatic extension values without overflowing', () => {
@@ -232,6 +287,272 @@ test('rejects cyclic and non-JSON programmatic extension values without overflow
 	const invalidSparse: any = clone(decodeFixture('minimal.fgsnapshot.json'));
 	invalidSparse.extensions['dev.t3d.sparse'] = sparse;
 	assertIssue(invalidSparse, 'invalid-json-value', '/extensions/dev.t3d.sparse/0');
+});
+
+test('preflights non-extension values and sparse arrays through every public codec entrypoint', () => {
+	for (const [path, mutate] of [
+		['/producer/version', (value: any) => { value.producer.version = undefined; }],
+		['/capture/frameIndex', (value: any) => { value.capture.frameIndex = 1n; }],
+		['/producer/runtime', (value: any) => { value.producer.runtime = () => undefined; }],
+		['/producer/runtime', (value: any) => { value.producer.runtime = new Date(); }],
+	] as const) {
+		const value: any = clone(decodeFixture('minimal.fgsnapshot.json'));
+		mutate(value);
+		assertJsonSafetyRejected(value, path);
+	}
+
+	const sparseEntities: any = clone(decodeFixture('minimal.fgsnapshot.json'));
+	sparseEntities.graph.nodes.length = 1;
+	assertJsonSafetyRejected(sparseEntities, '/graph/nodes/0');
+
+	const sparseScalars: any = clone(decodeFixture('full-webgpu.fgsnapshot.json'));
+	sparseScalars.graph.resources[0].usageFlags.length += 1;
+	assertJsonSafetyRejected(
+		sparseScalars,
+		`/graph/resources/0/usageFlags/${sparseScalars.graph.resources[0].usageFlags.length - 1}`,
+	);
+
+	const legacyWithUndefined: any = readJson('../fixtures/legacy-v0.json');
+	legacyWithUndefined.compilation.nodes[0].label = undefined;
+	assertJsonSafetyRejected(legacyWithUndefined, '/compilation/nodes/0/label');
+});
+
+test('never invokes getters or toJSON hooks while cloning, validating, decoding, or stringifying', () => {
+	for (const enumerable of [true, false]) {
+		let calls = 0;
+		const value: any = clone(decodeFixture('minimal.fgsnapshot.json'));
+		Object.defineProperty(value, 'toJSON', {
+			enumerable,
+			configurable: true,
+			value: () => {
+				calls++;
+				if (enumerable) throw new Error('must not run');
+				return { format: 'rewritten' };
+			},
+		});
+		assertJsonSafetyRejected(value, '/toJSON');
+		assert.equal(calls, 0);
+	}
+
+	let getterCalls = 0;
+	const getter: any = clone(decodeFixture('minimal.fgsnapshot.json'));
+	Object.defineProperty(getter.producer, 'version', {
+		enumerable: true,
+		configurable: true,
+		get: () => {
+			getterCalls++;
+			throw new Error('must not run');
+		},
+	});
+	assertJsonSafetyRejected(getter, '/producer/version');
+	assert.equal(getterCalls, 0);
+
+	let arrayGetterCalls = 0;
+	const arrayGetter: any = clone(decodeFixture('full-webgpu.fgsnapshot.json'));
+	Object.defineProperty(arrayGetter.graph.resources[0].usageFlags, '0', {
+		enumerable: true,
+		configurable: true,
+		get: () => {
+			arrayGetterCalls++;
+			throw new Error('must not run');
+		},
+	});
+	assertJsonSafetyRejected(arrayGetter, '/graph/resources/0/usageFlags/0');
+	assert.equal(arrayGetterCalls, 0);
+});
+
+test('shadows inherited Object and Array toJSON hooks without changing compact or pretty output', () => {
+	const snapshot = decodeFixture('minimal.fgsnapshot.json');
+	(snapshot.extensions as Record<string, unknown>)['dev.zenfg.own-to-json'] = {
+		toJSON: 'preserved-data-property',
+		length: { preserved: 'ordinary-object-property' },
+	};
+	const cases: readonly [object, 'throw' | 'rewrite'][] = [
+		[Object.prototype, 'throw'],
+		[Object.prototype, 'rewrite'],
+		[Array.prototype, 'throw'],
+		[Array.prototype, 'rewrite'],
+	];
+	for (const [prototype, behavior] of cases) {
+		const original = Object.getOwnPropertyDescriptor(prototype, 'toJSON');
+		let calls = 0;
+		Object.defineProperty(prototype, 'toJSON', {
+			configurable: true,
+			value: () => {
+				calls++;
+				if (behavior === 'throw') throw new Error('inherited toJSON must not run');
+				return { rewritten: true };
+			},
+		});
+		try {
+			const compact = stringifyFrameGraphSnapshot(snapshot);
+			const pretty = stringifyFrameGraphSnapshot(snapshot, { pretty: true });
+			assert.deepEqual(JSON.parse(compact), snapshot);
+			assert.deepEqual(JSON.parse(pretty), snapshot);
+			assert.equal(compact.includes('\n'), false);
+			assert.equal(pretty.includes('\n  "format"'), true);
+			assert.equal(calls, 0);
+		} finally {
+			if (original) Object.defineProperty(prototype, 'toJSON', original);
+			else delete (prototype as { toJSON?: unknown }).toJSON;
+		}
+	}
+});
+
+test('rejects hidden, symbol, extra-array, and reflection-hostile properties at stable paths', () => {
+	const hidden: any = clone(decodeFixture('minimal.fgsnapshot.json'));
+	Object.defineProperty(hidden.producer, 'hidden', { value: true, configurable: true });
+	assertJsonSafetyRejected(hidden, '/producer/hidden');
+
+	const symbolObject: any = clone(decodeFixture('minimal.fgsnapshot.json'));
+	Object.defineProperty(symbolObject.producer, Symbol('hidden'), { value: true, enumerable: true });
+	assertJsonSafetyRejected(symbolObject, '/producer');
+
+	const extraArray: any = clone(decodeFixture('minimal.fgsnapshot.json'));
+	extraArray.graph.nodes.extra = true;
+	assertJsonSafetyRejected(extraArray, '/graph/nodes/extra');
+
+	const symbolArray: any = clone(decodeFixture('minimal.fgsnapshot.json'));
+	Object.defineProperty(symbolArray.graph.nodes, Symbol('hidden'), { value: true, enumerable: true });
+	assertJsonSafetyRejected(symbolArray, '/graph/nodes');
+
+	const reflectionFailure: any = clone(decodeFixture('minimal.fgsnapshot.json'));
+	reflectionFailure.extensions['dev.zenfg.proxy'] = new Proxy({}, {
+		ownKeys: () => { throw new Error('reflection blocked'); },
+	});
+	assertJsonSafetyRejected(reflectionFailure, '/extensions/dev.zenfg.proxy');
+});
+
+test('enforces the extension container-depth boundary across codec operations', () => {
+	assert.equal(FRAME_GRAPH_SNAPSHOT_MAX_EXTENSION_DEPTH, 64);
+	for (const [depth, shape] of [
+		[63, 'object'],
+		[64, 'array'],
+		[64, 'alternating'],
+	] as const) {
+		const snapshot = clone(decodeFixture('minimal.fgsnapshot.json'));
+		(snapshot.extensions as Record<string, unknown>)[`dev.zenfg.depth-${depth}-${shape}`] = nestedContainers(depth, shape);
+		assert.deepEqual(validateFrameGraphSnapshot(snapshot), []);
+
+		const decoded = decodeFrameGraphSnapshot(snapshot);
+		assert.equal(decoded.ok, true, `${depth}-${shape}`);
+		const compact = stringifyFrameGraphSnapshot(snapshot);
+		const pretty = stringifyFrameGraphSnapshot(snapshot, { pretty: true });
+		assert.equal(parseFrameGraphSnapshot(compact).ok, true, `${depth}-${shape}-compact`);
+		assert.equal(parseFrameGraphSnapshot(pretty).ok, true, `${depth}-${shape}-pretty`);
+	}
+
+	for (const value of [{}, []]) {
+		const snapshot = clone(decodeFixture('minimal.fgsnapshot.json'));
+		(snapshot.extensions as Record<string, unknown>)['dev.zenfg.empty'] = value;
+		assert.deepEqual(validateFrameGraphSnapshot(snapshot), []);
+	}
+
+	const tooDeep: any = clone(decodeFixture('minimal.fgsnapshot.json'));
+	tooDeep.extensions['dev.zenfg.deep'] = nestedContainers(65, 'object');
+	assertDepthIssue(tooDeep, '/extensions/dev.zenfg.deep');
+	const decoded = decodeFrameGraphSnapshot(tooDeep);
+	assert.equal(decoded.ok, false);
+	if (!decoded.ok) assertDepthIssues(decoded.issues, ['/extensions/dev.zenfg.deep']);
+	const parsed = parseFrameGraphSnapshot(JSON.stringify(tooDeep));
+	assert.equal(parsed.ok, false);
+	if (!parsed.ok) assertDepthIssues(parsed.issues, ['/extensions/dev.zenfg.deep']);
+	assert.throws(
+		() => stringifyFrameGraphSnapshot(tooDeep),
+		(error: unknown) => error instanceof FrameGraphSnapshotValidationError
+			&& error.issues.some((issue) => issue.code === 'extension-depth-exceeded'),
+	);
+
+	for (const empty of [{}, []]) {
+		const boundary: any = clone(decodeFixture('minimal.fgsnapshot.json'));
+		boundary.extensions['dev.zenfg.empty-boundary'] = nestedContainersAround(63, empty);
+		assert.deepEqual(validateFrameGraphSnapshot(boundary), []);
+		assert.equal(decodeFrameGraphSnapshot(boundary).ok, true);
+		assert.doesNotThrow(() => stringifyFrameGraphSnapshot(boundary));
+
+		const overBoundary: any = clone(decodeFixture('minimal.fgsnapshot.json'));
+		overBoundary.extensions['dev.zenfg.empty-boundary'] = nestedContainersAround(64, empty);
+		assertDepthIssue(overBoundary, '/extensions/dev.zenfg.empty-boundary');
+	}
+});
+
+test('reports one escaped root issue per over-depth extension and preserves active-ancestor semantics', () => {
+	const snapshot: any = clone(decodeFixture('minimal.fgsnapshot.json'));
+	const shared = { preserved: true };
+	snapshot.extensions['dev.zenfg.shared'] = { left: shared, right: shared };
+	assert.deepEqual(validateFrameGraphSnapshot(snapshot), []);
+	const decoded = decodeFrameGraphSnapshot(snapshot);
+	assert.equal(decoded.ok, true);
+	if (decoded.ok) {
+		const clonedShared: any = decoded.snapshot.extensions['dev.zenfg.shared'];
+		assert.deepEqual(clonedShared.left, shared);
+		assert.deepEqual(clonedShared.right, shared);
+		assert.notEqual(clonedShared.left, clonedShared.right);
+	}
+
+	snapshot.extensions['dev.example/a~b'] = nestedContainers(65, 'alternating');
+	snapshot.extensions['dev.zenfg.second'] = [nestedContainers(65, 'array'), nestedContainers(65, 'object')];
+	assertDepthIssues(validateFrameGraphSnapshot(snapshot), [
+		'/extensions/dev.example~1a~0b',
+		'/extensions/dev.zenfg.second',
+	]);
+});
+
+test('rejects pathological and non-JSON t3d inputs before cloning without mutating them', () => {
+	for (const [value, path] of [
+		[{ nested: undefined }, '/extensions/dev.t3d.invalid/nested'],
+		[[1n], '/extensions/dev.t3d.invalid/0'],
+		[[() => undefined], '/extensions/dev.t3d.invalid/0'],
+		[{ nested: Symbol('x') }, '/extensions/dev.t3d.invalid/nested'],
+		[[new Date()], '/extensions/dev.t3d.invalid/0'],
+	] as const) {
+		const input: any = readJson('../fixtures/legacy-t3d-v1-canonical.json');
+		input.extensions['dev.t3d.invalid'] = value;
+		const result = decodeFrameGraphSnapshot(input);
+		assert.equal(result.ok, false);
+		if (!result.ok) {
+			assert.ok(result.issues.some((issue) => (
+				issue.code === 'invalid-json-value'
+				&& issue.path === path
+			)));
+		}
+	}
+
+	const cyclic: any = {};
+	cyclic.self = cyclic;
+	const cyclicInput: any = readJson('../fixtures/legacy-t3d-v1-canonical.json');
+	cyclicInput.extensions['dev.t3d.cyclic'] = cyclic;
+	const cyclicResult = decodeFrameGraphSnapshot(cyclicInput);
+	assert.equal(cyclicResult.ok, false);
+	if (!cyclicResult.ok) {
+		assert.ok(cyclicResult.issues.some((issue) => (
+			issue.code === 'invalid-json-value'
+			&& issue.path === '/extensions/dev.t3d.cyclic/self'
+		)));
+	}
+
+	const sparseInput: any = readJson('../fixtures/legacy-t3d-v1-canonical.json');
+	const resources = sparseInput.graph.resources as unknown[];
+	resources.length += 1;
+	const sparseResult = decodeFrameGraphSnapshot(sparseInput);
+	assert.equal(sparseResult.ok, false);
+	if (!sparseResult.ok) {
+		assert.ok(sparseResult.issues.some((issue) => (
+			issue.code === 'invalid-json-value'
+			&& issue.path === `/graph/resources/${resources.length - 1}`
+		)));
+	}
+
+	for (const format of [FRAME_GRAPH_SNAPSHOT_FORMAT, 't3d.frame-graph-snapshot'] as const) {
+		const input: any = format === FRAME_GRAPH_SNAPSHOT_FORMAT
+			? clone(decodeFixture('minimal.fgsnapshot.json'))
+			: readJson('../fixtures/legacy-t3d-v1-canonical.json');
+		input.format = format;
+		input.extensions['dev.zenfg.pathological'] = nestedContainers(10_000, 'alternating');
+		const result = decodeFrameGraphSnapshot(input);
+		assert.equal(result.ok, false, format);
+		if (!result.ok) assertDepthIssues(result.issues, ['/extensions/dev.zenfg.pathological']);
+	}
 });
 
 test('enforces access, ordering, segment, dependency, lifetime, and migration semantics', () => {
@@ -410,6 +731,59 @@ function clone<T>(value: T): T {
 function assertIssue(value: unknown, code: string, path: string): void {
 	const issues = validateFrameGraphSnapshot(value);
 	assert.ok(issues.some((issue) => issue.code === code && issue.path === path), JSON.stringify(issues, null, 2));
+}
+
+function nestedContainers(
+	depth: number,
+	shape: 'object' | 'array' | 'alternating',
+): unknown {
+	let value: unknown = 'leaf';
+	for (let level = 0; level < depth; level++) {
+		const useArray = shape === 'array' || (shape === 'alternating' && level % 2 === 0);
+		value = useArray ? [value] : { child: value };
+	}
+	return value;
+}
+
+function nestedContainersAround(wrappers: number, emptyContainer: object | unknown[]): unknown {
+	let value: unknown = emptyContainer;
+	for (let level = 0; level < wrappers; level++) {
+		value = level % 2 === 0 ? { child: value } : [value];
+	}
+	return value;
+}
+
+function assertJsonSafetyRejected(value: unknown, path: string): void {
+	const containsIssue = (issues: readonly { readonly code: string; readonly path: string }[]) => (
+		issues.some((issue) => issue.code === 'invalid-json-value' && issue.path === path)
+	);
+	const validationIssues = validateFrameGraphSnapshot(value);
+	assert.equal(containsIssue(validationIssues), true, JSON.stringify(validationIssues, null, 2));
+	const decoded = decodeFrameGraphSnapshot(value);
+	assert.equal(decoded.ok, false);
+	if (!decoded.ok) assert.equal(containsIssue(decoded.issues), true, JSON.stringify(decoded.issues, null, 2));
+	assert.throws(
+		() => stringifyFrameGraphSnapshot(value as FrameGraphSnapshot),
+		(error: unknown) => error instanceof FrameGraphSnapshotValidationError
+			&& containsIssue(error.issues),
+	);
+}
+
+function assertDepthIssue(value: unknown, path: string): void {
+	assertDepthIssues(validateFrameGraphSnapshot(value), [path]);
+}
+
+function assertDepthIssues(
+	issues: readonly { readonly code: string; readonly path: string; readonly message: string }[],
+	paths: readonly string[],
+): void {
+	const depthIssues = issues.filter((issue) => issue.code === 'extension-depth-exceeded');
+	assert.deepEqual(depthIssues, paths.map((path) => ({
+		severity: 'error',
+		code: 'extension-depth-exceeded',
+		path,
+		message: 'Extension JSON nesting depth must not exceed 64 container levels.',
+	})));
 }
 
 function sortIssues(issues: readonly { readonly code: string; readonly path: string; readonly message: string }[]) {

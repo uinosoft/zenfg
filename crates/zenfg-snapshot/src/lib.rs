@@ -21,3 +21,8 @@ pub const FRAME_GRAPH_SNAPSHOT_FORMAT: &str = "zenfg.frame-graph-snapshot";
 pub const T3D_FRAME_GRAPH_SNAPSHOT_FORMAT: &str = "t3d.frame-graph-snapshot";
 /// Snapshot wire version emitted by this crate.
 pub const FRAME_GRAPH_SNAPSHOT_VERSION: SnapshotVersion = SnapshotVersion { major: 1, minor: 0 };
+/// Maximum number of nested JSON container levels allowed in one extension value.
+///
+/// Primitive extension values have depth zero. An extension value whose root is
+/// an object or array has depth one, and each nested object or array adds one.
+pub const FRAME_GRAPH_SNAPSHOT_MAX_EXTENSION_DEPTH: usize = 64;

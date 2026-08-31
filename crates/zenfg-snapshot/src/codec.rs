@@ -122,11 +122,11 @@ fn finish(
     migrated: bool,
     warnings: Vec<SnapshotIssue>,
 ) -> Result<SnapshotDecodeResult, SnapshotDecodeError> {
-    canonicalize_integral_numbers(&mut value);
     let issues = validate_frame_graph_snapshot(&value);
     if !issues.is_empty() {
         return Err(SnapshotDecodeError::new(issues));
     }
+    canonicalize_integral_numbers(&mut value);
     let snapshot = serde_json::from_value::<FrameGraphSnapshotV1>(value).map_err(|source| {
         SnapshotDecodeError::new(vec![SnapshotIssue::error(
             "invalid-structure",

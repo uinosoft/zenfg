@@ -34,7 +34,7 @@
     "extensions": {
       "type": "object",
       "propertyNames": { "pattern": "^.+\\..+$" },
-      "additionalProperties": { "$ref": "#/$defs/jsonValue" }
+      "additionalProperties": { "$ref": "#/$defs/jsonValueDepth0" }
     }
   },
   "allOf": [
@@ -135,13 +135,456 @@
     "segmentId": { "type": "string", "pattern": "^segment:.+$" },
     "allocationId": { "type": "string", "pattern": "^allocation:.+$" },
     "compatibilityId": { "type": "string", "pattern": "^compatibility:.+$" },
-    "jsonValue": {
+    "jsonPrimitive": { "type": ["string", "number", "boolean", "null"] },
+    "jsonValueDepth0": {
       "oneOf": [
-        { "type": ["string", "number", "boolean", "null"] },
-        { "type": "array", "items": { "$ref": "#/$defs/jsonValue" } },
-        { "type": "object", "additionalProperties": { "$ref": "#/$defs/jsonValue" } }
+        { "$ref": "#/$defs/jsonPrimitive" },
+        { "type": "array", "items": { "$ref": "#/$defs/jsonValueDepth1" } },
+        { "type": "object", "additionalProperties": { "$ref": "#/$defs/jsonValueDepth1" } }
       ]
     },
+    "jsonValueDepth1": {
+      "oneOf": [
+        { "$ref": "#/$defs/jsonPrimitive" },
+        { "type": "array", "items": { "$ref": "#/$defs/jsonValueDepth2" } },
+        { "type": "object", "additionalProperties": { "$ref": "#/$defs/jsonValueDepth2" } }
+      ]
+    },
+    "jsonValueDepth2": {
+      "oneOf": [
+        { "$ref": "#/$defs/jsonPrimitive" },
+        { "type": "array", "items": { "$ref": "#/$defs/jsonValueDepth3" } },
+        { "type": "object", "additionalProperties": { "$ref": "#/$defs/jsonValueDepth3" } }
+      ]
+    },
+    "jsonValueDepth3": {
+      "oneOf": [
+        { "$ref": "#/$defs/jsonPrimitive" },
+        { "type": "array", "items": { "$ref": "#/$defs/jsonValueDepth4" } },
+        { "type": "object", "additionalProperties": { "$ref": "#/$defs/jsonValueDepth4" } }
+      ]
+    },
+    "jsonValueDepth4": {
+      "oneOf": [
+        { "$ref": "#/$defs/jsonPrimitive" },
+        { "type": "array", "items": { "$ref": "#/$defs/jsonValueDepth5" } },
+        { "type": "object", "additionalProperties": { "$ref": "#/$defs/jsonValueDepth5" } }
+      ]
+    },
+    "jsonValueDepth5": {
+      "oneOf": [
+        { "$ref": "#/$defs/jsonPrimitive" },
+        { "type": "array", "items": { "$ref": "#/$defs/jsonValueDepth6" } },
+        { "type": "object", "additionalProperties": { "$ref": "#/$defs/jsonValueDepth6" } }
+      ]
+    },
+    "jsonValueDepth6": {
+      "oneOf": [
+        { "$ref": "#/$defs/jsonPrimitive" },
+        { "type": "array", "items": { "$ref": "#/$defs/jsonValueDepth7" } },
+        { "type": "object", "additionalProperties": { "$ref": "#/$defs/jsonValueDepth7" } }
+      ]
+    },
+    "jsonValueDepth7": {
+      "oneOf": [
+        { "$ref": "#/$defs/jsonPrimitive" },
+        { "type": "array", "items": { "$ref": "#/$defs/jsonValueDepth8" } },
+        { "type": "object", "additionalProperties": { "$ref": "#/$defs/jsonValueDepth8" } }
+      ]
+    },
+    "jsonValueDepth8": {
+      "oneOf": [
+        { "$ref": "#/$defs/jsonPrimitive" },
+        { "type": "array", "items": { "$ref": "#/$defs/jsonValueDepth9" } },
+        { "type": "object", "additionalProperties": { "$ref": "#/$defs/jsonValueDepth9" } }
+      ]
+    },
+    "jsonValueDepth9": {
+      "oneOf": [
+        { "$ref": "#/$defs/jsonPrimitive" },
+        { "type": "array", "items": { "$ref": "#/$defs/jsonValueDepth10" } },
+        { "type": "object", "additionalProperties": { "$ref": "#/$defs/jsonValueDepth10" } }
+      ]
+    },
+    "jsonValueDepth10": {
+      "oneOf": [
+        { "$ref": "#/$defs/jsonPrimitive" },
+        { "type": "array", "items": { "$ref": "#/$defs/jsonValueDepth11" } },
+        { "type": "object", "additionalProperties": { "$ref": "#/$defs/jsonValueDepth11" } }
+      ]
+    },
+    "jsonValueDepth11": {
+      "oneOf": [
+        { "$ref": "#/$defs/jsonPrimitive" },
+        { "type": "array", "items": { "$ref": "#/$defs/jsonValueDepth12" } },
+        { "type": "object", "additionalProperties": { "$ref": "#/$defs/jsonValueDepth12" } }
+      ]
+    },
+    "jsonValueDepth12": {
+      "oneOf": [
+        { "$ref": "#/$defs/jsonPrimitive" },
+        { "type": "array", "items": { "$ref": "#/$defs/jsonValueDepth13" } },
+        { "type": "object", "additionalProperties": { "$ref": "#/$defs/jsonValueDepth13" } }
+      ]
+    },
+    "jsonValueDepth13": {
+      "oneOf": [
+        { "$ref": "#/$defs/jsonPrimitive" },
+        { "type": "array", "items": { "$ref": "#/$defs/jsonValueDepth14" } },
+        { "type": "object", "additionalProperties": { "$ref": "#/$defs/jsonValueDepth14" } }
+      ]
+    },
+    "jsonValueDepth14": {
+      "oneOf": [
+        { "$ref": "#/$defs/jsonPrimitive" },
+        { "type": "array", "items": { "$ref": "#/$defs/jsonValueDepth15" } },
+        { "type": "object", "additionalProperties": { "$ref": "#/$defs/jsonValueDepth15" } }
+      ]
+    },
+    "jsonValueDepth15": {
+      "oneOf": [
+        { "$ref": "#/$defs/jsonPrimitive" },
+        { "type": "array", "items": { "$ref": "#/$defs/jsonValueDepth16" } },
+        { "type": "object", "additionalProperties": { "$ref": "#/$defs/jsonValueDepth16" } }
+      ]
+    },
+    "jsonValueDepth16": {
+      "oneOf": [
+        { "$ref": "#/$defs/jsonPrimitive" },
+        { "type": "array", "items": { "$ref": "#/$defs/jsonValueDepth17" } },
+        { "type": "object", "additionalProperties": { "$ref": "#/$defs/jsonValueDepth17" } }
+      ]
+    },
+    "jsonValueDepth17": {
+      "oneOf": [
+        { "$ref": "#/$defs/jsonPrimitive" },
+        { "type": "array", "items": { "$ref": "#/$defs/jsonValueDepth18" } },
+        { "type": "object", "additionalProperties": { "$ref": "#/$defs/jsonValueDepth18" } }
+      ]
+    },
+    "jsonValueDepth18": {
+      "oneOf": [
+        { "$ref": "#/$defs/jsonPrimitive" },
+        { "type": "array", "items": { "$ref": "#/$defs/jsonValueDepth19" } },
+        { "type": "object", "additionalProperties": { "$ref": "#/$defs/jsonValueDepth19" } }
+      ]
+    },
+    "jsonValueDepth19": {
+      "oneOf": [
+        { "$ref": "#/$defs/jsonPrimitive" },
+        { "type": "array", "items": { "$ref": "#/$defs/jsonValueDepth20" } },
+        { "type": "object", "additionalProperties": { "$ref": "#/$defs/jsonValueDepth20" } }
+      ]
+    },
+    "jsonValueDepth20": {
+      "oneOf": [
+        { "$ref": "#/$defs/jsonPrimitive" },
+        { "type": "array", "items": { "$ref": "#/$defs/jsonValueDepth21" } },
+        { "type": "object", "additionalProperties": { "$ref": "#/$defs/jsonValueDepth21" } }
+      ]
+    },
+    "jsonValueDepth21": {
+      "oneOf": [
+        { "$ref": "#/$defs/jsonPrimitive" },
+        { "type": "array", "items": { "$ref": "#/$defs/jsonValueDepth22" } },
+        { "type": "object", "additionalProperties": { "$ref": "#/$defs/jsonValueDepth22" } }
+      ]
+    },
+    "jsonValueDepth22": {
+      "oneOf": [
+        { "$ref": "#/$defs/jsonPrimitive" },
+        { "type": "array", "items": { "$ref": "#/$defs/jsonValueDepth23" } },
+        { "type": "object", "additionalProperties": { "$ref": "#/$defs/jsonValueDepth23" } }
+      ]
+    },
+    "jsonValueDepth23": {
+      "oneOf": [
+        { "$ref": "#/$defs/jsonPrimitive" },
+        { "type": "array", "items": { "$ref": "#/$defs/jsonValueDepth24" } },
+        { "type": "object", "additionalProperties": { "$ref": "#/$defs/jsonValueDepth24" } }
+      ]
+    },
+    "jsonValueDepth24": {
+      "oneOf": [
+        { "$ref": "#/$defs/jsonPrimitive" },
+        { "type": "array", "items": { "$ref": "#/$defs/jsonValueDepth25" } },
+        { "type": "object", "additionalProperties": { "$ref": "#/$defs/jsonValueDepth25" } }
+      ]
+    },
+    "jsonValueDepth25": {
+      "oneOf": [
+        { "$ref": "#/$defs/jsonPrimitive" },
+        { "type": "array", "items": { "$ref": "#/$defs/jsonValueDepth26" } },
+        { "type": "object", "additionalProperties": { "$ref": "#/$defs/jsonValueDepth26" } }
+      ]
+    },
+    "jsonValueDepth26": {
+      "oneOf": [
+        { "$ref": "#/$defs/jsonPrimitive" },
+        { "type": "array", "items": { "$ref": "#/$defs/jsonValueDepth27" } },
+        { "type": "object", "additionalProperties": { "$ref": "#/$defs/jsonValueDepth27" } }
+      ]
+    },
+    "jsonValueDepth27": {
+      "oneOf": [
+        { "$ref": "#/$defs/jsonPrimitive" },
+        { "type": "array", "items": { "$ref": "#/$defs/jsonValueDepth28" } },
+        { "type": "object", "additionalProperties": { "$ref": "#/$defs/jsonValueDepth28" } }
+      ]
+    },
+    "jsonValueDepth28": {
+      "oneOf": [
+        { "$ref": "#/$defs/jsonPrimitive" },
+        { "type": "array", "items": { "$ref": "#/$defs/jsonValueDepth29" } },
+        { "type": "object", "additionalProperties": { "$ref": "#/$defs/jsonValueDepth29" } }
+      ]
+    },
+    "jsonValueDepth29": {
+      "oneOf": [
+        { "$ref": "#/$defs/jsonPrimitive" },
+        { "type": "array", "items": { "$ref": "#/$defs/jsonValueDepth30" } },
+        { "type": "object", "additionalProperties": { "$ref": "#/$defs/jsonValueDepth30" } }
+      ]
+    },
+    "jsonValueDepth30": {
+      "oneOf": [
+        { "$ref": "#/$defs/jsonPrimitive" },
+        { "type": "array", "items": { "$ref": "#/$defs/jsonValueDepth31" } },
+        { "type": "object", "additionalProperties": { "$ref": "#/$defs/jsonValueDepth31" } }
+      ]
+    },
+    "jsonValueDepth31": {
+      "oneOf": [
+        { "$ref": "#/$defs/jsonPrimitive" },
+        { "type": "array", "items": { "$ref": "#/$defs/jsonValueDepth32" } },
+        { "type": "object", "additionalProperties": { "$ref": "#/$defs/jsonValueDepth32" } }
+      ]
+    },
+    "jsonValueDepth32": {
+      "oneOf": [
+        { "$ref": "#/$defs/jsonPrimitive" },
+        { "type": "array", "items": { "$ref": "#/$defs/jsonValueDepth33" } },
+        { "type": "object", "additionalProperties": { "$ref": "#/$defs/jsonValueDepth33" } }
+      ]
+    },
+    "jsonValueDepth33": {
+      "oneOf": [
+        { "$ref": "#/$defs/jsonPrimitive" },
+        { "type": "array", "items": { "$ref": "#/$defs/jsonValueDepth34" } },
+        { "type": "object", "additionalProperties": { "$ref": "#/$defs/jsonValueDepth34" } }
+      ]
+    },
+    "jsonValueDepth34": {
+      "oneOf": [
+        { "$ref": "#/$defs/jsonPrimitive" },
+        { "type": "array", "items": { "$ref": "#/$defs/jsonValueDepth35" } },
+        { "type": "object", "additionalProperties": { "$ref": "#/$defs/jsonValueDepth35" } }
+      ]
+    },
+    "jsonValueDepth35": {
+      "oneOf": [
+        { "$ref": "#/$defs/jsonPrimitive" },
+        { "type": "array", "items": { "$ref": "#/$defs/jsonValueDepth36" } },
+        { "type": "object", "additionalProperties": { "$ref": "#/$defs/jsonValueDepth36" } }
+      ]
+    },
+    "jsonValueDepth36": {
+      "oneOf": [
+        { "$ref": "#/$defs/jsonPrimitive" },
+        { "type": "array", "items": { "$ref": "#/$defs/jsonValueDepth37" } },
+        { "type": "object", "additionalProperties": { "$ref": "#/$defs/jsonValueDepth37" } }
+      ]
+    },
+    "jsonValueDepth37": {
+      "oneOf": [
+        { "$ref": "#/$defs/jsonPrimitive" },
+        { "type": "array", "items": { "$ref": "#/$defs/jsonValueDepth38" } },
+        { "type": "object", "additionalProperties": { "$ref": "#/$defs/jsonValueDepth38" } }
+      ]
+    },
+    "jsonValueDepth38": {
+      "oneOf": [
+        { "$ref": "#/$defs/jsonPrimitive" },
+        { "type": "array", "items": { "$ref": "#/$defs/jsonValueDepth39" } },
+        { "type": "object", "additionalProperties": { "$ref": "#/$defs/jsonValueDepth39" } }
+      ]
+    },
+    "jsonValueDepth39": {
+      "oneOf": [
+        { "$ref": "#/$defs/jsonPrimitive" },
+        { "type": "array", "items": { "$ref": "#/$defs/jsonValueDepth40" } },
+        { "type": "object", "additionalProperties": { "$ref": "#/$defs/jsonValueDepth40" } }
+      ]
+    },
+    "jsonValueDepth40": {
+      "oneOf": [
+        { "$ref": "#/$defs/jsonPrimitive" },
+        { "type": "array", "items": { "$ref": "#/$defs/jsonValueDepth41" } },
+        { "type": "object", "additionalProperties": { "$ref": "#/$defs/jsonValueDepth41" } }
+      ]
+    },
+    "jsonValueDepth41": {
+      "oneOf": [
+        { "$ref": "#/$defs/jsonPrimitive" },
+        { "type": "array", "items": { "$ref": "#/$defs/jsonValueDepth42" } },
+        { "type": "object", "additionalProperties": { "$ref": "#/$defs/jsonValueDepth42" } }
+      ]
+    },
+    "jsonValueDepth42": {
+      "oneOf": [
+        { "$ref": "#/$defs/jsonPrimitive" },
+        { "type": "array", "items": { "$ref": "#/$defs/jsonValueDepth43" } },
+        { "type": "object", "additionalProperties": { "$ref": "#/$defs/jsonValueDepth43" } }
+      ]
+    },
+    "jsonValueDepth43": {
+      "oneOf": [
+        { "$ref": "#/$defs/jsonPrimitive" },
+        { "type": "array", "items": { "$ref": "#/$defs/jsonValueDepth44" } },
+        { "type": "object", "additionalProperties": { "$ref": "#/$defs/jsonValueDepth44" } }
+      ]
+    },
+    "jsonValueDepth44": {
+      "oneOf": [
+        { "$ref": "#/$defs/jsonPrimitive" },
+        { "type": "array", "items": { "$ref": "#/$defs/jsonValueDepth45" } },
+        { "type": "object", "additionalProperties": { "$ref": "#/$defs/jsonValueDepth45" } }
+      ]
+    },
+    "jsonValueDepth45": {
+      "oneOf": [
+        { "$ref": "#/$defs/jsonPrimitive" },
+        { "type": "array", "items": { "$ref": "#/$defs/jsonValueDepth46" } },
+        { "type": "object", "additionalProperties": { "$ref": "#/$defs/jsonValueDepth46" } }
+      ]
+    },
+    "jsonValueDepth46": {
+      "oneOf": [
+        { "$ref": "#/$defs/jsonPrimitive" },
+        { "type": "array", "items": { "$ref": "#/$defs/jsonValueDepth47" } },
+        { "type": "object", "additionalProperties": { "$ref": "#/$defs/jsonValueDepth47" } }
+      ]
+    },
+    "jsonValueDepth47": {
+      "oneOf": [
+        { "$ref": "#/$defs/jsonPrimitive" },
+        { "type": "array", "items": { "$ref": "#/$defs/jsonValueDepth48" } },
+        { "type": "object", "additionalProperties": { "$ref": "#/$defs/jsonValueDepth48" } }
+      ]
+    },
+    "jsonValueDepth48": {
+      "oneOf": [
+        { "$ref": "#/$defs/jsonPrimitive" },
+        { "type": "array", "items": { "$ref": "#/$defs/jsonValueDepth49" } },
+        { "type": "object", "additionalProperties": { "$ref": "#/$defs/jsonValueDepth49" } }
+      ]
+    },
+    "jsonValueDepth49": {
+      "oneOf": [
+        { "$ref": "#/$defs/jsonPrimitive" },
+        { "type": "array", "items": { "$ref": "#/$defs/jsonValueDepth50" } },
+        { "type": "object", "additionalProperties": { "$ref": "#/$defs/jsonValueDepth50" } }
+      ]
+    },
+    "jsonValueDepth50": {
+      "oneOf": [
+        { "$ref": "#/$defs/jsonPrimitive" },
+        { "type": "array", "items": { "$ref": "#/$defs/jsonValueDepth51" } },
+        { "type": "object", "additionalProperties": { "$ref": "#/$defs/jsonValueDepth51" } }
+      ]
+    },
+    "jsonValueDepth51": {
+      "oneOf": [
+        { "$ref": "#/$defs/jsonPrimitive" },
+        { "type": "array", "items": { "$ref": "#/$defs/jsonValueDepth52" } },
+        { "type": "object", "additionalProperties": { "$ref": "#/$defs/jsonValueDepth52" } }
+      ]
+    },
+    "jsonValueDepth52": {
+      "oneOf": [
+        { "$ref": "#/$defs/jsonPrimitive" },
+        { "type": "array", "items": { "$ref": "#/$defs/jsonValueDepth53" } },
+        { "type": "object", "additionalProperties": { "$ref": "#/$defs/jsonValueDepth53" } }
+      ]
+    },
+    "jsonValueDepth53": {
+      "oneOf": [
+        { "$ref": "#/$defs/jsonPrimitive" },
+        { "type": "array", "items": { "$ref": "#/$defs/jsonValueDepth54" } },
+        { "type": "object", "additionalProperties": { "$ref": "#/$defs/jsonValueDepth54" } }
+      ]
+    },
+    "jsonValueDepth54": {
+      "oneOf": [
+        { "$ref": "#/$defs/jsonPrimitive" },
+        { "type": "array", "items": { "$ref": "#/$defs/jsonValueDepth55" } },
+        { "type": "object", "additionalProperties": { "$ref": "#/$defs/jsonValueDepth55" } }
+      ]
+    },
+    "jsonValueDepth55": {
+      "oneOf": [
+        { "$ref": "#/$defs/jsonPrimitive" },
+        { "type": "array", "items": { "$ref": "#/$defs/jsonValueDepth56" } },
+        { "type": "object", "additionalProperties": { "$ref": "#/$defs/jsonValueDepth56" } }
+      ]
+    },
+    "jsonValueDepth56": {
+      "oneOf": [
+        { "$ref": "#/$defs/jsonPrimitive" },
+        { "type": "array", "items": { "$ref": "#/$defs/jsonValueDepth57" } },
+        { "type": "object", "additionalProperties": { "$ref": "#/$defs/jsonValueDepth57" } }
+      ]
+    },
+    "jsonValueDepth57": {
+      "oneOf": [
+        { "$ref": "#/$defs/jsonPrimitive" },
+        { "type": "array", "items": { "$ref": "#/$defs/jsonValueDepth58" } },
+        { "type": "object", "additionalProperties": { "$ref": "#/$defs/jsonValueDepth58" } }
+      ]
+    },
+    "jsonValueDepth58": {
+      "oneOf": [
+        { "$ref": "#/$defs/jsonPrimitive" },
+        { "type": "array", "items": { "$ref": "#/$defs/jsonValueDepth59" } },
+        { "type": "object", "additionalProperties": { "$ref": "#/$defs/jsonValueDepth59" } }
+      ]
+    },
+    "jsonValueDepth59": {
+      "oneOf": [
+        { "$ref": "#/$defs/jsonPrimitive" },
+        { "type": "array", "items": { "$ref": "#/$defs/jsonValueDepth60" } },
+        { "type": "object", "additionalProperties": { "$ref": "#/$defs/jsonValueDepth60" } }
+      ]
+    },
+    "jsonValueDepth60": {
+      "oneOf": [
+        { "$ref": "#/$defs/jsonPrimitive" },
+        { "type": "array", "items": { "$ref": "#/$defs/jsonValueDepth61" } },
+        { "type": "object", "additionalProperties": { "$ref": "#/$defs/jsonValueDepth61" } }
+      ]
+    },
+    "jsonValueDepth61": {
+      "oneOf": [
+        { "$ref": "#/$defs/jsonPrimitive" },
+        { "type": "array", "items": { "$ref": "#/$defs/jsonValueDepth62" } },
+        { "type": "object", "additionalProperties": { "$ref": "#/$defs/jsonValueDepth62" } }
+      ]
+    },
+    "jsonValueDepth62": {
+      "oneOf": [
+        { "$ref": "#/$defs/jsonPrimitive" },
+        { "type": "array", "items": { "$ref": "#/$defs/jsonValueDepth63" } },
+        { "type": "object", "additionalProperties": { "$ref": "#/$defs/jsonValueDepth63" } }
+      ]
+    },
+    "jsonValueDepth63": {
+      "oneOf": [
+        { "$ref": "#/$defs/jsonPrimitive" },
+        { "type": "array", "items": { "$ref": "#/$defs/jsonValueDepth64" } },
+        { "type": "object", "additionalProperties": { "$ref": "#/$defs/jsonValueDepth64" } }
+      ]
+    },
+    "jsonValueDepth64": { "$ref": "#/$defs/jsonPrimitive" },
     "producer": {
       "type": "object",
       "additionalProperties": false,

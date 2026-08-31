@@ -12,6 +12,7 @@
 
 export {
 	FRAME_GRAPH_SNAPSHOT_FORMAT,
+	FRAME_GRAPH_SNAPSHOT_MAX_EXTENSION_DEPTH,
 	FRAME_GRAPH_SNAPSHOT_VERSION,
 } from './format.ts';
 export type * from './types.ts';

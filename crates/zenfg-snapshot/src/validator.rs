@@ -1,12 +1,12 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, HashMap, HashSet};
 
 use serde_json::{Map, Value};
 
 use crate::{
-    FRAME_GRAPH_SNAPSHOT_FORMAT, FRAME_GRAPH_SNAPSHOT_VERSION, FrameGraphSnapshotV1,
-    SnapshotAccessKind, SnapshotAllocationReport, SnapshotGpuTimings, SnapshotIssue,
-    SnapshotNodeCompileState, SnapshotNodeKind, SnapshotResourceKind, SnapshotSegmentKind,
-    SnapshotUnavailableFact,
+    FRAME_GRAPH_SNAPSHOT_FORMAT, FRAME_GRAPH_SNAPSHOT_MAX_EXTENSION_DEPTH,
+    FRAME_GRAPH_SNAPSHOT_VERSION, FrameGraphSnapshotV1, SnapshotAccessKind,
+    SnapshotAllocationReport, SnapshotGpuTimings, SnapshotIssue, SnapshotNodeCompileState,
+    SnapshotNodeKind, SnapshotResourceKind, SnapshotSegmentKind, SnapshotUnavailableFact,
 };
 
 const MAX_SAFE_INTEGER: u64 = 9_007_199_254_740_991;
@@ -1159,7 +1159,7 @@ fn validate_extensions(value: Option<&Value>, issues: &mut Vec<SnapshotIssue>) {
     let Some(extensions) = record(value, "/extensions", issues) else {
         return;
     };
-    for name in extensions.keys() {
+    for (name, value) in extensions {
         if !extension_name_is_qualified(name) {
             issues.push(error(
                 "invalid-extension-name",
@@ -1167,7 +1167,62 @@ fn validate_extensions(value: Option<&Value>, issues: &mut Vec<SnapshotIssue>) {
                 "Extension names must be namespace-qualified.",
             ));
         }
+        validate_extension_depth(name, value, issues);
     }
+}
+
+pub(crate) fn validate_typed_extension_depths(
+    extensions: &BTreeMap<String, Value>,
+) -> Vec<SnapshotIssue> {
+    let mut issues = Vec::new();
+    for (name, value) in extensions {
+        validate_extension_depth(name, value, &mut issues);
+    }
+    issues
+}
+
+fn validate_extension_depth(name: &str, value: &Value, issues: &mut Vec<SnapshotIssue>) {
+    if extension_depth_exceeds_limit(value) {
+        issues.push(error(
+            "extension-depth-exceeded",
+            format!("/extensions/{}", pointer(name)),
+            "Extension JSON nesting depth must not exceed 64 container levels.",
+        ));
+    }
+}
+
+fn extension_depth_exceeds_limit(value: &Value) -> bool {
+    let mut stack = Vec::new();
+    match value {
+        Value::Array(_) | Value::Object(_) => stack.push((value, 1usize)),
+        _ => return false,
+    }
+
+    while let Some((value, depth)) = stack.pop() {
+        if depth > FRAME_GRAPH_SNAPSHOT_MAX_EXTENSION_DEPTH {
+            return true;
+        }
+        match value {
+            Value::Array(values) => {
+                stack.extend(
+                    values
+                        .iter()
+                        .filter(|value| matches!(value, Value::Array(_) | Value::Object(_)))
+                        .map(|value| (value, depth + 1)),
+                );
+            }
+            Value::Object(values) => {
+                stack.extend(
+                    values
+                        .values()
+                        .filter(|value| matches!(value, Value::Array(_) | Value::Object(_)))
+                        .map(|value| (value, depth + 1)),
+                );
+            }
+            _ => {}
+        }
+    }
+    false
 }
 
 fn validate_references(snapshot: &FrameGraphSnapshotV1, issues: &mut Vec<SnapshotIssue>) {

@@ -1,5 +1,6 @@
 import {
 	FRAME_GRAPH_SNAPSHOT_FORMAT,
+	FRAME_GRAPH_SNAPSHOT_MAX_EXTENSION_DEPTH,
 	FRAME_GRAPH_SNAPSHOT_VERSION,
 } from './format.ts';
 import type {
@@ -10,6 +11,33 @@ import type {
 
 type UnknownRecord = Record<string, unknown>;
 type Issues = FrameGraphSnapshotIssue[];
+
+export type SnapshotJsonCloneResult =
+	| { readonly ok: true; readonly value: unknown }
+	| { readonly ok: false; readonly issues: readonly FrameGraphSnapshotIssue[] };
+
+interface JsonPathNode {
+	readonly parent: JsonPathNode | undefined;
+	readonly token: string;
+}
+
+type JsonCloneContainer = UnknownRecord | unknown[];
+
+type JsonCloneFrame =
+	| {
+		readonly kind: 'visit';
+		readonly source: unknown;
+		readonly path: JsonPathNode | undefined;
+		readonly parent: JsonCloneContainer | undefined;
+		readonly key: string | number | undefined;
+	}
+	| { readonly kind: 'leave'; readonly source: object };
+
+interface JsonCloneChild {
+	readonly source: unknown;
+	readonly path: JsonPathNode;
+	readonly key: string | number;
+}
 
 const NODE_KINDS = ['render', 'compute', 'copy', 'clear-buffer', 'command', 'external-submission'] as const;
 const ORIGINS = ['transient', 'imported', 'surface'] as const;
@@ -62,6 +90,315 @@ const WRITE_ACCESS_KINDS = new Set<FrameGraphSnapshotAccessKind>([
 ]);
 const ENTITY_ID_PATTERN = /^[a-z][a-z0-9-]*:.+$/;
 type EntityPrefix = 'group' | 'node' | 'resource' | 'view' | 'access' | 'segment' | 'allocation' | 'compatibility';
+
+/**
+ * Creates an independent JSON-safe clone without reading properties through
+ * getters or invoking `toJSON` hooks. Ordinary JSON containers from another
+ * JavaScript realm are accepted and cloned into the current realm.
+ *
+ * @internal
+ */
+export function cloneSnapshotJsonValue(value: unknown): SnapshotJsonCloneResult {
+	return cloneJsonValue(value, false);
+}
+
+/** @internal Canonicalizes trusted migration output without invoking hooks. */
+export function cloneGeneratedSnapshotJsonValue(value: unknown): SnapshotJsonCloneResult {
+	return cloneJsonValue(value, true);
+}
+
+function cloneJsonValue(
+	value: unknown,
+	omitUndefinedObjectProperties: boolean,
+): SnapshotJsonCloneResult {
+	const issues: Issues = [];
+	const ancestors = new Set<object>();
+	const stack: JsonCloneFrame[] = [{
+		kind: 'visit',
+		source: value,
+		path: undefined,
+		parent: undefined,
+		key: undefined,
+	}];
+	let root: unknown;
+
+	while (stack.length > 0) {
+		const frame = stack.pop()!;
+		if (frame.kind === 'leave') {
+			ancestors.delete(frame.source);
+			continue;
+		}
+
+		const { source, path, parent, key } = frame;
+		if (source === null || typeof source === 'string' || typeof source === 'boolean') {
+			if (assignJsonCloneValue(parent, key, source)) root = source;
+			continue;
+		}
+		if (typeof source === 'number') {
+			if (!Number.isFinite(source)) {
+				issues.push(issue('invalid-json-value', renderJsonPath(path), 'JSON numbers must be finite.'));
+				continue;
+			}
+			const clonedNumber = Object.is(source, -0) ? 0 : source;
+			if (assignJsonCloneValue(parent, key, clonedNumber)) root = clonedNumber;
+			continue;
+		}
+		if (typeof source !== 'object') {
+			issues.push(issue('invalid-json-value', renderJsonPath(path), 'Expected a JSON value.'));
+			continue;
+		}
+
+		let isArray: boolean;
+		let prototype: object | null;
+		try {
+			isArray = Array.isArray(source);
+			prototype = Object.getPrototypeOf(source) as object | null;
+		} catch {
+			issues.push(issue('invalid-json-value', renderJsonPath(path), 'JSON value properties could not be inspected safely.'));
+			continue;
+		}
+		if (isArray ? !isPlainArrayPrototype(prototype) : !isPlainObjectPrototype(prototype)) {
+			issues.push(issue('invalid-json-value', renderJsonPath(path), isArray
+				? 'JSON arrays must be plain arrays.'
+				: 'JSON objects must be plain objects.'));
+			continue;
+		}
+		if (ancestors.has(source)) {
+			issues.push(issue('invalid-json-value', renderJsonPath(path), 'JSON values cannot contain cycles.'));
+			continue;
+		}
+
+		let ownKeys: readonly PropertyKey[];
+		try {
+			ownKeys = Reflect.ownKeys(source);
+		} catch {
+			issues.push(issue('invalid-json-value', renderJsonPath(path), 'JSON value properties could not be inspected safely.'));
+			continue;
+		}
+
+		let children: JsonCloneChild[];
+		let clone: JsonCloneContainer;
+		if (isArray) {
+			const inspected = inspectJsonArray(source as unknown[], path, ownKeys, issues);
+			if (!inspected) continue;
+			children = inspected;
+			clone = [];
+		} else {
+			children = inspectJsonObject(
+				source as object,
+				path,
+				ownKeys,
+				issues,
+				omitUndefinedObjectProperties,
+			);
+			clone = {};
+		}
+
+		if (assignJsonCloneValue(parent, key, clone)) root = clone;
+		ancestors.add(source);
+		stack.push({ kind: 'leave', source });
+		for (let index = children.length - 1; index >= 0; index--) {
+			const child = children[index];
+			stack.push({
+				kind: 'visit',
+				source: child.source,
+				path: child.path,
+				parent: clone,
+				key: child.key,
+			});
+		}
+	}
+
+	return issues.length > 0 ? { ok: false, issues } : { ok: true, value: root };
+}
+
+function inspectJsonObject(
+	source: object,
+	path: JsonPathNode | undefined,
+	ownKeys: readonly PropertyKey[],
+	issues: Issues,
+	omitUndefinedProperties: boolean,
+): JsonCloneChild[] {
+	const children: JsonCloneChild[] = [];
+	let symbolIssueReported = false;
+	for (const key of ownKeys) {
+		if (typeof key === 'symbol') {
+			if (!symbolIssueReported) {
+				issues.push(issue('invalid-json-value', renderJsonPath(path), 'JSON objects cannot contain symbol-keyed properties.'));
+				symbolIssueReported = true;
+			}
+			continue;
+		}
+		const stringKey = String(key);
+		const childPath = appendJsonPath(path, stringKey);
+		const descriptor = inspectJsonProperty(source, stringKey, childPath, issues);
+		if (!descriptor) continue;
+		if (!descriptor.enumerable) {
+			issues.push(issue('invalid-json-value', renderJsonPath(childPath), 'JSON objects cannot contain non-enumerable properties.'));
+			continue;
+		}
+		if (!('value' in descriptor)) {
+			issues.push(issue('invalid-json-value', renderJsonPath(childPath), 'JSON values cannot contain accessor properties.'));
+			continue;
+		}
+		if (omitUndefinedProperties && descriptor.value === undefined) continue;
+		children.push({ source: descriptor.value, path: childPath, key: stringKey });
+	}
+	return children;
+}
+
+function inspectJsonArray(
+	source: unknown[],
+	path: JsonPathNode | undefined,
+	ownKeys: readonly PropertyKey[],
+	issues: Issues,
+): JsonCloneChild[] | undefined {
+	let lengthDescriptor: PropertyDescriptor | undefined;
+	try {
+		lengthDescriptor = Object.getOwnPropertyDescriptor(source, 'length');
+	} catch {
+		issues.push(issue('invalid-json-value', renderJsonPath(path), 'JSON value properties could not be inspected safely.'));
+		return undefined;
+	}
+	if (!lengthDescriptor || !('value' in lengthDescriptor) || !Number.isSafeInteger(lengthDescriptor.value) || lengthDescriptor.value < 0) {
+		issues.push(issue('invalid-json-value', renderJsonPath(path), 'JSON value properties could not be inspected safely.'));
+		return undefined;
+	}
+	const length = lengthDescriptor.value as number;
+	const indexed: { readonly index: number; readonly child: JsonCloneChild }[] = [];
+	const presentIndices: number[] = [];
+	let symbolIssueReported = false;
+	for (const key of ownKeys) {
+		if (key === 'length') continue;
+		if (typeof key === 'symbol') {
+			if (!symbolIssueReported) {
+				issues.push(issue('invalid-json-value', renderJsonPath(path), 'JSON arrays cannot contain symbol-keyed properties.'));
+				symbolIssueReported = true;
+			}
+			continue;
+		}
+		const stringKey = String(key);
+		const childPath = appendJsonPath(path, stringKey);
+		const index = arrayIndex(stringKey);
+		if (index === undefined || index >= length) {
+			issues.push(issue('invalid-json-value', renderJsonPath(childPath), 'JSON arrays cannot contain non-index properties.'));
+			continue;
+		}
+		presentIndices.push(index);
+		const descriptor = inspectJsonProperty(source, stringKey, childPath, issues);
+		if (!descriptor) continue;
+		if (!descriptor.enumerable) {
+			issues.push(issue('invalid-json-value', renderJsonPath(childPath), 'JSON array elements must be enumerable data properties.'));
+			continue;
+		}
+		if (!('value' in descriptor)) {
+			issues.push(issue('invalid-json-value', renderJsonPath(childPath), 'JSON values cannot contain accessor properties.'));
+			continue;
+		}
+		indexed.push({
+			index,
+			child: { source: descriptor.value, path: childPath, key: index },
+		});
+	}
+	indexed.sort((left, right) => left.index - right.index);
+	presentIndices.sort((left, right) => left - right);
+	for (let expected = 0; expected < length; expected++) {
+		if (presentIndices[expected] !== expected) {
+			issues.push(issue('invalid-json-value', renderJsonPath(appendJsonPath(path, String(expected))), 'JSON arrays cannot contain holes.'));
+			break;
+		}
+	}
+	return indexed.map(({ child }) => child);
+}
+
+function inspectJsonProperty(
+	source: object,
+	key: string,
+	path: JsonPathNode,
+	issues: Issues,
+): PropertyDescriptor | undefined {
+	try {
+		const descriptor = Object.getOwnPropertyDescriptor(source, key);
+		if (descriptor) return descriptor;
+	} catch {
+		// Report the same stable reflection failure below.
+	}
+	issues.push(issue('invalid-json-value', renderJsonPath(path), 'JSON value properties could not be inspected safely.'));
+	return undefined;
+}
+
+function assignJsonCloneValue(
+	parent: JsonCloneContainer | undefined,
+	key: string | number | undefined,
+	value: unknown,
+): boolean {
+	if (parent === undefined) return true;
+	Object.defineProperty(parent, key!, {
+		value,
+		enumerable: true,
+		configurable: true,
+		writable: true,
+	});
+	return false;
+}
+
+function arrayIndex(key: string): number | undefined {
+	if (!/^(0|[1-9]\d*)$/.test(key)) return undefined;
+	const value = Number(key);
+	return Number.isSafeInteger(value) && value >= 0 && value < 4_294_967_295 && String(value) === key
+		? value
+		: undefined;
+}
+
+function isPlainObjectPrototype(prototype: object | null): boolean {
+	if (prototype === null || prototype === Object.prototype) return true;
+	try {
+		return Object.getPrototypeOf(prototype) === null
+			&& prototypeOwnsConstructor(prototype);
+	} catch {
+		return false;
+	}
+}
+
+function isPlainArrayPrototype(prototype: object | null): boolean {
+	if (prototype === Array.prototype) return true;
+	if (prototype === null) return false;
+	try {
+		return Array.isArray(prototype)
+			&& isPlainObjectPrototype(Object.getPrototypeOf(prototype) as object | null)
+			&& prototypeOwnsConstructor(prototype);
+	} catch {
+		return false;
+	}
+}
+
+function prototypeOwnsConstructor(prototype: object): boolean {
+	const constructorDescriptor = Object.getOwnPropertyDescriptor(prototype, 'constructor');
+	if (
+		!constructorDescriptor
+		|| constructorDescriptor.enumerable
+		|| !('value' in constructorDescriptor)
+		|| typeof constructorDescriptor.value !== 'function'
+	) return false;
+	const prototypeDescriptor = Object.getOwnPropertyDescriptor(constructorDescriptor.value, 'prototype');
+	return prototypeDescriptor !== undefined
+		&& 'value' in prototypeDescriptor
+		&& prototypeDescriptor.value === prototype;
+}
+
+function appendJsonPath(parent: JsonPathNode | undefined, token: string): JsonPathNode {
+	return { parent, token };
+}
+
+function renderJsonPath(path: JsonPathNode | undefined): string {
+	if (!path) return '';
+	const tokens: string[] = [];
+	for (let current: JsonPathNode | undefined = path; current; current = current.parent) {
+		tokens.push(pointer(current.token));
+	}
+	tokens.reverse();
+	return `/${tokens.join('/')}`;
+}
 
 export function validateSnapshotV1(value: unknown): readonly FrameGraphSnapshotIssue[] {
 	const issues: Issues = [];
@@ -378,8 +715,9 @@ function validateExtensions(value: unknown, issues: Issues): void {
 	const extensions = record(value, '/extensions', issues);
 	if (!extensions) return;
 	for (const [name, extension] of Object.entries(extensions)) {
-		if (!/^.+\..+$/.test(name)) issues.push(issue('invalid-extension-name', `/extensions/${pointer(name)}`, 'Extension names must be namespace-qualified.'));
-		jsonValue(extension, `/extensions/${pointer(name)}`, issues);
+		const path = `/extensions/${pointer(name)}`;
+		if (!/^.+\..+$/.test(name)) issues.push(issue('invalid-extension-name', path, 'Extension names must be namespace-qualified.'));
+		jsonValue(extension, path, issues);
 	}
 }
 
@@ -754,41 +1092,86 @@ function stringArray<T extends string>(
 	});
 }
 
-function jsonValue(value: unknown, path: string, issues: Issues, ancestors = new Set<object>()): void {
-	if (value === null || typeof value === 'string' || typeof value === 'boolean') return;
-	if (typeof value === 'number') {
-		if (!Number.isFinite(value)) issues.push(issue('invalid-json-value', path, 'JSON numbers must be finite.'));
-		return;
-	}
-	if (Array.isArray(value)) {
-		if (ancestors.has(value)) {
+type JsonValueFrame =
+	| { readonly kind: 'visit'; readonly value: unknown; readonly path: string; readonly containerDepth: number }
+	| { readonly kind: 'leave'; readonly value: object }
+	| { readonly kind: 'hole'; readonly path: string };
+
+function jsonValue(value: unknown, rootPath: string, issues: Issues): void {
+	const ancestors = new Set<object>();
+	const stack: JsonValueFrame[] = [{ kind: 'visit', value, path: rootPath, containerDepth: 0 }];
+	let depthIssueReported = false;
+
+	while (stack.length > 0) {
+		const frame = stack.pop()!;
+		if (frame.kind === 'leave') {
+			ancestors.delete(frame.value);
+			continue;
+		}
+		if (frame.kind === 'hole') {
+			issues.push(issue('invalid-json-value', frame.path, 'JSON arrays cannot contain holes.'));
+			continue;
+		}
+
+		const { value: entry, path, containerDepth } = frame;
+		if (entry === null || typeof entry === 'string' || typeof entry === 'boolean') continue;
+		if (typeof entry === 'number') {
+			if (!Number.isFinite(entry)) issues.push(issue('invalid-json-value', path, 'JSON numbers must be finite.'));
+			continue;
+		}
+		if (typeof entry !== 'object') {
+			issues.push(issue('invalid-json-value', path, 'Expected a JSON value.'));
+			continue;
+		}
+
+		const isArray = Array.isArray(entry);
+		if (!isArray) {
+			const prototype = Object.getPrototypeOf(entry);
+			if (prototype !== Object.prototype && prototype !== null) {
+				issues.push(issue('invalid-json-value', path, 'JSON objects must be plain objects.'));
+				continue;
+			}
+		}
+		if (ancestors.has(entry)) {
 			issues.push(issue('invalid-json-value', path, 'JSON values cannot contain cycles.'));
-			return;
+			continue;
 		}
-		ancestors.add(value);
-		for (let index = 0; index < value.length; index++) {
-			if (!(index in value)) issues.push(issue('invalid-json-value', `${path}/${index}`, 'JSON arrays cannot contain holes.'));
-			else jsonValue(value[index], `${path}/${index}`, issues, ancestors);
+
+		const nextDepth = containerDepth + 1;
+		if (nextDepth > FRAME_GRAPH_SNAPSHOT_MAX_EXTENSION_DEPTH) {
+			if (!depthIssueReported) {
+				issues.push(issue(
+					'extension-depth-exceeded',
+					rootPath,
+					`Extension JSON nesting depth must not exceed ${FRAME_GRAPH_SNAPSHOT_MAX_EXTENSION_DEPTH} container levels.`,
+				));
+				depthIssueReported = true;
+			}
+			continue;
 		}
-		ancestors.delete(value);
-		return;
+
+		ancestors.add(entry);
+		stack.push({ kind: 'leave', value: entry });
+		if (isArray) {
+			for (let index = entry.length - 1; index >= 0; index--) {
+				const entryPath = `${path}/${index}`;
+				stack.push(index in entry
+					? { kind: 'visit', value: entry[index], path: entryPath, containerDepth: nextDepth }
+					: { kind: 'hole', path: entryPath });
+			}
+		} else {
+			const entries = Object.entries(entry);
+			for (let index = entries.length - 1; index >= 0; index--) {
+				const [key, child] = entries[index];
+				stack.push({
+					kind: 'visit',
+					value: child,
+					path: `${path}/${pointer(key)}`,
+					containerDepth: nextDepth,
+				});
+			}
+		}
 	}
-	if (typeof value !== 'object' || value === null) {
-		issues.push(issue('invalid-json-value', path, 'Expected a JSON value.'));
-		return;
-	}
-	const prototype = Object.getPrototypeOf(value);
-	if (prototype !== Object.prototype && prototype !== null) {
-		issues.push(issue('invalid-json-value', path, 'JSON objects must be plain objects.'));
-		return;
-	}
-	if (ancestors.has(value)) {
-		issues.push(issue('invalid-json-value', path, 'JSON values cannot contain cycles.'));
-		return;
-	}
-	ancestors.add(value);
-	for (const [key, entry] of Object.entries(value)) jsonValue(entry, `${path}/${pointer(key)}`, issues, ancestors);
-	ancestors.delete(value);
 }
 
 function missing(path: string, kind: string, id: string, issues: Issues): void {

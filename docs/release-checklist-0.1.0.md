@@ -3,16 +3,16 @@
 - Date: 2026-08-31
 - Initial public commit: the commit containing this checklist
   (`feat: initialize ZenFG monorepo`)
-- Status: developer/AI hardening committed and locally verified; registry
-  credential recheck remains pending
+- Status: release closure locally verified; publishing remains gated on
+  post-push checks
 
 This checklist defines and records the local `0.1.0` release candidate. Rows
-1-13 and 15-22 contain the fresh 2026-08-31 hardening rerun. Registry login and
-token permissions still require their manual release-session check in row 14. The
-public GitHub repository was created separately and the local `origin` is
-configured, but this checklist does not push commits, create tags, publish
-packages, or switch downstream consumers. The frozen migration manifest is not
-regenerated during release preparation.
+1-14 and 16-22 contain the fresh 2026-08-31 release-closure rerun; row 15 records
+the final commit boundary. Registry login and token permissions remain a
+post-push publish gate. The public GitHub repository was created separately and
+the local `origin` is configured, but this checklist does not create tags,
+publish packages, or switch downstream consumers. The frozen migration manifest
+is not regenerated during release preparation.
 
 ## Repository and registry identities
 
@@ -36,20 +36,20 @@ result before committing the candidate.
 | # | Check | Result |
 | ---: | --- | --- |
 | 1 | `npm run typecheck` | Passed: all four TypeScript workspaces and all seven public recipes |
-| 2 | `npm test` | Passed: 294/294 tests |
+| 2 | `npm test` | Passed: 304/304 tests |
 | 3 | `npm run test:cross-language` | Passed: seven mirrored producer cases and the Rust integration test |
 | 4 | `npm run build` | Passed: three packages and the static Inspector app; only the existing Vite chunk-size advisory was emitted |
 | 5 | Remove all package `dist/` directories, then `npm run pack:check` | Passed: all `prepack` rebuilds, runtime imports, packaged Quick Starts and recipes, source-backed declaration maps, and a strict TypeScript 6.0.3 consumer |
-| 6 | `npm publish --dry-run --access public --tag next` for each of the three npm packages | Passed: Snapshot 86 files, WebGPU 88 files, Inspector 133 files |
+| 6 | `npm publish --dry-run --access public --tag next` for each of the three npm packages | Passed: Snapshot 88 files, WebGPU 88 files, Inspector 133 files |
 | 7 | `cargo fmt --all --check` | Passed |
 | 8 | `cargo clippy --workspace --all-targets --all-features -- -D warnings` | Passed |
-| 9 | `cargo test --workspace --all-features` | Passed: 100 `zenfg` test functions, seven trybuild cases, five `zenfg-snapshot` tests, and four README doctests |
+| 9 | `cargo test --workspace --all-features` | Passed: 100 `zenfg` test functions, seven trybuild cases, six `zenfg-snapshot` tests, and four README doctests |
 | 10 | `RUSTDOCFLAGS="-D warnings" cargo doc --workspace --all-features --no-deps` | Passed for both crates |
-| 11 | `npm run cargo:package-check` | Passed: Snapshot 13 files/147.6 KiB (28.0 KiB compressed); runtime 52 files/527.9 KiB (95.3 KiB compressed); both extracted archives and their examples compile externally |
+| 11 | `npm run cargo:package-check` | Passed: Snapshot 13 files/150.3 KiB (28.7 KiB compressed); runtime 52 files/527.9 KiB (95.3 KiB compressed); both extracted archives and their examples compile externally |
 | 12 | `cargo publish --dry-run -p zenfg-snapshot --locked --allow-dirty` | Passed with the single accepted warning below |
 | 13 | Confirm no obsolete organization-owned repository URLs remain | Passed |
-| 14 | Recheck credentials, licenses, package contents, and downstream coupling | Partially complete: no embedded credential or forbidden dependency hits, LICENSE copies are identical, and all five archives were inspected; npm login/2FA and crates.io token permissions remain a manual release-session check |
-| 15 | `git diff --cached --check`; commit; clean status with the expected remote and no tag | Passed: staged diff validation completed before the hardening commit; branch is `main`, `origin` points to `uinosoft/zenfg`, the post-commit worktree is clean, and there are zero tags |
+| 14 | Recheck credentials, licenses, package contents, and downstream coupling | Passed for the local candidate: no embedded credential or forbidden dependency hits, all six LICENSE copies are identical, and all five archives were inspected; npm login/2FA and crates.io token permissions remain a post-push publish gate |
+| 15 | `git diff --cached --check`; commit; clean status with the expected remote and no tag | Passed at the closure boundary: the staged diff was validated before `fix(snapshot): harden decoding and bound extension depth`; branch is `main`, `origin` points to `uinosoft/zenfg`, the post-commit worktree is clean, and there are zero tags |
 
 The counts and sizes in rows 2, 6, 9, 11, and 22 are observed results from the
 fresh 2026-08-31 rerun. Re-run and update them again if the candidate changes
@@ -62,13 +62,13 @@ authorize publishing or tagging on their own.
 
 | # | Check | Result |
 | ---: | --- | --- |
-| 16 | `npm run docs:check` validates package-root public documentation and internal documentation links | Passed: five TypeScript entrypoints, 118 exports, 39 public methods, 68 deferred Rust top-level types, and 49 local Markdown links |
+| 16 | `npm run docs:check` validates package-root public documentation and internal documentation links | Passed: five TypeScript entrypoints, 120 exports, 39 public methods, 68 deferred Rust top-level types, and 49 local Markdown links |
 | 17 | `npx tsc --project packages/webgpu/examples/tsconfig.json --noEmit` checks all seven public-entrypoint TypeScript recipes | Passed: all seven recipes compile under the package-local strict consumer config |
 | 18 | `cargo test --workspace --all-features --doc` and `cargo check --workspace --all-features --examples` check README doctests and all seven Rust recipes | Passed: four README doctests, seven mirrored runtime recipes, and the Snapshot `basic` example |
 | 19 | Run `minimal-frame`, `snapshot-export` with feature `snapshot`, and `zenfg-snapshot`'s `basic` example; GPU-dependent recipes require compile checks only | Passed: all three CPU-only examples executed successfully; every GPU-dependent recipe compiled |
 | 20 | From actual npm tarballs, compile the documented package Quick Starts and recipes with TypeScript 6, `skipLibCheck: false`, and no workspace path aliases | Passed: Snapshot, WebGPU, and Inspector Quick Starts plus all seven packaged recipes under TypeScript 6.0.3 |
 | 21 | Verify every published `.d.ts.map` uses relative sources that exist in the same tarball; reject absolute paths and workspace leakage | Passed: every declaration map resolves only to packaged `src/` files |
-| 22 | Inspect all five package archives, then replace historical file counts and sizes in this checklist with observed values | Passed: npm Snapshot 86 files/90.7 KiB (510.0 KiB unpacked), WebGPU 88/213.6 KiB (1065.8 KiB unpacked), Inspector 133/206.2 KiB (1049.8 KiB unpacked); Cargo Snapshot 13/147.6 KiB and runtime 52/527.9 KiB |
+| 22 | Inspect all five package archives, then replace historical file counts and sizes in this checklist with observed values | Passed: npm Snapshot 88 files/105.0 KiB (588.7 KiB unpacked), WebGPU 88/213.6 KiB (1065.8 KiB unpacked), Inspector 133/206.2 KiB (1049.8 KiB unpacked); Cargo Snapshot 13/150.3 KiB (28.7 KiB compressed) and runtime 52/527.9 KiB (95.3 KiB compressed) |
 
 Step 5 must start without generated package output. The package-level `prepack`
 scripts must rebuild the required artifacts, and the tarball smoke test must

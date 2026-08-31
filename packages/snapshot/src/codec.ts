@@ -1,5 +1,6 @@
 import {
 	FRAME_GRAPH_SNAPSHOT_FORMAT,
+	FRAME_GRAPH_SNAPSHOT_MAX_EXTENSION_DEPTH,
 	FRAME_GRAPH_SNAPSHOT_VERSION,
 	T3D_FRAME_GRAPH_SNAPSHOT_FORMAT,
 } from './format.ts';
@@ -13,7 +14,11 @@ import type {
 	FrameGraphSnapshotIssue,
 	FrameGraphSnapshotStringifyOptions,
 } from './types.ts';
-import { validateSnapshotV1 } from './validator.ts';
+import {
+	cloneGeneratedSnapshotJsonValue,
+	cloneSnapshotJsonValue,
+	validateSnapshotV1,
+} from './validator.ts';
 
 /**
  * Error thrown when a value cannot be serialized as a valid Snapshot 1.0
@@ -35,11 +40,15 @@ export class FrameGraphSnapshotValidationError extends Error {
 /**
  * Validates an unknown value against the canonical Snapshot 1.0 semantic model.
  *
- * @remarks This performs structural and cross-reference checks without
- * migrating legacy formats or cloning the input. An empty array means valid.
+ * @remarks This first creates an independent JSON-safe clone by inspecting own
+ * property descriptors, so getters and `toJSON` hooks are never invoked. It
+ * then performs structural and cross-reference checks without migrating legacy
+ * formats. Extension object/array nesting is limited by
+ * {@link FRAME_GRAPH_SNAPSHOT_MAX_EXTENSION_DEPTH}. An empty array means valid.
  */
 export function validateFrameGraphSnapshot(value: unknown): readonly FrameGraphSnapshotIssue[] {
-	return validateSnapshotV1(value);
+	const cloned = cloneSnapshotJsonValue(value);
+	return cloned.ok ? validateSnapshotV1(cloned.value) : cloned.issues;
 }
 
 /**
@@ -48,7 +57,11 @@ export function validateFrameGraphSnapshot(value: unknown): readonly FrameGraphS
  * @remarks Supported legacy V0 and pre-release `t3d` V1 captures are migrated
  * before validation. Successful results identify the source format and carry
  * migration warnings; unsupported, malformed, or semantically invalid values
- * return `{ ok: false, issues }` and do not throw.
+ * return `{ ok: false, issues }` and do not throw. Decoding and migration do
+ * not mutate the input value. Input properties are inspected through data
+ * descriptors, so getters and `toJSON` hooks are never invoked. Extension
+ * object/array nesting is limited by
+ * {@link FRAME_GRAPH_SNAPSHOT_MAX_EXTENSION_DEPTH}.
  *
  * @example
  * ```ts
@@ -58,20 +71,25 @@ export function validateFrameGraphSnapshot(value: unknown): readonly FrameGraphS
  * ```
  */
 export function decodeFrameGraphSnapshot(value: unknown): FrameGraphSnapshotDecodeResult {
-	if (isLegacyFrameGraphCapture(value)) {
-		const migrated = migrateLegacyFrameGraphCapture(value);
+	const cloned = cloneSnapshotJsonValue(value);
+	if (!cloned.ok) return { ok: false, issues: cloned.issues };
+	const safeValue = cloned.value;
+	if (isLegacyFrameGraphCapture(safeValue)) {
+		const migrated = migrateLegacyFrameGraphCapture(safeValue);
 		if (!migrated.ok) return migrated;
-		const validationIssues = validateSnapshotV1(migrated.snapshot);
+		const canonical = cloneGeneratedSnapshotJsonValue(migrated.snapshot);
+		if (!canonical.ok) return { ok: false, issues: canonical.issues };
+		const validationIssues = validateSnapshotV1(canonical.value);
 		if (validationIssues.length > 0) return { ok: false, issues: validationIssues };
 		return {
 			ok: true,
-			snapshot: canonicalClone(migrated.snapshot),
+			snapshot: canonical.value as FrameGraphSnapshot,
 			source: 'legacy-v0',
 			migrated: true,
 			issues: migrated.issues,
 		};
 	}
-	const root = asRecord(value);
+	const root = asRecord(safeValue);
 	if (root?.format === T3D_FRAME_GRAPH_SNAPSHOT_FORMAT) {
 		return migrateT3dV1(root);
 	}
@@ -91,11 +109,11 @@ export function decodeFrameGraphSnapshot(value: unknown): FrameGraphSnapshotDeco
 			`Snapshot version ${actual} is not supported; this Viewer supports 1.0.`,
 		);
 	}
-	const issues = validateSnapshotV1(value);
+	const issues = validateSnapshotV1(safeValue);
 	if (issues.length > 0) return { ok: false, issues };
 	return {
 		ok: true,
-		snapshot: canonicalClone(value as FrameGraphSnapshot),
+		snapshot: safeValue as FrameGraphSnapshot,
 		source: 'v1',
 		migrated: false,
 		issues: [],
@@ -108,29 +126,37 @@ function migrateT3dV1(value: Record<string, unknown>): FrameGraphSnapshotDecodeR
 		const actual = version ? `${String(version.major)}.${String(version.minor)}` : 'missing';
 		return failure('unsupported-version', '/version', `Snapshot version ${actual} is not supported; this Viewer supports 1.0.`);
 	}
-	const candidate = JSON.parse(JSON.stringify(value)) as Record<string, unknown>;
-	candidate.format = FRAME_GRAPH_SNAPSHOT_FORMAT;
-	const capture = asRecord(candidate.capture);
-	const graph = asRecord(candidate.graph);
+	const candidate: Record<string, unknown> = {
+		...value,
+		format: FRAME_GRAPH_SNAPSHOT_FORMAT,
+	};
+	const capture = asRecord(value.capture);
+	const graph = asRecord(value.graph);
 	if (!capture || !graph || !Array.isArray(graph.resources)) {
 		const issues = validateSnapshotV1(candidate);
 		return { ok: false, issues };
 	}
-	capture.migration = { sourceFormat: 't3d-v1', unavailableFacts: [] };
-	for (const entry of graph.resources) {
+	candidate.capture = {
+		...capture,
+		migration: { sourceFormat: 't3d-v1', unavailableFacts: [] },
+	};
+	const resources = Array.from(graph.resources, (entry) => {
 		const resource = asRecord(entry);
-		if (!resource) continue;
+		if (!resource) return entry;
+		const migratedResource = { ...resource };
 		if (resource.origin === 'transient' || resource.origin === 'surface') {
-			resource.initialContents = 'undefined';
+			migratedResource.initialContents = 'undefined';
 		} else if (resource.origin === 'imported') {
-			delete resource.initialContents;
+			delete migratedResource.initialContents;
 		}
-	}
+		return migratedResource;
+	});
+	candidate.graph = { ...graph, resources };
 	const issues = validateSnapshotV1(candidate);
 	if (issues.length > 0) return { ok: false, issues };
 	return {
 		ok: true,
-		snapshot: canonicalClone(candidate as FrameGraphSnapshot),
+		snapshot: candidate as FrameGraphSnapshot,
 		source: 't3d-v1',
 		migrated: true,
 		issues: [{
@@ -167,20 +193,53 @@ export function parseFrameGraphSnapshot(text: string): FrameGraphSnapshotDecodeR
 /**
  * Validates and serializes a canonical Snapshot 1.0 document.
  *
+ * @remarks The input is cloned through own data-property descriptors before
+ * validation and serialization, so getters and `toJSON` hooks are never
+ * invoked. Extension object/array nesting is limited by
+ * {@link FRAME_GRAPH_SNAPSHOT_MAX_EXTENSION_DEPTH}.
  * @param snapshot - Producer-owned snapshot to validate before serialization.
  * @param options - Formatting options. Omitted options produce compact JSON.
  * @returns Canonical JSON text without mutating `snapshot`.
- * @throws {@link FrameGraphSnapshotValidationError} when semantic validation
- * fails, or a native `TypeError` if JSON serialization encounters unsupported
- * runtime values.
+ * @throws {@link FrameGraphSnapshotValidationError} when JSON-safety or
+ * semantic validation fails.
  */
 export function stringifyFrameGraphSnapshot(
 	snapshot: FrameGraphSnapshot,
 	options: FrameGraphSnapshotStringifyOptions = {},
 ): string {
-	const issues = validateSnapshotV1(snapshot);
+	const cloned = cloneSnapshotJsonValue(snapshot);
+	if (!cloned.ok) throw new FrameGraphSnapshotValidationError(cloned.issues);
+	const issues = validateSnapshotV1(cloned.value);
 	if (issues.length > 0) throw new FrameGraphSnapshotValidationError(issues);
-	return JSON.stringify(snapshot, null, options.pretty ? 2 : undefined);
+	shadowInheritedToJsonHooks(cloned.value);
+	return JSON.stringify(cloned.value, null, options.pretty ? 2 : undefined);
+}
+
+function shadowInheritedToJsonHooks(value: unknown): void {
+	if (typeof value !== 'object' || value === null) return;
+	const stack: object[] = [value];
+	while (stack.length > 0) {
+		const container = stack.pop()!;
+		const isArray = Array.isArray(container);
+		const keys = Reflect.ownKeys(container);
+		let ownsToJson = false;
+		for (const key of keys) {
+			if (key === 'toJSON') ownsToJson = true;
+			if (typeof key === 'symbol' || (isArray && key === 'length')) continue;
+			const descriptor = Object.getOwnPropertyDescriptor(container, key);
+			if (!descriptor || !('value' in descriptor)) continue;
+			const child = descriptor.value;
+			if (typeof child === 'object' && child !== null) stack.push(child);
+		}
+		if (!ownsToJson) {
+			Object.defineProperty(container, 'toJSON', {
+				value: undefined,
+				enumerable: false,
+				configurable: true,
+				writable: true,
+			});
+		}
+	}
 }
 
 function asRecord(value: unknown): Record<string, unknown> | undefined {
@@ -194,8 +253,4 @@ function failure(code: string, path: string, message: string): FrameGraphSnapsho
 		ok: false,
 		issues: [{ severity: 'error', code, path, message }],
 	};
-}
-
-function canonicalClone(snapshot: FrameGraphSnapshot): FrameGraphSnapshot {
-	return JSON.parse(JSON.stringify(snapshot)) as FrameGraphSnapshot;
 }

@@ -25,6 +25,7 @@ semantics are defined by the specification and conformance corpus.
 ```ts
 import {
   FRAME_GRAPH_SNAPSHOT_FORMAT,
+  FRAME_GRAPH_SNAPSHOT_MAX_EXTENSION_DEPTH,
   FRAME_GRAPH_SNAPSHOT_VERSION,
   decodeFrameGraphSnapshot,
   parseFrameGraphSnapshot,
@@ -47,9 +48,20 @@ whose historical meaning cannot be recovered reliably. Persistent
 from known-empty arrays.
 Every successful decode returns a canonical JSON-compatible V1 value, so later
 serialization never writes Legacy V0.
+Programmatic decode inputs are treated as read-only: migration never mutates
+the supplied value, and malformed programmatic values are returned as stable
+validation issues instead of leaking native cloning or serialization errors.
 
 Unknown versions are rejected. Viewers must add an explicit migration before
 accepting another version rather than guessing at compatible fields.
+
+Extension primitives have container depth 0; a root array or object has depth
+1, including when empty, and each nested container adds one. Snapshot 1.0
+accepts at most `FRAME_GRAPH_SNAPSHOT_MAX_EXTENSION_DEPTH` (64) container
+levels. A deeper value is rejected with `extension-depth-exceeded` at the
+extension root, for example `/extensions/dev.zenfg.deep`. The fixed limit keeps
+validation, canonical cloning, and serialization deterministic across the
+TypeScript and Rust implementations.
 
 ## Installation
 
@@ -80,8 +92,9 @@ resolution and use a module mode that supports import attributes. For example:
 
 The source schema is Draft 2020-12 and lives under `schema/`. Golden fixtures
 under `fixtures/` cover minimal data, a complete WebGPU capture, aliasing,
-unavailable timing, all four `stableKey` locations, and exact Legacy V0/t3d V1
-canonical migration. `conformance/manifest.json` classifies valid,
+unavailable timing, all four `stableKey` locations, the accepted 64-level
+extension boundary, and exact Legacy V0/t3d V1 canonical migration.
+`conformance/manifest.json` classifies valid,
 structural-invalid, semantic-invalid, and malformed Legacy cases, records the
 required public issue-code coverage, and compares the complete issue multiset
 without treating issue array order as part of the protocol. The runtime uses an explicit

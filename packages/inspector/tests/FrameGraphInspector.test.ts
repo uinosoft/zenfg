@@ -344,7 +344,7 @@ test('imports the t3d V1 candidate with canonical migration provenance and feedb
 	testWindow.close();
 });
 
-test('rejects a semantic-invalid Snapshot atomically and reports its JSON Pointer', async () => {
+test('rejects semantic-invalid and over-depth Snapshots atomically and reports their JSON Pointers', async () => {
 	const testWindow = installDom();
 	const panel = new FrameGraphInspector();
 	panel.setSnapshot(toSnapshot(createGroupedCapture()));
@@ -376,6 +376,21 @@ test('rejects a semantic-invalid Snapshot atomically and reports its JSON Pointe
 	assert.equal(status?.dataset.tone, 'error');
 	assert.match(status?.textContent ?? '', /\/graph\/nodes\/1\/id/);
 	assert.match(status?.textContent ?? '', /already declared/);
+
+	const overDepth = readWorkspaceJson('packages/snapshot/conformance/invalid/structural-extension-depth-65.json');
+	await panel.importSnapshot(new testWindow.File(
+		[JSON.stringify(overDepth)],
+		'over-depth.fgsnapshot.json',
+		{ type: 'application/json' },
+	) as unknown as File);
+
+	assert.equal(panel.getSnapshot(), current);
+	const selectedAfterDepth = panel.dom.querySelector<HTMLTableRowElement>('#zenfg-inspector-pass-list-panel tbody tr.selected');
+	assert.equal(selectedAfterDepth, selectedRow);
+	assert.equal(selectedAfterDepth?.textContent, selectedBefore);
+	assert.equal(status?.dataset.tone, 'error');
+	assert.match(status?.textContent ?? '', /\/extensions\/dev\.zenfg\.deep/);
+	assert.match(status?.textContent ?? '', /must not exceed 64 container levels/);
 
 	panel.destroy();
 	testWindow.close();

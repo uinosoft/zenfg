@@ -63,3 +63,9 @@ JSON Pointer paths, and messages. The implementation has no `wgpu` dependency;
 its runtime dependencies are Serde, `serde_json`, and `thiserror` only. The
 normative specification, Schema, fixtures, and conformance manifest are
 published by `@zenfg/snapshot`.
+
+Extension values may contain at most 64 nested JSON object/array container
+levels, exposed as `FRAME_GRAPH_SNAPSHOT_MAX_EXTENSION_DEPTH`. Primitive
+extension values have depth zero and an object or array root has depth one.
+Validation and encoding report `extension-depth-exceeded` at the extension's
+root JSON Pointer when the limit is exceeded.

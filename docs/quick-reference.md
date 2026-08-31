@@ -136,6 +136,7 @@ resolved transient GPU objects outside the callback.
 | Decode or migrate a Snapshot | `decodeFrameGraphSnapshot()` | `decode_frame_graph_snapshot()` |
 | Parse Snapshot JSON text | `parseFrameGraphSnapshot()` | `parse_frame_graph_snapshot()` |
 | Validate canonical Snapshot data | `validateFrameGraphSnapshot()` | `validate_frame_graph_snapshot()` |
+| Read the Snapshot extension depth limit | `FRAME_GRAPH_SNAPSHOT_MAX_EXTENSION_DEPTH` | `FRAME_GRAPH_SNAPSHOT_MAX_EXTENSION_DEPTH` |
 
 ## TypeScript and Rust name map
 
@@ -150,6 +151,7 @@ parity. Translate intent rather than mechanically translating syntax.
 | Texture view handle | `TextureViewHandle` | `TextureView<'frame>` |
 | Write semantics | `'overwrite'`, `'preserve'` | `WriteContents::{Overwrite, Preserve}` |
 | Initial contents | `'defined'`, `'undefined'` | `InitialContents::{Defined, Undefined}` |
+| Maximum extension JSON depth | `FRAME_GRAPH_SNAPSHOT_MAX_EXTENSION_DEPTH` | `FRAME_GRAPH_SNAPSHOT_MAX_EXTENSION_DEPTH` |
 | Sampled texture | `TextureAccess.Sampled` | `PassBuilder::sampled_texture()` |
 | Storage texture read/write | `TextureAccess.StorageRead/StorageWrite` | `storage_texture_read()` / `storage_texture_write()` |
 | Color attachment | `colorAttachments` | `color_attachment()` and `ColorAttachmentOps` |

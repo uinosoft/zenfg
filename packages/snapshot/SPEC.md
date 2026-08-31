@@ -170,8 +170,18 @@ timing references each retained render or compute node at most once.
 Diagnostic codes are non-empty. Optional node/resource references MUST resolve.
 
 Extension names match `^.+\..+$`. Extension values MUST be JSON values: no
-non-finite numbers, undefined values, holes, host objects, or cycles. Consumers
-MUST preserve extensions they do not understand.
+non-finite numbers, undefined values, holes, host objects, or cycles. A
+primitive extension value has container depth 0. An array or object used as an
+extension root has container depth 1, and each nested array or object increases
+that depth by 1. Empty containers count. Extension values MUST NOT exceed 64
+container levels; the public TypeScript and Rust bindings expose this limit as
+`FRAME_GRAPH_SNAPSHOT_MAX_EXTENSION_DEPTH`.
+
+A depth violation produces at most one `extension-depth-exceeded` issue for
+each over-limit extension. Its path is the JSON Pointer to that extension root
+(with the extension name escaped as a JSON Pointer token), and its exact
+message is `Extension JSON nesting depth must not exceed 64 container levels.`
+Consumers MUST preserve extensions they do not understand.
 
 ## 8. Historical migration
 
@@ -200,7 +210,8 @@ Schema and semantic validator. Structural-invalid cases fail both. Semantic-
 invalid cases may pass the Schema but fail semantic validation; that distinction
 is recorded intentionally. Legacy cases are not evaluated against the V1
 Schema and must match the declared decode result and canonical output. Every
-case compares the complete multiset of `(code, path, message)` issues. Issue
+case compares the complete multiset of `(code, path, message)` issues. The
+depth-64 and depth-65 cases define the shared extension nesting boundary. Issue
 array order is not protocol-significant; conformance implementations sort both
 expected and actual issues by `path`, then `code`, then `message` before
 comparison. The manifest's `requiredIssueCodes` table records shared coverage;
