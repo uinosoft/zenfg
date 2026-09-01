@@ -9,6 +9,10 @@ pipelines, bind groups, cameras, surface presentation, or application policy.
 Independent renderers can participate through native render/compute/copy
 nodes, command encoding, or opaque external-submission boundaries.
 
+Website: <https://uinosoft.github.io/zenfg/>
+
+Inspector: <https://uinosoft.github.io/zenfg/inspector/>
+
 Start with the [developer and AI quick reference](docs/quick-reference.md) for
 package selection, lifecycle and ownership rules, API name mapping, common
 failure fixes, and complete TypeScript/Rust recipes.
@@ -30,7 +34,8 @@ semantics and portable diagnostics, not source-level API parity.
 
 The private `apps/inspector` workspace builds a backend-free static viewer with
 file selection, drag-and-drop, validation feedback, and historical-format
-migration. It is built in CI but is not deployed by this repository.
+migration. The [hosted Inspector](https://uinosoft.github.io/zenfg/inspector/)
+runs entirely in the browser; imported snapshots are not uploaded.
 
 For local development, install dependencies and start the standalone Inspector
 from a clean checkout with `npm run dev:inspector`. Run the independent

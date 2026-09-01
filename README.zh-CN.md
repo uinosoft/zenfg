@@ -8,6 +8,10 @@ ZenFG 只管理图可见的 GPU 工作：依赖、顺序、内容有效性、裁
 transient allocation、执行分段与诊断。Scene、Material、Pipeline、Bind Group、
 Camera、surface presentation 和业务策略始终由调用方持有。
 
+项目网站：<https://uinosoft.github.io/zenfg/>
+
+在线 Inspector：<https://uinosoft.github.io/zenfg/inspector/>
+
 开发者与 AI 集成请从英文
 [Quick Reference](docs/quick-reference.md) 开始；它是包与 feature 选择、生命周期、
 ownership/content 语义、双语言 API 映射、常见错误和完整示例索引的单一事实源。
@@ -27,7 +31,8 @@ ownership/content 语义、双语言 API 映射、常见错误和完整示例索
 保持各自惯用的公共 API。
 
 私有 workspace `apps/inspector` 会构建无需后端的静态查看器，支持文件选择、拖放、
-验证错误反馈与旧格式迁移。本仓库只构建它，不负责部署。
+验证错误反馈与旧格式迁移。[在线 Inspector](https://uinosoft.github.io/zenfg/inspector/)
+完全在浏览器中运行，不会上传导入的 Snapshot。
 
 本地安装依赖后，可从干净 checkout 直接执行 `npm run dev:inspector` 启动独立
 Inspector；执行 `npm run test:cross-language` 可运行 TypeScript/Rust 双向 producer

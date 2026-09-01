@@ -14,10 +14,12 @@
   ],
   "scripts": {
     "build:packages": "npm run build --workspace @zenfg/snapshot && npm run build --workspace @zenfg/webgpu && npm run build --workspace @zenfg/inspector",
-    "build": "npm run build:packages && npm run build --workspace @zenfg/inspector-app",
+    "build": "npm run build:packages && npm run build --workspace @zenfg/site-app && npm run build --workspace @zenfg/inspector-app",
+    "build:pages": "npm run build && node ./scripts/assemble-pages.mjs",
     "benchmark:webgpu": "npm run benchmark:compile --workspace @zenfg/webgpu --",
     "cargo:package-check": "node ./scripts/check-cargo-packages.mjs",
     "dev:inspector": "npm run build:packages && npm run dev --workspace @zenfg/inspector-app",
+    "dev:site": "npm run dev --workspace @zenfg/site-app",
     "docs:check": "node ./scripts/check-public-docs.mjs",
     "test:cross-language": "npm run build:packages && node ./scripts/run-cross-language-conformance.mjs",
     "typecheck:examples": "tsc --noEmit -p packages/webgpu/examples/tsconfig.json",

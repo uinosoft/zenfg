@@ -1,0 +1,110 @@
+:root {
+	font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+	color: #e6edf3;
+	background: #080c11;
+	color-scheme: dark;
+	font-synthesis: none;
+}
+
+* { box-sizing: border-box; }
+
+html, body { min-width: 320px; min-height: 100%; margin: 0; }
+
+body {
+	background:
+		radial-gradient(circle at 18% 0%, rgba(29, 78, 116, 0.42) 0, transparent 38rem),
+		#080c11;
+}
+
+main {
+	display: flex;
+	flex-direction: column;
+	justify-content: space-between;
+	width: min(100% - 40px, 1080px);
+	min-height: 100vh;
+	margin: 0 auto;
+	padding: clamp(72px, 14vh, 150px) 0 32px;
+}
+
+.intro { max-width: 760px; }
+
+.eyebrow {
+	margin: 0 0 22px;
+	color: #7dd3fc;
+	font-size: 12px;
+	font-weight: 700;
+	letter-spacing: 0.16em;
+	text-transform: uppercase;
+}
+
+h1 {
+	margin: 0;
+	font-size: clamp(64px, 14vw, 136px);
+	font-weight: 760;
+	letter-spacing: -0.075em;
+	line-height: 0.84;
+}
+
+.summary {
+	max-width: 680px;
+	margin: 36px 0 0;
+	color: #a9b7c5;
+	font-size: clamp(20px, 3vw, 28px);
+	line-height: 1.5;
+}
+
+nav {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 12px;
+	margin-top: 42px;
+}
+
+a {
+	display: inline-flex;
+	align-items: center;
+	gap: 10px;
+	min-height: 44px;
+	padding: 10px 16px;
+	border: 1px solid rgba(180, 190, 202, 0.24);
+	border-radius: 7px;
+	color: #d7e1ea;
+	background: rgba(255, 255, 255, 0.025);
+	font-size: 14px;
+	font-weight: 650;
+	text-decoration: none;
+	transition: border-color 140ms ease, background 140ms ease, color 140ms ease;
+}
+
+a:hover {
+	border-color: rgba(125, 211, 252, 0.58);
+	color: #f0f9ff;
+	background: rgba(56, 189, 248, 0.08);
+}
+
+a.primary {
+	border-color: rgba(56, 189, 248, 0.62);
+	color: #d8f3ff;
+	background: rgba(56, 189, 248, 0.14);
+}
+
+a:focus-visible { outline: 2px solid #38bdf8; outline-offset: 3px; }
+
+.note {
+	margin: 72px 0 0;
+	color: #667687;
+	font-size: 12px;
+	letter-spacing: 0.04em;
+}
+
+@media (max-width: 560px) {
+	main { width: min(100% - 32px, 1080px); padding-top: 72px; }
+	h1 { font-size: clamp(64px, 25vw, 92px); }
+	.summary { margin-top: 28px; font-size: 19px; }
+	nav { flex-direction: column; align-items: stretch; margin-top: 34px; }
+	a { justify-content: space-between; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+	a { transition: none; }
+}

@@ -13,6 +13,8 @@ The root development command builds the workspace packages once before Vite
 starts, so it also works from a clean checkout where package `dist` directories
 do not exist yet.
 
-The `dist` directory is deployable static output. Deployment and hosting are
-outside the initial migration scope. Browser automation frameworks and their
-runtime dependencies are intentionally not part of this repository.
+The `dist` directory is deployable static output. CI assembles it under
+`/inspector/` alongside the project site and deploys the complete static tree
+to GitHub Pages after all TypeScript, Rust, and cross-language jobs pass.
+Browser automation frameworks and their runtime dependencies are intentionally
+not part of this repository.
