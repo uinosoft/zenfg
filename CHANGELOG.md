@@ -57,9 +57,9 @@ The package versions are independent of the ZenFG FrameGraph Snapshot wire
 format, which is version `1.0` in this candidate.
 
 [Unreleased]: https://github.com/uinosoft/zenfg/compare/cargo/zenfg/v0.1.0-beta.1...HEAD
-[0.1.0-beta.1]: https://github.com/uinosoft/zenfg/releases/tag/cargo%2Fzenfg%2Fv0.1.0-beta.1
-[npm-snapshot-0.1.0-beta.1]: https://github.com/uinosoft/zenfg/releases/tag/npm%2Fsnapshot%2Fv0.1.0-beta.1
-[npm-webgpu-0.1.0-beta.1]: https://github.com/uinosoft/zenfg/releases/tag/npm%2Fwebgpu%2Fv0.1.0-beta.1
-[npm-inspector-0.1.0-beta.1]: https://github.com/uinosoft/zenfg/releases/tag/npm%2Finspector%2Fv0.1.0-beta.1
-[cargo-snapshot-0.1.0-beta.1]: https://github.com/uinosoft/zenfg/releases/tag/cargo%2Fzenfg-snapshot%2Fv0.1.0-beta.1
-[cargo-zenfg-0.1.0-beta.1]: https://github.com/uinosoft/zenfg/releases/tag/cargo%2Fzenfg%2Fv0.1.0-beta.1
+[0.1.0-beta.1]: https://github.com/uinosoft/zenfg/tree/cargo%2Fzenfg%2Fv0.1.0-beta.1
+[npm-snapshot-0.1.0-beta.1]: https://github.com/uinosoft/zenfg/tree/npm%2Fsnapshot%2Fv0.1.0-beta.1
+[npm-webgpu-0.1.0-beta.1]: https://github.com/uinosoft/zenfg/tree/npm%2Fwebgpu%2Fv0.1.0-beta.1
+[npm-inspector-0.1.0-beta.1]: https://github.com/uinosoft/zenfg/tree/npm%2Finspector%2Fv0.1.0-beta.1
+[cargo-snapshot-0.1.0-beta.1]: https://github.com/uinosoft/zenfg/tree/cargo%2Fzenfg-snapshot%2Fv0.1.0-beta.1
+[cargo-zenfg-0.1.0-beta.1]: https://github.com/uinosoft/zenfg/tree/cargo%2Fzenfg%2Fv0.1.0-beta.1

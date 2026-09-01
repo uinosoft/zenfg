@@ -3,14 +3,13 @@
 - Date: 2026-09-01
 - Initial public commit: the commit containing this checklist
   (`feat: initialize ZenFG monorepo`)
-- Status: local beta release closure verified; publishing remains gated on
-  post-push checks and npm registry authentication
+- Release commit: `1c59e5f5a22f4bd6b55335f1ddc54c95543e702a`
+- Status: published and verified from clean npm and Cargo consumers
 
-This checklist defines and records the local `0.1.0-beta.1` release candidate. Rows
-1-14 and 16-22 contain the fresh 2026-09-01 release-closure rerun; row 15 records
-the commit boundary. Registry login and token permissions remain a publication
-gate. The public GitHub repository and local `origin` are configured, but this
-checklist does not create tags or publish packages.
+This checklist records the completed `0.1.0-beta.1` release. Rows 1-14 and 16-22
+contain the fresh 2026-09-01 release-closure rerun; row 15 records the release
+commit boundary. All five packages and five annotated component tags were
+published from the release commit, then verified from clean consumers.
 
 ## Repository and registry identities
 
@@ -21,10 +20,10 @@ checklist does not create tags or publish packages.
 - npm registry: `https://registry.npmjs.org/`
 - Cargo registry: `crates-io`
 
-Before publishing, create and verify the npm organization, verify npm login and
-2FA, verify crates.io email and token permissions, and recheck that all five
-package names remain available. The first npm publication is an interactive
-local 2FA release and therefore does not claim GitHub provenance.
+The npm identity `shawn0326` was verified as an owner of the `@zenfg` scope, and
+all three packages were published with interactive local 2FA. The crates.io
+credentials and ownership were verified by publishing both crates. This first
+release therefore does not claim GitHub provenance.
 
 ## Candidate verification
 
@@ -43,11 +42,11 @@ result before committing the candidate.
 | 8 | `cargo clippy --workspace --all-targets --all-features -- -D warnings` | Passed |
 | 9 | `cargo test --workspace --all-features` | Passed: 103 `zenfg` test functions, seven trybuild cases, seven `zenfg-snapshot` tests, and four README doctests |
 | 10 | `RUSTDOCFLAGS="-D warnings" cargo doc --workspace --all-features --no-deps` | Passed for both crates |
-| 11 | `npm run cargo:package-check` | Passed: Snapshot 13 files/153.6 KiB (29.5 KiB compressed); runtime 52 files/533.8 KiB (96.4 KiB compressed); both extracted archives and their examples compile externally |
+| 11 | `npm run cargo:package-check` | Passed: Snapshot 13 files/153.6 KiB (29.5 KiB compressed); bootstrap runtime archive 52 files/533.8 KiB (96.4 KiB compressed); both extracted archives and their examples compile externally |
 | 12 | `cargo publish --dry-run -p zenfg-snapshot --locked --allow-dirty` | Passed with the single accepted warning below |
 | 13 | Confirm no obsolete organization-owned repository URLs remain | Passed |
-| 14 | Recheck credentials, licenses, package contents, and package boundaries | Passed for the local candidate: no embedded credential or forbidden dependency hits, all six LICENSE copies are identical, and all five archives were inspected; npm login/2FA and crates.io token permissions remain a post-push publish gate |
-| 15 | `git diff --cached --check`; commit; clean status with the expected remote and no tag | Passed for the beta release candidate: the staged diff was validated for `release: publish 0.1.0-beta.1`; branch is `main`, `origin` points to `uinosoft/zenfg`, and there are zero pre-publication tags |
+| 14 | Recheck credentials, licenses, package contents, and package boundaries | Passed: no embedded credential or forbidden dependency hits, all six LICENSE copies are identical, all five archives were inspected, and registry identities and permissions were verified during publication |
+| 15 | `git diff --cached --check`; commit; clean status with the expected remote and no tag | Passed for release commit `1c59e5f5a22f4bd6b55335f1ddc54c95543e702a`: the staged diff was validated for `release: publish 0.1.0-beta.1`; branch is `main`, `origin` points to `uinosoft/zenfg`, and there were zero pre-publication tags |
 
 The counts and sizes in rows 2, 6, 9, 11, and 22 are observed results from the
 fresh 2026-09-01 rerun. Re-run and update them again if the candidate changes
@@ -66,7 +65,7 @@ authorize publishing or tagging on their own.
 | 19 | Run `minimal-frame`, `snapshot-export` with feature `snapshot`, and `zenfg-snapshot`'s `basic` example; GPU-dependent recipes require compile checks only | Passed: all three CPU-only examples executed successfully; every GPU-dependent recipe compiled |
 | 20 | From actual npm tarballs, compile the documented package Quick Starts and recipes with TypeScript 6, `skipLibCheck: false`, and no workspace path aliases | Passed: Snapshot, WebGPU, and Inspector Quick Starts plus all seven packaged recipes under TypeScript 6.0.3 |
 | 21 | Verify every published `.d.ts.map` uses relative sources that exist in the same tarball; reject absolute paths and workspace leakage | Passed: every declaration map resolves only to packaged `src/` files |
-| 22 | Inspect all five package archives, then replace historical file counts and sizes in this checklist with observed values | Passed: npm Snapshot 88 files/106.0 KiB (594.1 KiB unpacked), WebGPU 93/223.8 KiB (1117.1 KiB unpacked), Inspector 123/202.6 KiB (1029.9 KiB unpacked); Cargo Snapshot 13/153.6 KiB (29.5 KiB compressed) and runtime 52/533.8 KiB (96.4 KiB compressed) |
+| 22 | Inspect all five package archives, then replace historical file counts and sizes in this checklist with observed values | Passed: npm Snapshot 88 files/106.0 KiB (594.1 KiB unpacked), WebGPU 93/223.8 KiB (1117.1 KiB unpacked), Inspector 123/202.6 KiB (1029.9 KiB unpacked); Cargo Snapshot 13/153.6 KiB (29.5 KiB compressed) and published runtime 53/573.3 KiB (107.4 KiB compressed) |
 
 Step 5 must start without generated package output. The package-level `prepack`
 scripts must rebuild the required artifacts, and the tarball smoke test must
@@ -79,17 +78,34 @@ the shared npm corpus outside the crate package. The packaged library, unit
 tests, and validation corpus remain covered by the workspace and archive
 checks.
 
-Before `zenfg-snapshot@0.1.0-beta.1` is visible in the crates.io index, a normal
-`cargo publish --dry-run -p zenfg` cannot resolve its optional registry
-dependency. For this bootstrap only, the workspace-external archive check in
-`npm run cargo:package-check` is the release-candidate acceptance test for
-`zenfg`. Run the ordinary Cargo dry-run after publishing `zenfg-snapshot` and
-before publishing `zenfg`.
+Before `zenfg-snapshot@0.1.0-beta.1` became visible in the crates.io index, a
+normal `cargo publish --dry-run -p zenfg` could not resolve its optional registry
+dependency. The workspace-external bootstrap archive check in
+`npm run cargo:package-check` covered that interval. After the Snapshot crate
+became resolvable, the ordinary Cargo dry-run passed and the runtime crate was
+published from its final 53-file archive.
+
+## Publication result
+
+| Registry | Package | Published version | Verification |
+| --- | --- | --- | --- |
+| npm | [`@zenfg/snapshot`](https://www.npmjs.com/package/@zenfg/snapshot/v/0.1.0-beta.1) | `0.1.0-beta.1` | Public; clean exact-version install and runtime import passed |
+| npm | [`@zenfg/webgpu`](https://www.npmjs.com/package/@zenfg/webgpu/v/0.1.0-beta.1) | `0.1.0-beta.1` | Public; clean exact-version install and runtime import passed |
+| npm | [`@zenfg/inspector`](https://www.npmjs.com/package/@zenfg/inspector/v/0.1.0-beta.1) | `0.1.0-beta.1` | Public; clean exact-version install and runtime import passed |
+| crates.io | [`zenfg-snapshot`](https://crates.io/crates/zenfg-snapshot/0.1.0-beta.1) | `0.1.0-beta.1` | Public and not yanked; clean Rust 1.98 consumer check passed |
+| crates.io | [`zenfg`](https://crates.io/crates/zenfg/0.1.0-beta.1) | `0.1.0-beta.1` | Public and not yanked; clean Rust 1.98 consumer check passed |
+
+Because each npm name was new, npm assigned both `next` and `latest` to its only
+published version even though publication requested `--tag next`. An
+authenticated attempt to remove the sole `latest` tag returned HTTP 400. Both
+tags therefore currently resolve to `0.1.0-beta.1`; beta consumers should use
+the exact versions documented in the package READMEs.
 
 ## Beta component tags
 
-The release candidate creates no tag. After publishing and clean-consumer
-verification, create these annotated tags at the same release commit:
+After publishing and clean-consumer verification, these annotated tags were
+created and pushed at release commit
+`1c59e5f5a22f4bd6b55335f1ddc54c95543e702a`:
 
 - `npm/snapshot/v0.1.0-beta.1`
 - `npm/webgpu/v0.1.0-beta.1`
@@ -109,9 +125,9 @@ verification, create these annotated tags at the same release commit:
 6. Publish `@zenfg/webgpu@0.1.0-beta.1` under `next`, then publish
    `zenfg@0.1.0-beta.1`.
 7. Publish `@zenfg/inspector@0.1.0-beta.1` under `next`.
-8. Validate exact versions from new npm and Cargo consumers, keep the three npm
-   packages on `next`, and create the five annotated beta tags and matching
-   GitHub Releases. Promotion to `latest` is reserved for the final `0.1.0`.
+8. Validate exact versions from new npm and Cargo consumers and create the five
+   annotated beta tags. All completed; standalone GitHub Release pages may be
+   added separately if release notes beyond the Changelog are needed.
 
 If npm Trusted Publishing is adopted later, configure GitHub owner
 `uinosoft` and repository `zenfg`; the npm scope and GitHub owner do not need
