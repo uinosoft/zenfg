@@ -116,7 +116,7 @@ test('imports a snapshot through the built-in file input', async () => {
 	assert.ok(input);
 	Object.defineProperty(input, 'files', { configurable: true, value: [fixture] });
 
-	input.dispatchEvent(new testWindow.Event('change'));
+	input.dispatchEvent(new testWindow.Event('change') as unknown as Event);
 	await flushAsync();
 
 	assert.deepEqual(panel.getSnapshot(), snapshot);
