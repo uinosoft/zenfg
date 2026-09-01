@@ -1,5 +1,11 @@
 # zenfg
 
+[![crates.io](https://img.shields.io/crates/v/zenfg?include_prereleases)](https://crates.io/crates/zenfg)
+[![docs.rs](https://img.shields.io/docsrs/zenfg)](https://docs.rs/zenfg)
+[![status: beta](https://img.shields.io/badge/status-beta-orange.svg)](https://github.com/uinosoft/zenfg/blob/main/CHANGELOG.md)
+[![CI](https://github.com/uinosoft/zenfg/actions/workflows/ci.yml/badge.svg)](https://github.com/uinosoft/zenfg/actions/workflows/ci.yml)
+[![license: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/uinosoft/zenfg/blob/main/LICENSE)
+
 `zenfg` is a renderer-agnostic, wgpu-specific FrameGraph compiler.
 It records per-frame logical resources and accesses, validates content flow,
 builds dependencies, removes dead work, derives wgpu usage, tracks lifetimes,
@@ -8,6 +14,9 @@ graphs materialize that plan through a cross-frame resource pool and can encode
 and submit retained render, compute, copy, clear, command, and
 external-submission nodes over transient and caller-owned imported resources.
 
+This is a public beta crate. Public APIs may change before 1.0; integration
+projects should pin the exact beta version.
+
 For package and feature selection, cross-language lifecycle and ownership
 mapping, troubleshooting, and links to complete recipes, see the
 [ZenFG quick reference](https://github.com/uinosoft/zenfg/blob/main/docs/quick-reference.md).
@@ -15,7 +24,7 @@ mapping, troubleshooting, and links to complete recipes, see the
 ## Installation
 
 ```sh
-cargo add zenfg
+cargo add zenfg@0.1.0-beta.1
 ```
 
 ## Features
@@ -249,5 +258,4 @@ external nodes, apply a pool memory budget or eviction policy, merge or reorder
 passes, schedule async compute or multiple queues, analyze cross-frame
 dependencies, or expose a public SSA resource API. Structured render passes
 currently omit stencil, occlusion queries, and caller-defined timestamp writes.
-The crate is prepared for packaging as MIT-licensed `0.1.x` software; actual
-registry publication remains a separate manual step.
+The crate is distributed as MIT-licensed beta software.

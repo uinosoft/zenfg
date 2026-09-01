@@ -3,7 +3,7 @@
 Releases are manual and auditable during the `0.1.x` phase.
 
 The first coordinated release is tracked in the
-[`0.1.0` release checklist](release-checklist-0.1.0.md).
+[`0.1.0-beta.1` release checklist](release-checklist-0.1.0.md).
 
 1. Run TypeScript build, typecheck, tests, cross-language conformance, and
    package checks.
@@ -15,7 +15,7 @@ The first coordinated release is tracked in the
 6. Test each published artifact from a clean temporary consumer before
    promoting it to the stable release channel.
 
-Before `zenfg-snapshot 0.1.0` exists in crates.io, a normal `cargo package -p
+Before `zenfg-snapshot 0.1.0-beta.1` exists in crates.io, a normal `cargo package -p
 zenfg` cannot resolve that optional registry dependency. `npm run
 cargo:package-check` handles this one-time bootstrap accurately: it packages
 and verifies `zenfg-snapshot`, assembles the exact `zenfg` archive, then

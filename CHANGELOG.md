@@ -5,6 +5,10 @@ packages use independent versions; component tags identify each release.
 
 ## [Unreleased]
 
+No changes yet.
+
+## [0.1.0-beta.1] - 2026-09-01
+
 The Inspector is now a host-sized, always-visible workbench with integrated
 branding, file selection, and drag-and-drop. The pre-release collapsible shell
 and its `expanded`/`setExpanded()` API have been removed.
@@ -15,15 +19,13 @@ submission, `beforeSubmit`, and `afterSubmit` callbacks must return `undefined`;
 Promise-like results are rejected without being awaited. `execute()` also rejects
 invalid `frameIndex` values before allocating resources or starting GPU work.
 
-## 0.1.0 release candidate - 2026-08-31
+Initial public beta release of:
 
-Initial release candidate for the coordinated first publication of:
-
-- [`@zenfg/snapshot@0.1.0`][npm-snapshot-0.1.0]
-- [`@zenfg/webgpu@0.1.0`][npm-webgpu-0.1.0]
-- [`@zenfg/inspector@0.1.0`][npm-inspector-0.1.0]
-- [`zenfg-snapshot@0.1.0`][cargo-snapshot-0.1.0]
-- [`zenfg@0.1.0`][cargo-zenfg-0.1.0]
+- [`@zenfg/snapshot@0.1.0-beta.1`][npm-snapshot-0.1.0-beta.1]
+- [`@zenfg/webgpu@0.1.0-beta.1`][npm-webgpu-0.1.0-beta.1]
+- [`@zenfg/inspector@0.1.0-beta.1`][npm-inspector-0.1.0-beta.1]
+- [`zenfg-snapshot@0.1.0-beta.1`][cargo-snapshot-0.1.0-beta.1]
+- [`zenfg@0.1.0-beta.1`][cargo-zenfg-0.1.0-beta.1]
 
 This candidate establishes the standalone TypeScript/WebGPU and Rust/wgpu
 FrameGraph runtimes, the renderer-independent Inspector, cross-language
@@ -54,9 +56,10 @@ release:
 The package versions are independent of the ZenFG FrameGraph Snapshot wire
 format, which is version `1.0` in this candidate.
 
-[Unreleased]: https://github.com/uinosoft/zenfg/compare/cargo/zenfg/v0.1.0...HEAD
-[npm-snapshot-0.1.0]: https://github.com/uinosoft/zenfg/releases/tag/npm%2Fsnapshot%2Fv0.1.0
-[npm-webgpu-0.1.0]: https://github.com/uinosoft/zenfg/releases/tag/npm%2Fwebgpu%2Fv0.1.0
-[npm-inspector-0.1.0]: https://github.com/uinosoft/zenfg/releases/tag/npm%2Finspector%2Fv0.1.0
-[cargo-snapshot-0.1.0]: https://github.com/uinosoft/zenfg/releases/tag/cargo%2Fzenfg-snapshot%2Fv0.1.0
-[cargo-zenfg-0.1.0]: https://github.com/uinosoft/zenfg/releases/tag/cargo%2Fzenfg%2Fv0.1.0
+[Unreleased]: https://github.com/uinosoft/zenfg/compare/cargo/zenfg/v0.1.0-beta.1...HEAD
+[0.1.0-beta.1]: https://github.com/uinosoft/zenfg/releases/tag/cargo%2Fzenfg%2Fv0.1.0-beta.1
+[npm-snapshot-0.1.0-beta.1]: https://github.com/uinosoft/zenfg/releases/tag/npm%2Fsnapshot%2Fv0.1.0-beta.1
+[npm-webgpu-0.1.0-beta.1]: https://github.com/uinosoft/zenfg/releases/tag/npm%2Fwebgpu%2Fv0.1.0-beta.1
+[npm-inspector-0.1.0-beta.1]: https://github.com/uinosoft/zenfg/releases/tag/npm%2Finspector%2Fv0.1.0-beta.1
+[cargo-snapshot-0.1.0-beta.1]: https://github.com/uinosoft/zenfg/releases/tag/cargo%2Fzenfg-snapshot%2Fv0.1.0-beta.1
+[cargo-zenfg-0.1.0-beta.1]: https://github.com/uinosoft/zenfg/releases/tag/cargo%2Fzenfg%2Fv0.1.0-beta.1

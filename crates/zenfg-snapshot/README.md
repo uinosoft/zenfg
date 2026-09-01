@@ -1,7 +1,17 @@
 # zenfg-snapshot
 
+[![crates.io](https://img.shields.io/crates/v/zenfg-snapshot?include_prereleases)](https://crates.io/crates/zenfg-snapshot)
+[![docs.rs](https://img.shields.io/docsrs/zenfg-snapshot)](https://docs.rs/zenfg-snapshot)
+[![status: beta](https://img.shields.io/badge/status-beta-orange.svg)](https://github.com/uinosoft/zenfg/blob/main/CHANGELOG.md)
+[![CI](https://github.com/uinosoft/zenfg/actions/workflows/ci.yml/badge.svg)](https://github.com/uinosoft/zenfg/actions/workflows/ci.yml)
+[![license: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/uinosoft/zenfg/blob/main/LICENSE)
+
 Portable, `wgpu`-independent wire types, JSON codec, validator, and legacy
 migration support for ZenFG Snapshot 1.0.
+
+This is a public beta crate. Public APIs may change before 1.0; integration
+projects should pin the exact beta version. Snapshot wire format version 1.0 is
+versioned independently from the crate API.
 
 For package selection, Snapshot/runtime boundaries, TypeScript/Rust API mapping,
 and common integration failures, see the
@@ -13,7 +23,7 @@ use the `.fgsnapshot.json` extension.
 ## Installation
 
 ```sh
-cargo add zenfg-snapshot
+cargo add zenfg-snapshot@0.1.0-beta.1
 ```
 
 ```rust

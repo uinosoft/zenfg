@@ -1,9 +1,18 @@
 # @zenfg/snapshot
 
+[![npm](https://img.shields.io/npm/v/%40zenfg%2Fsnapshot?include_prereleases&label=npm)](https://www.npmjs.com/package/@zenfg/snapshot)
+[![status: beta](https://img.shields.io/badge/status-beta-orange.svg)](https://github.com/uinosoft/zenfg/blob/main/CHANGELOG.md)
+[![CI](https://github.com/uinosoft/zenfg/actions/workflows/ci.yml/badge.svg)](https://github.com/uinosoft/zenfg/actions/workflows/ci.yml)
+[![license: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/uinosoft/zenfg/blob/main/LICENSE)
+
 `@zenfg/snapshot` defines the portable, versioned diagnostic
 contract used to move one compiled FrameGraph frame between producers and
 viewers. It contains no DOM, WebGPU, FrameGraph, or runtime third-party
 dependency.
+
+This is a public beta package. Public APIs may change before 1.0; integration
+projects should pin the exact beta version. Snapshot wire format version 1.0 is
+versioned independently from the package API.
 
 For package selection, Snapshot/runtime boundaries, TypeScript/Rust API mapping,
 and common integration failures, see the
@@ -74,7 +83,7 @@ TypeScript and Rust implementations.
 ## Installation
 
 ```sh
-npm install @zenfg/snapshot
+npm install @zenfg/snapshot@0.1.0-beta.1
 ```
 
 ## Schema and fixtures

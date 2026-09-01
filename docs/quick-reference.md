@@ -17,15 +17,15 @@ for exact signatures, defaults, and errors.
 Install only the layer your application owns:
 
 ```sh
-npm install @zenfg/webgpu
-npm install @zenfg/snapshot
-npm install @zenfg/inspector
+npm install @zenfg/webgpu@0.1.0-beta.1
+npm install @zenfg/snapshot@0.1.0-beta.1
+npm install @zenfg/inspector@0.1.0-beta.1
 ```
 
 ```sh
-cargo add zenfg
-cargo add zenfg-snapshot
-cargo add zenfg --features snapshot
+cargo add zenfg@0.1.0-beta.1
+cargo add zenfg-snapshot@0.1.0-beta.1
+cargo add zenfg@0.1.0-beta.1 --features snapshot
 ```
 
 The Rust runtime features are:
@@ -207,8 +207,8 @@ the Snapshot [`SPEC.md`](../packages/snapshot/SPEC.md).
 
 ## Versions and support boundary
 
-- All five public packages are currently `0.1.x`; public APIs are beta and may
-  evolve under SemVer rules for initial-development releases.
+- All five public packages are currently `0.1.0-beta.1`; public APIs may change
+  before 1.0, so integration projects should pin the exact beta version.
 - Snapshot wire format version `1.0` is independent from package versions.
   Unknown wire versions are rejected until a reader implements migration.
 - Current repository tooling targets Node.js 24, npm 11, TypeScript 6, Rust

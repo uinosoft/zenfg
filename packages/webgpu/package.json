@@ -1,6 +1,6 @@
 {
   "name": "@zenfg/webgpu",
-  "version": "0.1.0",
+  "version": "0.1.0-beta.1",
   "description": "A standalone FrameGraph compiler and transient-resource runtime for WebGPU",
   "type": "module",
   "sideEffects": false,
@@ -10,7 +10,7 @@
   },
   "types": "./dist/index.d.ts",
   "files": ["dist", "src", "examples", "README.md", "README.zh-CN.md", "LICENSE"],
-  "dependencies": { "@zenfg/snapshot": "^0.1.0" },
+  "dependencies": { "@zenfg/snapshot": "0.1.0-beta.1" },
   "scripts": {
     "benchmark:compile": "node ../../scripts/run-webgpu-compile-benchmark.mjs",
     "build": "node ../../scripts/build-package.mjs",

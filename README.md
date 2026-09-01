@@ -29,10 +29,10 @@ failure fixes, and complete TypeScript/Rust recipes.
 | `zenfg` | wgpu FrameGraph runtime |
 | `zenfg-snapshot` | Rust Snapshot V1 codec and validator |
 
-All packages are in their initial-development (`0.1.x`) series. When
-published, `0.1.x` versions are ordinary registry releases, while public APIs
-may still evolve under the SemVer rules for `0.x`. The implementations share
-semantics and portable diagnostics, not source-level API parity.
+All five public packages are released as `0.1.0-beta.1`. Public APIs may change
+before 1.0, so integrations should pin the exact beta version. The
+implementations share semantics and portable diagnostics, not source-level API
+parity; Snapshot wire format version 1.0 is versioned independently.
 
 The private `apps/inspector` workspace builds a backend-free static viewer with
 file selection, drag-and-drop, validation feedback, and historical-format
@@ -49,5 +49,5 @@ See the [quick reference](docs/quick-reference.md),
 [integration guide](docs/integration.md),
 [compatibility matrix](docs/compatibility.md), and
 [release validation](docs/release-validation.md). Release changes are
-tracked in the [changelog](CHANGELOG.md); the first candidate has a dedicated
-[0.1.0 release checklist](docs/release-checklist-0.1.0.md).
+tracked in the [changelog](CHANGELOG.md); the first public beta has a dedicated
+[0.1.0-beta.1 release checklist](docs/release-checklist-0.1.0.md).

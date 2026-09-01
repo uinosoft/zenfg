@@ -1,8 +1,16 @@
 # @zenfg/inspector
 
+[![npm](https://img.shields.io/npm/v/%40zenfg%2Finspector?include_prereleases&label=npm)](https://www.npmjs.com/package/@zenfg/inspector)
+[![status: beta](https://img.shields.io/badge/status-beta-orange.svg)](https://github.com/uinosoft/zenfg/blob/main/CHANGELOG.md)
+[![CI](https://github.com/uinosoft/zenfg/actions/workflows/ci.yml/badge.svg)](https://github.com/uinosoft/zenfg/actions/workflows/ci.yml)
+[![license: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/uinosoft/zenfg/blob/main/LICENSE)
+
 `@zenfg/inspector` is an embeddable, renderer-independent DOM workbench for
 ZenFG Snapshot data. It depends on `@zenfg/snapshot`, Cytoscape, and ELK; it has
 no WebGPU, wgpu, engine, or host-UI dependency.
+
+This is a public beta package. Public APIs may change before 1.0; integration
+projects should pin the exact beta version.
 
 For package selection, the capture data flow, version boundaries, and links to
 complete producer recipes, see the
@@ -11,7 +19,7 @@ complete producer recipes, see the
 ## Installation
 
 ```sh
-npm install @zenfg/inspector
+npm install @zenfg/inspector@0.1.0-beta.1
 ```
 
 ## Usage

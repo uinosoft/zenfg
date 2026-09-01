@@ -1,5 +1,10 @@
 # @zenfg/webgpu
 
+[![npm](https://img.shields.io/npm/v/%40zenfg%2Fwebgpu?include_prereleases&label=npm)](https://www.npmjs.com/package/@zenfg/webgpu)
+[![状态：beta](https://img.shields.io/badge/status-beta-orange.svg)](https://github.com/uinosoft/zenfg/blob/main/CHANGELOG.md)
+[![CI](https://github.com/uinosoft/zenfg/actions/workflows/ci.yml/badge.svg)](https://github.com/uinosoft/zenfg/actions/workflows/ci.yml)
+[![许可证：MIT](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/uinosoft/zenfg/blob/main/LICENSE)
+
 [English](./README.md) | 简体中文
 
 `@zenfg/webgpu` 是一个轻量的 WebGPU FrameGraph，用于声明和执行逐帧
@@ -15,7 +20,8 @@ dispatch 行为。
 调用方状态 -> 图节点声明 -> FrameGraph -> 有序 GPU commands
 ```
 
-当前包仍是 workspace 私有包，所有公共 API 均为 beta。只从包根入口导入受支持的 API：
+当前包是公开 beta 包，1.0 前公共 API 仍可能变化；集成期间请锁定精确版本。
+只从包根入口导入受支持的 API：
 
 ```ts
 import { FrameGraph, TextureAccess } from '@zenfg/webgpu';
@@ -27,7 +33,7 @@ package subpath。
 ## 安装
 
 ```sh
-npm install @zenfg/webgpu
+npm install @zenfg/webgpu@0.1.0-beta.1
 ```
 
 ## 快速开始

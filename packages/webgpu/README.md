@@ -1,5 +1,10 @@
 # @zenfg/webgpu
 
+[![npm](https://img.shields.io/npm/v/%40zenfg%2Fwebgpu?include_prereleases&label=npm)](https://www.npmjs.com/package/@zenfg/webgpu)
+[![status: beta](https://img.shields.io/badge/status-beta-orange.svg)](https://github.com/uinosoft/zenfg/blob/main/CHANGELOG.md)
+[![CI](https://github.com/uinosoft/zenfg/actions/workflows/ci.yml/badge.svg)](https://github.com/uinosoft/zenfg/actions/workflows/ci.yml)
+[![license: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/uinosoft/zenfg/blob/main/LICENSE)
+
 English | [简体中文](./README.zh-CN.md)
 
 `@zenfg/webgpu` is a lightweight WebGPU FrameGraph for declaring and
@@ -21,8 +26,8 @@ TypeScript/Rust name map, troubleshooting table, and complete recipes, see the
 Caller-owned state -> graph node declarations -> FrameGraph -> ordered GPU commands
 ```
 
-This is a public `0.1.x` package and all public APIs are beta. Import supported
-APIs from the package root only:
+This is a public beta package. Public APIs may change before 1.0; pin the exact
+version while integrating. Import supported APIs from the package root only:
 
 ```ts
 import { FrameGraph, TextureAccess } from '@zenfg/webgpu';
@@ -39,7 +44,7 @@ The language-neutral wire semantics are defined by the Snapshot package's
 ## Installation
 
 ```sh
-npm install @zenfg/webgpu
+npm install @zenfg/webgpu@0.1.0-beta.1
 ```
 
 ## Quick Start

@@ -10,6 +10,6 @@
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
-    "@zenfg/inspector": "0.1.0"
+    "@zenfg/inspector": "0.1.0-beta.1"
   }
 }
