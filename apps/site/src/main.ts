@@ -8,28 +8,30 @@ const translations: Record<Language, Record<string, string>> = {
 		description: 'ZenFG is an independent, composable FrameGraph toolchain for WebGPU and wgpu.',
 		ogDescription: 'An independent, composable FrameGraph toolchain for WebGPU and wgpu.',
 		title: 'ZenFG | FrameGraph for WebGPU and wgpu',
-		eyebrow: 'WebGPU / wgpu / portable snapshots',
+		docs: 'Docs',
+		eyebrow: 'FrameGraph for WebGPU & wgpu',
 		summary: 'An independent, composable FrameGraph toolchain for WebGPU and wgpu, with TypeScript and Rust runtimes, a portable Snapshot format, validation, and an embeddable Inspector.',
 		inspector: 'Open Inspector',
 		quickReference: 'Quick reference guide',
 		github: 'GitHub',
-		note: 'Open source / MIT licensed / Engine-independent',
+		note: 'Open source / MIT licensed',
 		projectLinks: 'Project resources',
-		languageLabel: '简体中文',
+		languageLabel: '中文',
 		languageAction: 'Switch to Simplified Chinese',
 	},
 	'zh-CN': {
 		description: 'ZenFG 是面向 WebGPU 与 wgpu 的独立、可组合 FrameGraph 工具链。',
 		ogDescription: '面向 WebGPU 与 wgpu 的独立、可组合 FrameGraph 工具链。',
 		title: 'ZenFG | 面向 WebGPU 与 wgpu 的 FrameGraph 工具链',
-		eyebrow: 'WebGPU / wgpu / 可移植 Snapshot',
+		docs: '文档',
+		eyebrow: '面向 WebGPU 与 wgpu 的 FrameGraph',
 		summary: '面向 WebGPU 与 wgpu 的独立、可组合 FrameGraph 工具链，提供 TypeScript 和 Rust 运行时、可移植 Snapshot 格式、验证工具与可嵌入 Inspector。',
 		inspector: '打开 Inspector',
 		quickReference: '快速参考指南',
 		github: 'GitHub',
-		note: '开源 / 采用 MIT 许可证 / 不依赖特定引擎',
+		note: '开源 / 采用 MIT 许可证',
 		projectLinks: '项目资源',
-		languageLabel: 'English',
+		languageLabel: 'EN',
 		languageAction: '切换到英文',
 	},
 };
@@ -83,6 +85,7 @@ function applyLanguage(language: Language): void {
 	if (toggle) {
 		toggle.dataset.language = language;
 		toggle.setAttribute('aria-label', content.languageAction);
+		toggle.title = content.languageAction;
 	}
 	if (label) label.textContent = content.languageLabel;
 }

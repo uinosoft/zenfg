@@ -15,26 +15,74 @@
 <body>
   <main>
     <header class="site-header">
-      <button class="language-toggle" type="button" aria-controls="site-content" aria-label="Switch to Simplified Chinese" data-language-toggle>
-        <span aria-hidden="true">文</span>
-        <span data-language-label>简体中文</span>
-      </button>
+      <div class="site-brand" aria-label="ZenFG">
+        <span class="site-brand__name">ZenFG</span>
+      </div>
+      <div class="site-header__actions">
+        <nav class="header-nav" aria-label="Project links" data-i18n-aria="projectLinks">
+          <a class="header-link" href="./inspector/" data-i18n="inspector">Open Inspector</a>
+          <a class="header-link" href="https://github.com/uinosoft/zenfg/blob/main/docs/quick-reference.md" target="_blank" rel="noreferrer">
+            <span data-i18n="docs">Docs</span>
+            <svg class="external-icon" data-icon="lucide-external-link" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M15 3h6v6M10 14 21 3M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+            </svg>
+          </a>
+          <a class="header-link header-link--github" href="https://github.com/uinosoft/zenfg" target="_blank" rel="noreferrer">
+            <svg class="github-icon" data-icon="bootstrap-github" viewBox="0 0 16 16" aria-hidden="true">
+              <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82A7.6 7.6 0 0 1 8 3.58c.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8"></path>
+            </svg>
+            <span data-i18n="github">GitHub</span>
+            <svg class="external-icon" data-icon="lucide-external-link" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M15 3h6v6M10 14 21 3M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+            </svg>
+          </a>
+        </nav>
+        <button class="language-toggle" type="button" aria-controls="site-content" aria-label="Switch to Simplified Chinese" data-language-toggle>
+          <svg class="language-toggle__icon" data-icon="lucide-globe-2" viewBox="0 0 24 24" aria-hidden="true">
+            <circle cx="12" cy="12" r="10"></circle>
+            <path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10Z"></path>
+          </svg>
+          <span data-language-label>简体中文</span>
+        </button>
+      </div>
     </header>
-    <section class="intro" id="site-content" aria-labelledby="site-title">
-      <p class="eyebrow" data-i18n="eyebrow">WebGPU / wgpu / portable snapshots</p>
-      <h1 id="site-title">ZenFG</h1>
-      <p class="summary" data-i18n="summary">
-        An independent, composable FrameGraph toolchain for WebGPU and wgpu, with
-        TypeScript and Rust runtimes, a portable Snapshot format, validation, and
-        an embeddable Inspector.
-      </p>
-      <nav aria-label="Project links" data-i18n-aria="projectLinks">
-        <a class="primary" href="./inspector/"><span data-i18n="inspector">Open Inspector</span> <span aria-hidden="true">→</span></a>
-        <a href="https://github.com/uinosoft/zenfg/blob/main/docs/quick-reference.md" data-i18n="quickReference">Quick reference guide</a>
-        <a href="https://github.com/uinosoft/zenfg" data-i18n="github">GitHub</a>
-      </nav>
+    <section class="hero" id="site-content" aria-labelledby="site-title">
+      <div class="intro">
+        <p class="eyebrow" data-i18n="eyebrow">FrameGraph for WebGPU &amp; wgpu</p>
+        <h1 id="site-title">ZenFG</h1>
+        <p class="summary" data-i18n="summary">
+          An independent, composable FrameGraph toolchain for WebGPU and wgpu, with
+          TypeScript and Rust runtimes, a portable Snapshot format, validation, and
+          an embeddable Inspector.
+        </p>
+        <nav class="hero-actions" aria-label="Project links" data-i18n-aria="projectLinks">
+          <a class="primary" href="./inspector/">
+            <span data-i18n="inspector">Open Inspector</span>
+            <span class="link-arrow" aria-hidden="true">→</span>
+          </a>
+          <a href="https://github.com/uinosoft/zenfg/blob/main/docs/quick-reference.md" target="_blank" rel="noreferrer">
+            <span data-i18n="quickReference">Quick reference guide</span>
+            <svg class="external-icon" data-icon="lucide-external-link" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M15 3h6v6M10 14 21 3M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+            </svg>
+          </a>
+          <a href="https://github.com/uinosoft/zenfg" target="_blank" rel="noreferrer">
+            <span class="link-content">
+              <svg class="github-icon" data-icon="bootstrap-github" viewBox="0 0 16 16" aria-hidden="true">
+                <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82A7.6 7.6 0 0 1 8 3.58c.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8"></path>
+              </svg>
+              <span data-i18n="github">GitHub</span>
+            </span>
+            <svg class="external-icon" data-icon="lucide-external-link" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M15 3h6v6M10 14 21 3M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+            </svg>
+          </a>
+        </nav>
+      </div>
     </section>
-    <p class="note" data-i18n="note">Open source / MIT licensed / Engine-independent</p>
+    <footer class="site-footer">
+      <p class="note" data-i18n="note">Open source / MIT licensed</p>
+    </footer>
   </main>
   <script type="module" src="/src/main.ts"></script>
 </body>
