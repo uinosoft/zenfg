@@ -4,6 +4,7 @@ import test from 'node:test';
 import {
 	BufferAccess,
 	FrameGraph,
+	FrameGraphError,
 	TextureAccess,
 	type CompiledFrameExecuteOptions,
 	type FrameGraphRecorder,
@@ -1055,7 +1056,12 @@ test('execute rejects resolving resources not declared by the node', () => {
 		},
 	});
 
-	assert.throws(() => executeCompiled(graph), /was not declared.*node/);
+	assert.throws(() => executeCompiled(graph), (error) => error instanceof FrameGraphError
+		&& error.code === 'FG4010'
+		&& error.phase === 'execute'
+		&& error.nodeId === 1
+		&& error.resourceId === undeclared.id
+		&& error.message.includes('was not declared'));
 });
 
 test('execute rejects asynchronous render and compute callbacks before submission', () => {
@@ -1081,7 +1087,11 @@ test('execute rejects asynchronous render and compute callbacks before submissio
 		encode: (async () => {}) as unknown as never,
 	});
 	renderGraph.markOutput(color);
-	assert.throws(() => renderGraph.compile().execute(), /FrameGraph\.render encode callback must complete synchronously/);
+	assert.throws(() => renderGraph.compile().execute(), (error) => error instanceof FrameGraphError
+		&& error.code === 'FG4012'
+		&& error.phase === 'execute'
+		&& error.nodeId === 1
+		&& error.message.includes('FrameGraph.render encode callback must complete synchronously'));
 	assert.equal(endCount, 1);
 	assert.equal(submitCount, 0);
 

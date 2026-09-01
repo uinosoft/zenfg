@@ -4,6 +4,7 @@ import test from 'node:test';
 import {
 	BufferAccess,
 	FrameGraph,
+	FrameGraphError,
 	TextureAccess,
 	type FrameGraphRecorder,
 	type RenderDepthStencilAttachmentDesc,
@@ -94,8 +95,12 @@ test('compile rejects imported resources without required WebGPU usage', () => {
 
 	assert.throws(
 		() => graph.compile({ report: true }).compilationReport,
-		(error) => error instanceof Error
-			&& error.message.includes('Resource "asset" declared usage 0x1 is missing required WebGPU usage 0x4')
+		(error) => error instanceof FrameGraphError
+			&& error.code === 'FG1101'
+			&& error.phase === 'compile'
+			&& error.resourceId === imported.id
+			&& error.context?.declaredUsage === textureUsage.COPY_SRC
+			&& error.context?.missingUsage === textureUsage.TEXTURE_BINDING
 			&& error.message.includes('Required usage: 0x4'),
 	);
 });
@@ -196,8 +201,12 @@ test('compile rejects transient resources whose explicit usage omits required We
 
 	assert.throws(
 		() => graph.compile({ report: true }).compilationReport,
-		(error) => error instanceof Error
-			&& error.message.includes('Resource "transient" declared usage 0x80 is missing required WebGPU usage 0x40')
+		(error) => error instanceof FrameGraphError
+			&& error.code === 'FG1101'
+			&& error.phase === 'compile'
+			&& error.resourceId === transient.id
+			&& error.context?.declaredUsage === bufferUsage.STORAGE
+			&& error.context?.missingUsage === bufferUsage.UNIFORM
 			&& error.message.includes('Required usage: 0xc0'),
 	);
 });
@@ -214,8 +223,12 @@ test('compile preserves imported-resource diagnostics when declared usage is zer
 
 	assert.throws(
 		() => graph.compile({ report: true }).compilationReport,
-		(error) => error instanceof Error
-			&& error.message.includes('Imported resource "asset" declared usage 0x0 is missing required WebGPU usage 0x4')
+		(error) => error instanceof FrameGraphError
+			&& error.code === 'FG1101'
+			&& error.phase === 'compile'
+			&& error.resourceId === imported.id
+			&& error.context?.declaredUsage === 0
+			&& error.context?.missingUsage === textureUsage.TEXTURE_BINDING
 			&& error.message.includes('Required usage: 0x4'),
 	);
 });
@@ -1791,7 +1804,10 @@ test('rejects duplicate native texture imports within one recording', () => {
 		graph.importTexture(native, { label: 'first-texture' });
 		assert.throws(
 			() => graph.importTexture(native, { label: 'second-texture' }),
-			(error) => error instanceof Error
+			(error) => error instanceof FrameGraphError
+				&& error.code === 'FG2010'
+				&& error.phase === 'record'
+				&& error.resourceId === 1
 				&& error.message.includes('FrameGraph.importTexture()')
 				&& error.message.includes('GPUTexture "shared-texture"')
 				&& error.message.includes('FrameGraph.importTexture() as texture "first-texture"')
@@ -1836,10 +1852,13 @@ test('rejects duplicate native buffer imports within one recording', () => {
 	const native = buffer('shared-buffer', bufferUsage.STORAGE);
 	graph.importBuffer(native, { label: 'first-buffer' });
 
-	assert.throws(
-		() => graph.importBuffer(native, { label: 'second-buffer' }),
-		(error) => error instanceof Error
-			&& error.message.includes('FrameGraph.importBuffer()')
+		assert.throws(
+			() => graph.importBuffer(native, { label: 'second-buffer' }),
+			(error) => error instanceof FrameGraphError
+				&& error.code === 'FG2010'
+				&& error.phase === 'record'
+				&& error.resourceId === 1
+				&& error.message.includes('FrameGraph.importBuffer()')
 			&& error.message.includes('GPUBuffer "shared-buffer"')
 			&& error.message.includes('already imported as buffer "first-buffer"')
 			&& error.message.includes('existing BufferHandle'),
@@ -1949,7 +1968,12 @@ test('compile rejects imported exposed bounds against native resource fields wit
 
 		assert.throws(
 			() => graph.compile({ report: true }).compilationReport,
-			(error) => error instanceof Error
+			(error) => error instanceof FrameGraphError
+				&& error.code === 'FG4003'
+				&& error.phase === 'compile'
+				&& error.resourceId === imported.id
+				&& error.context?.property === 'usage'
+				&& error.context?.expectedUsage === textureUsage.COPY_SRC
 				&& error.message.includes('Imported texture "asset" descriptor mismatch for usage')
 				&& error.message.includes('exposed usage 0x1, actual GPU texture usage 0x4, missing 0x1')
 				&& error.message.includes('node "copy-from-asset" read access "texture-copy-src"'),
@@ -1962,7 +1986,12 @@ test('compile rejects imported exposed bounds against native resource fields wit
 
 		assert.throws(
 			() => graph.compile({ report: true }).compilationReport,
-			(error) => error instanceof Error
+			(error) => error instanceof FrameGraphError
+				&& error.code === 'FG4003'
+				&& error.phase === 'compile'
+				&& error.resourceId === imported.id
+				&& error.context?.property === 'size'
+				&& error.context?.expectedSize === 128
 				&& error.message.includes('Imported buffer "asset" descriptor mismatch for size')
 				&& error.message.includes('expected at least 128 bytes, actual GPU buffer size 64 bytes')
 				&& error.message.includes('node "copy-from-asset" read access "buffer-copy-src"'),

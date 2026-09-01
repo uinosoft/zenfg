@@ -69,6 +69,7 @@ import {
 	assertNonNegativeUint32,
 	assertPositiveUint32,
 } from './numericValidation.ts';
+import { FRAME_GRAPH_ERROR_CODES, FrameGraphError } from './error.ts';
 import {
 	makeBufferHandle,
 	makeTextureHandle,
@@ -153,24 +154,34 @@ function isPromiseLike(value: unknown): value is PromiseLike<unknown> {
 		&& typeof (value as { readonly then?: unknown }).then === 'function';
 }
 
-function assertSynchronousCallbackResult(name: string, result: unknown): void {
+function assertSynchronousCallbackResult(
+	name: string,
+	result: unknown,
+	phase: 'record' | 'execute',
+	nodeId?: number,
+): void {
 	if (!isPromiseLike(result)) {
 		return;
 	}
 	// Consume a later rejection while preserving the synchronous contract error.
 	void Promise.resolve(result).catch(() => undefined);
-	throw new Error(`${name} callback must complete synchronously.`);
+	throw new FrameGraphError(
+		FRAME_GRAPH_ERROR_CODES.SynchronousCallback,
+		`${name} callback must complete synchronously.`,
+		{ phase, nodeId },
+	);
 }
 
 function invokeSynchronousCallback<TContext>(
 	name: string,
 	callback: ((context: TContext) => unknown) | undefined,
 	context: TContext,
+	nodeId?: number,
 ): void {
 	if (!callback) {
 		return;
 	}
-	assertSynchronousCallbackResult(name, callback(context));
+	assertSynchronousCallbackResult(name, callback(context), 'execute', nodeId);
 }
 
 function snapshotColor(value: GPUColor | undefined, field: string): GPUColorDict | undefined {
@@ -292,15 +303,23 @@ export class FrameGraph {
 		destroyGpuProfiler(this.runtime.gpuProfiler);
 	}
 
-	private assertNotDestroyed(): void {
+	private assertNotDestroyed(phase: 'record' | 'execute' = 'record'): void {
 		if (this.runtime.isDestroyed) {
-			throw new Error('FrameGraph has been destroyed.');
+			throw new FrameGraphError(
+				FRAME_GRAPH_ERROR_CODES.Destroyed,
+				'FrameGraph has been destroyed.',
+				{ phase },
+			);
 		}
 	}
 
 	private assertNotExecuting(operation: string): void {
 		if (this.runtime.isExecuting) {
-			throw new Error(`FrameGraph.${operation}() cannot be called while CompiledFrame.execute() is running.`);
+			throw new FrameGraphError(
+				FRAME_GRAPH_ERROR_CODES.ConcurrentExecution,
+				`FrameGraph.${operation}() cannot be called while CompiledFrame.execute() is running.`,
+				{ phase: 'record', context: { operation } },
+			);
 		}
 	}
 }
@@ -376,7 +395,7 @@ class FrameGraphRecorderImpl implements FrameGraphRecorder {
 		this.pushDebugGroup(label);
 		try {
 			const result = record();
-			assertSynchronousCallbackResult('FrameGraph.withDebugGroup()', result);
+			assertSynchronousCallbackResult('FrameGraph.withDebugGroup()', result, 'record');
 			return result;
 		}
 		finally {
@@ -782,7 +801,11 @@ class FrameGraphRecorderImpl implements FrameGraphRecorder {
 		const firstOperation = resource.origin === 'swapchain'
 			? 'importSwapchainTexture'
 			: 'importTexture';
-		throw new Error(`FrameGraph.${operation}() cannot import GPUTexture "${texture.label || 'unlabeled'}" more than once in the same recording. It was already imported by FrameGraph.${firstOperation}() as texture "${existing.label ?? existing.id}". Reuse and pass the existing TextureHandle instead.`);
+		throw new FrameGraphError(
+			FRAME_GRAPH_ERROR_CODES.DuplicateImport,
+			`FrameGraph.${operation}() cannot import GPUTexture "${texture.label || 'unlabeled'}" more than once in the same recording. It was already imported by FrameGraph.${firstOperation}() as texture "${existing.label ?? existing.id}". Reuse and pass the existing TextureHandle instead.`,
+			{ phase: 'record', resourceId: existing.id, context: { operation, firstOperation } },
+		);
 	}
 
 	private assertBufferNotImported(buffer: GPUBuffer): void {
@@ -790,7 +813,11 @@ class FrameGraphRecorderImpl implements FrameGraphRecorder {
 		if (!existing) {
 			return;
 		}
-		throw new Error(`FrameGraph.importBuffer() cannot import GPUBuffer "${buffer.label || 'unlabeled'}" more than once in the same recording. It was already imported as buffer "${existing.label ?? existing.id}". Reuse and pass the existing BufferHandle instead.`);
+		throw new FrameGraphError(
+			FRAME_GRAPH_ERROR_CODES.DuplicateImport,
+			`FrameGraph.importBuffer() cannot import GPUBuffer "${buffer.label || 'unlabeled'}" more than once in the same recording. It was already imported as buffer "${existing.label ?? existing.id}". Reuse and pass the existing BufferHandle instead.`,
+			{ phase: 'record', resourceId: existing.id, context: { operation: 'importBuffer' } },
+		);
 	}
 
 	/**
@@ -1369,11 +1396,15 @@ class FrameGraphRecorderImpl implements FrameGraphRecorder {
 	executeCompiled(options: CompiledFrameExecuteOptions & { readonly gpuTiming: true }): Promise<FrameGraphGpuTimingReport>;
 	executeCompiled(options: CompiledFrameExecuteOptions & { readonly gpuTiming?: boolean }): void | Promise<FrameGraphGpuTimingReport>;
 	executeCompiled(options: CompiledFrameExecuteOptions & { readonly gpuTiming?: boolean } = {}): void | Promise<FrameGraphGpuTimingReport> {
-		this.assertNotDestroyed();
+		this.assertNotDestroyed('execute');
 		this.assertNotExecuting('execute');
 		const plan = this.compiledPlan;
 		if (!plan) {
-			throw new Error('CompiledFrame has no executable plan.');
+			throw new FrameGraphError(
+				FRAME_GRAPH_ERROR_CODES.Internal,
+				'CompiledFrame has no executable plan.',
+				{ phase: 'execute' },
+			);
 		}
 		const frameIndex = options.frameIndex ?? 0;
 		assertNonNegativeSafeInteger(frameIndex, 'CompiledFrame.execute() frameIndex');
@@ -1559,7 +1590,11 @@ class FrameGraphRecorderImpl implements FrameGraphRecorder {
 		},
 	): void {
 		if (node.kind !== 'external-submission' || !node.externalSubmit) {
-			throw new Error(`External submission node "${node.label ?? node.id}" is missing its submit callback.`);
+			throw new FrameGraphError(
+				FRAME_GRAPH_ERROR_CODES.MissingNodeExecutor,
+				`External submission node "${node.label ?? node.id}" is missing its submit callback.`,
+				{ phase: 'execute', nodeId: node.id },
+			);
 		}
 		const ctx = this.createExecuteContext(node, { ...options, commandEncoder: undefined });
 		try {
@@ -1567,7 +1602,7 @@ class FrameGraphRecorderImpl implements FrameGraphRecorder {
 				frameIndex: ctx.frameIndex,
 				device: ctx.device,
 				unwrap: ctx.unwrap,
-			});
+			}, node.id);
 		}
 		finally {
 			ctx.invalidate();
@@ -1591,7 +1626,7 @@ class FrameGraphRecorderImpl implements FrameGraphRecorder {
 				case 'render': {
 					const renderPass = options.commandEncoder.beginRenderPass(this.createRenderPassDescriptor(node, baseContext, options.gpuTimingQuery));
 					try {
-						invokeSynchronousCallback('FrameGraph.render encode', node.renderEncode, { frameIndex: baseContext.frameIndex, device: baseContext.device, pass: renderPass, unwrap: baseContext.unwrap });
+						invokeSynchronousCallback('FrameGraph.render encode', node.renderEncode, { frameIndex: baseContext.frameIndex, device: baseContext.device, pass: renderPass, unwrap: baseContext.unwrap }, node.id);
 					}
 					finally {
 						renderPass.end();
@@ -1601,7 +1636,7 @@ class FrameGraphRecorderImpl implements FrameGraphRecorder {
 				case 'compute': {
 					const computePass = options.commandEncoder.beginComputePass(this.createComputePassDescriptor(node, options.gpuTimingQuery));
 					try {
-						invokeSynchronousCallback('FrameGraph.compute encode', node.computeEncode, { frameIndex: baseContext.frameIndex, device: baseContext.device, pass: computePass, unwrap: baseContext.unwrap });
+						invokeSynchronousCallback('FrameGraph.compute encode', node.computeEncode, { frameIndex: baseContext.frameIndex, device: baseContext.device, pass: computePass, unwrap: baseContext.unwrap }, node.id);
 					}
 					finally {
 						computePass.end();
@@ -1615,10 +1650,14 @@ class FrameGraphRecorderImpl implements FrameGraphRecorder {
 					this.executeClearBufferOperations(node, options.commandEncoder, baseContext);
 					return;
 				case 'command':
-					invokeSynchronousCallback('FrameGraph.command encode', node.commandEncode, { frameIndex: baseContext.frameIndex, device: baseContext.device, encoder: options.commandEncoder, unwrap: baseContext.unwrap });
+					invokeSynchronousCallback('FrameGraph.command encode', node.commandEncode, { frameIndex: baseContext.frameIndex, device: baseContext.device, encoder: options.commandEncoder, unwrap: baseContext.unwrap }, node.id);
 					return;
 				case 'external-submission':
-					throw new Error(`External submission node "${node.label ?? node.id}" cannot execute inside a FrameGraph command segment.`);
+					throw new FrameGraphError(
+						FRAME_GRAPH_ERROR_CODES.ExecutionDeclaration,
+						`External submission node "${node.label ?? node.id}" cannot execute inside a FrameGraph command segment.`,
+						{ phase: 'execute', nodeId: node.id },
+					);
 			}
 		}
 		finally {
@@ -1639,7 +1678,11 @@ class FrameGraphRecorderImpl implements FrameGraphRecorder {
 		let active = true;
 		const assertActive = () => {
 			if (!active) {
-				throw new Error(`Resource resolver for node "${node.label ?? node.id}" is no longer active.`);
+				throw new FrameGraphError(
+					FRAME_GRAPH_ERROR_CODES.ExecutionDeclaration,
+					`Resource resolver for node "${node.label ?? node.id}" is no longer active.`,
+					{ phase: 'execute', nodeId: node.id },
+				);
 			}
 		};
 		const canResolve = (handle: ResourceHandle) => node.accesses.some((access) => sameResource(access.resource, handle));
@@ -1647,7 +1690,11 @@ class FrameGraphRecorderImpl implements FrameGraphRecorder {
 			this.resourceFor(handle);
 			const texture = options.resourceByLogicalId.get(handle.id);
 			if (!texture || !('createView' in texture)) {
-				throw new Error(`Texture "${handle.label ?? handle.id}" is not available during execute.`);
+				throw new FrameGraphError(
+					FRAME_GRAPH_ERROR_CODES.ExecutionResourceUnavailable,
+					`Texture "${handle.label ?? handle.id}" is not available during execute.`,
+					{ phase: 'execute', nodeId: node.id, resourceId: handle.id },
+				);
 			}
 			return texture;
 		};
@@ -1664,7 +1711,11 @@ class FrameGraphRecorderImpl implements FrameGraphRecorder {
 					&& (entry.access === TextureAccess.CopySrc || entry.access === TextureAccess.CopyDst)
 				));
 				if (!declared) {
-					throw new Error(`Texture "${handle.label ?? handle.id}" was not declared for copy access by node "${node.label ?? node.id}".`);
+					throw new FrameGraphError(
+						FRAME_GRAPH_ERROR_CODES.ExecutionDeclaration,
+						`Texture "${handle.label ?? handle.id}" was not declared for copy access by node "${node.label ?? node.id}".`,
+						{ phase: 'execute', nodeId: node.id, resourceId: handle.id, context: { access: 'copy' } },
+					);
 				}
 				return textureFor(handle);
 			},
@@ -1674,7 +1725,11 @@ class FrameGraphRecorderImpl implements FrameGraphRecorder {
 					const view = this.textureViewFor(handle);
 					const declared = node.accesses.some((entry) => entry.textureView?.id === handle.id);
 					if (!declared) {
-						throw new Error(`Texture view "${handle.label ?? handle.id}" was not declared by node "${node.label ?? node.id}".`);
+						throw new FrameGraphError(
+							FRAME_GRAPH_ERROR_CODES.ExecutionDeclaration,
+							`Texture view "${handle.label ?? handle.id}" was not declared by node "${node.label ?? node.id}".`,
+							{ phase: 'execute', nodeId: node.id, context: { resourceKind: 'texture-view' } },
+						);
 					}
 					return this.materializeTextureView(
 						textureFor(view.texture),
@@ -1685,7 +1740,11 @@ class FrameGraphRecorderImpl implements FrameGraphRecorder {
 					);
 				}
 				if (access === undefined) {
-					throw new Error(`Resolving raw texture "${handle.label ?? handle.id}" as a view requires its declared TextureAccess role.`);
+					throw new FrameGraphError(
+						FRAME_GRAPH_ERROR_CODES.ExecutionDeclaration,
+						`Resolving raw texture "${handle.label ?? handle.id}" as a view requires its declared TextureAccess role.`,
+						{ phase: 'execute', nodeId: node.id, resourceId: handle.id },
+					);
 				}
 				this.resourceFor(handle);
 				const declared = node.accesses.find((entry) => (
@@ -1695,7 +1754,11 @@ class FrameGraphRecorderImpl implements FrameGraphRecorder {
 						&& entry.textureViewDescriptor !== undefined
 				));
 				if (!declared?.textureViewDescriptor) {
-					throw new Error(`Texture "${handle.label ?? handle.id}" was not declared with access "${access}" by node "${node.label ?? node.id}".`);
+					throw new FrameGraphError(
+						FRAME_GRAPH_ERROR_CODES.ExecutionDeclaration,
+						`Texture "${handle.label ?? handle.id}" was not declared with access "${access}" by node "${node.label ?? node.id}".`,
+						{ phase: 'execute', nodeId: node.id, resourceId: handle.id, context: { access } },
+					);
 				}
 				return this.materializeTextureView(
 					textureFor(handle),
@@ -1709,11 +1772,19 @@ class FrameGraphRecorderImpl implements FrameGraphRecorder {
 				assertActive();
 				this.resourceFor(handle);
 				if (!canResolve(handle)) {
-					throw new Error(`Buffer "${handle.label ?? handle.id}" was not declared by node "${node.label ?? node.id}".`);
+					throw new FrameGraphError(
+						FRAME_GRAPH_ERROR_CODES.ExecutionDeclaration,
+						`Buffer "${handle.label ?? handle.id}" was not declared by node "${node.label ?? node.id}".`,
+						{ phase: 'execute', nodeId: node.id, resourceId: handle.id },
+					);
 				}
 				const buffer = options.resourceByLogicalId.get(handle.id);
 				if (!buffer || 'createView' in buffer) {
-					throw new Error(`Buffer "${handle.label ?? handle.id}" is not available during execute.`);
+					throw new FrameGraphError(
+						FRAME_GRAPH_ERROR_CODES.ExecutionResourceUnavailable,
+						`Buffer "${handle.label ?? handle.id}" is not available during execute.`,
+						{ phase: 'execute', nodeId: node.id, resourceId: handle.id },
+					);
 				}
 				return buffer;
 			},
@@ -1721,11 +1792,19 @@ class FrameGraphRecorderImpl implements FrameGraphRecorder {
 				assertActive();
 				const internal = use as unknown as InternalUse;
 				if (!node.uses.includes(internal)) {
-					throw new Error(`Resource use was not declared by node "${node.label ?? node.id}".`);
+					throw new FrameGraphError(
+						FRAME_GRAPH_ERROR_CODES.ExecutionDeclaration,
+						`Resource use was not declared by node "${node.label ?? node.id}".`,
+						{ phase: 'execute', nodeId: node.id, resourceId: internal.handle.id },
+					);
 				}
 				const access = internal.accesses[0];
 				if (!access) {
-					throw new Error(`Resource use for node "${node.label ?? node.id}" has no normalized access.`);
+					throw new FrameGraphError(
+						FRAME_GRAPH_ERROR_CODES.Internal,
+						`Resource use for node "${node.label ?? node.id}" has no normalized access.`,
+						{ phase: 'execute', nodeId: node.id },
+					);
 				}
 				if (internal.kind === 'buffer-use') {
 					return context.resolveBuffer(internal.handle) as UnwrappedResource<TUse>;
@@ -1899,10 +1978,18 @@ class FrameGraphRecorderImpl implements FrameGraphRecorder {
 		for (let index = 0; index < result.length; index++) {
 			const use = result[index];
 			if (use.owner !== this.recordingOwner || !Array.isArray(use.accesses)) {
-				throw new Error('Resource use does not belong to the current FrameGraph recording.');
+				throw new FrameGraphError(
+					FRAME_GRAPH_ERROR_CODES.ForeignHandle,
+					'Resource use does not belong to the current FrameGraph recording.',
+					{ phase: 'record', context: { resourceKind: use.kind } },
+				);
 			}
 			if (result.indexOf(use) !== index) {
-				throw new Error('A node cannot declare the same resource use token more than once.');
+				throw new FrameGraphError(
+					FRAME_GRAPH_ERROR_CODES.DuplicateResourceUse,
+					'A node cannot declare the same resource use token more than once.',
+					{ phase: 'record', context: { resourceKind: use.kind } },
+				);
 			}
 		}
 		return result;
@@ -2024,12 +2111,20 @@ class FrameGraphRecorderImpl implements FrameGraphRecorder {
 	private accessMode(access: ResourceAccess): InternalAccess['mode'] {
 		if (access.resource.kind === 'texture' || access.resource.kind === 'texture-view') {
 			if (!textureAccessValues.has(access.access)) {
-				throw new Error(`Texture cannot use BufferAccess. Resource "${access.resource.label ?? access.resource.id}" declares invalid texture access "${access.access}".`);
+				throw new FrameGraphError(
+					FRAME_GRAPH_ERROR_CODES.InvalidAccess,
+					`Texture cannot use BufferAccess. Resource "${access.resource.label ?? access.resource.id}" declares invalid texture access "${access.access}".`,
+					{ phase: 'record', resourceId: access.resource.id, context: { access: access.access, resourceKind: access.resource.kind } },
+				);
 			}
 			return textureAccessMode(access.access as TextureAccess);
 		}
 		if (!bufferAccessValues.has(access.access)) {
-			throw new Error(`Buffer resources cannot use TextureAccess. Resource "${access.resource.label ?? access.resource.id}" declares invalid buffer access "${access.access}".`);
+			throw new FrameGraphError(
+				FRAME_GRAPH_ERROR_CODES.InvalidAccess,
+				`Buffer resources cannot use TextureAccess. Resource "${access.resource.label ?? access.resource.id}" declares invalid buffer access "${access.access}".`,
+				{ phase: 'record', resourceId: access.resource.id, context: { access: access.access, resourceKind: access.resource.kind } },
+			);
 		}
 		return bufferAccessMode(access.access as BufferAccess);
 	}
@@ -2108,7 +2203,15 @@ class FrameGraphRecorderImpl implements FrameGraphRecorder {
 		declaredUsage: number,
 		missingUsage: number,
 	): Error {
-		return new Error(`${resourcePrefix} "${resource.handle.label ?? resource.handle.id}" declared usage ${formatUsageFlags(declaredUsage)} is missing required WebGPU usage ${formatUsageFlags(missingUsage)}. Required usage: ${formatUsageFlags(resource.requiredUsage)}.`);
+		return new FrameGraphError(
+			FRAME_GRAPH_ERROR_CODES.UsageMismatch,
+			`${resourcePrefix} "${resource.handle.label ?? resource.handle.id}" declared usage ${formatUsageFlags(declaredUsage)} is missing required WebGPU usage ${formatUsageFlags(missingUsage)}. Required usage: ${formatUsageFlags(resource.requiredUsage)}.`,
+			{
+				phase: 'compile',
+				resourceId: resource.handle.id,
+				context: { declaredUsage, missingUsage, requiredUsage: resource.requiredUsage },
+			},
+		);
 	}
 
 	private validateImportedDescriptor(resource: InternalResource): void {
@@ -2121,7 +2224,15 @@ class FrameGraphRecorderImpl implements FrameGraphRecorder {
 			const usage = desc.usage ?? 0;
 			if ((texture.usage & usage) !== usage) {
 				const missingUsage = usage & ~texture.usage;
-				throw new Error(this.importedDescriptorMismatch(resource, 'usage', `exposed usage ${formatUsageFlags(usage)}, actual GPU texture usage ${formatUsageFlags(texture.usage)}, missing ${formatUsageFlags(missingUsage)}`));
+				throw new FrameGraphError(
+					FRAME_GRAPH_ERROR_CODES.NativeDescriptorMismatch,
+					this.importedDescriptorMismatch(resource, 'usage', `exposed usage ${formatUsageFlags(usage)}, actual GPU texture usage ${formatUsageFlags(texture.usage)}, missing ${formatUsageFlags(missingUsage)}`),
+					{
+						phase: 'compile',
+						resourceId: resource.handle.id,
+						context: { property: 'usage', expectedUsage: usage, actualUsage: texture.usage, missingUsage },
+					},
+				);
 			}
 			return;
 		}
@@ -2132,12 +2243,28 @@ class FrameGraphRecorderImpl implements FrameGraphRecorder {
 		}
 		const desc = resource.desc as BufferDesc;
 		if (buffer.size < desc.size) {
-			throw new Error(this.importedDescriptorMismatch(resource, 'size', `expected at least ${desc.size} bytes, actual GPU buffer size ${buffer.size} bytes`));
+			throw new FrameGraphError(
+				FRAME_GRAPH_ERROR_CODES.NativeDescriptorMismatch,
+				this.importedDescriptorMismatch(resource, 'size', `expected at least ${desc.size} bytes, actual GPU buffer size ${buffer.size} bytes`),
+				{
+					phase: 'compile',
+					resourceId: resource.handle.id,
+					context: { property: 'size', expectedSize: desc.size, actualSize: buffer.size },
+				},
+			);
 		}
 		const usage = desc.usage ?? 0;
 		if ((buffer.usage & usage) !== usage) {
 			const missingUsage = usage & ~buffer.usage;
-			throw new Error(this.importedDescriptorMismatch(resource, 'usage', `exposed usage ${formatUsageFlags(usage)}, actual GPU buffer usage ${formatUsageFlags(buffer.usage)}, missing ${formatUsageFlags(missingUsage)}`));
+			throw new FrameGraphError(
+				FRAME_GRAPH_ERROR_CODES.NativeDescriptorMismatch,
+				this.importedDescriptorMismatch(resource, 'usage', `exposed usage ${formatUsageFlags(usage)}, actual GPU buffer usage ${formatUsageFlags(buffer.usage)}, missing ${formatUsageFlags(missingUsage)}`),
+				{
+					phase: 'compile',
+					resourceId: resource.handle.id,
+					context: { property: 'usage', expectedUsage: usage, actualUsage: buffer.usage, missingUsage },
+				},
+			);
 		}
 	}
 
@@ -2554,14 +2681,26 @@ class FrameGraphRecorderImpl implements FrameGraphRecorder {
 
 	private textureViewFor(handle: TextureViewHandle): InternalTextureView {
 		if (!isHandleOwnedBy(handle, this.recordingOwner)) {
-			throw new Error(`Texture view handle "${handle.label ?? handle.id}" does not belong to the current FrameGraph recording.`);
+			throw new FrameGraphError(
+				FRAME_GRAPH_ERROR_CODES.ForeignHandle,
+				`Texture view handle "${handle.label ?? handle.id}" does not belong to the current FrameGraph recording.`,
+				{ phase: 'record', context: { resourceKind: 'texture-view', handleId: handle.id } },
+			);
 		}
 		const view = this.textureViews.get(handle.id);
 		if (!view) {
-			throw new Error(`Unknown texture view "${handle.label ?? handle.id}".`);
+			throw new FrameGraphError(
+				FRAME_GRAPH_ERROR_CODES.InvalidTextureView,
+				`Unknown texture view "${handle.label ?? handle.id}".`,
+				{ phase: 'record', context: { resourceKind: 'texture-view', handleId: handle.id } },
+			);
 		}
 		if (view.handle !== handle) {
-			throw new Error(`Texture view handle "${handle.label ?? handle.id}" does not belong to the current FrameGraph recording.`);
+			throw new FrameGraphError(
+				FRAME_GRAPH_ERROR_CODES.ForeignHandle,
+				`Texture view handle "${handle.label ?? handle.id}" does not belong to the current FrameGraph recording.`,
+				{ phase: 'record', context: { resourceKind: 'texture-view', handleId: handle.id } },
+			);
 		}
 		return view;
 	}
@@ -2768,14 +2907,26 @@ class FrameGraphRecorderImpl implements FrameGraphRecorder {
 
 	private resourceFor(handle: ResourceHandle): InternalResource {
 		if (!isHandleOwnedBy(handle, this.recordingOwner)) {
-			throw new Error(`${handle.kind === 'texture' ? 'Texture' : 'Buffer'} handle "${handle.label ?? handle.id}" does not belong to the current FrameGraph recording.`);
+			throw new FrameGraphError(
+				FRAME_GRAPH_ERROR_CODES.ForeignHandle,
+				`${handle.kind === 'texture' ? 'Texture' : 'Buffer'} handle "${handle.label ?? handle.id}" does not belong to the current FrameGraph recording.`,
+				{ phase: 'record', resourceId: handle.id, context: { resourceKind: handle.kind } },
+			);
 		}
 		const resource = this.resources.get(handle.id);
 		if (!resource) {
-			throw new Error(`Unknown ${handle.kind} resource "${handle.label ?? handle.id}".`);
+			throw new FrameGraphError(
+				FRAME_GRAPH_ERROR_CODES.UnknownHandle,
+				`Unknown ${handle.kind} resource "${handle.label ?? handle.id}".`,
+				{ phase: 'record', resourceId: handle.id, context: { resourceKind: handle.kind } },
+			);
 		}
 		if (resource.handle !== handle) {
-			throw new Error(`${handle.kind === 'texture' ? 'Texture' : 'Buffer'} handle "${handle.label ?? handle.id}" does not belong to the current FrameGraph recording.`);
+			throw new FrameGraphError(
+				FRAME_GRAPH_ERROR_CODES.ForeignHandle,
+				`${handle.kind === 'texture' ? 'Texture' : 'Buffer'} handle "${handle.label ?? handle.id}" does not belong to the current FrameGraph recording.`,
+				{ phase: 'record', resourceId: handle.id, context: { resourceKind: handle.kind } },
+			);
 		}
 		return resource;
 	}
@@ -2784,22 +2935,34 @@ class FrameGraphRecorderImpl implements FrameGraphRecorder {
 		this.resourceFor(handle);
 	}
 
-	private assertNotDestroyed(): void {
+	private assertNotDestroyed(phase: 'record' | 'execute' = 'record'): void {
 		if (this.runtime.isDestroyed) {
-			throw new Error('FrameGraph has been destroyed.');
+			throw new FrameGraphError(
+				FRAME_GRAPH_ERROR_CODES.Destroyed,
+				'FrameGraph has been destroyed.',
+				{ phase },
+			);
 		}
 	}
 
 	private assertCanMutate(operation: string): void {
-		this.assertNotDestroyed();
+		this.assertNotDestroyed('record');
 		if (this.isConsumed) {
-			throw new Error(`FrameGraphRecorder.${operation}() cannot be called after compile() consumed the recording.`);
+			throw new FrameGraphError(
+				FRAME_GRAPH_ERROR_CODES.RecorderConsumed,
+				`FrameGraphRecorder.${operation}() cannot be called after compile() consumed the recording.`,
+				{ phase: 'record', context: { operation } },
+			);
 		}
 	}
 
 	private assertNotExecuting(operation: string): void {
 		if (this.runtime.isExecuting) {
-			throw new Error(`CompiledFrame.${operation}() cannot be called while another CompiledFrame.execute() is running on the same FrameGraph runtime.`);
+			throw new FrameGraphError(
+				FRAME_GRAPH_ERROR_CODES.ConcurrentExecution,
+				`CompiledFrame.${operation}() cannot be called while another CompiledFrame.execute() is running on the same FrameGraph runtime.`,
+				{ phase: 'execute', context: { operation } },
+			);
 		}
 	}
 

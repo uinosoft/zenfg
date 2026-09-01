@@ -11,6 +11,7 @@ import {
 	type TextureDesc,
 	TextureAccess,
 } from './types.ts';
+import { FRAME_GRAPH_ERROR_CODES, FrameGraphError } from './error.ts';
 import { bufferAllocationSize, estimateTextureByteSize, textureSizeTuple } from './resourceDescriptors.ts';
 import { getTextureFormatCapabilities } from './formatCaps.ts';
 import type {
@@ -232,7 +233,11 @@ function recordTextureDependency(
 	if (access.mode === 'read') {
 		const overlappingWrites = state.lastWrites.filter((write) => resolvedTextureRangesOverlap(write.range, range));
 		if (overlappingWrites.some((write) => !write.producesValue)) {
-			throw new Error(`Resource "${access.resource.label ?? access.resource.id}" is read after its value was discarded for the declared range.`);
+			throw new FrameGraphError(
+				FRAME_GRAPH_ERROR_CODES.ReadAfterDiscard,
+				`Resource "${access.resource.label ?? access.resource.id}" is read after its value was discarded for the declared range.`,
+				{ phase: 'compile', nodeId, resourceId: access.resource.id, context: { range } },
+			);
 		}
 		const overlappingWriters = overlappingWrites.filter((write) => write.producesValue);
 		const uncoveredRanges = subtractResolvedTextureRanges(
@@ -240,7 +245,11 @@ function recordTextureDependency(
 			overlappingWriters.map((writer) => writer.range),
 		);
 		if (resource.initialContents === 'undefined' && uncoveredRanges.length > 0) {
-			throw new Error(`Resource "${access.resource.label ?? access.resource.id}" with undefined initial contents is read before it is produced for the full declared range.`);
+			throw new FrameGraphError(
+				FRAME_GRAPH_ERROR_CODES.ReadBeforeWrite,
+				`Resource "${access.resource.label ?? access.resource.id}" with undefined initial contents is read before it is produced for the full declared range.`,
+				{ phase: 'compile', nodeId, resourceId: access.resource.id, context: { range } },
+			);
 		}
 
 		for (const writer of overlappingWriters) {
@@ -261,14 +270,22 @@ function recordTextureDependency(
 	const overlappingInvalidations = overlappingWrites.filter((write) => !write.producesValue);
 	if (access.consumesPreviousValue) {
 		if (overlappingInvalidations.length > 0) {
-			throw new Error(`Resource "${access.resource.label ?? access.resource.id}" preserves contents after its value was discarded for the declared range.`);
+			throw new FrameGraphError(
+				FRAME_GRAPH_ERROR_CODES.PreserveBeforeWrite,
+				`Resource "${access.resource.label ?? access.resource.id}" preserves contents after its value was discarded for the declared range.`,
+				{ phase: 'compile', nodeId, resourceId: access.resource.id, context: { range } },
+			);
 		}
 		const uncoveredRanges = subtractResolvedTextureRanges(
 			[range],
 			overlappingWriters.map((writer) => writer.range),
 		);
 		if (resource.initialContents === 'undefined' && uncoveredRanges.length > 0) {
-			throw new Error(`Resource "${access.resource.label ?? access.resource.id}" with undefined initial contents preserves contents before it is produced for the full declared range.`);
+			throw new FrameGraphError(
+				FRAME_GRAPH_ERROR_CODES.PreserveBeforeWrite,
+				`Resource "${access.resource.label ?? access.resource.id}" with undefined initial contents preserves contents before it is produced for the full declared range.`,
+				{ phase: 'compile', nodeId, resourceId: access.resource.id, context: { range } },
+			);
 		}
 		for (const writer of overlappingWriters) {
 			addDependencyEdge(dependencies, writer.nodeId, nodeId, access.resource, true);
@@ -311,7 +328,11 @@ function recordBufferDependency(
 	if (access.mode === 'read') {
 		const overlappingWriters = state.lastWriters.filter((writer) => bufferRangesOverlap(writer.range, range));
 		if (resource.initialContents === 'undefined' && !bufferRangeCoveredByWriters(range, overlappingWriters)) {
-			throw new Error(`Buffer "${access.resource.label ?? access.resource.id}" with undefined initial contents is read before it is produced.`);
+			throw new FrameGraphError(
+				FRAME_GRAPH_ERROR_CODES.ReadBeforeWrite,
+				`Buffer "${access.resource.label ?? access.resource.id}" with undefined initial contents is read before it is produced.`,
+				{ phase: 'compile', nodeId, resourceId: access.resource.id, context: { range } },
+			);
 		}
 		for (const writer of overlappingWriters) {
 			if (writer.nodeId !== nodeId) {
@@ -331,7 +352,11 @@ function recordBufferDependency(
 	));
 	if (access.consumesPreviousValue) {
 		if (resource.initialContents === 'undefined' && !bufferRangeCoveredByWriters(range, overlappingWriters)) {
-			throw new Error(`Buffer "${access.resource.label ?? access.resource.id}" with undefined initial contents preserves contents before it is produced.`);
+			throw new FrameGraphError(
+				FRAME_GRAPH_ERROR_CODES.PreserveBeforeWrite,
+				`Buffer "${access.resource.label ?? access.resource.id}" with undefined initial contents preserves contents before it is produced.`,
+				{ phase: 'compile', nodeId, resourceId: access.resource.id, context: { range } },
+			);
 		}
 		for (const writer of overlappingWriters) {
 			addDependencyEdge(dependencies, writer.nodeId, nodeId, access.resource, true);

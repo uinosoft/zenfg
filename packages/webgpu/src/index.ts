@@ -11,6 +11,15 @@
 
 export { FrameGraph } from './frameGraph.ts';
 export {
+	FRAME_GRAPH_ERROR_CODES,
+	FrameGraphError,
+} from './error.ts';
+export type {
+	FrameGraphErrorCode,
+	FrameGraphErrorOptions,
+	FrameGraphErrorPhase,
+} from './error.ts';
+export {
 	BufferAccess,
 	TextureAccess,
 } from './types.ts';

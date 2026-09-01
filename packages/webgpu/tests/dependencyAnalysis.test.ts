@@ -4,6 +4,7 @@ import test from 'node:test';
 import {
 	BufferAccess,
 	FrameGraph,
+	FrameGraphError,
 	TextureAccess,
 	type FrameGraphCompilationReport,
 } from '../src/index.ts';
@@ -55,7 +56,12 @@ test('compile rejects transient texture and buffer consumers recorded before pro
 		label: 'texture-producer',
 		colorAttachments: [{ target: color, loadOp: 'clear', storeOp: 'store' }],
 	});
-	assert.throws(() => textureGraph.compile(), /read before it is produced/);
+	assert.throws(() => textureGraph.compile(), (error) => error instanceof FrameGraphError
+		&& error.code === 'FG1001'
+		&& error.phase === 'compile'
+		&& error.nodeId === 1
+		&& error.resourceId === color.id
+		&& error.message.includes('read before it is produced'));
 
 	const bufferGraph = new FrameGraph(mockDevice()).beginFrame();
 	const data = bufferGraph.createBuffer({ label: 'data', size: 16 });
@@ -63,7 +69,12 @@ test('compile rejects transient texture and buffer consumers recorded before pro
 	bufferGraph.command({ label: 'buffer-consumer', sideEffect: true, uses: [dataRead] });
 	const dataWrite = bufferGraph.use(data, BufferAccess.StorageWrite, { contents: 'overwrite' });
 	bufferGraph.command({ label: 'buffer-producer', sideEffect: false, uses: [dataWrite] });
-	assert.throws(() => bufferGraph.compile(), /read before it is produced/);
+	assert.throws(() => bufferGraph.compile(), (error) => error instanceof FrameGraphError
+		&& error.code === 'FG1001'
+		&& error.phase === 'compile'
+		&& error.nodeId === 1
+		&& error.resourceId === data.id
+		&& error.message.includes('read before it is produced'));
 });
 
 test('imported resources default to defined contents and can opt into undefined contents', () => {
@@ -926,7 +937,12 @@ test('compile rejects reading color and depth attachment values after discard', 
 		sideEffect: true,
 		uses: [colorGraph.use(color, TextureAccess.Sampled)],
 	});
-	assert.throws(() => colorGraph.compile({ report: true }).compilationReport, /read after its value was discarded/);
+	assert.throws(() => colorGraph.compile({ report: true }).compilationReport, (error) => error instanceof FrameGraphError
+		&& error.code === 'FG1003'
+		&& error.phase === 'compile'
+		&& error.nodeId === 3
+		&& error.resourceId === color.id
+		&& error.message.includes('read after its value was discarded'));
 
 	const depthGraph = new FrameGraph(mockDevice()).beginFrame();
 	const depth = depthGraph.createTexture({ label: 'depth', format: 'depth32float', size: [1, 1] });
@@ -1005,7 +1021,12 @@ test('compile rejects a load-store continuation after discard', () => {
 		colorAttachments: [{ target: color, loadOp: 'load', storeOp: 'store' }],
 	});
 
-	assert.throws(() => graph.compile({ report: true }).compilationReport, /preserves contents after its value was discarded/);
+	assert.throws(() => graph.compile({ report: true }).compilationReport, (error) => error instanceof FrameGraphError
+		&& error.code === 'FG1002'
+		&& error.phase === 'compile'
+		&& error.nodeId === 2
+		&& error.resourceId === color.id
+		&& error.message.includes('preserves contents after its value was discarded'));
 });
 
 test('discard invalidates only the selected mip and array layer', () => {

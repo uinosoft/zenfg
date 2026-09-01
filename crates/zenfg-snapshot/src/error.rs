@@ -67,6 +67,7 @@ impl SnapshotDecodeError {
 }
 
 /// Failure to validate or serialize an in-memory Snapshot.
+#[non_exhaustive]
 #[derive(Debug, thiserror::Error)]
 pub enum SnapshotJsonError {
     /// The in-memory value does not satisfy Snapshot 1.0 invariants.

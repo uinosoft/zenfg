@@ -1,6 +1,7 @@
 use crate::{AccessRole, DebugGroupId, NodeKind, PassId, ResourceId, RootReason};
 
 /// All recording, compilation, and execution errors emitted by the FrameGraph.
+#[non_exhaustive]
 #[derive(Clone, Debug, thiserror::Error, PartialEq, Eq)]
 pub enum FrameGraphError {
     /// A texture or buffer descriptor violates wgpu or FrameGraph constraints.

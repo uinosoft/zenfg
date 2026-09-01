@@ -1,4 +1,5 @@
 /// Failure to adapt a native compilation report to Snapshot 1.0.
+#[non_exhaustive]
 #[derive(Debug, thiserror::Error)]
 pub enum SnapshotExportError {
     /// Snapshot export requires the graph tables in a full compilation report.

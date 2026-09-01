@@ -1,12 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { BufferAccess, FrameGraph, type CompiledFrame } from '../src/index.ts';
+import { BufferAccess, FrameGraph, FrameGraphError, type CompiledFrame } from '../src/index.ts';
 import { mockCommandEncoder, mockDevice } from './testUtils.ts';
-
-function assertNestedExecute(invoke: () => unknown): void {
-	assert.throws(invoke, /another CompiledFrame\.execute\(\) is running/);
-}
 
 for (const source of ['node', 'external-submission', 'beforeSubmit', 'afterSubmit'] as const) {
 	test(`execute rejects recursive execution from ${source}`, () => {
@@ -16,7 +12,10 @@ for (const source of ['node', 'external-submission', 'beforeSubmit', 'afterSubmi
 		let callbackCount = 0;
 		const recurse = (): undefined => {
 			callbackCount++;
-			assertNestedExecute(() => compiled.execute());
+			assert.throws(() => compiled.execute(), (error) => error instanceof FrameGraphError
+				&& error.code === 'FG2008'
+				&& error.phase === 'execute'
+				&& error.context?.operation === 'execute');
 			return undefined;
 		};
 		if (source === 'external-submission') recorder.externalSubmission({ submit: recurse });
@@ -48,7 +47,9 @@ test('execute guards runtime destruction and pool clearing', () => {
 	assert.equal(callbackCount, 2);
 	assert.doesNotThrow(() => runtime.clearResourcePool());
 	assert.doesNotThrow(() => runtime.destroy());
-	assert.throws(() => compiled.execute(), /destroyed/);
+	assert.throws(() => compiled.execute(), (error) => error instanceof FrameGraphError
+		&& error.code === 'FG2006'
+		&& error.phase === 'execute');
 });
 
 test('recording and compiling another frame is allowed during execution', () => {
@@ -80,7 +81,10 @@ test('compile consumes a recorder on both success and failure', () => {
 	});
 	successful.markOutput(texture);
 	successful.compile();
-	assert.throws(() => successful.command({}), /compile\(\) consumed/);
+	assert.throws(() => successful.command({}), (error) => error instanceof FrameGraphError
+		&& error.code === 'FG2007'
+		&& error.phase === 'record'
+		&& error.context?.operation === 'command');
 	assert.throws(() => successful.getTextureDesc(texture), /compile\(\) consumed/);
 	assert.throws(() => successful.getTextureViewDesc(view), /compile\(\) consumed/);
 	assert.throws(() => successful.getBufferDesc(buffer), /compile\(\) consumed/);
