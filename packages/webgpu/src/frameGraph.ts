@@ -45,6 +45,7 @@ import {
 	TextureAccess,
 	type ImportBufferOptions,
 	type ImportTextureOptions,
+	type ImportSwapchainTextureOptions,
 } from './types.ts';
 import {
 	bufferAccessValues,
@@ -556,6 +557,7 @@ class FrameGraphRecorderImpl implements FrameGraphRecorder {
 	 *
 	 * @param texture - Caller-owned physical texture.
 	 * @param options - Optional graph-local label, alternate view formats, and exposed usage.
+	 * Swapchain contents always begin undefined; `initialContents` is not accepted.
 	 * @returns A handle owned by this recording.
 	 *
 	 * @throws If the runtime has been destroyed, this recorder was consumed, or the
@@ -601,8 +603,14 @@ class FrameGraphRecorderImpl implements FrameGraphRecorder {
 	 *
 	 * @beta
 	 */
-	importSwapchainTexture(texture: GPUTexture, options: ImportTextureOptions = {}): TextureHandle {
+	importSwapchainTexture(texture: GPUTexture, options: ImportSwapchainTextureOptions = {}): TextureHandle {
 		this.assertCanMutate('importSwapchainTexture');
+		if (options === null || typeof options !== 'object' || Array.isArray(options)) {
+			throw new Error('FrameGraph.importSwapchainTexture() options must be an object.');
+		}
+		if (Object.prototype.hasOwnProperty.call(options, 'initialContents')) {
+			throw new Error('importSwapchainTexture() does not accept initialContents; swapchain contents are always undefined.');
+		}
 		this.assertTextureNotImported(texture, 'importSwapchainTexture');
 		const registeredDesc = this.importedTextureDescriptor(texture, options);
 		this.validateTextureDescriptor(registeredDesc);

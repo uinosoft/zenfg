@@ -1756,6 +1756,33 @@ test('swapchain import materializes native texture metadata without a caller des
 	});
 });
 
+test('swapchain import rejects initial contents at runtime', () => {
+	const initialContents = { initialContents: 'defined' } as any;
+	const explicitUndefined = { initialContents: undefined } as any;
+	const invalidOptions = [null, [], 'options'] as any[];
+
+	for (const options of [initialContents, explicitUndefined]) {
+		const graph = new FrameGraph(mockDevice()).beginFrame();
+		assert.throws(
+			() => graph.importSwapchainTexture(texture('native-canvas', textureUsage.RENDER_ATTACHMENT), options),
+			/importSwapchainTexture\(\) does not accept initialContents; swapchain contents are always undefined\./,
+		);
+	}
+	for (const options of invalidOptions) {
+		const graph = new FrameGraph(mockDevice()).beginFrame();
+		assert.throws(
+			() => graph.importSwapchainTexture(texture('native-canvas', textureUsage.RENDER_ATTACHMENT), options),
+			/FrameGraph\.importSwapchainTexture\(\) options must be an object\./,
+		);
+	}
+
+	const graph = new FrameGraph(mockDevice()).beginFrame();
+	assert.doesNotThrow(() => graph.importSwapchainTexture(
+		texture('native-canvas', textureUsage.RENDER_ATTACHMENT),
+		{ label: 'backbuffer', exposedUsage: textureUsage.RENDER_ATTACHMENT },
+	));
+});
+
 test('rejects duplicate native texture imports within one recording', () => {
 	const native = texture('shared-texture', textureUsage.RENDER_ATTACHMENT | textureUsage.TEXTURE_BINDING);
 

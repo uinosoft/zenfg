@@ -46,6 +46,7 @@ export type {
 	GraphRootReason,
 	ImportBufferOptions,
 	ImportTextureOptions,
+	ImportSwapchainTextureOptions,
 	NodeKind,
 	RenderColorAttachmentDesc,
 	RenderDepthStencilAttachmentDesc,

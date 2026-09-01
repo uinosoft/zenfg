@@ -6,6 +6,7 @@ import {
 	type FrameGraph,
 	type FrameGraphCompilationReport,
 	type FrameGraphRecording,
+	type ImportTextureOptions,
 	TextureAccess,
 	type TextureUse,
 } from '../src/index.ts';
@@ -28,8 +29,15 @@ test('public recording and compiled-frame types enforce lifecycle and typed-use 
 
 		const recorder = runtime.beginFrame();
 		const texture = recorder.createTexture({ format: 'rgba8unorm', size: [1, 1] });
+		const swapchainTexture = null as unknown as GPUTexture;
 		const textureView = recorder.createTextureView(texture);
 		const buffer = recorder.createBuffer({ size: 4 });
+		recorder.importSwapchainTexture(swapchainTexture, { label: 'backbuffer' });
+		// @ts-expect-error Swapchain contents are always undefined.
+		recorder.importSwapchainTexture(swapchainTexture, { initialContents: 'defined' });
+		const importedOptions: ImportTextureOptions = { initialContents: 'undefined' };
+		// @ts-expect-error Swapchain imports reject the ordinary texture import options type.
+		recorder.importSwapchainTexture(swapchainTexture, importedOptions);
 		recorder.markOutput(texture);
 		recorder.use(texture, TextureAccess.StorageWrite, { contents: 'preserve' });
 		recorder.use(textureView, TextureAccess.StorageWrite, { contents: 'overwrite' });

@@ -349,6 +349,11 @@ export type ImportTextureOptions = {
 	readonly initialContents?: InitialContents;
 };
 
+/** Configures how a caller-owned swapchain texture is exposed to FrameGraph. */
+export type ImportSwapchainTextureOptions = Omit<ImportTextureOptions, 'initialContents'> & {
+	readonly initialContents?: never;
+};
+
 /**
  * Describes a transient buffer allocated and recycled by FrameGraph.
  *
@@ -1164,7 +1169,7 @@ export interface FrameGraphRecording {
 	 * Borrows the current swapchain texture; call `markPresent()` separately and
 	 * execute the compiled frame while that borrowed texture remains current.
 	 */
-	importSwapchainTexture(texture: GPUTexture, options?: ImportTextureOptions): TextureHandle;
+	importSwapchainTexture(texture: GPUTexture, options?: ImportSwapchainTextureOptions): TextureHandle;
 	/** Borrows a caller-owned buffer with fixed identity for this recording. */
 	importBuffer(buffer: GPUBuffer, options?: ImportBufferOptions): BufferHandle;
 	/** Creates a reusable texture-read declaration resolved at each node that lists it. */
