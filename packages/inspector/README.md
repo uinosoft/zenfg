@@ -21,9 +21,9 @@ import { mountFrameGraphInspector } from '@zenfg/inspector';
 
 const inspector = mountFrameGraphInspector(document.querySelector('#tools')!, {
   captureSnapshot: () => renderer.requestFrameGraphSnapshot(),
+  branding: 'ZenFG Inspector', // Pass false to hide visible branding.
 });
 
-inspector.setExpanded(true);
 inspector.setSnapshot(existingSnapshot);
 await inspector.importSnapshot(file);
 inspector.downloadSnapshot();
@@ -31,9 +31,11 @@ await inspector.copySnapshotJson();
 inspector.destroy();
 ```
 
-`FrameGraphInspector` mounts into any `HTMLElement`. A host engine may wrap it
-in its own dock or shell, but that adapter is intentionally outside this
-package. File import defaults to 64 MiB and may be adjusted with
+`FrameGraphInspector` fills any `HTMLElement` with a non-zero width and height,
+so the same workbench can be a full page or an embedded tool. Product branding,
+file selection, and file drag-and-drop are built in; an optional dock or overlay
+adapter remains the host application's responsibility. File import defaults to
+64 MiB and may be adjusted with
 `maxImportBytes`. `maxGraphElements` defaults to 5,000; captures above that
 layout budget retain Passes, Resources, Memory, Diagnostics, Inspector, and raw
 views while automatic Cytoscape/ELK layout is disabled with an explanation.
@@ -58,6 +60,7 @@ expansion, relayout, and fit controls. Input labels and raw fields are assigned
 with text DOM APIs; Snapshot extensions, URLs, labels, and messages are never
 executed as markup or code.
 
-The backend-free application in `apps/inspector` adds page-level file selection
-and drag-and-drop. It is built as static files and includes third-party notices;
-hosting and deployment are deliberately separate.
+The backend-free application in `apps/inspector` mounts the same workbench into
+a full-viewport host without adding duplicate controls. It is built as static
+files and includes third-party notices; hosting and deployment are deliberately
+separate.

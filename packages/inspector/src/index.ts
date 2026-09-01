@@ -1,6 +1,7 @@
 /**
- * Embeds an interactive viewer for live or imported ZenFG FrameGraph Snapshot
- * documents in a browser page.
+ * Renders a host-sized interactive workbench for live or imported ZenFG
+ * FrameGraph Snapshot documents. The same component supports full-page and
+ * embedded layouts.
  *
  * {@link mountFrameGraphInspector} appends the inspector to a host element and
  * returns its lifecycle controller. Call {@link FrameGraphInspector.destroy}

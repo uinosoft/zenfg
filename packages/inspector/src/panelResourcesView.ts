@@ -36,9 +36,9 @@ export class ResourcesView {
 	private kind = 'all';
 	private origin = 'all';
 
-	constructor(private readonly callbacks: WorkbenchCallbacks) {
+	constructor(private readonly callbacks: WorkbenchCallbacks, idPrefix: string) {
 		this.root.className = 'zenfg-inspector-view zenfg-inspector-resources-view';
-		this.root.id = 'zenfg-inspector-view-resources';
+		this.root.id = `${idPrefix}-view-resources`;
 		this.root.setAttribute('role', 'tabpanel');
 		const toolbar = createViewToolbar('Resource filters');
 		toolbar.append(

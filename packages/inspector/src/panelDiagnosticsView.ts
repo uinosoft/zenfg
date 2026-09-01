@@ -20,9 +20,9 @@ export class DiagnosticsView {
 	private snapshot: FrameGraphDebugViewModel | undefined;
 	private selected: Selection | undefined;
 
-	constructor(private readonly callbacks: WorkbenchCallbacks) {
+	constructor(private readonly callbacks: WorkbenchCallbacks, idPrefix: string) {
 		this.root.className = 'zenfg-inspector-view zenfg-inspector-diagnostics-view';
-		this.root.id = 'zenfg-inspector-view-diagnostics';
+		this.root.id = `${idPrefix}-view-diagnostics`;
 		this.root.setAttribute('role', 'tabpanel');
 		this.scroller.className = 'zenfg-inspector-diagnostics-scroller';
 		this.content.className = 'zenfg-inspector-diagnostics-grid';

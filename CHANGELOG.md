@@ -5,6 +5,10 @@ packages use independent versions; component tags identify each release.
 
 ## [Unreleased]
 
+The Inspector is now a host-sized, always-visible workbench with integrated
+branding, file selection, and drag-and-drop. The pre-release collapsible shell
+and its `expanded`/`setExpanded()` API have been removed.
+
 The WebGPU runtime now enforces synchronous execution callbacks in both its
 TypeScript types and runtime checks. Render, compute, command, external
 submission, `beforeSubmit`, and `afterSubmit` callbacks must return `undefined`;

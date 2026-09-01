@@ -21,6 +21,10 @@ export type FrameGraphDebugWorkbenchActions = {
 	onDownload(): void;
 	onCopyJson(): void;
 };
+export type FrameGraphDebugWorkbenchOptions = {
+	branding: string | false;
+	idPrefix: string;
+};
 export type FrameGraphDebugEmptyStateKind = 'waiting' | 'capturing' | 'empty' | 'error';
 
 
@@ -39,6 +43,7 @@ export class FrameGraphDebugWorkbench {
 	readonly root = document.createElement('div');
 	private readonly summary = document.createElement('div');
 	private readonly commandBar = document.createElement('div');
+	private readonly brand = document.createElement('div');
 	private readonly tabList = document.createElement('div');
 	private readonly commandActions = document.createElement('div');
 	private readonly commandStatus = document.createElement('span');
@@ -71,10 +76,14 @@ export class FrameGraphDebugWorkbench {
 		private readonly graphView: GraphViewState,
 		private readonly callbacks: WorkbenchCallbacks,
 		actions: FrameGraphDebugWorkbenchActions,
+		options: FrameGraphDebugWorkbenchOptions,
 	) {
 		this.root.className = 'zenfg-inspector-workbench';
 		this.summary.className = 'zenfg-inspector-capture-summary';
 		this.commandBar.className = 'zenfg-inspector-workbench-command-bar';
+		this.brand.className = 'zenfg-inspector-brand';
+		if (options.branding === false) this.commandBar.classList.add('branding-hidden');
+		else this.brand.textContent = options.branding;
 		this.tabList.className = 'zenfg-inspector-workbench-tabs';
 		this.tabList.setAttribute('role', 'tablist');
 		this.tabList.setAttribute('aria-label', 'FrameGraph debug views');
@@ -91,14 +100,14 @@ export class FrameGraphDebugWorkbench {
 		this.emptyHost.setAttribute('aria-live', 'polite');
 
 		this.graphRoot.className = 'zenfg-inspector-view zenfg-inspector-graph-view';
-		this.graphRoot.id = 'zenfg-inspector-view-graph';
+		this.graphRoot.id = `${options.idPrefix}-view-graph`;
 		this.graphRoot.setAttribute('role', 'tabpanel');
 		this.graphRoot.append(this.graphView.toolbar, this.graphView.host);
-		this.passes = new PassesView(callbacks);
-		this.resources = new ResourcesView(callbacks);
-		this.memory = new MemoryView(callbacks);
-		this.diagnostics = new DiagnosticsView(callbacks);
-		this.inspector = new InspectorView(callbacks, (open) => this.handleInspectorOpenChange(open));
+		this.passes = new PassesView(callbacks, options.idPrefix);
+		this.resources = new ResourcesView(callbacks, options.idPrefix);
+		this.memory = new MemoryView(callbacks, options.idPrefix);
+		this.diagnostics = new DiagnosticsView(callbacks, options.idPrefix);
+		this.inspector = new InspectorView(callbacks, (open) => this.handleInspectorOpenChange(open), options.idPrefix);
 
 		this.views.set('graph', this.graphRoot);
 		this.views.set('passes', this.passes.root);
@@ -114,10 +123,10 @@ export class FrameGraphDebugWorkbench {
 		] as const) {
 			const button = document.createElement('button');
 			button.type = 'button';
-			button.id = `zenfg-inspector-tab-${tab}`;
+			button.id = `${options.idPrefix}-tab-${tab}`;
 			button.textContent = label;
 			button.setAttribute('role', 'tab');
-			button.setAttribute('aria-controls', `zenfg-inspector-view-${tab}`);
+			button.setAttribute('aria-controls', `${options.idPrefix}-view-${tab}`);
 			button.addEventListener('click', () => this.setActiveTab(tab));
 			this.tabButtons.set(tab, button);
 			this.tabList.appendChild(button);
@@ -184,11 +193,12 @@ export class FrameGraphDebugWorkbench {
 			this.exportMenu,
 			this.importInput,
 		);
-		this.commandBar.append(this.tabList, this.commandActions);
+		if (options.branding === false) this.commandBar.append(this.tabList, this.commandActions);
+		else this.commandBar.append(this.brand, this.tabList, this.commandActions);
 		this.main.append(this.emptyHost, ...this.views.values());
 		this.workspace.append(this.main, this.inspector.root);
-		this.root.append(this.summary, this.commandBar, this.workspace);
-		this.showEmptyState('waiting', 'Waiting for a FrameGraph capture source.');
+		this.root.append(this.commandBar, this.summary, this.workspace);
+		this.showEmptyState('empty', 'Drop a ZenFG Snapshot here or choose Import.', 'Files are processed locally in your browser.');
 		this.setSnapshotActionState({
 			providerAvailable: false,
 			hasCapture: false,
@@ -222,7 +232,7 @@ export class FrameGraphDebugWorkbench {
 		if (this.activeTab === 'graph') this.renderGraph();
 	}
 
-	showEmptyState(kind: FrameGraphDebugEmptyStateKind, message: string): void {
+	showEmptyState(kind: FrameGraphDebugEmptyStateKind, message: string, detail?: string): void {
 		this.hasSnapshot = false;
 		this.snapshot = undefined;
 		this.selected = undefined;
@@ -234,7 +244,10 @@ export class FrameGraphDebugWorkbench {
 		const label = document.createElement('span');
 		label.className = 'zenfg-inspector-empty-message';
 		label.textContent = message;
-		this.emptyHost.replaceChildren(icon, label);
+		const detailLabel = document.createElement('span');
+		detailLabel.className = 'zenfg-inspector-empty-detail';
+		detailLabel.textContent = detail ?? '';
+		this.emptyHost.replaceChildren(icon, label, ...(detail ? [detailLabel] : []));
 		this.updateActiveTab();
 		this.updateWorkspaceState();
 	}
@@ -243,6 +256,7 @@ export class FrameGraphDebugWorkbench {
 		const captureLabel = state.capturing ? 'Capturing…' : 'Capture';
 		setPanelButtonContent(this.captureButton, state.capturing ? 'spinner' : 'capture', captureLabel);
 		this.captureButton.disabled = state.capturing || !state.providerAvailable;
+		this.captureButton.hidden = !state.providerAvailable;
 		this.captureButton.classList.toggle('active', state.capturing);
 		this.captureButton.setAttribute('aria-busy', state.capturing ? 'true' : 'false');
 		this.captureButton.dataset.tone = state.capturing ? 'pending' : 'accent';

@@ -30,6 +30,7 @@ export class InspectorView {
 	constructor(
 		private readonly callbacks: WorkbenchCallbacks,
 		private readonly onOpenChange: (open: boolean) => void,
+		idPrefix: string,
 	) {
 		this.root.className = 'zenfg-inspector-inspector';
 		this.root.setAttribute('aria-label', 'Selection inspector');
@@ -50,10 +51,10 @@ export class InspectorView {
 		for (const [tab, label] of [['summary', 'Summary'], ['relations', 'Relations'], ['raw', 'Raw']] as const) {
 			const button = document.createElement('button');
 			button.type = 'button';
-			button.id = `zenfg-inspector-inspector-${tab}-tab`;
+			button.id = `${idPrefix}-inspector-${tab}-tab`;
 			button.textContent = label;
 			button.setAttribute('role', 'tab');
-			button.setAttribute('aria-controls', 'zenfg-inspector-inspector-panel');
+			button.setAttribute('aria-controls', `${idPrefix}-inspector-panel`);
 			button.addEventListener('click', () => {
 				this.activeTab = tab;
 				this.render();
@@ -61,7 +62,7 @@ export class InspectorView {
 			this.tabs.set(tab, button);
 			this.tabList.appendChild(button);
 		}
-		this.content.id = 'zenfg-inspector-inspector-panel';
+		this.content.id = `${idPrefix}-inspector-panel`;
 		this.content.className = 'zenfg-inspector-inspector-content';
 		this.content.setAttribute('role', 'tabpanel');
 		this.root.append(header, this.tabList, this.content);

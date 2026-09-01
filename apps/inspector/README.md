@@ -1,8 +1,9 @@
 # ZenFG Inspector application
 
-This private workspace application builds the embeddable `@zenfg/inspector`
-package into a backend-free static workbench. It supports file selection,
-drag-and-drop, legacy migration feedback, and validation errors.
+This private workspace application mounts the embeddable `@zenfg/inspector`
+workbench directly into a full-viewport host. The component itself provides
+branding, file selection, drag-and-drop, legacy migration feedback, and
+validation errors, so the page adds no duplicate header or controls.
 
 ```sh
 npm run dev:inspector

@@ -52,9 +52,9 @@ export class PassesView {
 	private kind = 'all';
 	private sort: PassSort = 'order';
 
-	constructor(private readonly callbacks: WorkbenchCallbacks) {
+	constructor(private readonly callbacks: WorkbenchCallbacks, idPrefix: string) {
 		this.root.className = 'zenfg-inspector-view zenfg-inspector-passes-view';
-		this.root.id = 'zenfg-inspector-view-passes';
+		this.root.id = `${idPrefix}-view-passes`;
 		this.root.setAttribute('role', 'tabpanel');
 		this.tabList.className = 'zenfg-inspector-subtabs';
 		this.tabList.setAttribute('role', 'tablist');
@@ -88,12 +88,16 @@ export class PassesView {
 		});
 		this.toolbar.append(search, kind, sort);
 
-		this.listPane.id = 'zenfg-inspector-pass-list-panel';
+		this.listButton.id = `${idPrefix}-list-subtab`;
+		this.listButton.setAttribute('aria-controls', `${idPrefix}-pass-list-panel`);
+		this.groupsButton.id = `${idPrefix}-groups-subtab`;
+		this.groupsButton.setAttribute('aria-controls', `${idPrefix}-group-list-panel`);
+		this.listPane.id = `${idPrefix}-pass-list-panel`;
 		this.listPane.className = 'zenfg-inspector-subview';
 		this.listPane.setAttribute('role', 'tabpanel');
 		this.listPane.setAttribute('aria-labelledby', this.listButton.id);
 		this.listPane.appendChild(this.listTable.scroller);
-		this.groupsPane.id = 'zenfg-inspector-group-list-panel';
+		this.groupsPane.id = `${idPrefix}-group-list-panel`;
 		this.groupsPane.className = 'zenfg-inspector-subview';
 		this.groupsPane.setAttribute('role', 'tabpanel');
 		this.groupsPane.setAttribute('aria-labelledby', this.groupsButton.id);
@@ -118,10 +122,8 @@ export class PassesView {
 	private createSubviewButton(subview: PassesSubview, label: string): HTMLButtonElement {
 		const button = document.createElement('button');
 		button.type = 'button';
-		button.id = `zenfg-inspector-${subview}-subtab`;
 		button.textContent = label;
 		button.setAttribute('role', 'tab');
-		button.setAttribute('aria-controls', `zenfg-inspector-${subview === 'list' ? 'pass-list' : 'group-list'}-panel`);
 		button.addEventListener('click', () => {
 			this.subview = subview;
 			this.updateSubview();

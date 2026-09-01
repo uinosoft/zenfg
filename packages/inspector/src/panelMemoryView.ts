@@ -19,9 +19,9 @@ export class MemoryView {
 	private snapshot: FrameGraphDebugViewModel | undefined;
 	private selected: Selection | undefined;
 
-	constructor(private readonly callbacks: WorkbenchCallbacks) {
+	constructor(private readonly callbacks: WorkbenchCallbacks, idPrefix: string) {
 		this.root.className = 'zenfg-inspector-view zenfg-inspector-memory-view';
-		this.root.id = 'zenfg-inspector-view-memory';
+		this.root.id = `${idPrefix}-view-memory`;
 		this.root.setAttribute('role', 'tabpanel');
 		this.metrics.className = 'zenfg-inspector-memory-summary';
 		this.scroller.className = 'zenfg-inspector-memory-scroller';

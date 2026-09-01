@@ -1,4 +1,3 @@
-import { InspectorShell } from './internal/InspectorShell.ts';
 import {
 	FrameGraphSnapshotValidationError,
 	decodeFrameGraphSnapshot,
@@ -28,6 +27,13 @@ import { FrameGraphDebugWorkbench } from './panelWorkbenchView.ts';
 /** Construction and safety limits for an embedded {@link FrameGraphInspector}. */
 export type FrameGraphInspectorOptions = {
 	/**
+	 * Product label shown in the workbench command bar. Pass `false` to hide
+	 * visible branding while retaining the inspector's accessible name.
+	 *
+	 * @defaultValue `"ZenFG Inspector"`
+	 */
+	branding?: string | false;
+	/**
 	 * Produces a live snapshot when capture is requested. The inspector awaits
 	 * promises and displays thrown or rejected errors in its status area.
 	 */
@@ -48,6 +54,7 @@ export type FrameGraphInspectorOptions = {
 
 const DEFAULT_MAX_IMPORT_BYTES = 64 * 1024 * 1024;
 const DEFAULT_MAX_GRAPH_ELEMENTS = 5_000;
+const DEFAULT_BRANDING = 'ZenFG Inspector';
 
 /**
  * Browser lifecycle controller for one embeddable FrameGraph inspector.
@@ -61,17 +68,17 @@ const DEFAULT_MAX_GRAPH_ELEMENTS = 5_000;
  * ```ts
  * const inspector = new FrameGraphInspector({ captureSnapshot: capture });
  * document.body.append(inspector.dom);
- * inspector.setExpanded(true);
  * // Later:
  * inspector.destroy();
  * ```
  */
 export class FrameGraphInspector {
 	/** Root element owned by this inspector instance. */
-	readonly dom: HTMLElement;
+	readonly dom = document.createElement('section');
 
-	private readonly shell: InspectorShell;
+	private readonly body = document.createElement('div');
 	private readonly content = document.createElement('div');
+	private readonly dropOverlay = document.createElement('div');
 	private readonly passesGraphModeButton: HTMLButtonElement;
 	private readonly resourcesGraphModeButton: HTMLButtonElement;
 	private readonly groupsButton: HTMLButtonElement;
@@ -94,6 +101,32 @@ export class FrameGraphInspector {
 	private destroyed = false;
 	private copyFeedbackTimeout: number | undefined;
 	private readonly maxImportBytes: number;
+	private dragDepth = 0;
+	private readonly handleDragEnter = (event: DragEvent): void => {
+		if (!isFileDrag(event)) return;
+		event.preventDefault();
+		this.dragDepth += 1;
+		this.setDropActive(true);
+	};
+	private readonly handleDragOver = (event: DragEvent): void => {
+		if (!isFileDrag(event)) return;
+		event.preventDefault();
+		if (event.dataTransfer) event.dataTransfer.dropEffect = 'copy';
+		this.setDropActive(true);
+	};
+	private readonly handleDragLeave = (event: DragEvent): void => {
+		if (!isFileDrag(event) && this.dragDepth === 0) return;
+		this.dragDepth = Math.max(0, this.dragDepth - 1);
+		if (this.dragDepth === 0) this.setDropActive(false);
+	};
+	private readonly handleDragEnd = (): void => this.clearDropState();
+	private readonly handleDrop = (event: DragEvent): void => {
+		const file = event.dataTransfer?.files?.[0];
+		if (!file) return;
+		event.preventDefault();
+		this.clearDropState();
+		void this.importSnapshot(file);
+	};
 
 	/**
 	 * Creates a detached inspector UI.
@@ -105,14 +138,21 @@ export class FrameGraphInspector {
 		ensureFrameGraphInspectorStyles();
 		this.captureSnapshotCallback = options.captureSnapshot;
 		this.maxImportBytes = normalizeMaxImportBytes(options.maxImportBytes);
-		this.shell = new InspectorShell({
-			id: 'zenfg-inspector',
-			title: 'FrameGraph',
-			onExpandedChange: (expanded) => this.handleExpandedChange(expanded),
-		});
-		this.dom = this.shell.dom;
-		this.shell.body.classList.add('zenfg-inspector-body');
+		const branding = options.branding ?? DEFAULT_BRANDING;
+		this.dom.className = 'zenfg-inspector';
+		this.dom.id = createInspectorId();
+		this.dom.setAttribute('role', 'region');
+		this.dom.setAttribute('aria-label', branding === false ? DEFAULT_BRANDING : branding);
+		this.body.className = 'zenfg-inspector-body';
 		this.content.className = 'zenfg-inspector-content';
+		this.dropOverlay.className = 'zenfg-inspector-drop-overlay';
+		this.dropOverlay.hidden = true;
+		this.dropOverlay.setAttribute('aria-hidden', 'true');
+		const dropTitle = document.createElement('strong');
+		dropTitle.textContent = 'Drop snapshot to open';
+		const dropDetail = document.createElement('span');
+		dropDetail.textContent = 'The first file will be imported locally.';
+		this.dropOverlay.append(dropTitle, dropDetail);
 
 		const graphLegend = document.createElement('div');
 		graphLegend.className = 'zenfg-inspector-graph-legend';
@@ -165,32 +205,29 @@ export class FrameGraphInspector {
 			onImport: (file) => { void this.importSnapshot(file); },
 			onDownload: () => this.downloadSnapshot(),
 			onCopyJson: () => { void this.copySnapshotJson(); },
+		}, {
+			branding,
+			idPrefix: this.dom.id,
 		});
 		this.content.append(this.workbench.root);
-		this.shell.body.appendChild(this.content);
+		this.body.appendChild(this.content);
+		this.dom.append(this.body, this.dropOverlay);
+		this.dom.addEventListener('dragenter', this.handleDragEnter);
+		this.dom.addEventListener('dragover', this.handleDragOver);
+		this.dom.addEventListener('dragleave', this.handleDragLeave);
+		this.dom.addEventListener('dragend', this.handleDragEnd);
+		this.dom.addEventListener('drop', this.handleDrop);
 		this.updateCaptureActions();
 		this.updateGraphModeButtonState();
 		this.showEmptyState();
-	}
-
-	/** Whether the inspector shell is currently expanded. */
-	get expanded(): boolean {
-		return this.shell.expanded;
-	}
-
-	/**
-	 * Expands or collapses the shell. The first expansion may automatically
-	 * request a live capture when a provider is configured.
-	 */
-	setExpanded(expanded: boolean): void {
-		this.shell.setExpanded(expanded);
+		queueMicrotask(() => this.maybeAutoCapture());
 	}
 
 	/**
 	 * Replaces or removes the live-capture provider.
 	 *
-	 * @remarks Installing a provider while expanded may immediately begin an
-	 * asynchronous capture when no snapshot is displayed.
+	 * @remarks Installing a provider may immediately begin an asynchronous
+	 * capture when no snapshot is displayed.
 	 */
 	setCaptureSnapshotProvider(provider: FrameGraphInspectorOptions['captureSnapshot']): void {
 		const changed = this.captureSnapshotCallback !== provider;
@@ -198,7 +235,7 @@ export class FrameGraphInspector {
 		if (changed && !this.viewModel) this.initialAutoCaptureAttempted = false;
 		if (!provider && !this.viewModel) this.showEmptyState();
 		this.updateCaptureActions();
-		if (this.expanded) this.maybeAutoCapture();
+		this.maybeAutoCapture();
 	}
 
 	/**
@@ -394,15 +431,21 @@ export class FrameGraphInspector {
 
 	/**
 	 * Idempotently cancels pending UI results, releases graph resources, and
-	 * removes the inspector shell. Do not reuse the controller afterward.
+	 * removes the inspector workbench. Do not reuse the controller afterward.
 	 */
 	destroy(): void {
 		if (this.destroyed) return;
 		this.destroyed = true;
 		this.operationRevision += 1;
 		if (this.copyFeedbackTimeout !== undefined) window.clearTimeout(this.copyFeedbackTimeout);
+		this.clearDropState();
+		this.dom.removeEventListener('dragenter', this.handleDragEnter);
+		this.dom.removeEventListener('dragover', this.handleDragOver);
+		this.dom.removeEventListener('dragleave', this.handleDragLeave);
+		this.dom.removeEventListener('dragend', this.handleDragEnd);
+		this.dom.removeEventListener('drop', this.handleDrop);
 		destroyGraph(this.graphView);
-		this.shell.destroy();
+		this.dom.remove();
 	}
 
 	private updateCaptureActions(): void {
@@ -418,18 +461,13 @@ export class FrameGraphInspector {
 		});
 	}
 
-	private handleExpandedChange(expanded: boolean): void {
-		if (!expanded) return;
-		this.workbench.resizeGraph(true);
-		this.maybeAutoCapture();
-	}
-
 	private maybeAutoCapture(): void {
 		if (
 			this.destroyed
 			|| this.viewModel
 			|| this.initialAutoCaptureAttempted
 			|| this.capturing
+			|| this.importing
 			|| !this.captureSnapshotCallback
 		) return;
 		this.initialAutoCaptureAttempted = true;
@@ -495,11 +533,24 @@ export class FrameGraphInspector {
 	private showEmptyState(): void {
 		const providerAvailable = Boolean(this.captureSnapshotCallback);
 		this.workbench.showEmptyState(
-			providerAvailable ? 'empty' : 'waiting',
+			'empty',
 			providerAvailable
-				? 'No capture yet. Expand the panel or use Capture to request the next frame.'
-				: 'Waiting for a FrameGraph capture source.',
+				? 'No capture yet. Use Capture to request the next rendered frame.'
+				: 'Drop a ZenFG Snapshot here or choose Import.',
+			providerAvailable ? undefined : 'Files are processed locally in your browser.',
 		);
+	}
+
+	private setDropActive(active: boolean): void {
+		if (this.destroyed) return;
+		this.dropOverlay.hidden = !active;
+		this.dom.classList.toggle('drop-active', active);
+	}
+
+	private clearDropState(): void {
+		this.dragDepth = 0;
+		this.dropOverlay.hidden = true;
+		this.dom.classList.remove('drop-active');
 	}
 
 	private reportCaptureIssue(message: string): void {
@@ -570,4 +621,14 @@ function formatImportLimit(bytes: number): string {
 
 function formatIssues(issues: readonly { readonly path: string; readonly message: string }[]): string {
 	return issues.slice(0, 3).map((issue) => `${issue.path || '/'}: ${issue.message}`).join('; ');
+}
+
+function isFileDrag(event: DragEvent): boolean {
+	return Array.from(event.dataTransfer?.types ?? []).includes('Files');
+}
+
+let nextInspectorId = 0;
+function createInspectorId(): string {
+	nextInspectorId += 1;
+	return `zenfg-inspector-${nextInspectorId}`;
 }

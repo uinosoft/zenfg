@@ -9,28 +9,27 @@ import { FrameGraphInspector, mountFrameGraphInspector } from '../src/FrameGraph
 import { BufferAccess, TextureAccess } from './accessKinds.ts';
 import { createLegacyDebugViewModel, toSnapshot, type LegacyFrameGraphCapture } from './legacySnapshotFixture.ts';
 
-test('keeps the shared header action-free and exposes capture commands outside the tablist', () => {
+test('renders an always-visible branded workbench with commands outside the tablist', () => {
 	const testWindow = installDom();
 	const panel = mountFrameGraphInspector(document.body);
 
-	assert.equal(panel.dom.querySelector('.zenfg-inspector-shell-header .zenfg-inspector-shell-action'), null);
-	const header = panel.dom.querySelector<HTMLElement>('.zenfg-inspector-shell-header');
+	assert.equal(panel.dom.classList.contains('zenfg-inspector'), true);
+	assert.equal(panel.dom.querySelector('.zenfg-inspector-shell-header'), null);
+	assert.equal(panel.dom.querySelector('.zenfg-inspector-brand')?.textContent, 'ZenFG Inspector');
 	const commandBar = panel.dom.querySelector<HTMLElement>('.zenfg-inspector-workbench-command-bar');
 	const tabs = commandBar?.querySelector<HTMLElement>('[role="tablist"]');
 	const actions = commandBar?.querySelector<HTMLElement>('[role="toolbar"]');
-	assert.ok(header && commandBar && tabs && actions);
+	assert.ok(commandBar && tabs && actions);
 	assert.equal(actions.getAttribute('aria-label'), 'FrameGraph commands');
 	assert.equal(tabs.contains(actions), false);
 	assert.equal(tabs.contains(panel.dom.querySelector('.zenfg-inspector-open-inspector')), false);
 	assert.equal(actions.contains(panel.dom.querySelector('.zenfg-inspector-open-inspector')), true);
 	assert.equal(captureAction(panel.dom).disabled, true);
+	assert.equal(captureAction(panel.dom).hidden, true);
 	assert.equal(copyAction(panel.dom).disabled, true);
 	assert.equal(tabButton(tabs, 'Graph').disabled, true);
-
-	header.click();
-	assert.equal(panel.expanded, true);
-	header.click();
-	assert.equal(panel.expanded, false);
+	assert.match(panel.dom.querySelector('.zenfg-inspector-workbench-empty')?.textContent ?? '', /Drop a ZenFG Snapshot/);
+	assert.match(panel.dom.querySelector('.zenfg-inspector-workbench-empty')?.textContent ?? '', /processed locally/);
 
 	panel.setSnapshot(toSnapshot(createEmptyCapture()));
 	assert.equal(copyAction(panel.dom).disabled, false);
@@ -38,6 +37,91 @@ test('keeps the shared header action-free and exposes capture commands outside t
 
 	panel.destroy();
 	assert.equal(panel.dom.isConnected, false);
+	testWindow.close();
+});
+
+test('supports configurable branding and unique accessible ids across instances', () => {
+	const testWindow = installDom();
+	const first = new FrameGraphInspector({ branding: 'Custom Inspector' });
+	const second = new FrameGraphInspector({ branding: false });
+
+	assert.equal(first.dom.querySelector('.zenfg-inspector-brand')?.textContent, 'Custom Inspector');
+	assert.equal(first.dom.getAttribute('aria-label'), 'Custom Inspector');
+	assert.equal(second.dom.querySelector('.zenfg-inspector-brand'), null);
+	assert.equal(second.dom.getAttribute('aria-label'), 'ZenFG Inspector');
+	const firstIds = new Set(Array.from(first.dom.querySelectorAll<HTMLElement>('[id]'), (element) => element.id));
+	const secondIds = new Set(Array.from(second.dom.querySelectorAll<HTMLElement>('[id]'), (element) => element.id));
+	assert.equal([...firstIds].some((id) => secondIds.has(id)), false);
+	for (const panel of [first, second]) {
+		for (const control of panel.dom.querySelectorAll<HTMLElement>('[aria-controls]')) {
+			const targetId = control.getAttribute('aria-controls');
+			assert.ok(targetId && panel.dom.querySelector(`[id="${targetId}"]`));
+		}
+		panel.destroy();
+	}
+	testWindow.close();
+});
+
+test('imports the first dropped file, ignores non-file drags, and unwires on destroy', async () => {
+	const testWindow = installDom();
+	const panel = new FrameGraphInspector();
+	const snapshot = toSnapshot(createEmptyCapture());
+	const fixture = new testWindow.File(
+		[JSON.stringify(snapshot)],
+		'fixture.fgsnapshot.json',
+		{ type: 'application/json' },
+	) as unknown as File;
+	const overlay = panel.dom.querySelector<HTMLElement>('.zenfg-inspector-drop-overlay');
+	assert.ok(overlay);
+
+	const textDrag = new testWindow.Event('dragover', { cancelable: true }) as unknown as DragEvent;
+	Object.defineProperty(textDrag, 'dataTransfer', { value: { types: ['text/plain'], files: [] } });
+	panel.dom.dispatchEvent(textDrag);
+	assert.equal(textDrag.defaultPrevented, false);
+	assert.equal(overlay.hidden, true);
+
+	const dragEnter = new testWindow.Event('dragenter', { cancelable: true }) as unknown as DragEvent;
+	Object.defineProperty(dragEnter, 'dataTransfer', { value: { types: ['Files'], files: [fixture] } });
+	panel.dom.dispatchEvent(dragEnter);
+	assert.equal(dragEnter.defaultPrevented, true);
+	assert.equal(overlay.hidden, false);
+
+	const drop = new testWindow.Event('drop', { cancelable: true }) as unknown as DragEvent;
+	Object.defineProperty(drop, 'dataTransfer', { value: { types: ['Files'], files: [fixture] } });
+	panel.dom.dispatchEvent(drop);
+	await flushAsync();
+	assert.equal(drop.defaultPrevented, true);
+	assert.equal(overlay.hidden, true);
+	assert.deepEqual(panel.getSnapshot(), snapshot);
+
+	panel.destroy();
+	const afterDestroy = new testWindow.Event('dragenter', { cancelable: true }) as unknown as DragEvent;
+	Object.defineProperty(afterDestroy, 'dataTransfer', { value: { types: ['Files'], files: [fixture] } });
+	panel.dom.dispatchEvent(afterDestroy);
+	assert.equal(afterDestroy.defaultPrevented, false);
+	assert.equal(overlay.hidden, true);
+	testWindow.close();
+});
+
+test('imports a snapshot through the built-in file input', async () => {
+	const testWindow = installDom();
+	const panel = new FrameGraphInspector();
+	const snapshot = toSnapshot(createEmptyCapture());
+	const fixture = new testWindow.File(
+		[JSON.stringify(snapshot)],
+		'fixture.fgsnapshot.json',
+		{ type: 'application/json' },
+	) as unknown as File;
+	const input = panel.dom.querySelector<HTMLInputElement>('input[type="file"]');
+	assert.ok(input);
+	Object.defineProperty(input, 'files', { configurable: true, value: [fixture] });
+
+	input.dispatchEvent(new testWindow.Event('change'));
+	await flushAsync();
+
+	assert.deepEqual(panel.getSnapshot(), snapshot);
+	assert.equal(input.value, '');
+	panel.destroy();
 	testWindow.close();
 });
 
@@ -50,7 +134,9 @@ test('injects scoped visual tokens and keeps icon buttons accessibly named', () 
 	assert.match(css, /--fgd-canvas: #0b0f14/);
 	assert.match(css, /--fgd-accent: var\(--zenfg-inspector-accent, #38bdf8\)/);
 	assert.match(css, /border: 1px solid var\(--zenfg-inspector-border/);
-	assert.equal(css.includes('#zenfg-inspector > .zenfg-inspector-shell-header'), false);
+	assert.match(css, /container-name: zenfg-inspector/);
+	assert.match(css, /@container zenfg-inspector \(max-width: 840px\)/);
+	assert.equal(css.includes('#zenfg-inspector'), false);
 	assert.equal(css.includes('.zenfg-inspector-stats'), false);
 	assert.equal(css.includes('.zenfg-inspector-timeline'), false);
 
@@ -81,17 +167,11 @@ test('automatically captures only once per initialized source and allows manual 
 		},
 	});
 
-	panel.setExpanded(true);
 	await flushAsync();
 	assert.equal(calls, 1);
 	assert.match(panel.dom.querySelector('.zenfg-inspector-workbench-empty')?.textContent ?? '', /No snapshot was produced/);
 	assert.equal(panel.dom.querySelector<HTMLElement>('.zenfg-inspector-workbench-empty')?.dataset.state, 'error');
 	assert.equal(captureAction(panel.dom).disabled, false);
-
-	panel.setExpanded(false);
-	panel.setExpanded(true);
-	await flushAsync();
-	assert.equal(calls, 1);
 
 	captureAction(panel.dom).click();
 	await flushAsync();
@@ -101,13 +181,12 @@ test('automatically captures only once per initialized source and allows manual 
 	testWindow.close();
 });
 
-test('starts the one-shot capture when a source is injected after expansion', async () => {
+test('starts the one-shot capture when a source is injected into the visible workbench', async () => {
 	const testWindow = installDom();
 	const panel = new FrameGraphInspector();
-	panel.setExpanded(true);
-	assert.match(panel.dom.querySelector('.zenfg-inspector-workbench-empty')?.textContent ?? '', /Waiting for a FrameGraph capture source/);
-	assert.equal(panel.dom.querySelector<HTMLElement>('.zenfg-inspector-workbench-empty')?.dataset.state, 'waiting');
-	assert.equal(captureAction(panel.dom).disabled, true);
+	assert.match(panel.dom.querySelector('.zenfg-inspector-workbench-empty')?.textContent ?? '', /Drop a ZenFG Snapshot/);
+	assert.equal(panel.dom.querySelector<HTMLElement>('.zenfg-inspector-workbench-empty')?.dataset.state, 'empty');
+	assert.equal(captureAction(panel.dom).hidden, true);
 
 	let calls = 0;
 	let resolveCapture!: (snapshot: ReturnType<typeof toSnapshot> | undefined) => void;
@@ -118,6 +197,7 @@ test('starts the one-shot capture when a source is injected after expansion', as
 		});
 	});
 	assert.equal(calls, 1);
+	assert.equal(captureAction(panel.dom).hidden, false);
 	assert.equal(captureAction(panel.dom).textContent, 'Capturing…');
 	assert.equal(panel.dom.querySelector<HTMLElement>('.zenfg-inspector-workbench-empty')?.dataset.state, 'capturing');
 	assert.equal(captureAction(panel.dom).querySelector('svg')?.dataset.icon, 'spinner');
@@ -143,7 +223,6 @@ test('keeps the current snapshot and view state when a manual recapture fails', 
 		}),
 	});
 	panel.setSnapshot(toSnapshot(createLongCapture(80)));
-	panel.setExpanded(true);
 
 	const tabs = panel.dom.querySelector<HTMLElement>('.zenfg-inspector-workbench-tabs');
 	assert.ok(tabs);
@@ -352,7 +431,7 @@ test('rejects semantic-invalid and over-depth Snapshots atomically and reports t
 	const tabs = panel.dom.querySelector('.zenfg-inspector-workbench-tabs');
 	assert.ok(tabs);
 	tabButton(tabs, 'Passes').click();
-	const passRows = panel.dom.querySelectorAll<HTMLTableRowElement>('#zenfg-inspector-pass-list-panel tbody tr');
+	const passRows = panel.dom.querySelectorAll<HTMLTableRowElement>('.zenfg-inspector-passes-view tbody tr');
 	assert.ok(passRows.length > 1);
 	const selectedRow = passRows[1];
 	const selectedButton = selectedRow.querySelector<HTMLButtonElement>('.zenfg-inspector-relation-button');
@@ -369,7 +448,7 @@ test('rejects semantic-invalid and over-depth Snapshots atomically and reports t
 	) as unknown as File);
 
 	assert.equal(panel.getSnapshot(), current);
-	const selectedAfter = panel.dom.querySelector<HTMLTableRowElement>('#zenfg-inspector-pass-list-panel tbody tr.selected');
+	const selectedAfter = panel.dom.querySelector<HTMLTableRowElement>('.zenfg-inspector-passes-view tbody tr.selected');
 	assert.equal(selectedAfter, selectedRow);
 	assert.equal(selectedAfter?.textContent, selectedBefore);
 	const status = panel.dom.querySelector<HTMLElement>('.zenfg-inspector-command-status');
@@ -385,7 +464,7 @@ test('rejects semantic-invalid and over-depth Snapshots atomically and reports t
 	) as unknown as File);
 
 	assert.equal(panel.getSnapshot(), current);
-	const selectedAfterDepth = panel.dom.querySelector<HTMLTableRowElement>('#zenfg-inspector-pass-list-panel tbody tr.selected');
+	const selectedAfterDepth = panel.dom.querySelector<HTMLTableRowElement>('.zenfg-inspector-passes-view tbody tr.selected');
 	assert.equal(selectedAfterDepth, selectedRow);
 	assert.equal(selectedAfterDepth?.textContent, selectedBefore);
 	assert.equal(status?.dataset.tone, 'error');
@@ -869,7 +948,7 @@ function tabButton(root: ParentNode, label: string): HTMLButtonElement {
 
 function passListLabels(root: ParentNode): string[] {
 	return Array.from(
-		root.querySelectorAll<HTMLButtonElement>('#zenfg-inspector-pass-list-panel .zenfg-inspector-relation-button'),
+		root.querySelectorAll<HTMLButtonElement>('.zenfg-inspector-passes-view .zenfg-inspector-relation-button'),
 		(button) => button.textContent ?? '',
 	);
 }

@@ -381,7 +381,6 @@ try {
         '        maxGraphElements: 5_000,',
         '    };',
         '    const inspector = mountFrameGraphInspector(host, options);',
-        '    inspector.setExpanded(true);',
         '    inspector.setSnapshot(existingSnapshot);',
         '    inspector.destroy();',
         '}',

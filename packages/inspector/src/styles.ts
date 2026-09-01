@@ -4,8 +4,8 @@ const STYLE_ELEMENT_ID = 'zenfg-inspector-panel-styles';
 const theme = FRAME_GRAPH_DEBUG_VISUAL_THEME;
 
 const FRAME_GRAPH_DEBUG_PANEL_CSS = `
-/* Tokens and shell */
-#zenfg-inspector {
+/* Tokens and workbench root */
+.zenfg-inspector {
 	--fgd-canvas: ${theme.canvas};
 	--fgd-panel: var(--zenfg-inspector-background, ${theme.panel});
 	--fgd-surface: var(--zenfg-inspector-surface, ${theme.surface});
@@ -25,43 +25,65 @@ const FRAME_GRAPH_DEBUG_PANEL_CSS = `
 	--fgd-danger: var(--zenfg-inspector-danger, ${theme.danger});
 	--fgd-font-ui: var(--zenfg-inspector-font-ui, ${theme.fontUi});
 	--fgd-font-mono: var(--zenfg-inspector-font-mono, ${theme.fontMono});
+	position: relative;
+	display: block;
+	width: 100%;
+	height: 100%;
+	min-width: 0;
+	min-height: 0;
+	overflow: hidden;
 	color: var(--fgd-text);
+	background: var(--fgd-canvas);
 	font-family: var(--fgd-font-ui);
 	font-size: 12px;
 	line-height: 1.45;
 	color-scheme: dark;
+	container-name: zenfg-inspector;
+	container-type: inline-size;
 }
 
-#zenfg-inspector,
-#zenfg-inspector * { box-sizing: border-box; }
+.zenfg-inspector,
+.zenfg-inspector * { box-sizing: border-box; }
 
 .zenfg-inspector-body {
-	top: var(--zenfg-inspector-edge, 12px);
-	right: var(--zenfg-inspector-edge, 12px);
-	bottom: var(
-		--zenfg-inspector-trigger-clearance,
-		calc(var(--zenfg-inspector-edge, 12px) + var(--zenfg-inspector-trigger-offset, 44px))
-	);
-	left: var(--zenfg-inspector-edge, 12px);
-	width: auto;
+	width: 100%;
+	height: 100%;
 	min-height: 0;
 	padding: 10px;
 	overflow: hidden;
 	border: 1px solid var(--zenfg-inspector-border, var(--fgd-border));
 	border-radius: var(--zenfg-inspector-radius-md, 6px);
 	background: var(--zenfg-inspector-background, var(--fgd-panel));
-	box-shadow: var(--zenfg-inspector-shadow-lg, 0 18px 44px rgba(0, 0, 0, 0.4));
 }
 
-.zenfg-inspector-content { min-width: 0; min-height: 0; }
-#zenfg-inspector.expanded .zenfg-inspector-content {
-	display: block;
+.zenfg-inspector-content {
+	min-width: 0;
+	min-height: 0;
 	height: 100%;
 	overflow: hidden;
 }
 
+.zenfg-inspector-drop-overlay {
+	position: absolute;
+	z-index: 40;
+	inset: 10px;
+	display: grid;
+	place-content: center;
+	gap: 6px;
+	border: 2px dashed var(--fgd-accent);
+	border-radius: var(--zenfg-inspector-radius-md, 6px);
+	color: #bae6fd;
+	background: color-mix(in srgb, var(--fgd-canvas) 90%, transparent);
+	font: 600 13px/1.4 var(--fgd-font-ui);
+	text-align: center;
+	pointer-events: none;
+}
+.zenfg-inspector-drop-overlay[hidden] { display: none; }
+.zenfg-inspector-drop-overlay > span { color: var(--fgd-muted); font-size: 11px; }
+
 .zenfg-inspector-capture-summary[hidden],
 .zenfg-inspector-command-status[hidden],
+.zenfg-inspector-capture-action[hidden],
 .zenfg-inspector-workbench-empty[hidden],
 .zenfg-inspector-open-inspector[hidden],
 .zenfg-inspector-inspector.unavailable,
@@ -151,10 +173,25 @@ const FRAME_GRAPH_DEBUG_PANEL_CSS = `
 
 /* Command bar, tabs, and controls */
 .zenfg-inspector-workbench-command-bar {
-	display: flex;
-	align-items: stretch;
+	display: grid;
+	grid-template-columns: auto minmax(0, 1fr) auto;
+	align-items: center;
 	min-width: 0;
 	border-bottom: 1px solid var(--fgd-border-subtle);
+}
+.zenfg-inspector-workbench-command-bar.branding-hidden {
+	grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.zenfg-inspector-brand {
+	min-width: 0;
+	padding: 0 12px 0 4px;
+	overflow: hidden;
+	color: var(--fgd-text);
+	font: 700 12px/1 var(--fgd-font-ui);
+	letter-spacing: 0.015em;
+	text-overflow: ellipsis;
+	white-space: nowrap;
 }
 
 .zenfg-inspector-workbench-tabs,
@@ -167,7 +204,6 @@ const FRAME_GRAPH_DEBUG_PANEL_CSS = `
 }
 
 .zenfg-inspector-workbench-tabs {
-	flex: 1 1 auto;
 	overflow-x: auto;
 	border-bottom: 0;
 }
@@ -209,10 +245,11 @@ const FRAME_GRAPH_DEBUG_PANEL_CSS = `
 .zenfg-inspector-workbench-actions {
 	position: relative;
 	display: flex;
-	flex: 0 0 auto;
 	align-items: center;
 	gap: 6px;
 	padding-left: 8px;
+	overflow-x: auto;
+	scrollbar-width: thin;
 }
 
 .zenfg-inspector-export-menu {
@@ -371,6 +408,7 @@ button[aria-busy='true'] > .zenfg-inspector-control-icon {
 .zenfg-inspector-workbench-empty[data-state='error'] > .zenfg-inspector-control-icon { color: var(--fgd-danger); }
 .zenfg-inspector-workbench-empty[data-state='capturing'] > .zenfg-inspector-control-icon { color: var(--fgd-accent); }
 .zenfg-inspector-empty-message { max-width: 520px; }
+.zenfg-inspector-empty-detail { color: color-mix(in srgb, var(--fgd-muted) 78%, transparent); font-size: 11px; }
 
 .zenfg-inspector-view {
 	grid-area: 1 / 1;
@@ -926,7 +964,7 @@ button[aria-busy='true'] > .zenfg-inspector-control-icon {
 .zenfg-inspector-diagnostic-list .selected { box-shadow: inset 2px 0 var(--fgd-accent); }
 
 /* Responsive */
-@media (max-width: 960px) {
+@container zenfg-inspector (max-width: 960px) {
 	.zenfg-inspector-workspace.inspector-open { grid-template-columns: minmax(0, 1fr); }
 	.zenfg-inspector-workspace.inspector-open::after {
 		position: absolute;
@@ -958,14 +996,22 @@ button[aria-busy='true'] > .zenfg-inspector-control-icon {
 	.zenfg-inspector-graph-action-controls { justify-self: end; }
 }
 
-@media (max-width: 840px) {
+@container zenfg-inspector (max-width: 840px) {
+	.zenfg-inspector-workbench-command-bar {
+		grid-template-columns: minmax(0, 1fr) auto;
+	}
+	.zenfg-inspector-brand { grid-column: 1; grid-row: 1; min-height: 36px; display: flex; align-items: center; }
+	.zenfg-inspector-workbench-actions { grid-column: 2; grid-row: 1; }
+	.zenfg-inspector-workbench-tabs { grid-column: 1 / -1; grid-row: 2; }
+	.zenfg-inspector-workbench-command-bar.branding-hidden .zenfg-inspector-workbench-tabs {
+		grid-column: 1;
+		grid-row: 1;
+	}
 	.zenfg-inspector-diagnostics-grid { grid-template-columns: minmax(0, 1fr); }
 }
 
-@media (max-width: 720px) {
-	#zenfg-inspector.expanded .zenfg-inspector-body {
-		padding: 8px;
-	}
+@container zenfg-inspector (max-width: 720px) {
+	.zenfg-inspector-body { padding: 8px; }
 	.zenfg-inspector-capture-summary {
 		grid-template-columns: repeat(2, minmax(0, 1fr));
 		border: 0;
@@ -996,9 +1042,9 @@ button[aria-busy='true'] > .zenfg-inspector-control-icon {
 }
 
 @media (prefers-reduced-motion: reduce) {
-	#zenfg-inspector *,
-	#zenfg-inspector *::before,
-	#zenfg-inspector *::after {
+	.zenfg-inspector *,
+	.zenfg-inspector *::before,
+	.zenfg-inspector *::after {
 		scroll-behavior: auto !important;
 		transition-duration: 0.01ms !important;
 		animation-duration: 0.01ms !important;
