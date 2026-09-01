@@ -504,6 +504,101 @@ test('getBufferDesc returns the snapshotted transient buffer descriptor', () => 
 	);
 });
 
+test('descriptor getters return defensive snapshots', () => {
+	let physicalBufferDescriptor: GPUBufferDescriptor | undefined;
+	const baseDevice = mockDevice();
+	const device = {
+		...baseDevice,
+		createBuffer(desc: GPUBufferDescriptor) {
+			physicalBufferDescriptor = desc;
+			return baseDevice.createBuffer(desc);
+		},
+	} as GPUDevice;
+	const graph = new FrameGraph(device).beginFrame();
+	const data = graph.createBuffer({ label: 'data', size: 64 });
+	const bufferDesc = graph.getBufferDesc(data) as unknown as { size: number };
+	bufferDesc.size = 128;
+
+	assert.equal(graph.getBufferDesc(data).size, 64);
+	graph.command({
+		label: 'write-data',
+		sideEffect: true,
+		uses: [graph.use(data, BufferAccess.StorageWrite, { contents: 'overwrite' })],
+	});
+	const bufferCompiled = graph.compile({ report: true });
+	const bufferReport = bufferCompiled.compilationReport.resources.find((resource) => resource.id === data.id);
+	assert.equal(bufferReport?.kind, 'buffer');
+	assert.equal(bufferReport?.descriptor.size, 64);
+	bufferCompiled.execute();
+	assert.equal(physicalBufferDescriptor?.size, 64);
+
+	let physicalTextureDescriptor: GPUTextureDescriptor | undefined;
+	let physicalViewDescriptor: GPUTextureViewDescriptor | undefined;
+	const textureBaseDevice = mockDevice();
+	const textureDevice = {
+		...textureBaseDevice,
+		createTexture(desc: GPUTextureDescriptor) {
+			physicalTextureDescriptor = desc;
+			const physical = textureBaseDevice.createTexture(desc);
+			return {
+				...physical,
+				createView(viewDesc: GPUTextureViewDescriptor = {}) {
+					physicalViewDescriptor = viewDesc;
+					return physical.createView(viewDesc);
+				},
+			} as GPUTexture;
+		},
+	} as GPUDevice;
+	const textureGraph = new FrameGraph(textureDevice).beginFrame();
+	const color = textureGraph.createTexture({
+		label: 'color',
+		format: 'rgba8unorm',
+		viewFormats: ['rgba8unorm-srgb'],
+		size: { width: 4, height: 4, depthOrArrayLayers: 1 },
+		mipLevelCount: 2,
+	});
+	const view = textureGraph.createTextureView(color, { baseMipLevel: 1, mipLevelCount: 1 });
+	const textureDesc = textureGraph.getTextureDesc(color) as unknown as {
+		size: { width: number };
+		viewFormats: GPUTextureFormat[];
+	};
+	textureDesc.size.width = 8;
+	textureDesc.viewFormats.length = 0;
+	const viewDesc = textureGraph.getTextureViewDesc(view) as unknown as { baseMipLevel: number };
+	viewDesc.baseMipLevel = 0;
+
+	assert.equal((textureGraph.getTextureDesc(color).size as GPUExtent3DDict).width, 4);
+	assert.deepEqual(textureGraph.getTextureDesc(color).viewFormats, ['rgba8unorm-srgb']);
+	assert.equal(textureGraph.getTextureViewDesc(view).baseMipLevel, 1);
+	textureGraph.render({
+		label: 'write-color',
+		colorAttachments: [{ target: view, loadOp: 'clear', storeOp: 'store' }],
+	});
+	const sampled = textureGraph.use(view, TextureAccess.Sampled);
+	textureGraph.command({
+		label: 'read-color',
+		sideEffect: true,
+		uses: [sampled],
+		encode(ctx) {
+			ctx.unwrap(sampled);
+		},
+	});
+	textureGraph.markOutput(color);
+	const textureCompiled = textureGraph.compile({ report: true });
+	const textureReport = textureCompiled.compilationReport.resources.find((resource) => resource.id === color.id);
+	const viewReport = textureCompiled.compilationReport.textureViews.find((entry) => entry.id === view.id);
+	assert.equal(textureReport?.kind, 'texture');
+	if (textureReport?.kind === 'texture') {
+		assert.equal(textureReport.descriptor.size.width, 4);
+		assert.deepEqual(textureReport.descriptor.viewFormats, ['rgba8unorm-srgb']);
+	}
+	assert.equal(viewReport?.baseMipLevel, 1);
+	textureCompiled.execute();
+	assert.equal((physicalTextureDescriptor?.size as GPUExtent3DDict).width, 4);
+	assert.deepEqual(physicalTextureDescriptor?.viewFormats, ['rgba8unorm-srgb']);
+	assert.equal(physicalViewDescriptor?.baseMipLevel, 1);
+});
+
 test('transient textures snapshot viewFormats through compilation and allocation', () => {
 	let physicalDescriptor: GPUTextureDescriptor | undefined;
 	const baseDevice = mockDevice();

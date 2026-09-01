@@ -430,9 +430,9 @@ class FrameGraphRecorderImpl implements FrameGraphRecorder {
 	/**
 	 * Returns the descriptor registered for a logical texture.
 	 *
-	 * The returned object is the registered snapshot, not a mutable copy. It is
-	 * intended for recording-time decisions such as selecting compatible
-	 * pipeline variants and must not be changed.
+	 * The returned object is an independent snapshot of the registered descriptor.
+	 * It is intended for recording-time decisions such as selecting compatible
+	 * pipeline variants; mutating it does not change the graph declaration.
 	 *
 	 * @param handle - Texture handle from the current recording.
 	 * @returns The read-only registered descriptor.
@@ -443,7 +443,7 @@ class FrameGraphRecorderImpl implements FrameGraphRecorder {
 	 */
 	getTextureDesc(handle: TextureHandle): Readonly<TextureDesc> {
 		this.assertCanMutate('getTextureDesc');
-		return this.resourceFor(handle).desc as TextureDesc;
+		return snapshotTextureDescriptor(this.resourceFor(handle).desc as TextureDesc);
 	}
 
 	/**
@@ -490,7 +490,7 @@ class FrameGraphRecorderImpl implements FrameGraphRecorder {
 	 */
 	getTextureViewDesc(handle: TextureViewHandle): Readonly<NormalizedTextureViewDesc> {
 		this.assertCanMutate('getTextureViewDesc');
-		return this.textureViewFor(handle).desc;
+		return { ...this.textureViewFor(handle).desc };
 	}
 
 	/**
@@ -527,12 +527,12 @@ class FrameGraphRecorderImpl implements FrameGraphRecorder {
 	/**
 	 * Returns the descriptor registered for a logical buffer.
 	 *
-	 * The returned object is the registered snapshot, not a mutable copy. For an
-	 * imported buffer, its size and usage reflect the graph-visible values after
-	 * applying `exposedSize` and `exposedUsage`. For a transient buffer whose
+	 * The returned object is an independent snapshot of the registered descriptor.
+	 * For an imported buffer, its size and usage reflect the graph-visible values
+	 * after applying `exposedSize` and `exposedUsage`. For a transient buffer whose
 	 * usage is omitted, this method does not expose the usage derived later by
-	 * compilation. The descriptor is intended for recording-time decisions and
-	 * must not be changed.
+	 * compilation. Mutating the returned object does not change the graph
+	 * declaration.
 	 *
 	 * @param handle - Buffer handle from the current recording.
 	 * @returns The read-only registered descriptor.
@@ -543,7 +543,7 @@ class FrameGraphRecorderImpl implements FrameGraphRecorder {
 	 */
 	getBufferDesc(handle: BufferHandle): Readonly<BufferDesc> {
 		this.assertCanMutate('getBufferDesc');
-		return this.resourceFor(handle).desc as BufferDesc;
+		return { ...this.resourceFor(handle).desc as BufferDesc };
 	}
 
 	/**

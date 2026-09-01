@@ -183,7 +183,7 @@ use-token identity 仍是固定引用。再次执行不会刷新这些引用，�
 | Recording | `beginFrame()` | 开始一次独立、单次使用的 recording。 |
 | Transient 资源 | `createTexture()`, `createBuffer()` | 声明只属于当前 compiled frame 的图自有资源。 |
 | 导入资源 | `importTexture()`, `importSwapchainTexture()`, `importBuffer()` | 将调用方自有 GPU 资源注册到图可见数据流。 |
-| 资源元数据 | `getTextureDesc()`, `getBufferDesc()` | 读取注册时保存的 descriptor snapshot。 |
+| 资源元数据 | `getTextureDesc()`, `getBufferDesc()` | 读取注册时保存的独立 descriptor snapshot；修改返回值不会改变图声明。 |
 | 逻辑 view | `createTextureView()`, `getTextureViewDesc()` | 选择 texture subresource，并读取规范化 view descriptor。 |
 | Access 类型 | `TextureAccess`, `BufferAccess` | 列出支持的 texture 和 buffer access role。 |
 | 访问声明 | `use()` | 为资源或 view 创建带类型的 read/write token。 |

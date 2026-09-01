@@ -238,9 +238,10 @@ Camera data, pipelines, bind groups, samplers, and local caches therefore normal
 remain outside the graph. Import a camera buffer only when its produced or consumed
 data must participate in graph ordering or retention.
 
-`getTextureDesc()`, `getBufferDesc()`, and `getTextureViewDesc()` expose read-only
-registered snapshots for recording-time decisions such as choosing compatible
-pipeline variants or binding ranges. They do not transfer ownership. A transient
+`getTextureDesc()`, `getBufferDesc()`, and `getTextureViewDesc()` expose independent
+read-only snapshots for recording-time decisions such as choosing compatible
+pipeline variants or binding ranges. Mutating a returned snapshot does not change
+the graph declaration, and the getters do not transfer ownership. A transient
 descriptor with omitted `usage` continues to report `usage: undefined`; derived
 usage is a compilation result.
 
