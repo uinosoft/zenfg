@@ -3,31 +3,39 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="ZenFG is a standalone, composable FrameGraph toolchain for WebGPU and wgpu.">
+  <meta name="description" content="ZenFG is an independent, composable FrameGraph toolchain for WebGPU and wgpu." data-i18n="description">
   <meta name="theme-color" content="#080c11">
   <meta name="color-scheme" content="dark">
   <meta property="og:type" content="website">
   <meta property="og:title" content="ZenFG">
-  <meta property="og:description" content="A standalone, composable FrameGraph toolchain for WebGPU and wgpu.">
-  <title>ZenFG — FrameGraph toolchain for WebGPU and wgpu</title>
+  <meta property="og:description" content="An independent, composable FrameGraph toolchain for WebGPU and wgpu." data-i18n="ogDescription">
+  <title data-i18n="title">ZenFG | FrameGraph for WebGPU and wgpu</title>
   <link rel="stylesheet" href="/src/styles.css">
 </head>
 <body>
   <main>
-    <section class="intro" aria-labelledby="site-title">
-      <p class="eyebrow">WebGPU · wgpu · portable snapshots</p>
+    <header class="site-header">
+      <button class="language-toggle" type="button" aria-controls="site-content" aria-label="Switch to Simplified Chinese" data-language-toggle>
+        <span aria-hidden="true">文</span>
+        <span data-language-label>简体中文</span>
+      </button>
+    </header>
+    <section class="intro" id="site-content" aria-labelledby="site-title">
+      <p class="eyebrow" data-i18n="eyebrow">WebGPU / wgpu / portable snapshots</p>
       <h1 id="site-title">ZenFG</h1>
-      <p class="summary">
-        A standalone, composable FrameGraph toolchain with TypeScript and Rust
-        runtimes, portable captures, validation, and inspection tools.
+      <p class="summary" data-i18n="summary">
+        An independent, composable FrameGraph toolchain for WebGPU and wgpu, with
+        TypeScript and Rust runtimes, a portable Snapshot format, validation, and
+        an embeddable Inspector.
       </p>
-      <nav aria-label="Project links">
-        <a class="primary" href="./inspector/">Open Inspector <span aria-hidden="true">→</span></a>
-        <a href="https://github.com/uinosoft/zenfg/blob/main/docs/quick-reference.md">Quick reference</a>
-        <a href="https://github.com/uinosoft/zenfg">GitHub</a>
+      <nav aria-label="Project links" data-i18n-aria="projectLinks">
+        <a class="primary" href="./inspector/"><span data-i18n="inspector">Open Inspector</span> <span aria-hidden="true">→</span></a>
+        <a href="https://github.com/uinosoft/zenfg/blob/main/docs/quick-reference.md" data-i18n="quickReference">Quick reference guide</a>
+        <a href="https://github.com/uinosoft/zenfg" data-i18n="github">GitHub</a>
       </nav>
     </section>
-    <p class="note">Open source · MIT licensed · Engine-independent</p>
+    <p class="note" data-i18n="note">Open source / MIT licensed / Engine-independent</p>
   </main>
+  <script type="module" src="/src/main.ts"></script>
 </body>
 </html>

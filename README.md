@@ -1,5 +1,7 @@
 # ZenFG
 
+English | [简体中文](README.zh-CN.md)
+
 ZenFG is a standalone, composable FrameGraph toolchain for WebGPU and wgpu.
 It provides idiomatic TypeScript and Rust runtimes, a portable Snapshot format,
 validation and conformance tools, and an embeddable Inspector.

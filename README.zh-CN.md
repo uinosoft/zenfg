@@ -1,5 +1,7 @@
 # ZenFG
 
+[English](README.md) | 简体中文
+
 ZenFG 是一个面向 WebGPU 与 wgpu 的独立、可组合 FrameGraph 工具链，提供
 TypeScript 与 Rust runtime、可移植 Snapshot 协议、验证与一致性测试，以及可嵌入
 应用或独立运行的 Inspector。
