@@ -7,7 +7,6 @@ export type PanelIconName =
 	| 'error'
 	| 'fit'
 	| 'inspector'
-	| 'relayout'
 	| 'spinner'
 	| 'waiting';
 
@@ -26,7 +25,6 @@ const ICON_PATHS: Record<PanelIconName, readonly string[]> = {
 	error: ['M8 2.5l5.5 10H2.5z', 'M8 6v3', 'M8 11.2v.1'],
 	fit: ['M6 2.5H2.5V6', 'M10 2.5h3.5V6', 'M6 13.5H2.5V10', 'M10 13.5h3.5V10'],
 	inspector: ['M2.5 3h11v10h-11z', 'M9.5 3v10'],
-	relayout: ['M13.5 5.5V2.8l-1.7 1.7A5.8 5.8 0 1 0 13.4 10', 'M2.5 10.5v2.7l1.7-1.7'],
 	spinner: ['M13 8a5 5 0 1 1-2-4'],
 	waiting: ['M5.5 5v6', 'M10.5 5v6'],
 };

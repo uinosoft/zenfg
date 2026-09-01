@@ -9,7 +9,7 @@ export type Selection =
     | { kind: 'allocation'; id: string }
     | { kind: 'segment'; index: number };
 
-export type WorkbenchTab = 'graph' | 'passes' | 'resources' | 'memory' | 'diagnostics';
+export type WorkbenchTab = 'overview' | 'graph' | 'passes' | 'resources' | 'memory' | 'diagnostics';
 export type PassesSubview = 'list' | 'groups';
 export type InspectorTab = 'summary' | 'relations' | 'raw';
 export type GraphViewMode = 'passes' | 'resources';

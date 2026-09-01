@@ -15,7 +15,6 @@ import { createPanelIcon } from './panelIcons.ts';
 import {
 	destroyGraph,
 	fitGraph,
-	relayoutGraph,
 } from './panelGraphView.ts';
 import { graphGroupElementId } from './panelGraphScene.ts';
 import { selectionExists } from './panelSelection.ts';
@@ -189,7 +188,6 @@ export class FrameGraphInspector {
 		actionControls.append(
 			this.groupsButton,
 			this.collapseGroupsButton,
-			createGraphIconButton('relayout', 'Relayout graph', () => relayoutGraph(this.graphView)),
 			createGraphIconButton('fit', 'Fit graph to view', () => fitGraph(this.graphView)),
 		);
 		this.graphView.toolbar.append(modeControls, graphLegend, actionControls);
@@ -573,7 +571,7 @@ export function mountFrameGraphInspector(host: HTMLElement, options?: FrameGraph
 	return inspector;
 }
 
-function createGraphIconButton(icon: 'relayout' | 'fit', title: string, onClick: () => void): HTMLButtonElement {
+function createGraphIconButton(icon: 'fit', title: string, onClick: () => void): HTMLButtonElement {
 	const button = createToolbarButton('', title, onClick);
 	button.classList.add('zenfg-inspector-icon-button');
 	button.appendChild(createPanelIcon(icon));

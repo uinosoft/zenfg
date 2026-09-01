@@ -12,9 +12,4 @@ body { background: radial-gradient(circle at 18% 0%, #132333 0, #080c11 45%); }
 #inspector-host {
 	width: 100%;
 	height: 100%;
-	padding: 12px;
-}
-
-@media (max-width: 640px) {
-	#inspector-host { padding: 0; }
 }

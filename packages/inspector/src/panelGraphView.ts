@@ -71,10 +71,6 @@ export function resolveGraphScene(
     return scene;
 }
 
-export function relayoutGraph(graphView: GraphViewState): void {
-    graphView.renderer?.relayout();
-}
-
 export function fitGraph(graphView: GraphViewState): void {
     graphView.renderer?.fit();
 }

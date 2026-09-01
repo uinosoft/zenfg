@@ -42,11 +42,11 @@ views while automatic Cytoscape/ELK layout is disabled with an explanation.
 
 ## Workbench
 
-The persistent workbench provides Graph, Passes, Resources, Memory, and
-Diagnostics views plus a selection Inspector with Summary, Relations, and Raw
-panes. It supports live capture providers, direct Snapshot set/get, file import,
-Legacy V0 and Legacy Candidate V1 migration, canonical download, clipboard copy,
-and cleanup through `destroy()`.
+The persistent workbench provides Overview, Graph, Passes, Resources, Memory,
+and Diagnostics views plus a selection Inspector with Summary, Relations, and
+Raw panes. It supports live capture providers, direct Snapshot set/get, file
+import, Legacy V0 and Legacy Candidate V1 migration, canonical download,
+clipboard copy, and cleanup through `destroy()`.
 
 Capture, import, and direct replacement share a revision counter: stale async
 results and results arriving after destruction are ignored. A failed or

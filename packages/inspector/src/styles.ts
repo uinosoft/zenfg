@@ -51,8 +51,8 @@ const FRAME_GRAPH_DEBUG_PANEL_CSS = `
 	min-height: 0;
 	padding: 10px;
 	overflow: hidden;
-	border: 1px solid var(--zenfg-inspector-border, var(--fgd-border));
-	border-radius: var(--zenfg-inspector-radius-md, 6px);
+	border: 0;
+	border-radius: 0;
 	background: var(--zenfg-inspector-background, var(--fgd-panel));
 }
 
@@ -116,7 +116,7 @@ const FRAME_GRAPH_DEBUG_PANEL_CSS = `
 /* Workbench and summary */
 .zenfg-inspector-workbench {
 	display: grid;
-	grid-template-rows: auto auto minmax(0, 1fr);
+	grid-template-rows: auto minmax(0, 1fr);
 	gap: 8px;
 	height: 100%;
 	min-width: 0;
@@ -126,20 +126,20 @@ const FRAME_GRAPH_DEBUG_PANEL_CSS = `
 
 .zenfg-inspector-capture-summary {
 	display: grid;
-	grid-template-columns: repeat(5, minmax(0, 1fr));
+	grid-template-columns: repeat(auto-fit, minmax(min(230px, 100%), 1fr));
+	align-content: start;
+	gap: 8px;
 	min-width: 0;
-	overflow: hidden;
-	border: 1px solid var(--fgd-border-subtle);
-	border-radius: 6px;
-	background: var(--fgd-surface);
+	background: transparent;
 }
 
 .zenfg-inspector-capture-summary > section {
 	min-width: 0;
-	padding: 8px 10px;
-	border-right: 1px solid var(--fgd-border-subtle);
+	padding: 12px;
+	border: 1px solid var(--fgd-border-subtle);
+	border-radius: 6px;
+	background: var(--fgd-surface);
 }
-.zenfg-inspector-capture-summary > section:last-child { border-right: 0; }
 
 .zenfg-inspector-capture-summary h2 {
 	margin: 0 0 5px;
@@ -173,6 +173,7 @@ const FRAME_GRAPH_DEBUG_PANEL_CSS = `
 
 /* Command bar, tabs, and controls */
 .zenfg-inspector-workbench-command-bar {
+	position: relative;
 	display: grid;
 	grid-template-columns: auto minmax(0, 1fr) auto;
 	align-items: center;
@@ -184,7 +185,11 @@ const FRAME_GRAPH_DEBUG_PANEL_CSS = `
 }
 
 .zenfg-inspector-brand {
+	position: relative;
+	display: flex;
+	align-items: center;
 	min-width: 0;
+	min-height: 32px;
 	padding: 0 12px 0 4px;
 	overflow: hidden;
 	color: var(--fgd-text);
@@ -192,6 +197,16 @@ const FRAME_GRAPH_DEBUG_PANEL_CSS = `
 	letter-spacing: 0.015em;
 	text-overflow: ellipsis;
 	white-space: nowrap;
+}
+.zenfg-inspector-brand::after {
+	position: absolute;
+	top: 50%;
+	right: 0;
+	width: 1px;
+	height: 16px;
+	background: var(--fgd-border);
+	content: '';
+	transform: translateY(-50%);
 }
 
 .zenfg-inspector-workbench-tabs,
@@ -243,7 +258,6 @@ const FRAME_GRAPH_DEBUG_PANEL_CSS = `
 .zenfg-inspector-inspector-tabs > button:disabled { cursor: default; opacity: 0.42; }
 
 .zenfg-inspector-workbench-actions {
-	position: relative;
 	display: flex;
 	align-items: center;
 	gap: 6px;
@@ -254,7 +268,7 @@ const FRAME_GRAPH_DEBUG_PANEL_CSS = `
 
 .zenfg-inspector-export-menu {
 	position: absolute;
-	z-index: 12;
+	z-index: 30;
 	top: calc(100% + 4px);
 	right: 0;
 	display: grid;
@@ -365,6 +379,12 @@ button[aria-busy='true'] > .zenfg-inspector-control-icon {
 }
 
 /* Workspace and empty states */
+.zenfg-inspector-overview-view {
+	padding: 12px;
+	overflow: auto;
+	background: var(--fgd-canvas);
+}
+
 .zenfg-inspector-workspace {
 	position: relative;
 	display: grid;
@@ -1001,6 +1021,7 @@ button[aria-busy='true'] > .zenfg-inspector-control-icon {
 		grid-template-columns: minmax(0, 1fr) auto;
 	}
 	.zenfg-inspector-brand { grid-column: 1; grid-row: 1; min-height: 36px; display: flex; align-items: center; }
+	.zenfg-inspector-brand::after { display: none; }
 	.zenfg-inspector-workbench-actions { grid-column: 2; grid-row: 1; }
 	.zenfg-inspector-workbench-tabs { grid-column: 1 / -1; grid-row: 2; }
 	.zenfg-inspector-workbench-command-bar.branding-hidden .zenfg-inspector-workbench-tabs {
@@ -1012,24 +1033,8 @@ button[aria-busy='true'] > .zenfg-inspector-control-icon {
 
 @container zenfg-inspector (max-width: 720px) {
 	.zenfg-inspector-body { padding: 8px; }
-	.zenfg-inspector-capture-summary {
-		grid-template-columns: repeat(2, minmax(0, 1fr));
-		border: 0;
-		gap: 1px;
-		background: var(--fgd-border-subtle);
-	}
-	.zenfg-inspector-capture-summary > section {
-		padding: 7px 8px;
-		border: 0;
-		background: var(--fgd-surface);
-	}
-	.zenfg-inspector-capture-summary > section:last-child {
-		display: grid;
-		grid-column: 1 / -1;
-		grid-template-columns: repeat(2, minmax(0, 1fr));
-		column-gap: 16px;
-	}
-	.zenfg-inspector-capture-summary > section:last-child h2 { grid-column: 1 / -1; }
+	.zenfg-inspector-overview-view { padding: 8px; }
+	.zenfg-inspector-capture-summary > section { padding: 10px; }
 	.zenfg-inspector-workbench-actions { padding-left: 6px; }
 	.zenfg-inspector-command-status { max-width: 104px; }
 	.zenfg-inspector-workbench-tabs > button { flex: 0 0 auto; padding-inline: 8px; }

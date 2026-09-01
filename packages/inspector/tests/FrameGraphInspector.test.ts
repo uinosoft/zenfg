@@ -34,6 +34,25 @@ test('renders an always-visible branded workbench with commands outside the tabl
 	panel.setSnapshot(toSnapshot(createEmptyCapture()));
 	assert.equal(copyAction(panel.dom).disabled, false);
 	assert.equal(tabButton(tabs, 'Graph').disabled, false);
+	const overview = panel.dom.querySelector<HTMLElement>('.zenfg-inspector-overview-view');
+	const summary = panel.dom.querySelector<HTMLElement>('.zenfg-inspector-capture-summary');
+	assert.ok(overview && summary);
+	assert.equal(overview.hidden, true);
+	tabButton(tabs, 'Overview').click();
+	assert.equal(overview.hidden, false);
+	assert.match(summary.textContent, /Capture/);
+
+	const exportButton = commandBar.querySelector<HTMLButtonElement>('[aria-haspopup="menu"]');
+	const exportMenu = commandBar.querySelector<HTMLElement>('.zenfg-inspector-export-menu');
+	assert.ok(exportButton && exportMenu);
+	assert.equal(exportMenu.parentElement, commandBar);
+	assert.equal(actions.contains(exportMenu), false);
+	exportButton.click();
+	assert.equal(exportMenu.hidden, false);
+	assert.equal(exportButton.getAttribute('aria-expanded'), 'true');
+	tabButton(tabs, 'Graph').click();
+	assert.equal(exportMenu.hidden, true);
+	assert.equal(exportButton.getAttribute('aria-expanded'), 'false');
 
 	panel.destroy();
 	assert.equal(panel.dom.isConnected, false);
@@ -133,7 +152,7 @@ test('injects scoped visual tokens and keeps icon buttons accessibly named', () 
 	const css = style.textContent ?? '';
 	assert.match(css, /--fgd-canvas: #0b0f14/);
 	assert.match(css, /--fgd-accent: var\(--zenfg-inspector-accent, #38bdf8\)/);
-	assert.match(css, /border: 1px solid var\(--zenfg-inspector-border/);
+	assert.match(css, /\.zenfg-inspector-body \{[^}]*border: 0;[^}]*border-radius: 0;/s);
 	assert.match(css, /container-name: zenfg-inspector/);
 	assert.match(css, /@container zenfg-inspector \(max-width: 840px\)/);
 	assert.equal(css.includes('#zenfg-inspector'), false);
@@ -208,7 +227,7 @@ test('starts the one-shot capture when a source is injected into the visible wor
 	assert.equal(captureAction(panel.dom).textContent, 'Capture');
 	assert.equal(captureAction(panel.dom).disabled, false);
 	assert.equal(copyAction(panel.dom).disabled, false);
-	assert.equal(panel.dom.querySelector('.zenfg-inspector-capture-summary')?.hasAttribute('hidden'), false);
+	assert.ok(panel.dom.querySelector('.zenfg-inspector-overview-view .zenfg-inspector-capture-summary'));
 
 	panel.destroy();
 	testWindow.close();
@@ -538,8 +557,8 @@ test('renders graph controls in a dedicated toolbar with a semantic legend', () 
     assert.equal(toolbar.getAttribute('role'), 'toolbar');
     assert.match(legend.textContent, /Render/);
     assert.match(legend.textContent, /Group/);
-    assert.ok(toolbar.querySelector('[aria-label="Relayout graph"] svg'));
-    assert.ok(toolbar.querySelector('[aria-label="Fit graph to view"] svg'));
+	assert.equal(toolbar.querySelector('[aria-label="Relayout graph"]'), null);
+	assert.ok(toolbar.querySelector('[aria-label="Fit graph to view"] svg'));
 
     panel.destroy();
     testWindow.close();

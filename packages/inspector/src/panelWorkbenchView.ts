@@ -50,6 +50,7 @@ export class FrameGraphDebugWorkbench {
 	private readonly workspace = document.createElement('div');
 	private readonly main = document.createElement('main');
 	private readonly emptyHost = document.createElement('div');
+	private readonly overviewRoot = document.createElement('section');
 	private readonly graphRoot = document.createElement('section');
 	private readonly passes: PassesView;
 	private readonly resources: ResourcesView;
@@ -99,6 +100,10 @@ export class FrameGraphDebugWorkbench {
 		this.emptyHost.setAttribute('role', 'status');
 		this.emptyHost.setAttribute('aria-live', 'polite');
 
+		this.overviewRoot.className = 'zenfg-inspector-view zenfg-inspector-overview-view';
+		this.overviewRoot.id = `${options.idPrefix}-view-overview`;
+		this.overviewRoot.setAttribute('role', 'tabpanel');
+		this.overviewRoot.append(this.summary);
 		this.graphRoot.className = 'zenfg-inspector-view zenfg-inspector-graph-view';
 		this.graphRoot.id = `${options.idPrefix}-view-graph`;
 		this.graphRoot.setAttribute('role', 'tabpanel');
@@ -109,12 +114,14 @@ export class FrameGraphDebugWorkbench {
 		this.diagnostics = new DiagnosticsView(callbacks, options.idPrefix);
 		this.inspector = new InspectorView(callbacks, (open) => this.handleInspectorOpenChange(open), options.idPrefix);
 
+		this.views.set('overview', this.overviewRoot);
 		this.views.set('graph', this.graphRoot);
 		this.views.set('passes', this.passes.root);
 		this.views.set('resources', this.resources.root);
 		this.views.set('memory', this.memory.root);
 		this.views.set('diagnostics', this.diagnostics.root);
 		for (const [tab, label] of [
+			['overview', 'Overview'],
 			['graph', 'Graph'],
 			['passes', 'Passes'],
 			['resources', 'Resources'],
@@ -157,20 +164,19 @@ export class FrameGraphDebugWorkbench {
 		this.exportButton.textContent = 'Export';
 		this.exportButton.setAttribute('aria-haspopup', 'menu');
 		this.exportButton.setAttribute('aria-expanded', 'false');
+		this.exportButton.setAttribute('aria-controls', `${options.idPrefix}-export-menu`);
 		this.exportButton.addEventListener('click', () => {
-			const open = this.exportMenu.hidden;
-			this.exportMenu.hidden = !open;
-			this.exportButton.setAttribute('aria-expanded', open ? 'true' : 'false');
+			this.setExportMenuOpen(this.exportMenu.hidden !== false);
 		});
 		this.exportMenu.className = 'zenfg-inspector-export-menu';
+		this.exportMenu.id = `${options.idPrefix}-export-menu`;
 		this.exportMenu.setAttribute('role', 'menu');
 		this.exportMenu.hidden = true;
 		this.downloadButton.type = 'button';
 		this.downloadButton.textContent = 'Download JSON';
 		this.downloadButton.setAttribute('role', 'menuitem');
 		this.downloadButton.addEventListener('click', () => {
-			this.exportMenu.hidden = true;
-			this.exportButton.setAttribute('aria-expanded', 'false');
+			this.setExportMenuOpen(false);
 			actions.onDownload();
 		});
 		this.copyButton.type = 'button';
@@ -178,8 +184,7 @@ export class FrameGraphDebugWorkbench {
 		this.copyButton.textContent = 'Copy JSON';
 		this.copyButton.setAttribute('role', 'menuitem');
 		this.copyButton.addEventListener('click', () => {
-			this.exportMenu.hidden = true;
-			this.exportButton.setAttribute('aria-expanded', 'false');
+			this.setExportMenuOpen(false);
 			actions.onCopyJson();
 		});
 		this.exportMenu.append(this.downloadButton, this.copyButton);
@@ -190,14 +195,24 @@ export class FrameGraphDebugWorkbench {
 			this.captureButton,
 			this.importButton,
 			this.exportButton,
-			this.exportMenu,
 			this.importInput,
 		);
-		if (options.branding === false) this.commandBar.append(this.tabList, this.commandActions);
-		else this.commandBar.append(this.brand, this.tabList, this.commandActions);
+		if (options.branding === false) this.commandBar.append(this.tabList, this.commandActions, this.exportMenu);
+		else this.commandBar.append(this.brand, this.tabList, this.commandActions, this.exportMenu);
+		this.root.addEventListener('click', (event) => {
+			const target = event.target;
+			if (!target || typeof (target as Node).nodeType !== 'number' || this.exportMenu.hidden) return;
+			const targetNode = target as Node;
+			if (!this.exportButton.contains(targetNode) && !this.exportMenu.contains(targetNode)) this.setExportMenuOpen(false);
+		});
+		this.root.addEventListener('keydown', (event) => {
+			if (event.key !== 'Escape' || this.exportMenu.hidden) return;
+			this.setExportMenuOpen(false);
+			this.exportButton.focus();
+		});
 		this.main.append(this.emptyHost, ...this.views.values());
 		this.workspace.append(this.main, this.inspector.root);
-		this.root.append(this.commandBar, this.summary, this.workspace);
+		this.root.append(this.commandBar, this.workspace);
 		this.showEmptyState('empty', 'Drop a ZenFG Snapshot here or choose Import.', 'Files are processed locally in your browser.');
 		this.setSnapshotActionState({
 			providerAvailable: false,
@@ -225,7 +240,6 @@ export class FrameGraphDebugWorkbench {
 		this.memory.setSelection(selected);
 		this.diagnostics.setSelection(selected);
 		this.inspector.setSelection(selected, false);
-		this.summary.hidden = false;
 		this.emptyHost.hidden = true;
 		this.updateActiveTab();
 		this.updateWorkspaceState();
@@ -237,7 +251,6 @@ export class FrameGraphDebugWorkbench {
 		this.snapshot = undefined;
 		this.selected = undefined;
 		this.hovered = undefined;
-		this.summary.hidden = true;
 		this.emptyHost.hidden = false;
 		this.emptyHost.dataset.state = kind;
 		const icon = createPanelIcon(kind === 'capturing' ? 'spinner' : kind === 'error' ? 'error' : kind === 'waiting' ? 'waiting' : 'empty');
@@ -271,6 +284,7 @@ export class FrameGraphDebugWorkbench {
 		this.importButton.setAttribute('aria-busy', state.importing ? 'true' : 'false');
 		this.exportButton.disabled = !state.hasCapture;
 		this.downloadButton.disabled = !state.hasCapture;
+		if (!state.hasCapture) this.setExportMenuOpen(false);
 
 		const copyLabel = state.copying ? 'Copying…' : state.copied ? 'Copied' : 'Copy JSON';
 		const copyIcon = state.copying ? 'spinner' : state.copied ? 'check' : 'copy';
@@ -429,6 +443,11 @@ export class FrameGraphDebugWorkbench {
 			group.appendChild(row);
 		}
 		return group;
+	}
+
+	private setExportMenuOpen(open: boolean): void {
+		this.exportMenu.hidden = !open;
+		this.exportButton.setAttribute('aria-expanded', open ? 'true' : 'false');
 	}
 
 	private handleInspectorOpenChange(_open: boolean): void {
