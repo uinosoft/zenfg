@@ -1,6 +1,6 @@
 {
   "name": "@zenfg/inspector",
-  "version": "0.1.0-beta.1",
+  "version": "0.1.0-beta.2",
   "description": "Embeddable Inspector for ZenFG Snapshot files and live captures",
   "type": "module",
   "sideEffects": false,
@@ -8,7 +8,7 @@
   "types": "./dist/index.d.ts",
   "files": ["dist", "src", "README.md", "LICENSE"],
   "dependencies": {
-    "@zenfg/snapshot": "0.1.0-beta.1",
+    "@zenfg/snapshot": "0.1.0-beta.2",
     "cytoscape": "^3.34.1",
     "elkjs": "^0.12.0"
   },

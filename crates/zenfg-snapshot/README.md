@@ -18,7 +18,7 @@ independent from this crate's beta API version.
 ## Installation
 
 ```sh
-cargo add zenfg-snapshot@0.1.0-beta.1
+cargo add zenfg-snapshot@0.1.0-beta.2
 ```
 
 ## Quick start

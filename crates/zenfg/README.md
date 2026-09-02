@@ -19,7 +19,7 @@ prerelease version while integrating.
 ## Installation
 
 ```sh
-cargo add zenfg@0.1.0-beta.1
+cargo add zenfg@0.1.0-beta.2
 ```
 
 ## Features

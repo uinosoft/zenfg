@@ -17,7 +17,7 @@ independent from this package's beta API version.
 ## Installation
 
 ```sh
-npm install @zenfg/snapshot@0.1.0-beta.1
+npm install @zenfg/snapshot@0.1.0-beta.2
 ```
 
 ## Quick start

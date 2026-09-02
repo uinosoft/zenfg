@@ -5,14 +5,23 @@ packages use independent versions; component tags identify each release.
 
 ## [Unreleased]
 
+No changes yet.
+
+## [0.1.0-beta.2] - 2026-09-02
+
 - Aligned WebGPU texture-size and copy-operation input types with the runtime's
   existing iterable support, including typed-array extents and origins, while
   materializing those inputs before compilation and execution.
 - Fixed Rust/wgpu GPU debug-group execution and timing ancestry when compilation
   retains non-contiguous recording group IDs.
+- Aligned the Inspector export menu, refined graph zoom behavior, and improved
+  viewport framing for large or newly loaded graphs.
 - Reorganized public documentation around bilingual project entrypoints,
   package-local quick references, a single Core Concepts guide, and an explicit
   source-of-truth policy for API docs, examples, and future interactive stories.
+
+This release coordinates all five packages at `0.1.0-beta.2` so package-local
+documentation and exact internal dependencies remain aligned.
 
 ## [0.1.0-beta.1] - 2026-09-01
 
@@ -63,7 +72,8 @@ release:
 The package versions are independent of the ZenFG FrameGraph Snapshot wire
 format, which is version `1.0` in this candidate.
 
-[Unreleased]: https://github.com/uinosoft/zenfg/compare/cargo/zenfg/v0.1.0-beta.1...HEAD
+[Unreleased]: https://github.com/uinosoft/zenfg/compare/cargo/zenfg/v0.1.0-beta.2...HEAD
+[0.1.0-beta.2]: https://github.com/uinosoft/zenfg/tree/cargo%2Fzenfg%2Fv0.1.0-beta.2
 [0.1.0-beta.1]: https://github.com/uinosoft/zenfg/tree/cargo%2Fzenfg%2Fv0.1.0-beta.1
 [npm-snapshot-0.1.0-beta.1]: https://github.com/uinosoft/zenfg/tree/npm%2Fsnapshot%2Fv0.1.0-beta.1
 [npm-webgpu-0.1.0-beta.1]: https://github.com/uinosoft/zenfg/tree/npm%2Fwebgpu%2Fv0.1.0-beta.1
