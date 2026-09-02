@@ -123,14 +123,29 @@ export type GraphRootReason = 'present' | 'output' | 'readback' | 'side-effect' 
 export type CulledNodeReason = 'not-reachable-from-root';
 
 /**
- * A WebGPU extent accepted for a logical texture.
+ * A WebGPU extent accepted for a logical texture or copy operation.
  *
  * One- and two-element sequences use WebGPU's omitted-dimension defaults.
- * Iterable sizes are materialized when the resource is registered.
+ * Iterable sizes, including typed arrays, are materialized when the descriptor
+ * or operation is registered. The deprecated `depth` spelling is rejected;
+ * use `depthOrArrayLayers` in dictionary values.
  *
  * @beta
  */
-export type TextureSize = GPUExtent3D | readonly [number, number] | readonly [number, number, number];
+export type TextureSize = Iterable<number> | (GPUExtent3DDict & {
+	/** @deprecated Use `depthOrArrayLayers`. */
+	readonly depth?: undefined;
+});
+
+/**
+ * A WebGPU texture origin accepted by a copy operation.
+ *
+ * Iterable origins, including typed arrays, are materialized when the copy
+ * operation is registered.
+ *
+ * @beta
+ */
+export type TextureOrigin = Iterable<number> | GPUOrigin3DDict;
 
 /**
  * A normalized texture subresource interval used for dependency analysis.
@@ -709,11 +724,11 @@ export type CopyOperation =
 		/** Destination aspect; defaults from the destination format. */
 		readonly destinationAspect?: GPUTextureAspect;
 		/** Source origin; defaults to zero. */
-		readonly sourceOrigin?: GPUOrigin3D;
+		readonly sourceOrigin?: TextureOrigin;
 		/** Destination origin; defaults to zero. */
-		readonly destinationOrigin?: GPUOrigin3D;
+		readonly destinationOrigin?: TextureOrigin;
 		/** Extent copied between the selected subresources. */
-		readonly copySize: GPUExtent3D;
+		readonly copySize: TextureSize;
 	}
 	| {
 		/** Copies a byte range between buffers. */
@@ -743,9 +758,9 @@ export type CopyOperation =
 		/** Buffer layout excluding the logical buffer handle. */
 		readonly sourceLayout: Omit<GPUTexelCopyBufferLayout, 'buffer'>;
 		/** Destination origin; defaults to zero. */
-		readonly destinationOrigin?: GPUOrigin3D;
+		readonly destinationOrigin?: TextureOrigin;
 		/** Texture extent copied. */
-		readonly copySize: GPUExtent3D;
+		readonly copySize: TextureSize;
 	}
 	| {
 		/** Copies texel data from a texture into a buffer. */
@@ -759,11 +774,11 @@ export type CopyOperation =
 		/** Source aspect; defaults from the source format. */
 		readonly sourceAspect?: GPUTextureAspect;
 		/** Source origin; defaults to zero. */
-		readonly sourceOrigin?: GPUOrigin3D;
+		readonly sourceOrigin?: TextureOrigin;
 		/** Buffer layout excluding the logical buffer handle. */
 		readonly destinationLayout: Omit<GPUTexelCopyBufferLayout, 'buffer'>;
 		/** Texture extent copied. */
-		readonly copySize: GPUExtent3D;
+		readonly copySize: TextureSize;
 	};
 
 /**

@@ -5,6 +5,9 @@ packages use independent versions; component tags identify each release.
 
 ## [Unreleased]
 
+- Aligned WebGPU texture-size and copy-operation input types with the runtime's
+  existing iterable support, including typed-array extents and origins, while
+  materializing those inputs before compilation and execution.
 - Fixed Rust/wgpu GPU debug-group execution and timing ancestry when compilation
   retains non-contiguous recording group IDs.
 - Reorganized public documentation around bilingual project entrypoints,

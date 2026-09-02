@@ -7,6 +7,8 @@ import {
 	type FrameGraphCompilationReport,
 	type FrameGraphRecording,
 	type ImportTextureOptions,
+	type TextureOrigin,
+	type TextureSize,
 	TextureAccess,
 	type TextureUse,
 } from '../src/index.ts';
@@ -28,10 +30,42 @@ test('public recording and compiled-frame types enforce lifecycle and typed-use 
 		featureRecording.compile();
 
 		const recorder = runtime.beginFrame();
-		const texture = recorder.createTexture({ format: 'rgba8unorm', size: [1, 1] });
+		const typedTextureSize: TextureSize = new Uint32Array([1, 1, 1]);
+		const typedTextureOrigin: TextureOrigin = new Uint32Array([0, 0, 0]);
+		const texture = recorder.createTexture({ format: 'rgba8unorm', size: typedTextureSize });
 		const swapchainTexture = null as unknown as GPUTexture;
 		const textureView = recorder.createTextureView(texture);
 		const buffer = recorder.createBuffer({ size: 4 });
+		recorder.copy({
+			operations: [
+				{
+					type: 'texture-to-texture',
+					source: texture,
+					destination: texture,
+					sourceOrigin: typedTextureOrigin,
+					destinationOrigin: typedTextureOrigin,
+					copySize: typedTextureSize,
+				},
+				{
+					type: 'buffer-to-texture',
+					source: buffer,
+					destination: texture,
+					sourceLayout: {},
+					destinationOrigin: typedTextureOrigin,
+					copySize: typedTextureSize,
+				},
+				{
+					type: 'texture-to-buffer',
+					source: texture,
+					destination: buffer,
+					destinationLayout: {},
+					sourceOrigin: typedTextureOrigin,
+					copySize: typedTextureSize,
+				},
+			],
+		});
+		// @ts-expect-error Texture extent dictionaries reject the deprecated `depth` spelling.
+		const invalidTextureSize: TextureSize = { width: 1, depth: 1 };
 		recorder.importSwapchainTexture(swapchainTexture, { label: 'backbuffer' });
 		// @ts-expect-error Swapchain contents are always undefined.
 		recorder.importSwapchainTexture(swapchainTexture, { initialContents: 'defined' });
@@ -95,7 +129,7 @@ test('public recording and compiled-frame types enforce lifecycle and typed-use 
 				ctx.encoder;
 				// @ts-expect-error Sampled texture uses unwrap to GPUTextureView.
 				const wrongBuffer: GPUBuffer = ctx.unwrap(sampled);
-				void [view, nativeBuffer, wrongBuffer, forged, bufferSize];
+				void [view, nativeBuffer, wrongBuffer, forged, bufferSize, invalidTextureSize];
 			},
 		});
 		// @ts-expect-error Render encode callbacks must return undefined synchronously.

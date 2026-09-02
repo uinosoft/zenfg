@@ -16,7 +16,6 @@ import {
 	type ComputeEncodeContext,
 	type ComputePassNodeDesc,
 	type CopyNodeDesc,
-	type CopyOperation,
 	type ExternalSubmissionContext,
 	type ExternalSubmissionNodeDesc,
 	type FrameGraphRecorder,
@@ -79,6 +78,7 @@ import {
 } from './handles.ts';
 import type {
 	InternalAccess,
+	InternalCopyOperation,
 	InternalNode,
 	InternalResource,
 	InternalTextureRegion,
@@ -1935,7 +1935,7 @@ class FrameGraphRecorderImpl implements FrameGraphRecorder {
 		readonly uses: readonly InternalUse[];
 		readonly sideEffect: boolean;
 		readonly renderPass?: InternalNode['renderPass'];
-		readonly copyOperations?: readonly CopyOperation[];
+		readonly copyOperations?: readonly InternalCopyOperation[];
 		readonly clearBufferOperations?: readonly ClearBufferOperation[];
 		readonly renderEncode?: SynchronousCallback<RenderEncodeContext>;
 		readonly computeEncode?: SynchronousCallback<ComputeEncodeContext>;

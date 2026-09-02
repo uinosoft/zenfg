@@ -26,6 +26,7 @@ import {
 import { sameResource } from './handles.ts';
 import type {
 	InternalNode,
+	InternalCopyOperation,
 	InternalResource,
 	InternalTextureRegion,
 } from './internalTypes.ts';
@@ -36,7 +37,7 @@ import {
 
 export type ResourceResolver = (handle: ResourceHandle) => InternalResource;
 
-export function snapshotCopyOperation(operation: CopyOperation, index: number): CopyOperation {
+export function snapshotCopyOperation(operation: CopyOperation, index: number): InternalCopyOperation {
 	const prefix = `Copy operation ${index}`;
 	switch (operation.type) {
 		case 'buffer-to-buffer':
@@ -46,21 +47,21 @@ export function snapshotCopyOperation(operation: CopyOperation, index: number): 
 				...operation,
 				sourceOrigin: snapshotOrigin3D(operation.sourceOrigin, `${prefix} sourceOrigin`),
 				destinationOrigin: snapshotOrigin3D(operation.destinationOrigin, `${prefix} destinationOrigin`),
-				copySize: snapshotExtent3D(operation.copySize, `${prefix} copySize`) as GPUExtent3D,
+				copySize: snapshotExtent3D(operation.copySize, `${prefix} copySize`),
 			};
 		case 'buffer-to-texture':
 			return {
 				...operation,
 				sourceLayout: { ...operation.sourceLayout },
 				destinationOrigin: snapshotOrigin3D(operation.destinationOrigin, `${prefix} destinationOrigin`),
-				copySize: snapshotExtent3D(operation.copySize, `${prefix} copySize`) as GPUExtent3D,
+				copySize: snapshotExtent3D(operation.copySize, `${prefix} copySize`),
 			};
 		case 'texture-to-buffer':
 			return {
 				...operation,
 				sourceOrigin: snapshotOrigin3D(operation.sourceOrigin, `${prefix} sourceOrigin`),
 				destinationLayout: { ...operation.destinationLayout },
-				copySize: snapshotExtent3D(operation.copySize, `${prefix} copySize`) as GPUExtent3D,
+				copySize: snapshotExtent3D(operation.copySize, `${prefix} copySize`),
 			};
 	}
 }
@@ -191,7 +192,7 @@ function validateBufferToBufferCopy(
 function validateTextureToTextureCopy(
 	resourceFor: ResourceResolver,
 	node: InternalNode,
-	operation: Extract<CopyOperation, { type: 'texture-to-texture' }>,
+	operation: Extract<InternalCopyOperation, { type: 'texture-to-texture' }>,
 ): void {
 	const sourceDesc = resourceFor(operation.source).desc as TextureDesc;
 	const destinationDesc = resourceFor(operation.destination).desc as TextureDesc;

@@ -26,6 +26,28 @@ import type {
 	WriteContents,
 } from './types.ts';
 
+type MaterializedTextureCopyFields = {
+	readonly copySize: GPUExtent3D;
+	readonly sourceOrigin?: GPUOrigin3D;
+	readonly destinationOrigin?: GPUOrigin3D;
+};
+
+/** A copy operation whose iterable inputs have been materialized at recording time. */
+export type InternalCopyOperation =
+	| (
+		Omit<Extract<CopyOperation, { type: 'texture-to-texture' }>, keyof MaterializedTextureCopyFields>
+		& MaterializedTextureCopyFields
+	)
+	| Extract<CopyOperation, { type: 'buffer-to-buffer' }>
+	| (
+		Omit<Extract<CopyOperation, { type: 'buffer-to-texture' }>, 'copySize' | 'destinationOrigin'>
+		& Pick<MaterializedTextureCopyFields, 'copySize' | 'destinationOrigin'>
+	)
+	| (
+		Omit<Extract<CopyOperation, { type: 'texture-to-buffer' }>, 'copySize' | 'sourceOrigin'>
+		& Pick<MaterializedTextureCopyFields, 'copySize' | 'sourceOrigin'>
+	);
+
 type InternalUseBase = {
 	readonly owner: object;
 	readonly accesses: readonly InternalAccess[];
@@ -136,7 +158,7 @@ export type InternalNode = {
 		readonly colorAttachments: readonly InternalRenderColorAttachment[];
 		readonly depthStencilAttachment?: InternalRenderDepthStencilAttachment;
 	};
-	readonly copyOperations?: readonly CopyOperation[];
+	readonly copyOperations?: readonly InternalCopyOperation[];
 	readonly clearBufferOperations?: readonly ClearBufferOperation[];
 	readonly renderEncode?: SynchronousCallback<RenderEncodeContext>;
 	readonly computeEncode?: SynchronousCallback<ComputeEncodeContext>;

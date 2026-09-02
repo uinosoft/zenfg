@@ -68,6 +68,7 @@ export type {
 	ResourceOrigin,
 	TextureDesc,
 	TextureHandle,
+	TextureOrigin,
 	TextureSize,
 	TextureUse,
 	TextureViewAccess,

@@ -1,6 +1,7 @@
 import type {
 	BufferDesc,
 	TextureDesc,
+	TextureOrigin,
 	TextureSize,
 } from './types.ts';
 import { getTextureFormatBlockInfo } from './formatCaps.ts';
@@ -14,7 +15,7 @@ export function snapshotTextureDescriptor<T extends TextureDesc>(desc: T): T {
 	};
 }
 
-export function snapshotExtent3D(size: TextureSize, field: string): TextureSize {
+export function snapshotExtent3D(size: TextureSize, field: string): GPUExtent3D {
 	if (Array.isArray(size)) {
 		validateExtentSequenceLength(size.length, field);
 		return [...size];
@@ -27,7 +28,7 @@ export function snapshotExtent3D(size: TextureSize, field: string): TextureSize 
 	return { ...(size as GPUExtent3DDict) };
 }
 
-export function snapshotOrigin3D(origin: GPUOrigin3D | undefined, field: string): GPUOrigin3D | undefined {
+export function snapshotOrigin3D(origin: TextureOrigin | undefined, field: string): GPUOrigin3D | undefined {
 	if (origin === undefined) {
 		return undefined;
 	}
@@ -121,7 +122,7 @@ function textureEstimateBlockInfo(format: GPUTextureFormat): { readonly width: n
 	}
 }
 
-export function originTuple(origin: GPUOrigin3D | undefined): readonly [number, number, number] {
+export function originTuple(origin: TextureOrigin | undefined): readonly [number, number, number] {
 	if (!origin) {
 		return [0, 0, 0];
 	}

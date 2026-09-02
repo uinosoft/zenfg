@@ -125,7 +125,9 @@ test('resource registration validates texture extent, mip count, and sample coun
 });
 
 test('texture descriptors materialize one-shot extents once and apply WebGPU extent defaults', () => {
+	let sizeIterations = 0;
 	function* size(): Generator<number> {
+		sizeIterations++;
 		yield 4;
 		yield 2;
 	}
@@ -133,8 +135,9 @@ test('texture descriptors materialize one-shot extents once and apply WebGPU ext
 	const color = graph.createTexture({
 		label: 'iterable-size',
 		format: 'rgba8unorm',
-		size: size() as unknown as GPUExtent3D,
+		size: size(),
 	});
+	assert.equal(sizeIterations, 1);
 	assert.deepEqual(Array.from(graph.getTextureDesc(color).size as Iterable<number>), [4, 2]);
 	graph.render({
 		label: 'write',
@@ -143,6 +146,15 @@ test('texture descriptors materialize one-shot extents once and apply WebGPU ext
 	});
 	const compiled = graph.compile();
 	assert.doesNotThrow(() => compiled.execute());
+	assert.equal(sizeIterations, 1);
+
+	const typed = new FrameGraph(mockDevice()).beginFrame();
+	const typedColor = typed.createTexture({
+		label: 'typed-array-size',
+		format: 'rgba8unorm',
+		size: new Uint32Array([8, 4, 2]),
+	});
+	assert.deepEqual(Array.from(typed.getTextureDesc(typedColor).size as Iterable<number>), [8, 4, 2]);
 
 	const defaulted = new FrameGraph(mockDevice()).beginFrame().createTexture({
 		label: 'defaulted-size',
@@ -361,11 +373,15 @@ test('compile explicitly rejects invalid texture copy coordinates and layout val
 });
 
 test('copy operations materialize one-shot extents and origins before compilation', () => {
+	let extentIterations = 0;
+	let originIterations = 0;
 	function* extent(): Generator<number> {
+		extentIterations++;
 		yield 1;
 		yield 1;
 	}
 	function* origin(): Generator<number> {
+		originIterations++;
 		yield 0;
 		yield 0;
 	}
@@ -378,18 +394,20 @@ test('copy operations materialize one-shot extents and origins before compilatio
 			type: 'texture-to-texture',
 			source,
 			destination,
-			sourceOrigin: origin() as unknown as GPUOrigin3D,
-			destinationOrigin: origin() as unknown as GPUOrigin3D,
-			copySize: extent() as unknown as GPUExtent3D,
+			sourceOrigin: origin(),
+			destinationOrigin: origin(),
+			copySize: extent(),
 		}],
 	});
+	assert.equal(extentIterations, 1);
+	assert.equal(originIterations, 2);
 	assert.throws(
 		() => graph.copy({
 			operations: [{
 				type: 'texture-to-texture',
 				source,
 				destination,
-				sourceOrigin: [0, 0, 0, 0] as unknown as GPUOrigin3D,
+				sourceOrigin: [0, 0, 0, 0],
 				copySize: [1, 1],
 			}],
 		}),
@@ -401,7 +419,7 @@ test('copy operations materialize one-shot extents and origins before compilatio
 				type: 'texture-to-texture',
 				source,
 				destination,
-				sourceOrigin: [] as unknown as GPUOrigin3D,
+				sourceOrigin: [],
 				copySize: [1, 1],
 			}],
 		}),
@@ -414,7 +432,7 @@ test('copy operations materialize one-shot extents and origins before compilatio
 					type: 'texture-to-texture',
 					source,
 					destination,
-					copySize: copySize as unknown as GPUExtent3D,
+					copySize,
 				}],
 			}),
 			/copySize iterable must contain between 1 and 3 values/,
@@ -422,6 +440,8 @@ test('copy operations materialize one-shot extents and origins before compilatio
 	}
 	const compiled = graph.compile();
 	assert.doesNotThrow(() => compiled.execute());
+	assert.equal(extentIterations, 1);
+	assert.equal(originIterations, 2);
 });
 
 test('texture view ranges reject non-finite and fractional values during compile', () => {
