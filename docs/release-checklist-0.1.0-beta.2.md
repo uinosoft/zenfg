@@ -2,8 +2,8 @@
 
 - Date: 2026-09-02
 - Previous release commit: `1c59e5f5a22f4bd6b55335f1ddc54c95543e702a`
-- Release commit: the commit containing this candidate checklist
-- Status: candidate validated; publication pending
+- Release commit: `cf4522965ba5dbb710d1dd7853c1790fba41b165`
+- Status: published, tagged, and verified from clean npm and Cargo consumers
 
 This checklist records the coordinated `0.1.0-beta.2` release of all five
 packages. Published artifacts must come from the final clean release commit.
@@ -42,9 +42,15 @@ packages. Published artifacts must come from the final clean release commit.
 
 ## Release boundary
 
-- Release commit and push: pending
-- Required GitHub Actions checks: pending
-- Registry publication and clean-consumer verification: pending
+- Release commit and push: passed for `cf4522965ba5dbb710d1dd7853c1790fba41b165`
+  on `origin/main`.
+- Required GitHub Actions checks: passed in
+  [CI run 33613164990](https://github.com/uinosoft/zenfg/actions/runs/33613164990):
+  TypeScript, Rust, cross-language, and Pages all completed successfully.
+- Registry publication and clean-consumer verification: passed. A temporary npm
+  consumer installed and imported all three exact versions; a temporary Cargo
+  consumer compiled both exact crate versions with Rust 1.98 and `zenfg`'s
+  `snapshot` feature enabled.
 
 ## Publication order
 
@@ -61,11 +67,11 @@ packages. Published artifacts must come from the final clean release commit.
 
 | Registry | Package | Version | Result |
 | --- | --- | --- | --- |
-| npm | `@zenfg/snapshot` | `0.1.0-beta.2` | Pending |
-| npm | `@zenfg/webgpu` | `0.1.0-beta.2` | Pending |
-| npm | `@zenfg/inspector` | `0.1.0-beta.2` | Pending |
-| crates.io | `zenfg-snapshot` | `0.1.0-beta.2` | Pending |
-| crates.io | `zenfg` | `0.1.0-beta.2` | Pending |
+| npm | `@zenfg/snapshot` | `0.1.0-beta.2` | Published under `next`; clean import passed |
+| npm | `@zenfg/webgpu` | `0.1.0-beta.2` | Published under `next`; clean import passed |
+| npm | `@zenfg/inspector` | `0.1.0-beta.2` | Published under `next`; clean import passed |
+| crates.io | `zenfg-snapshot` | `0.1.0-beta.2` | Published; clean Rust 1.98 consumer passed |
+| crates.io | `zenfg` | `0.1.0-beta.2` | Published; ordinary dry-run and clean Rust 1.98 consumer passed |
 
 ## Component tags
 
@@ -74,6 +80,9 @@ packages. Published artifacts must come from the final clean release commit.
 - `npm/inspector/v0.1.0-beta.2`
 - `cargo/zenfg-snapshot/v0.1.0-beta.2`
 - `cargo/zenfg/v0.1.0-beta.2`
+
+All five annotated tags were created at the release commit and pushed to
+`origin` after exact-version consumer verification.
 
 ## Failure recovery
 
