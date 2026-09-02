@@ -305,6 +305,7 @@ export class CytoscapeGraphRenderer implements GraphRenderer {
             layout: { name: 'preset' },
             minZoom: 0.03,
             maxZoom: 4,
+            wheelSensitivity: 1.3,
             boxSelectionEnabled: false,
             autoungrabify: true,
             autounselectify: true,

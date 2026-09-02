@@ -173,7 +173,8 @@ export class FrameGraphDebugWorkbench {
 		this.exportMenu.setAttribute('role', 'menu');
 		this.exportMenu.hidden = true;
 		this.downloadButton.type = 'button';
-		this.downloadButton.textContent = 'Download JSON';
+		this.downloadButton.className = 'zenfg-inspector-download-action';
+		setPanelButtonContent(this.downloadButton, 'download', 'Download JSON');
 		this.downloadButton.setAttribute('role', 'menuitem');
 		this.downloadButton.addEventListener('click', () => {
 			this.setExportMenuOpen(false);

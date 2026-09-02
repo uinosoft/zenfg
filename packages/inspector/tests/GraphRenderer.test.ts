@@ -163,6 +163,22 @@ test('keys layout by topology and node geometry and applies the semantic zoom th
     assert.equal(isOverviewGraphScale(1), false);
 });
 
+test('initializes Cytoscape with tuned wheel zoom sensitivity', async (context) => {
+    const scene = createGraphScene(createLegacyDebugViewModel(createNestedCapture()), {
+        mode: 'passes', groupsEnabled: false, expandedGroupPaths: new Set(),
+    });
+    let coreOptions: CytoscapeOptions | undefined;
+    const harness = createRendererHarness({
+        onCreateCore: (options) => { coreOptions = options; },
+    });
+    const renderer = new CytoscapeGraphRenderer(harness.host, harness.environment);
+    context.after(() => renderer.destroy());
+
+    renderer.render(graphRequest(scene));
+    await waitFor(() => harness.core !== undefined);
+    assert.equal(coreOptions?.wheelSensitivity, 1.3);
+});
+
 test('keeps node dimensions unchanged while highlighting semantic hover', () => {
     const styles = createGraphStyles();
     const nodeHover = styles.find((entry) => entry.selector === 'node.semantic-hover');
@@ -822,7 +838,7 @@ function deferred<T>(): Deferred<T> {
 function createRendererHarness(options: {
     readonly runtime?: Promise<RendererRuntime>;
     readonly layoutScene?: GraphRendererEnvironment['layoutScene'];
-    readonly onCreateCore?: () => void;
+    readonly onCreateCore?: (options: CytoscapeOptions) => void;
     readonly onLoadRuntime?: () => void;
     readonly observeResize?: GraphRendererEnvironment['observeResize'];
 } = {}): {
@@ -840,8 +856,8 @@ function createRendererHarness(options: {
     const setCore = (next: Core) => {
         core = next;
     };
-    const runtime = options.runtime ?? Promise.resolve(createHeadlessRuntime((next) => {
-        options.onCreateCore?.();
+    const runtime = options.runtime ?? Promise.resolve(createHeadlessRuntime((next, coreOptions) => {
+        options.onCreateCore?.(coreOptions);
         setCore(next);
     }));
     return {
@@ -866,7 +882,7 @@ function createRendererHarness(options: {
     };
 }
 
-function createHeadlessRuntime(onCreate: (core: Core) => void): RendererRuntime {
+function createHeadlessRuntime(onCreate: (core: Core, options: CytoscapeOptions) => void): RendererRuntime {
     return {
         createCore: (options: CytoscapeOptions) => {
             const core = cytoscape({
@@ -875,7 +891,7 @@ function createHeadlessRuntime(onCreate: (core: Core) => void): RendererRuntime 
                 headless: true,
                 styleEnabled: true,
             });
-            onCreate(core);
+            onCreate(core, options);
             return core;
         },
         elk: new ELK(),

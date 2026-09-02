@@ -3,6 +3,7 @@ export type PanelIconName =
 	| 'check'
 	| 'close'
 	| 'copy'
+	| 'download'
 	| 'empty'
 	| 'error'
 	| 'fit'
@@ -21,6 +22,7 @@ const ICON_PATHS: Record<PanelIconName, readonly string[]> = {
 	check: ['M3 8.2 6.3 11.5 13 4.8'],
 	close: ['M4 4l8 8', 'M12 4l-8 8'],
 	copy: ['M5.5 4h7.5v9H5.5z', 'M3 11V2.5h7.5'],
+	download: ['M8 2.5v7', 'M5.5 7.5 8 10l2.5-2.5', 'M3 12.5h10'],
 	empty: ['M3 3h10v10H3z', 'M5.5 8h5'],
 	error: ['M8 2.5l5.5 10H2.5z', 'M8 6v3', 'M8 11.2v.1'],
 	fit: ['M6 2.5H2.5V6', 'M10 2.5h3.5V6', 'M6 13.5H2.5V10', 'M10 13.5h3.5V10'],

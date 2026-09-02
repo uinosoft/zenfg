@@ -281,6 +281,9 @@ const FRAME_GRAPH_DEBUG_PANEL_CSS = `
 }
 .zenfg-inspector-export-menu[hidden] { display: none; }
 .zenfg-inspector-export-menu > button {
+	display: flex;
+	align-items: center;
+	gap: 7px;
 	padding: 7px 9px;
 	border: 0;
 	border-radius: 4px;
@@ -288,6 +291,7 @@ const FRAME_GRAPH_DEBUG_PANEL_CSS = `
 	background: transparent;
 	font: 600 11px/1.2 var(--fgd-font-ui);
 	text-align: left;
+	white-space: nowrap;
 	cursor: pointer;
 }
 .zenfg-inspector-export-menu > button:hover:not(:disabled) {

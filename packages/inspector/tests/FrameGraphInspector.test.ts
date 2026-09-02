@@ -160,16 +160,18 @@ test('injects scoped visual tokens and keeps icon buttons accessibly named', () 
 	assert.equal(css.includes('.zenfg-inspector-timeline'), false);
 
 	const capture = captureAction(panel.dom);
+	const download = downloadAction(panel.dom);
 	const copy = copyAction(panel.dom);
 	const inspector = panel.dom.querySelector<HTMLButtonElement>('.zenfg-inspector-open-inspector');
 	const close = panel.dom.querySelector<HTMLButtonElement>('.zenfg-inspector-inspector-close');
 	assert.ok(inspector && close);
-	for (const button of [capture, copy, inspector, close]) {
+	for (const button of [capture, download, copy, inspector, close]) {
 		const icon = button.querySelector<SVGElement>('.zenfg-inspector-control-icon');
 		assert.ok(icon);
 		assert.equal(icon.getAttribute('aria-hidden'), 'true');
 	}
 	assert.equal(capture.textContent, 'Capture');
+	assert.equal(download.textContent, 'Download JSON');
 	assert.equal(copy.textContent, 'Copy JSON');
 	assert.equal(close.getAttribute('aria-label'), 'Close inspector');
 	panel.destroy();
@@ -993,6 +995,12 @@ function captureAction(root: ParentNode): HTMLButtonElement {
 
 function copyAction(root: ParentNode): HTMLButtonElement {
 	const action = root.querySelector<HTMLButtonElement>('.zenfg-inspector-copy-action');
+	assert.ok(action);
+	return action;
+}
+
+function downloadAction(root: ParentNode): HTMLButtonElement {
+	const action = root.querySelector<HTMLButtonElement>('.zenfg-inspector-download-action');
 	assert.ok(action);
 	return action;
 }
