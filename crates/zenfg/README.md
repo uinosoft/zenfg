@@ -6,20 +6,15 @@
 [![CI](https://github.com/uinosoft/zenfg/actions/workflows/ci.yml/badge.svg)](https://github.com/uinosoft/zenfg/actions/workflows/ci.yml)
 [![license: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/uinosoft/zenfg/blob/main/LICENSE)
 
-`zenfg` is a renderer-agnostic, wgpu-specific FrameGraph compiler.
-It records per-frame logical resources and accesses, validates content flow,
-builds dependencies, removes dead work, derives wgpu usage, tracks lifetimes,
-and produces a transient allocation plan and optional diagnostics. Device-backed
-graphs materialize that plan through a cross-frame resource pool and can encode
-and submit retained render, compute, copy, clear, command, and
-external-submission nodes over transient and caller-owned imported resources.
+`zenfg` is a renderer-agnostic FrameGraph compiler and transient-resource
+executor for wgpu. It records logical resources and accesses, validates content
+flow, builds dependencies, culls dead work, derives usage, plans transient
+aliasing, and optionally materializes retained work on a caller-owned device and
+queue.
 
-This is a public beta crate. Public APIs may change before 1.0; integration
-projects should pin the exact beta version.
-
-For package and feature selection, cross-language lifecycle and ownership
-mapping, troubleshooting, and links to complete recipes, see the
-[ZenFG quick reference](https://github.com/uinosoft/zenfg/blob/main/docs/quick-reference.md).
+ZenFG does not own scenes, pipelines, bind groups, samplers, surfaces,
+presentation, or device-loss policy. This is a public beta crate; pin the exact
+prerelease version while integrating.
 
 ## Installation
 
@@ -29,157 +24,20 @@ cargo add zenfg@0.1.0-beta.1
 
 ## Features
 
-| Feature | Enabled by default | Description |
+| Feature | Default | Adds |
 | --- | --- | --- |
-| `default` | Yes | Empty feature set; the core FrameGraph compiler and executor are always available. |
-| `serde` | No | Enables Serde serialization for internal report types. |
-| `snapshot` | No | Adds `zenfg-snapshot`, re-exports the Snapshot 1.0 wire API, and enables runtime report export. |
+| `default` | Yes | Empty feature set; the core compiler and device-backed executor are always available |
+| `serde` | No | Serde support for internal compilation report types |
+| `snapshot` | No | `zenfg-snapshot`, wire-type re-exports, and portable report export |
 
-`FrameGraph::new()` remains completely CPU-only. `FrameGraph::with_device()`
-stores a cloned `wgpu::Device` handle, owns its transient resource pool, and
-enables one-shot execution. The queue, surface, scene data, pipelines, bind
-groups, samplers, and imported resources remain caller-owned.
+`FrameGraph::new()` is CPU-only. `FrameGraph::with_device()` stores a cloned
+`wgpu::Device`, owns a transient pool, and enables execution. The queue and all
+imported resources remain caller-owned.
 
-## Lifecycle
+## Quick start
 
-```text
-FrameGraph -> Frame<'frame> -> CompiledFrame<'frame> -> execute(queue)
-              record          CPU plan + report        optional, one-shot
-```
-
-`Frame::compile` consumes the recording. Logical handles are bound to the
-exclusive frame borrow and also carry runtime owner and recording identities.
-Recording-time `texture_desc`, `buffer_desc`, and `texture_view_desc` queries
-return snapshotted metadata; the view query resolves all descriptor defaults.
-After compilation, callbacks and native bindings referenced only by culled work
-are released immediately, while a Full report still describes the complete
-recording.
-
-## GPU execution
-
-Imported resources are declared logically and bound to caller-owned native wgpu
-objects. Transient resources need no binding: retained resources are allocated
-from the FrameGraph-owned pool immediately before execution. Both kinds resolve
-through the same typed access tokens in synchronous structured callbacks:
-
-```rust,no_run
-use zenfg::{
-    BufferDesc, BufferRange, CompileOptions, FrameGraph, ImportBufferOptions,
-    InitialContents,
-};
-
-# fn record(device: &wgpu::Device, queue: &wgpu::Queue, native: &wgpu::Buffer)
-# -> Result<(), zenfg::FrameGraphError> {
-let mut graph = FrameGraph::with_device(device);
-let mut frame = graph.begin_frame();
-let buffer = frame.import_buffer(
-    BufferDesc::new("input", native.size()),
-    ImportBufferOptions::new(InitialContents::Defined),
-)?;
-frame.bind_imported_buffer(buffer, native)?;
-
-let mut pass = frame.compute_pass("consume");
-let input = pass.storage_buffer_read(buffer, BufferRange::whole())?;
-pass.finish_compute(move |ctx| {
-    let _native = ctx.resources.buffer(input)?;
-    // Set a compute pipeline/bind groups and dispatch through ctx.pass.
-    Ok(())
-})?;
-
-frame.compile(CompileOptions::default())?.execute(queue)?;
-# Ok(())
-# }
-```
-
-`finish_render` and `finish_compute` expose only an active wgpu pass plus typed
-resource resolution. Copy nodes own validated buffer-buffer, buffer-texture,
-texture-buffer, or texture-texture operations. `clear_buffer` records one
-aligned, non-empty range, while `clear_buffers` records several ordered clears
-in one node. `command_pass` remains an escape hatch, while external submission
-nodes split FrameGraph-owned command encoders into ordered segments.
-
-Retained texture accesses are compiled into a per-execution materialization
-plan. Repeated accesses to one logical `TextureView` share a single native
-`wgpu::TextureView`; compatible implicit storage views are shared as well. The
-cache is scoped to one execution and never enters the cross-frame resource pool.
-
-Render nodes support multisample color resolve targets and read-only depth
-attachments. Attachment declarations, sampled/storage roles, copy roles, sample
-counts, and resolve compatibility are checked against texture-format
-capabilities before dead-node elimination. Root declarations are also strict:
-`Present` accepts only surface textures, `Readback` accepts only imported buffers
-exposed exactly as `MAP_READ | COPY_DST`, and `PersistentState` accepts only
-imported resources.
-
-Execution performs a full preflight before acquiring transient resources or
-creating the first callback, encoder, or submission. A missing imported native
-binding, callback or copy operation, descriptor/usage mismatch, or token
-resolved from the wrong pass produces a structured error. Surface acquisition
-and presentation remain caller-owned.
-
-## GPU timing
-
-GPU timing is opt-in and leaves the normal execution path allocation-free with
-respect to profiler resources. `execute_with_gpu_timing` uses timestamp writes
-only for retained render and compute passes and returns a one-shot,
-`#[must_use]` readback handle:
-
-```rust,no_run
-# use zenfg::{CompileOptions, ExecutionOptions, FrameGraph};
-# fn sample(device: &wgpu::Device, queue: &wgpu::Queue)
-# -> Result<(), zenfg::FrameGraphError> {
-let mut graph = FrameGraph::with_device(device);
-let mut frame = graph.begin_frame();
-frame.command_pass("untimed setup").finish_command(|_| Ok(()))?;
-let compiled = frame.compile(CompileOptions::default())?;
-let mut readback = compiled.execute_with_gpu_timing(
-    queue,
-    ExecutionOptions::default().with_frame_index(42),
-)?;
-
-// Call from later frames; this never blocks.
-if let Some(report) = readback.try_take() {
-    println!("{report:?}");
-}
-# Ok(())
-# }
-```
-
-`GpuTimingReadback::try_take` polls the correct cloned Device on native wgpu
-backends and relies on the browser event loop on WebGPU. Reports use
-`std::time::Duration`, carry the caller's frame index, and include only the
-debug groups needed to interpret timed retained nodes. Unsupported devices,
-an overlapping pending readback, readback failure, and query-count overflow are
-reported as non-fatal `Unavailable` results; graph execution still proceeds.
-The profiler lazily creates and grows one query set plus resolve/readback
-buffers. Only one timing readback may be pending per FrameGraph.
-
-## Transient resource pool
-
-The compiler assigns non-overlapping, compatible logical resources to one
-physical allocation. Execution acquires one native resource per physical
-allocation, so aliases resolve to the same `wgpu` object. After execution the
-resources return to a per-`FrameGraph` pool and can be reused by later frames on
-the same queue.
-
-`FrameGraph::resource_pool_stats()` reports cumulative acquire, reuse, and
-creation counts plus the currently retained resource count and estimated bytes.
-`FrameGraph::clear_resource_pool()` destroys retained resources without
-resetting the cumulative counters. Dropping the graph also destroys retained
-resources.
-
-References resolved from transient access tokens are valid only for the current
-execution callback. They must not be cloned or retained after that callback;
-`wgpu` handle cloning cannot be completely prohibited by Rust lifetimes.
-
-Imported resources remain caller-owned and may be referenced by long-lived bind
-groups or native handles, but every node that uses them must declare the matching
-FrameGraph access. A transient resource must instead be resolved from the
-current callback's typed token and must never be cached across callbacks or
-frames. When several renderer domains share one native resource, the frame
-composer should import it once and pass the same logical handle to each domain.
-
-## Minimal example
+This complete CPU-only example records one transient output, retains it, and
+compiles a diagnostic plan:
 
 ```rust
 use zenfg::{
@@ -209,53 +67,137 @@ assert_eq!(compiled.report().unwrap().summary.retained_node_count, 1);
 # Ok::<(), zenfg::FrameGraphError>(())
 ```
 
-## Content model
+## Lifecycle
 
-- Transient and surface resources begin undefined.
-- Imported resources explicitly select `InitialContents::Defined` or
-  `InitialContents::Undefined`.
-- Reads and preserving writes require defined contents.
-- Overwrites create a new logical value without consuming the previous value.
-- Discarding an attachment invalidates its selected subresources.
-- Value dependencies retain producers; ordering-only WAR/WAW hazards do not.
+```text
+FrameGraph -> Frame<'frame> -> CompiledFrame<'frame> -> execute(queue)
+runtime       recording         retained CPU plan        optional, one-shot
+```
 
-Retained passes always remain a stable subsequence of recording order. The
-compiler does not reorder or merge passes.
+- `begin_frame()` exclusively borrows the runtime and creates one recording.
+- `Frame::compile()` consumes the recording. Handles and access tokens carry
+  runtime and recording identities enforced by the API and validation.
+- `CompiledFrame::execute()` is one-shot. Native bindings and callbacks needed
+  only by culled work are released after compilation.
+- Surface acquisition and presentation remain caller-owned; import and bind a
+  fresh current surface texture for each presentation frame.
+- Dropping `FrameGraph` releases retained pool and profiler resources, but not
+  caller-owned imported resources.
 
-## Diagnostics and Snapshot
+## Common tasks
 
-`ReportLevel::Summary` records counts and compile timings. `ReportLevel::Full`
-also records resources, views, accesses, values, dependencies, roots, lifetimes,
-allocation plans, execution segments, original recording order, explicit
-culling reasons, and recording debug-group hierarchy.
-`Frame::push_debug_group`, `pop_debug_group`, and `with_debug_group` assign nodes
-and resources to stable per-recording groups. `ExecutionOptions` can optionally
-emit those retained group paths as GPU debug markers; marker emission is off by
-default and is reset across external-submission segment boundaries.
+| Task | Public API |
+| --- | --- |
+| Create a CPU-only compiler | `FrameGraph::new()` |
+| Create a device-backed runtime | `FrameGraph::with_device()` |
+| Start a recording | `begin_frame()` |
+| Create transient storage | `create_texture()`, `create_buffer()` |
+| Register imported storage | `import_texture()`, `import_surface_texture()`, `import_buffer()` |
+| Bind imported native objects | `bind_imported_texture()`, `bind_imported_buffer()` |
+| Select texture subresources | `create_texture_view()` |
+| Record render or compute work | `render_pass()` / `finish_render()`, `compute_pass()` / `finish_compute()` |
+| Record copies or clears | `copy_pass()` with typed copy methods, `clear_buffer()`, `clear_buffers()` |
+| Encode custom graph-owned commands | `command_pass()` / `finish_command()` |
+| Call a renderer that submits itself | `external_submission()` / `finish_external()` |
+| Retain observable values | `mark_present()`, `mark_buffer_root()`, `mark_texture_root()`, `mark_readback()` |
+| Compile compact or full diagnostics | `compile(CompileOptions::default())`, `compile(CompileOptions::full_report())` |
+| Execute retained work | `execute()`, `execute_with_options()` |
+| Request GPU timing | `execute_with_gpu_timing()` |
+| Inspect or clear retained allocations | `resource_pool_stats()`, `clear_resource_pool()` |
+| Export Snapshot 1.0 | `snapshot::create_frame_graph_snapshot()` with feature `snapshot` |
 
-The optional `serde` feature remains the internal report serialization switch.
-The separate `snapshot` feature depends on the `wgpu`-free `zenfg-snapshot`
-crate, re-exports its Snapshot 1.0 wire types and codec, and adds
-`create_frame_graph_snapshot` for runtime reports.
-The adapter requires a Full report and preserves groups, original recording
-order, retained/culled state, normalized texture views, split texture regions,
-dependencies, roots, execution segments, allocation facts, optional pool facts,
-GPU timings, and diagnostics. `CompiledFrame::take_report()` moves that report
-into an asynchronous capture path without cloning it.
+Exact signatures, fields, defaults, and structured `FGxxxx` errors are
+documented on [docs.rs](https://docs.rs/zenfg).
 
-Snapshot export creates an in-memory object or JSON text only. Filesystem and
-capture naming policy remain caller-owned. Arbitrary JSON validation and both
-historical migrations are provided by `zenfg-snapshot`; the normative Schema,
-specification, fixtures, and conformance corpus live in `@zenfg/snapshot`.
+## Key pattern: bind and resolve typed access
 
-Errors are structured `FrameGraphError` values with stable `FGxxxx` diagnostic
-codes and graph context.
+Imported storage is declared logically, then bound to a caller-owned native
+object. Transient and imported storage resolve through the same typed pass
+tokens:
 
-## Current limits
+```rust,no_run
+use zenfg::{
+    BufferDesc, BufferRange, CompileOptions, FrameGraph, ImportBufferOptions,
+    InitialContents,
+};
 
-The GPU runtime does not accept a host-owned encoder, time copy, command, or
-external nodes, apply a pool memory budget or eviction policy, merge or reorder
-passes, schedule async compute or multiple queues, analyze cross-frame
-dependencies, or expose a public SSA resource API. Structured render passes
-currently omit stencil, occlusion queries, and caller-defined timestamp writes.
-The crate is distributed as MIT-licensed beta software.
+# fn record(device: &wgpu::Device, queue: &wgpu::Queue, native: &wgpu::Buffer)
+# -> Result<(), zenfg::FrameGraphError> {
+let mut graph = FrameGraph::with_device(device);
+let mut frame = graph.begin_frame();
+let buffer = frame.import_buffer(
+    BufferDesc::new("input", native.size()),
+    ImportBufferOptions::new(InitialContents::Defined),
+)?;
+frame.bind_imported_buffer(buffer, native)?;
+
+let mut pass = frame.compute_pass("consume");
+let input = pass.storage_buffer_read(buffer, BufferRange::whole())?;
+pass.finish_compute(move |ctx| {
+    let _native = ctx.resources.buffer(input)?;
+    // Set a compute pipeline and dispatch through ctx.pass.
+    Ok(())
+})?;
+
+frame.compile(CompileOptions::default())?.execute(queue)?;
+# Ok(())
+# }
+```
+
+Resolved transient objects are valid only inside their execution callback.
+Imported objects remain caller-owned, but every graph-visible access still
+needs a matching declaration.
+
+## Resource and integration choices
+
+- Use transient resources for storage needed only by one compiled execution;
+  import storage that the caller owns or that must survive execution.
+- Imported resources explicitly choose `InitialContents::Defined` or
+  `InitialContents::Undefined`. The first write to a transient range must fully
+  overwrite it.
+- Prefer structured render, compute, copy, and clear nodes. Use command passes
+  for custom work on a graph-owned encoder.
+- Use external submissions for renderers that own and submit their encoders.
+  The boundary orders queue submissions but is not a GPU-completion fence.
+- ZenFG performs no cross-frame dependency analysis and never acquires or
+  presents a surface for the application.
+
+See [Core concepts](https://github.com/uinosoft/zenfg/blob/main/docs/core-concepts.md)
+for the shared ownership, content, dependency, lifetime, and integration model.
+
+## Common mistakes
+
+| Symptom | Fix |
+| --- | --- |
+| A pass is absent from the compiled plan | Retain its final value with the appropriate root, or declare only genuine side effects. |
+| A read or preserving write reports undefined contents | Overwrite the complete range first or choose the correct imported initial contents. |
+| An imported resource cannot execute | Bind the matching native object and ensure descriptor and usage metadata agree. |
+| A typed token fails to resolve | Resolve it only through the pass that declared it and only inside that pass's callback. |
+| A transient object is used later | Never clone or retain resolved transient wgpu handles across callbacks or frames. |
+| External work is incorrectly ordered | Submit all declared work on the shared queue before the external callback returns. |
+| Timing is unavailable | Treat unsupported, busy, readback failure, and overflow as non-fatal timing results. |
+
+## Complete examples
+
+The following Cargo examples are published with the crate and compile-checked
+outside the workspace:
+
+| Workflow | Example |
+| --- | --- |
+| Minimal presentation lifecycle | [`minimal_frame.rs`](https://github.com/uinosoft/zenfg/blob/main/crates/zenfg/examples/minimal_frame.rs) |
+| Transient render target to presentation | [`transient_to_present.rs`](https://github.com/uinosoft/zenfg/blob/main/crates/zenfg/examples/transient_to_present.rs) |
+| Caller-owned imported resource | [`imported_resource.rs`](https://github.com/uinosoft/zenfg/blob/main/crates/zenfg/examples/imported_resource.rs) |
+| Cross-frame persistent state | [`persistent_state.rs`](https://github.com/uinosoft/zenfg/blob/main/crates/zenfg/examples/persistent_state.rs) |
+| Opaque third-party submission | [`external_submission.rs`](https://github.com/uinosoft/zenfg/blob/main/crates/zenfg/examples/external_submission.rs) |
+| Portable Snapshot export | [`snapshot_export.rs`](https://github.com/uinosoft/zenfg/blob/main/crates/zenfg/examples/snapshot_export.rs) |
+| Asynchronous GPU timing | [`gpu_timing.rs`](https://github.com/uinosoft/zenfg/blob/main/crates/zenfg/examples/gpu_timing.rs) |
+
+The repository also contains CPU-only compile and pool benchmarks. Snapshot
+export requires the `snapshot` feature.
+
+## Further reading
+
+- [ZenFG documentation index](https://github.com/uinosoft/zenfg/blob/main/docs/README.md)
+- [Core concepts](https://github.com/uinosoft/zenfg/blob/main/docs/core-concepts.md)
+- [`zenfg-snapshot`](https://github.com/uinosoft/zenfg/blob/main/crates/zenfg-snapshot/README.md)
+- [Compatibility](https://github.com/uinosoft/zenfg/blob/main/docs/compatibility.md)

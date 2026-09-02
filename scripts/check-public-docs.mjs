@@ -233,7 +233,6 @@ const markdownFiles = [
         .map((entry) => `docs/${entry.name}`),
     'packages/snapshot/README.md',
     'packages/webgpu/README.md',
-    'packages/webgpu/README.zh-CN.md',
     'packages/webgpu/examples/README.md',
     'packages/inspector/README.md',
     'crates/zenfg/README.md',

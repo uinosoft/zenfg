@@ -6,15 +6,12 @@
 [![license: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/uinosoft/zenfg/blob/main/LICENSE)
 
 `@zenfg/inspector` is an embeddable, renderer-independent DOM workbench for
-ZenFG Snapshot data. It depends on `@zenfg/snapshot`, Cytoscape, and ELK; it has
+ZenFG Snapshot data. It depends on `@zenfg/snapshot`, Cytoscape, and ELK, but has
 no WebGPU, wgpu, engine, or host-UI dependency.
 
-This is a public beta package. Public APIs may change before 1.0; integration
-projects should pin the exact beta version.
-
-For package selection, the capture data flow, version boundaries, and links to
-complete producer recipes, see the
-[ZenFG quick reference](https://github.com/uinosoft/zenfg/blob/main/docs/quick-reference.md).
+The package owns Snapshot validation, migration, visualization, and workbench
+state. The host owns layout around the workbench, live-capture policy, file
+retention, and the renderer that produces Snapshot data.
 
 ## Installation
 
@@ -22,53 +19,84 @@ complete producer recipes, see the
 npm install @zenfg/inspector@0.1.0-beta.1
 ```
 
-## Usage
+## Quick start
+
+Mount one Inspector into a host element and provide an optional live-capture
+callback:
 
 ```ts
 import { mountFrameGraphInspector } from '@zenfg/inspector';
+import type { FrameGraphSnapshot } from '@zenfg/snapshot';
 
-const inspector = mountFrameGraphInspector(document.querySelector('#tools')!, {
-  captureSnapshot: () => renderer.requestFrameGraphSnapshot(),
-  branding: 'ZenFG Inspector', // Pass false to hide visible branding.
-});
+export function mountInspector(
+	host: HTMLElement,
+	capture: () => FrameGraphSnapshot | Promise<FrameGraphSnapshot>,
+): () => void {
+	const inspector = mountFrameGraphInspector(host, {
+		captureSnapshot: capture,
+		branding: 'ZenFG Inspector',
+	});
 
-inspector.setSnapshot(existingSnapshot);
-await inspector.importSnapshot(file);
-inspector.downloadSnapshot();
-await inspector.copySnapshotJson();
-inspector.destroy();
+	return () => inspector.destroy();
+}
 ```
 
-`FrameGraphInspector` fills any `HTMLElement` with a non-zero width and height,
-so the same workbench can be a full page or an embedded tool. Product branding,
-file selection, and file drag-and-drop are built in; an optional dock or overlay
-adapter remains the host application's responsibility. File import defaults to
-64 MiB and may be adjusted with
-`maxImportBytes`. `maxGraphElements` defaults to 5,000; captures above that
-layout budget retain Passes, Resources, Memory, Diagnostics, Inspector, and raw
-views while automatic Cytoscape/ELK layout is disabled with an explanation.
+The host must have non-zero width and height. `FrameGraphInspector` fills that
+host, so the same workbench can be embedded in a tool panel or mounted as a
+full-page application.
 
-## Workbench
+## Common tasks
 
-The persistent workbench provides Overview, Graph, Passes, Resources, Memory,
-and Diagnostics views plus a selection Inspector with Summary, Relations, and
-Raw panes. It supports live capture providers, direct Snapshot set/get, file
-import, Legacy V0 and Legacy Candidate V1 migration, canonical download,
-clipboard copy, and cleanup through `destroy()`.
+| Task | Public API |
+| --- | --- |
+| Mount into an existing element | `mountFrameGraphInspector()` |
+| Construct without appending | `new FrameGraphInspector()` and its `dom` property |
+| Request live data from the host | `captureSnapshot` option |
+| Replace the current capture | `setSnapshot()` |
+| Read the current canonical capture | `getSnapshot()` |
+| Import and migrate a file | `importSnapshot()` |
+| Download canonical Snapshot JSON | `downloadSnapshot()` |
+| Copy canonical Snapshot JSON | `copySnapshotJson()` |
+| Set visible product branding | `branding` option |
+| Limit imported file size | `maxImportBytes` option |
+| Limit automatic graph layout | `maxGraphElements` option |
+| Release DOM, workers, and listeners | `destroy()` |
 
-Capture, import, and direct replacement share a revision counter: stale async
-results and results arriving after destruction are ignored. A failed or
-oversized import leaves the current capture and UI state intact. The latest
-valid capture preserves tab, filter, sorting, group-expansion, graph mode,
-selection, Inspector, scrolling, and viewport state where possible.
+Exact options, defaults, return types, and lifecycle behavior are documented by
+the TSDoc preserved in the packaged source and declarations.
 
-Graph layout is lazy and read-only. ELK computes layered compound geometry and
-Cytoscape renders it with pan, zoom, selection, hover, tooltips, group
-expansion, relayout, and fit controls. Input labels and raw fields are assigned
-with text DOM APIs; Snapshot extensions, URLs, labels, and messages are never
-executed as markup or code.
+## Workbench behavior
 
-The backend-free application in `apps/inspector` mounts the same workbench into
-a full-viewport host without adding duplicate controls. It is built as static
-files and includes third-party notices; hosting and deployment are deliberately
-separate.
+The workbench provides Overview, Graph, Passes, Resources, Memory, and
+Diagnostics views plus a selection Inspector. It supports live capture, direct
+Snapshot replacement, file import, supported legacy migration, canonical
+download, clipboard copy, filtering, sorting, group expansion, and graph
+navigation.
+
+Capture, import, and direct replacement share a revision counter so stale async
+results cannot replace newer data. Failed or oversized imports leave the
+current valid capture and UI state intact. Graph layout is lazy and is disabled
+with an explanation when a capture exceeds `maxGraphElements`; the tabular and
+raw views remain available.
+
+Snapshot labels, URLs, extensions, and diagnostics are assigned through text
+DOM APIs and are never executed as markup or code. The standalone application
+in `apps/inspector` mounts this same package without adding duplicate controls.
+
+## Common mistakes
+
+| Symptom | Fix |
+| --- | --- |
+| The Inspector is mounted but invisible | Give the host element a non-zero width and height. |
+| Live capture never becomes available | Provide `captureSnapshot`, or call `setSnapshot()` with canonical data. |
+| A large capture has no graph layout | Raise `maxGraphElements` deliberately or use the tabular/raw views. |
+| A failed import appears to do nothing | Inspect the visible validation feedback; the previous valid capture is intentionally preserved. |
+| Old capture results replace new ones in host code | Let the Inspector own capture sequencing instead of applying asynchronous results separately. |
+| DOM or worker resources remain after unmount | Call `destroy()` when the host tool is released. |
+
+## Further reading
+
+- [Hosted Inspector](https://uinosoft.github.io/zenfg/inspector/)
+- [`@zenfg/snapshot`](https://github.com/uinosoft/zenfg/blob/main/packages/snapshot/README.md)
+- [ZenFG Core concepts](https://github.com/uinosoft/zenfg/blob/main/docs/core-concepts.md)
+- [ZenFG documentation index](https://github.com/uinosoft/zenfg/blob/main/docs/README.md)

@@ -2,52 +2,71 @@
 
 English | [简体中文](README.zh-CN.md)
 
-ZenFG is a standalone, composable FrameGraph toolchain for WebGPU and wgpu.
-It provides idiomatic TypeScript and Rust runtimes, a portable Snapshot format,
-validation and conformance tools, and an embeddable Inspector.
+**Composable FrameGraph infrastructure for WebGPU and wgpu.**
 
-ZenFG coordinates graph-visible GPU work without owning scenes, materials,
-pipelines, bind groups, cameras, surface presentation, or application policy.
-Independent renderers can participate through native render/compute/copy
-nodes, command encoding, or opaque external-submission boundaries.
+ZenFG provides idiomatic TypeScript and Rust runtimes, a portable Snapshot
+format, validation and conformance tooling, and an embeddable Inspector. It
+coordinates GPU work across renderer features and third-party systems without
+turning the FrameGraph into a renderer.
 
 Website: <https://uinosoft.github.io/zenfg/>
 
-Inspector: <https://uinosoft.github.io/zenfg/inspector/>
+## Why ZenFG
 
-Start with the [developer and AI quick reference](docs/quick-reference.md) for
-package selection, lifecycle and ownership rules, API name mapping, common
-failure fixes, and complete TypeScript/Rust recipes.
+ZenFG gives applications one explicit model for dependencies, scheduling,
+culling, resource lifetimes, transient allocation, validation, and diagnostics.
+The application remains in control of rendering policy and can adopt the graph
+at the integration depth that fits each subsystem.
+
+| ZenFG owns | The application owns |
+| --- | --- |
+| Graph-visible dependencies and execution order | Scenes, materials, cameras, and renderer architecture |
+| Retention roots and dead-work culling | Pipelines, bind groups, samplers, and draw/dispatch policy |
+| Transient lifetimes, aliasing, and pooling | Devices, queues, surfaces, presentation, and device-loss policy |
+| Validation, reports, Snapshot projection, and inspection | Long-lived resources, resource contents, and application state |
+
+## Integration levels
+
+- **Native render, compute, and copy** nodes provide the richest validation and
+  diagnostics.
+- **Command integration** lets a subsystem encode custom work into a
+  FrameGraph-owned command encoder.
+- **Opaque external submission** lets an existing renderer keep its encoders
+  and submission model while declaring an ordered graph boundary.
+
+The levels can be mixed in one frame. See [Core concepts](docs/core-concepts.md)
+for the complete ownership, content, dependency, lifetime, and execution model.
 
 ## Packages
 
 | Package | Purpose |
 | --- | --- |
-| `@zenfg/webgpu` | WebGPU FrameGraph runtime |
-| `@zenfg/snapshot` | Snapshot V1 types, codec, validator, schema, and conformance corpus |
-| `@zenfg/inspector` | Renderer-independent DOM Inspector |
-| `zenfg` | wgpu FrameGraph runtime |
-| `zenfg-snapshot` | Rust Snapshot V1 codec and validator |
+| [`@zenfg/webgpu`](packages/webgpu/README.md) | TypeScript/WebGPU FrameGraph runtime |
+| [`zenfg`](crates/zenfg/README.md) | Rust/wgpu FrameGraph runtime |
+| [`@zenfg/snapshot`](packages/snapshot/README.md) | Normative Snapshot 1.0 types, codec, validator, Schema, and conformance corpus |
+| [`zenfg-snapshot`](crates/zenfg-snapshot/README.md) | Rust Snapshot 1.0 wire model, codec, validation, and migration |
+| [`@zenfg/inspector`](packages/inspector/README.md) | Renderer-independent DOM Inspector for Snapshot data |
 
-All five public packages are released as `0.1.0-beta.1`. Public APIs may change
-before 1.0, so integrations should pin the exact beta version. The
-implementations share semantics and portable diagnostics, not source-level API
-parity; Snapshot wire format version 1.0 is versioned independently.
+## Start here
 
-The private `apps/inspector` workspace builds a backend-free static viewer with
-file selection, drag-and-drop, validation feedback, and historical-format
-migration. The [hosted Inspector](https://uinosoft.github.io/zenfg/inspector/)
-runs entirely in the browser; imported snapshots are not uploaded.
+- Browse the [documentation index](docs/README.md).
+- Start a WebGPU integration with the [`@zenfg/webgpu` quick start](packages/webgpu/README.md#quick-start)
+  and its [complete TypeScript recipes](packages/webgpu/examples/README.md).
+- Start a wgpu integration with the [`zenfg` quick start](crates/zenfg/README.md#quick-start)
+  and its [Cargo examples](crates/zenfg/examples/).
+- Open the [hosted Inspector](https://uinosoft.github.io/zenfg/inspector/),
+  which runs entirely in the browser and does not upload imported snapshots.
+- Read [Contributing](CONTRIBUTING.md) before changing public semantics,
+  examples, or release artifacts.
 
-For local development, install dependencies and start the standalone Inspector
-from a clean checkout with `npm run dev:inspector`. Run the independent
-TypeScript/Rust producer corpus with `npm run test:cross-language`.
+## Status
 
-See the [quick reference](docs/quick-reference.md),
-[architecture guide](docs/architecture.md),
-[semantic model](docs/semantic-model.md),
-[integration guide](docs/integration.md),
-[compatibility matrix](docs/compatibility.md), and
-[release validation](docs/release-validation.md). Release changes are
-tracked in the [changelog](CHANGELOG.md); the first public beta has a dedicated
-[0.1.0-beta.1 release checklist](docs/release-checklist-0.1.0.md).
+ZenFG is public beta software. Public APIs may change before 1.0, so integrations
+should pin exact prerelease package versions. TypeScript and Rust share semantics
+and portable diagnostics, not source-level API parity. Snapshot wire format
+versioning is independent from package versions; see the
+[compatibility matrix](docs/compatibility.md) and [changelog](CHANGELOG.md).
+
+## License
+
+ZenFG is available under the [MIT License](LICENSE).

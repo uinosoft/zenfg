@@ -5,7 +5,9 @@ packages use independent versions; component tags identify each release.
 
 ## [Unreleased]
 
-No changes yet.
+- Reorganized public documentation around bilingual project entrypoints,
+  package-local quick references, a single Core Concepts guide, and an explicit
+  source-of-truth policy for API docs, examples, and future interactive stories.
 
 ## [0.1.0-beta.1] - 2026-09-01
 
