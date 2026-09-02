@@ -5,6 +5,8 @@ packages use independent versions; component tags identify each release.
 
 ## [Unreleased]
 
+- Fixed Rust/wgpu GPU debug-group execution and timing ancestry when compilation
+  retains non-contiguous recording group IDs.
 - Reorganized public documentation around bilingual project entrypoints,
   package-local quick references, a single Core Concepts guide, and an explicit
   source-of-truth policy for API docs, examples, and future interactive stories.

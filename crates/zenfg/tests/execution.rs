@@ -164,6 +164,40 @@ fn gpu_debug_groups_survive_nested_paths_and_external_boundaries() {
 }
 
 #[test]
+fn gpu_debug_groups_support_sparse_retained_ids() {
+    let (device, queue) = noop_device();
+    let called = Arc::new(Mutex::new(false));
+    let mut graph = FrameGraph::with_device(&device);
+    let mut frame = graph.begin_frame();
+
+    frame
+        .with_debug_group("Frame Targets", |frame| {
+            let _ = frame.create_buffer(BufferDesc::new("unused-target", 4))?;
+            Ok(())
+        })
+        .unwrap();
+    frame
+        .with_debug_group("Mesh", |frame| {
+            let callback_called = called.clone();
+            frame.command_pass("draw").finish_command(move |_| {
+                *callback_called.lock().unwrap() = true;
+                Ok(())
+            })
+        })
+        .unwrap();
+
+    frame
+        .compile(CompileOptions::default())
+        .unwrap()
+        .execute_with_options(
+            &queue,
+            ExecutionOptions::default().with_gpu_debug_groups(true),
+        )
+        .unwrap();
+    assert!(*called.lock().unwrap());
+}
+
+#[test]
 fn executes_command_and_resolves_native_buffer() {
     let (device, queue) = noop_device();
     let native = native_buffer(&device, 64, wgpu::BufferUsages::STORAGE);

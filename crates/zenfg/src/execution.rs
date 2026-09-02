@@ -395,6 +395,14 @@ fn execute_internal(
         .iter()
         .map(|node| (node.id, node))
         .collect::<HashMap<_, _>>();
+    let debug_groups_by_id = if options.gpu_debug_groups {
+        plan.debug_groups
+            .iter()
+            .map(|group| (group.id, group))
+            .collect::<HashMap<_, _>>()
+    } else {
+        HashMap::new()
+    };
 
     for (segment_index, segment) in plan.execution_segments.iter().enumerate() {
         match segment.kind {
@@ -418,7 +426,7 @@ fn execute_internal(
                             &mut encoder,
                             &mut open_debug_groups,
                             node.debug_group,
-                            &plan.debug_groups,
+                            &debug_groups_by_id,
                         )?;
                     }
                     let executor =
@@ -641,9 +649,9 @@ fn transition_debug_groups(
     encoder: &mut wgpu::CommandEncoder,
     open: &mut Vec<DebugGroupId>,
     target: Option<DebugGroupId>,
-    groups: &[crate::model::DebugGroupRecord],
+    groups_by_id: &HashMap<DebugGroupId, &crate::model::DebugGroupRecord>,
 ) -> Result<(), FrameGraphError> {
-    let target_path = debug_group_path(target, groups)?;
+    let target_path = debug_group_path(target, groups_by_id)?;
     let common = open
         .iter()
         .zip(&target_path)
@@ -654,9 +662,8 @@ fn transition_debug_groups(
         open.pop();
     }
     for group in &target_path[common..] {
-        let record = groups
-            .get(group.get() as usize)
-            .filter(|record| record.id == *group)
+        let record = groups_by_id
+            .get(group)
             .ok_or_else(|| FrameGraphError::Internal {
                 message: format!("unknown debug group {group}"),
             })?;
@@ -668,13 +675,12 @@ fn transition_debug_groups(
 
 fn debug_group_path(
     mut group: Option<DebugGroupId>,
-    groups: &[crate::model::DebugGroupRecord],
+    groups_by_id: &HashMap<DebugGroupId, &crate::model::DebugGroupRecord>,
 ) -> Result<Vec<DebugGroupId>, FrameGraphError> {
     let mut path = Vec::new();
     while let Some(id) = group {
-        let record = groups
-            .get(id.get() as usize)
-            .filter(|record| record.id == id)
+        let record = groups_by_id
+            .get(&id)
             .ok_or_else(|| FrameGraphError::Internal {
                 message: format!("unknown debug group {id}"),
             })?;

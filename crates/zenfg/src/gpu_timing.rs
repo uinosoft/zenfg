@@ -455,6 +455,10 @@ fn filter_debug_groups(
     nodes: &[TimedNode],
     groups: &[crate::model::DebugGroupRecord],
 ) -> Vec<DebugGroupReport> {
+    let groups_by_id = groups
+        .iter()
+        .map(|group| (group.id, group))
+        .collect::<HashMap<_, _>>();
     let mut included = HashSet::new();
     for node in nodes {
         let mut group = node.debug_group;
@@ -462,9 +466,7 @@ fn filter_debug_groups(
             if !included.insert(id) {
                 break;
             }
-            group = groups
-                .get(id.get() as usize)
-                .and_then(|record| record.parent);
+            group = groups_by_id.get(&id).and_then(|record| record.parent);
         }
     }
     groups
@@ -614,10 +616,10 @@ mod tests {
     }
 
     #[test]
-    fn timing_groups_include_referenced_groups_and_ancestors_in_recording_order() {
-        let root = DebugGroupId::new(0);
-        let child = DebugGroupId::new(1);
-        let unused = DebugGroupId::new(2);
+    fn timing_groups_include_sparse_referenced_groups_and_ancestors_in_recording_order() {
+        let root = DebugGroupId::new(1);
+        let child = DebugGroupId::new(2);
+        let unused = DebugGroupId::new(3);
         let groups = vec![
             crate::model::DebugGroupRecord {
                 id: root,
