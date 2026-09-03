@@ -1,4 +1,4 @@
-import { startZenBackground } from './background.ts';
+import { startZenBackground, type ZenBackgroundController } from '@zenfg-example/interactive-background';
 
 type Language = 'en' | 'zh-CN';
 
@@ -20,6 +20,7 @@ const translations: Record<Language, Record<string, string>> = {
 		projectLinks: 'Project resources',
 		languageLabel: '中文',
 		languageAction: 'Switch to Simplified Chinese',
+		coverStory: 'Explore the interactive FrameGraph cover story',
 	},
 	'zh-CN': {
 		description: 'ZenFG 是面向 WebGPU 与 wgpu 的独立、可组合 FrameGraph 工具链。',
@@ -35,6 +36,7 @@ const translations: Record<Language, Record<string, string>> = {
 		projectLinks: '项目资源',
 		languageLabel: 'EN',
 		languageAction: '切换到英文',
+		coverStory: '探索互动式 FrameGraph 封面故事',
 	},
 };
 
@@ -103,4 +105,25 @@ toggle?.addEventListener('click', () => {
 });
 
 const backgroundCanvas = document.querySelector<HTMLCanvasElement>('[data-zenfg-background]');
-if (backgroundCanvas) void startZenBackground(backgroundCanvas);
+let background: ZenBackgroundController | undefined;
+let pageDisposed = false;
+if (backgroundCanvas) {
+	void startZenBackground(backgroundCanvas, {
+		interactionTarget: window,
+		onReady: () => {
+			document.documentElement.dataset.webgpuBackground = 'ready';
+		},
+		onError: (error) => {
+			document.documentElement.removeAttribute('data-webgpu-background');
+			console.warn('ZenFG background fell back to CSS.', error);
+		},
+	}).then((controller) => {
+		if (pageDisposed) controller?.dispose();
+		else background = controller;
+	});
+}
+
+window.addEventListener('beforeunload', () => {
+	pageDisposed = true;
+	background?.dispose();
+}, { once: true });

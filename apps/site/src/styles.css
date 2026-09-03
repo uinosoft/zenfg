@@ -60,11 +60,21 @@ html[data-webgpu-background="ready"] .zen-background {
 	opacity: 1;
 }
 
+.site-contrast-layer {
+	position: fixed;
+	z-index: 1;
+	inset: 0;
+	pointer-events: none;
+	background:
+		linear-gradient(90deg, rgba(4, 9, 14, 0.9) 0%, rgba(5, 10, 15, 0.74) 34%, rgba(5, 10, 15, 0.3) 58%, transparent 80%),
+		linear-gradient(180deg, rgba(3, 8, 12, 0.24), transparent 24%, transparent 76%, rgba(3, 8, 12, 0.46));
+}
+
 button, a { font: inherit; }
 
 main {
 	position: relative;
-	z-index: 1;
+	z-index: 2;
 	display: grid;
 	grid-template-rows: auto 1fr auto;
 	width: min(calc(100% - 64px), 1200px);
@@ -197,31 +207,113 @@ main {
 
 .language-toggle:focus-visible,
 .header-link:focus-visible,
+.cover-story-marker:focus-visible,
 .hero-actions a:focus-visible {
 	outline: 2px solid var(--accent);
 	outline-offset: 3px;
 }
 
 .hero {
+	position: relative;
 	display: flex;
 	align-items: center;
 	padding: clamp(64px, 11vh, 116px) 0;
+}
+
+.cover-story-marker {
+	position: absolute;
+	z-index: 2;
+	top: clamp(42px, 8vh, 84px);
+	right: clamp(8px, 3vw, 42px);
+	display: grid;
+	width: 44px;
+	height: 44px;
+	place-items: center;
+	border-radius: 50%;
+	color: #8ddcff;
+	text-decoration: none;
+	isolation: isolate;
+}
+
+.cover-story-marker::before,
+.cover-story-marker::after {
+	content: "";
+	position: absolute;
+	border: 1px solid rgba(98, 207, 249, 0.5);
+	border-radius: 50%;
+	pointer-events: none;
+}
+
+.cover-story-marker::before {
+	width: 22px;
+	height: 22px;
+	box-shadow: 0 0 20px rgba(56, 189, 248, 0.28);
+	animation: cover-story-pulse 2.8s ease-out infinite;
+}
+
+.cover-story-marker::after {
+	width: 42px;
+	height: 42px;
+	border-color: rgba(98, 207, 249, 0.13);
+	transition: border-color 160ms ease, transform 160ms ease;
+}
+
+.cover-story-marker:hover::after,
+.cover-story-marker:focus-visible::after {
+	border-color: rgba(98, 207, 249, 0.58);
+	transform: scale(1.08);
+}
+
+.cover-story-marker__dot {
+	position: relative;
+	z-index: 1;
+	width: 7px;
+	height: 7px;
+	border: 1px solid rgba(217, 249, 255, 0.9);
+	border-radius: 50%;
+	background: #5ed4ff;
+	box-shadow:
+		0 0 8px rgba(94, 212, 255, 0.9),
+		0 0 22px rgba(56, 189, 248, 0.64);
+}
+
+.cover-story-marker__label {
+	position: absolute;
+	top: 50%;
+	right: calc(100% + 8px);
+	width: max-content;
+	max-width: min(240px, calc(100vw - 88px));
+	padding: 7px 10px;
+	border: 1px solid rgba(143, 211, 238, 0.22);
+	border-radius: 6px;
+	color: #cdebf7;
+	background: rgba(7, 16, 23, 0.9);
+	box-shadow: 0 8px 24px rgba(0, 0, 0, 0.28);
+	font-size: 11px;
+	font-weight: 650;
+	letter-spacing: 0.015em;
+	line-height: 1.35;
+	opacity: 0;
+	pointer-events: none;
+	transform: translate(6px, -50%);
+	transition: opacity 160ms ease, transform 160ms ease;
+}
+
+.cover-story-marker:hover .cover-story-marker__label,
+.cover-story-marker:focus-visible .cover-story-marker__label {
+	opacity: 1;
+	transform: translate(0, -50%);
+}
+
+@keyframes cover-story-pulse {
+	0% { opacity: 0.85; transform: scale(0.72); }
+	72%, 100% { opacity: 0; transform: scale(1.7); }
 }
 
 .intro {
 	position: relative;
 	width: min(100%, 790px);
 	min-width: 0;
-}
-
-.intro::before {
-	content: "";
-	position: absolute;
-	z-index: -1;
-	inset: -72px -110px -72px -12vw;
-	pointer-events: none;
-	background: radial-gradient(ellipse at 38% 48%, rgba(8, 12, 17, 0.82), rgba(8, 12, 17, 0.28) 52%, transparent 74%);
-	filter: blur(18px);
 }
 
 .eyebrow {
@@ -365,9 +457,10 @@ h1 {
 		opacity: 0.7;
 	}
 
-	.intro::before {
-		inset: -48px -8px;
-		filter: blur(12px);
+	.site-contrast-layer {
+		background:
+			linear-gradient(90deg, rgba(4, 9, 14, 0.8), rgba(4, 9, 14, 0.46)),
+			linear-gradient(180deg, rgba(3, 8, 12, 0.3), transparent 18%, transparent 72%, rgba(3, 8, 12, 0.58));
 	}
 
 	main {
@@ -413,6 +506,11 @@ h1 {
 		padding: 58px 0 66px;
 	}
 
+	.cover-story-marker {
+		top: 18px;
+		right: 0;
+	}
+
 	.eyebrow {
 		margin-bottom: 22px;
 		font-size: 10px;
@@ -453,6 +551,7 @@ h1 {
 }
 
 @media (prefers-reduced-motion: reduce) {
-	.header-link, .hero-actions a, .link-arrow, .language-toggle { transition: none; }
+	.header-link, .hero-actions a, .link-arrow, .language-toggle, .cover-story-marker::after, .cover-story-marker__label { transition: none; }
+	.cover-story-marker::before { animation: none; }
 	.zen-background { transition: none; }
 }

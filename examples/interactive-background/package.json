@@ -1,0 +1,17 @@
+{
+  "name": "@zenfg-example/interactive-background",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/background.ts"
+  },
+  "scripts": {
+    "test": "node ../../scripts/run-tests.mjs examples/interactive-background/tests",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "@zenfg/snapshot": "0.1.0-beta.2",
+    "@zenfg/webgpu": "0.1.0-beta.2"
+  }
+}

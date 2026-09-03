@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Explore live ZenFG FrameGraph examples, their source, and runtime captures.">
+  <meta name="theme-color" content="#05090d">
+  <meta name="color-scheme" content="dark">
+  <title>ZenFG Playground</title>
+  <link rel="stylesheet" href="/src/styles.css">
+</head>
+<body>
+  <main class="playground" data-playground>
+    <canvas class="effect-stage" data-effect-canvas aria-label="Interactive WebGPU example"></canvas>
+
+    <header class="playground-header">
+      <a class="playground-brand" href="../" aria-label="Back to ZenFG home">
+        <span class="playground-brand__name">ZenFG</span>
+        <span class="playground-brand__divider" aria-hidden="true">/</span>
+        <span class="playground-brand__section">Playground</span>
+      </a>
+
+      <div class="example-identity">
+        <span class="example-identity__eyebrow">Live example</span>
+        <select class="example-select" data-example-select aria-label="Select example"></select>
+      </div>
+
+      <nav class="tool-launcher" aria-label="Playground tools">
+        <span class="tool-launcher__label" aria-hidden="true">Tools</span>
+        <button type="button" data-panel-button="code" aria-label="Code" aria-controls="tool-overlay" aria-pressed="false">
+          <span class="tool-launcher__glyph" aria-hidden="true">{ }</span>
+          <span>Code</span>
+        </button>
+        <button type="button" data-panel-button="inspector" aria-label="Inspector" aria-controls="tool-overlay" aria-pressed="false">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <circle cx="5" cy="12" r="2"></circle>
+            <circle cx="19" cy="6" r="2"></circle>
+            <circle cx="19" cy="18" r="2"></circle>
+            <path d="M7 12h5M14 11l3.3-3.3M14 13l3.3 3.3"></path>
+          </svg>
+          <span>Inspector</span>
+        </button>
+      </nav>
+    </header>
+
+    <section class="effect-status" data-effect-status role="status" aria-live="polite">
+      <span class="effect-status__signal" aria-hidden="true"></span>
+      <span data-effect-status-text>Initializing WebGPU…</span>
+    </section>
+
+    <section class="tool-overlay" id="tool-overlay" data-tool-overlay role="region" aria-labelledby="tool-overlay-title" hidden>
+      <header class="tool-overlay__header">
+        <div>
+          <span class="tool-overlay__eyebrow" data-overlay-eyebrow>Source</span>
+          <h1 id="tool-overlay-title" data-overlay-title>Code</h1>
+        </div>
+        <button class="tool-overlay__close" type="button" data-overlay-close aria-label="Close overlay">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"></path></svg>
+        </button>
+      </header>
+
+      <div class="code-workspace" data-code-workspace hidden>
+        <aside class="source-files" data-source-files aria-label="Source files"></aside>
+        <div class="source-view">
+          <div class="source-view__toolbar">
+            <span data-source-path>No source selected</span>
+            <button type="button" data-copy-source disabled>Copy</button>
+          </div>
+          <div class="source-view__content" data-source-content>
+            <p class="panel-message">Open Code to load syntax highlighting.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="inspector-workspace" data-inspector-workspace hidden>
+        <div class="inspector-loading" data-inspector-loading role="status">Loading FrameGraph Inspector…</div>
+        <div class="inspector-host" data-inspector-host></div>
+      </div>
+    </section>
+
+    <section class="example-error" data-example-error hidden>
+      <span>Example not found</span>
+      <h1>The requested example is not available.</h1>
+      <a href="./?example=interactive-background&amp;panel=none">Open the interactive background</a>
+    </section>
+
+    <footer class="playground-footer">
+      <span data-example-summary>WebGPU · Compute + Render · 3 passes</span>
+      <span>Move your pointer to disturb the field</span>
+    </footer>
+  </main>
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>

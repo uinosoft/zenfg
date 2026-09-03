@@ -51,6 +51,8 @@ execution 模型请参阅英文 [Core concepts](docs/core-concepts.md)。
   并查看 [Cargo examples](crates/zenfg/examples/)。
 - 打开[在线 Inspector](https://uinosoft.github.io/zenfg/inspector/)；它完全在浏览器中运行，
   不会上传导入的 Snapshot。
+- 打开[在线 Playground](https://uinosoft.github.io/zenfg/playground/?example=interactive-background&panel=inspector)，
+  查看 WebGPU 实时效果、对应 TypeScript 源码与 Inspector 捕获结果。
 - 修改公共语义、示例或发布产物前，请先阅读英文 [Contributing](CONTRIBUTING.md)。
 
 ## 项目状态

@@ -1,3 +1,4 @@
+// Kept as TypeScript strings so the showcase remains a self-contained browser module.
 const frameParams = /* wgsl */ `
 struct FrameParams {
 	resolution: vec2f,
@@ -10,8 +11,7 @@ struct FrameParams {
 	pointer_energy: f32,
 	frame: f32,
 	reduced_motion: f32,
-	mobile: f32,
-	_padding: f32,
+	_padding: vec2f,
 };
 `;
 
@@ -158,26 +158,16 @@ fn lattice_fragment(input: VertexOutput) -> @location(0) vec4f {
 	let ribbon_a = exp(-diagonal_a * 11.0) * (0.42 + field_energy * 0.72);
 	let ribbon_b = exp(-diagonal_b * 18.0) * 0.55;
 
-	// Anchor the composition in height-relative stage space so ultrawide
-	// viewports reveal darker margins instead of stretching the focal area.
-	let horizontal_fade = smoothstep(-0.67, 0.37, aspect_uv.x);
-	let edge_fade = smoothstep(0.0, 0.11, uv.x) * smoothstep(1.0, 0.88, uv.x);
-	let vertical_fade = smoothstep(0.0, 0.12, uv.y) * smoothstep(1.0, 0.84, uv.y);
-	let stage_fade = 1.0 - smoothstep(0.78, 1.18, abs(aspect_uv.x - 0.12));
-	let content_guard = mix(0.20, 1.0, smoothstep(-0.08, 0.42, aspect_uv.x));
-	let mobile_guard = mix(1.0, 0.72, params.mobile);
-	let visibility = edge_fade * vertical_fade * stage_fade * mobile_guard;
-
 	let cyan = vec3f(0.12, 0.69, 0.91);
 	let azure = vec3f(0.12, 0.31, 0.66);
 	let mint = vec3f(0.18, 0.84, 0.70);
 	let amber = vec3f(0.96, 0.55, 0.22);
 	var color = vec3f(0.012, 0.024, 0.037);
-	color += azure * ribbon_a * 0.105 * horizontal_fade;
-	color += mint * ribbon_b * 0.035 * horizontal_fade;
-	color += cyan * fine_grid * (0.032 + field_energy * 0.060) * content_guard;
-	color += azure * deep_grid * 0.042 * content_guard;
-	color += mix(cyan, amber, step(0.88, node_seed)) * nodes * node_pulse * 0.28 * content_guard;
+	color += azure * ribbon_a * 0.105;
+	color += mint * ribbon_b * 0.035;
+	color += cyan * fine_grid * (0.032 + field_energy * 0.060);
+	color += azure * deep_grid * 0.042;
+	color += mix(cyan, amber, step(0.88, node_seed)) * nodes * node_pulse * 0.28;
 
 	var pointer_position = params.pointer - 0.5;
 	pointer_position.x *= params.aspect;
@@ -189,11 +179,7 @@ fn lattice_fragment(input: VertexOutput) -> @location(0) vec4f {
 	color += cyan * (ripple * 0.16 + pointer_halo * 0.11) * params.pointer_energy;
 
 	let horizon = exp(-abs(uv.y - 0.68 - flow.x * 0.025) * 26.0);
-	color += mix(azure, cyan, uv.x) * horizon * 0.025 * horizontal_fade;
-	let right_boost = 1.0 + smoothstep(0.02, 0.52, aspect_uv.x) * 0.22;
-	color = vec3f(0.012, 0.024, 0.037) + (color - vec3f(0.012, 0.024, 0.037)) * right_boost;
-	color *= visibility;
-	color += vec3f(0.002, 0.004, 0.006) * (1.0 - visibility);
+	color += mix(azure, cyan, uv.x) * horizon * 0.025;
 	return vec4f(color, 1.0);
 }
 `;
@@ -241,9 +227,6 @@ fn composite_fragment(input: VertexOutput) -> @location(0) vec4f {
 	color.r = mix(color.r, shifted_a.r, aberration_strength * 0.16);
 	color.b = mix(color.b, shifted_b.b, aberration_strength * 0.19);
 
-	let centered = uv * 2.0 - 1.0;
-	let vignette = 1.0 - smoothstep(0.48, 1.28, dot(centered, centered));
-	color *= 0.72 + vignette * 0.28;
 	let grain = hash11(input.position.x + input.position.y * 173.0 + floor(params.frame * 0.5)) - 0.5;
 	color += grain * 0.006 * mix(1.0, 0.2, params.reduced_motion);
 	color = pow(max(color, vec3f(0.0)), vec3f(0.94));
