@@ -6,6 +6,10 @@
   "scripts": {
     "build": "vite build",
     "dev": "vite --host 127.0.0.1",
-    "preview": "vite preview --host 127.0.0.1"
+    "preview": "vite preview --host 127.0.0.1",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "@zenfg/webgpu": "0.1.0-beta.2"
   }
 }

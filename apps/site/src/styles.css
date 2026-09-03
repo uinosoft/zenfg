@@ -21,14 +21,50 @@ html, body {
 }
 
 body {
+	position: relative;
+	overflow-x: hidden;
 	background:
-		radial-gradient(circle at 18% 0%, rgba(29, 78, 116, 0.42) 0, transparent 38rem),
+		radial-gradient(circle at 82% 28%, rgba(13, 91, 119, 0.22) 0, transparent 34rem),
+		radial-gradient(circle at 18% 0%, rgba(29, 78, 116, 0.38) 0, transparent 38rem),
+		linear-gradient(115deg, rgba(8, 18, 28, 0.98), rgba(8, 12, 17, 0.72) 62%, rgba(5, 11, 16, 0.98)),
 		#080c11;
+}
+
+body::before {
+	content: "";
+	position: fixed;
+	inset: 0;
+	z-index: 0;
+	pointer-events: none;
+	background-image:
+		linear-gradient(rgba(97, 174, 201, 0.025) 1px, transparent 1px),
+		linear-gradient(90deg, rgba(97, 174, 201, 0.025) 1px, transparent 1px);
+	background-size: 48px 48px;
+	mask-image: linear-gradient(90deg, transparent 0%, rgba(0, 0, 0, 0.16) 48%, #000 100%);
+}
+
+.zen-background {
+	position: fixed;
+	inset: 0;
+	z-index: 0;
+	display: block;
+	width: 100vw;
+	height: 100vh;
+	height: 100svh;
+	opacity: 0;
+	pointer-events: none;
+	transition: opacity 700ms ease;
+}
+
+html[data-webgpu-background="ready"] .zen-background {
+	opacity: 1;
 }
 
 button, a { font: inherit; }
 
 main {
+	position: relative;
+	z-index: 1;
 	display: grid;
 	grid-template-rows: auto 1fr auto;
 	width: min(calc(100% - 64px), 1200px);
@@ -173,8 +209,19 @@ main {
 }
 
 .intro {
+	position: relative;
 	width: min(100%, 790px);
 	min-width: 0;
+}
+
+.intro::before {
+	content: "";
+	position: absolute;
+	z-index: -1;
+	inset: -72px -110px -72px -12vw;
+	pointer-events: none;
+	background: radial-gradient(ellipse at 38% 48%, rgba(8, 12, 17, 0.82), rgba(8, 12, 17, 0.28) 52%, transparent 74%);
+	filter: blur(18px);
 }
 
 .eyebrow {
@@ -313,6 +360,16 @@ h1 {
 }
 
 @media (max-width: 560px) {
+	body::before {
+		background-size: 36px 36px;
+		opacity: 0.7;
+	}
+
+	.intro::before {
+		inset: -48px -8px;
+		filter: blur(12px);
+	}
+
 	main {
 		width: min(calc(100% - 32px), 1200px);
 		padding: 20px 0;
@@ -397,4 +454,5 @@ h1 {
 
 @media (prefers-reduced-motion: reduce) {
 	.header-link, .hero-actions a, .link-arrow, .language-toggle { transition: none; }
+	.zen-background { transition: none; }
 }

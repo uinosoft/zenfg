@@ -1,3 +1,5 @@
+import { startZenBackground } from './background.ts';
+
 type Language = 'en' | 'zh-CN';
 
 const preferenceKey = 'zenfg-language';
@@ -99,3 +101,6 @@ toggle?.addEventListener('click', () => {
 	setStoredLanguage(language);
 	applyLanguage(language);
 });
+
+const backgroundCanvas = document.querySelector<HTMLCanvasElement>('[data-zenfg-background]');
+if (backgroundCanvas) void startZenBackground(backgroundCanvas);
