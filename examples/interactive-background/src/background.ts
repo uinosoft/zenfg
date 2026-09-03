@@ -1,14 +1,22 @@
 import type { FrameGraphSnapshot } from '@zenfg/snapshot';
 import { BufferAccess, FrameGraph, TextureAccess, type FrameGraphCompilationReport, type FrameGraphGpuTimingReport } from '@zenfg/webgpu';
+import { resolvePointerPressure } from './backgroundInteraction.ts';
 import { resolveCanvasDimensions } from './backgroundLayout.ts';
-import { compositeShader, flowFieldShader, latticeShader } from './backgroundShaders.ts';
+import {
+	bloomBlurShader,
+	bloomExtractShader,
+	compositeShader,
+	flowFieldShader,
+	latticeShader,
+} from './backgroundShaders.ts';
 
-const uniformFloatCount = 16;
+const frameParamsFloatCount = 16;
 const fieldDownsample = 6;
 const desktopTargetFrameRate = 60;
 const mobileTargetFrameRate = 36;
 const pointerFollowRate = 30;
 const pointerVelocityDecayRate = 7;
+const pointerDownPressure = 0.08;
 
 export type ZenBackgroundOptions = {
 	readonly interactionTarget?: Window | HTMLElement;
@@ -24,6 +32,8 @@ export type ZenBackgroundController = {
 type RenderPipelines = {
 	readonly flow: GPUComputePipeline;
 	readonly lattice: GPURenderPipeline;
+	readonly bloomExtract: GPURenderPipeline;
+	readonly bloomBlur: GPURenderPipeline;
 	readonly composite: GPURenderPipeline;
 };
 
@@ -33,6 +43,7 @@ type BackgroundResources = {
 	readonly format: GPUTextureFormat;
 	readonly graph: FrameGraph;
 	readonly uniformBuffer: GPUBuffer;
+	readonly linearSampler: GPUSampler;
 	readonly pipelines: RenderPipelines;
 };
 
@@ -42,7 +53,7 @@ type PendingCapture = {
 };
 
 class ZenBackground implements ZenBackgroundController {
-	private readonly uniformData = new Float32Array(uniformFloatCount);
+	private readonly uniformData = new Float32Array(frameParamsFloatCount);
 	private readonly reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
 	private readonly coarsePointer = window.matchMedia('(pointer: coarse)');
 	private readonly interactionTarget: EventTarget;
@@ -54,13 +65,17 @@ class ZenBackground implements ZenBackgroundController {
 	private height = 1;
 	private fieldWidth = 1;
 	private fieldHeight = 1;
+	private bloomWidth = 1;
+	private bloomHeight = 1;
 	private targetPointerX = 0.76;
 	private targetPointerY = 0.42;
 	private pointerX = this.targetPointerX;
 	private pointerY = this.targetPointerY;
 	private velocityX = 0;
 	private velocityY = 0;
-	private lastInteractionTime = -Infinity;
+	private pointerPressure = 0;
+	private pendingPointerTravel = 0;
+	private hasPointerSample = false;
 	private resizePending = true;
 	private dirty = true;
 	private disposed = false;
@@ -143,11 +158,24 @@ class ZenBackground implements ZenBackgroundController {
 		if (bounds.width <= 0 || bounds.height <= 0) return;
 		const nextX = Math.min(1, Math.max(0, (event.clientX - bounds.left) / bounds.width));
 		const nextY = Math.min(1, Math.max(0, (event.clientY - bounds.top) / bounds.height));
-		this.velocityX = this.velocityX * 0.35 + (nextX - this.targetPointerX) * 0.65;
-		this.velocityY = this.velocityY * 0.35 + (nextY - this.targetPointerY) * 0.65;
+		if (!this.hasPointerSample) {
+			this.pointerX = nextX;
+			this.pointerY = nextY;
+			this.hasPointerSample = true;
+		}
+		else {
+			const deltaX = nextX - this.targetPointerX;
+			const deltaY = nextY - this.targetPointerY;
+			const pointerAspect = this.width / this.height;
+			this.pendingPointerTravel += Math.hypot(deltaX * pointerAspect, deltaY);
+			this.velocityX = this.velocityX * 0.35 + deltaX * 0.65;
+			this.velocityY = this.velocityY * 0.35 + deltaY * 0.65;
+		}
 		this.targetPointerX = nextX;
 		this.targetPointerY = nextY;
-		this.lastInteractionTime = performance.now();
+		if (event.type === 'pointerdown') {
+			this.pointerPressure = Math.max(this.pointerPressure, pointerDownPressure);
+		}
 		this.dirty = true;
 		this.requestFrame();
 	};
@@ -230,12 +258,21 @@ class ZenBackground implements ZenBackgroundController {
 		this.height = dimensions.height;
 		this.fieldWidth = dimensions.fieldWidth;
 		this.fieldHeight = dimensions.fieldHeight;
+		this.bloomWidth = dimensions.bloomWidth;
+		this.bloomHeight = dimensions.bloomHeight;
 		if (this.canvas.width !== this.width) this.canvas.width = this.width;
 		if (this.canvas.height !== this.height) this.canvas.height = this.height;
 		this.resizePending = false;
 	}
 
 	private updatePointer(deltaSeconds: number): void {
+		this.pointerPressure = resolvePointerPressure(
+			this.pointerPressure,
+			this.pendingPointerTravel,
+			deltaSeconds,
+			this.reducedMotion.matches,
+		);
+		this.pendingPointerTravel = 0;
 		const response = 1 - Math.exp(-deltaSeconds * pointerFollowRate);
 		this.pointerX += (this.targetPointerX - this.pointerX) * response;
 		this.pointerY += (this.targetPointerY - this.pointerY) * response;
@@ -245,8 +282,6 @@ class ZenBackground implements ZenBackgroundController {
 	}
 
 	private updateUniforms(timeSeconds: number, deltaSeconds: number): void {
-		const timeSinceInteraction = performance.now() - this.lastInteractionTime;
-		const pointerEnergy = Math.max(0, Math.min(1, 1 - (timeSinceInteraction - 900) / 2100));
 		this.uniformData.set([
 			this.width,
 			this.height,
@@ -259,17 +294,17 @@ class ZenBackground implements ZenBackgroundController {
 			timeSeconds,
 			deltaSeconds,
 			this.width / this.height,
-			pointerEnergy,
+			this.pointerPressure,
 			this.frameIndex,
 			this.reducedMotion.matches ? 1 : 0,
-			0,
-			0,
+			1 - this.pointerPressure,
+			this.coarsePointer.matches ? 1 : 0,
 		]);
 		this.resources.device.queue.writeBuffer(this.resources.uniformBuffer, 0, this.uniformData);
 	}
 
 	private recordAndExecuteFrame(): void {
-		const { context, format, graph, pipelines, uniformBuffer } = this.resources;
+		const { context, format, graph, linearSampler, pipelines, uniformBuffer } = this.resources;
 		const recorder = graph.beginFrame();
 		const frameUniforms = recorder.importBuffer(uniformBuffer, { label: 'background-frame-params' });
 		const flowField = recorder.createTexture({
@@ -277,10 +312,20 @@ class ZenBackground implements ZenBackgroundController {
 			format: 'rgba8unorm',
 			size: [this.fieldWidth, this.fieldHeight],
 		});
-		const sceneColor = recorder.createTexture({
-			label: 'lattice-scene-color',
-			format: 'rgba8unorm',
+		const hdrScene = recorder.createTexture({
+			label: 'hdr-lattice-scene-color',
+			format: 'rgba16float',
 			size: [this.width, this.height],
+		});
+		const bloomSeed = recorder.createTexture({
+			label: 'half-resolution-bloom-seed',
+			format: 'rgba16float',
+			size: [this.bloomWidth, this.bloomHeight],
+		});
+		const bloomSoft = recorder.createTexture({
+			label: 'half-resolution-soft-bloom',
+			format: 'rgba16float',
+			size: [this.bloomWidth, this.bloomHeight],
 		});
 		const backbuffer = recorder.importSwapchainTexture(context.getCurrentTexture(), {
 			label: `background-${format}-backbuffer`,
@@ -307,13 +352,13 @@ class ZenBackground implements ZenBackgroundController {
 		const latticeUniforms = recorder.use(frameUniforms, BufferAccess.Uniform);
 		const flowSample = recorder.use(flowField, TextureAccess.Sampled);
 		recorder.render({
-			label: '02 · resolve luminous lattice',
+			label: '02 · resolve HDR luminous lattice',
 			uses: [latticeUniforms, flowSample],
 			colorAttachments: [{
-				target: sceneColor,
+				target: hdrScene,
 				loadOp: 'clear',
 				storeOp: 'store',
-				clearValue: { r: 0.008, g: 0.014, b: 0.022, a: 1 },
+				clearValue: { r: 0.0025, g: 0.0045, b: 0.0075, a: 1 },
 			}],
 			encode: ({ device, pass, unwrap }) => {
 				pass.setPipeline(pipelines.lattice);
@@ -328,11 +373,57 @@ class ZenBackground implements ZenBackgroundController {
 			},
 		});
 
-		const compositeUniforms = recorder.use(frameUniforms, BufferAccess.Uniform);
-		const sceneSample = recorder.use(sceneColor, TextureAccess.Sampled);
+		const bloomSceneSample = recorder.use(hdrScene, TextureAccess.Sampled);
 		recorder.render({
-			label: '03 · bloom & present',
-			uses: [compositeUniforms, sceneSample],
+			label: '03 · extract & downsample bloom',
+			uses: [bloomSceneSample],
+			colorAttachments: [{
+				target: bloomSeed,
+				loadOp: 'clear',
+				storeOp: 'store',
+				clearValue: { r: 0, g: 0, b: 0, a: 1 },
+			}],
+			encode: ({ device, pass, unwrap }) => {
+				pass.setPipeline(pipelines.bloomExtract);
+				pass.setBindGroup(0, device.createBindGroup({
+					layout: pipelines.bloomExtract.getBindGroupLayout(0),
+					entries: [
+						{ binding: 0, resource: unwrap(bloomSceneSample) },
+					],
+				}));
+				pass.draw(3);
+			},
+		});
+
+		const bloomSeedSample = recorder.use(bloomSeed, TextureAccess.Sampled);
+		recorder.render({
+			label: '04 · soften bloom',
+			uses: [bloomSeedSample],
+			colorAttachments: [{
+				target: bloomSoft,
+				loadOp: 'clear',
+				storeOp: 'store',
+				clearValue: { r: 0, g: 0, b: 0, a: 1 },
+			}],
+			encode: ({ device, pass, unwrap }) => {
+				pass.setPipeline(pipelines.bloomBlur);
+				pass.setBindGroup(0, device.createBindGroup({
+					layout: pipelines.bloomBlur.getBindGroupLayout(0),
+					entries: [
+						{ binding: 0, resource: linearSampler },
+						{ binding: 1, resource: unwrap(bloomSeedSample) },
+					],
+				}));
+				pass.draw(3);
+			},
+		});
+
+		const compositeUniforms = recorder.use(frameUniforms, BufferAccess.Uniform);
+		const hdrSceneSample = recorder.use(hdrScene, TextureAccess.Sampled);
+		const bloomSample = recorder.use(bloomSoft, TextureAccess.Sampled);
+		recorder.render({
+			label: '05 · tone map & present',
+			uses: [compositeUniforms, hdrSceneSample, bloomSample],
 			colorAttachments: [{
 				target: backbuffer,
 				loadOp: 'clear',
@@ -345,7 +436,9 @@ class ZenBackground implements ZenBackgroundController {
 					layout: pipelines.composite.getBindGroupLayout(0),
 					entries: [
 						{ binding: 0, resource: { buffer: unwrap(compositeUniforms) } },
-						{ binding: 1, resource: unwrap(sceneSample) },
+						{ binding: 1, resource: unwrap(hdrSceneSample) },
+						{ binding: 2, resource: unwrap(bloomSample) },
+						{ binding: 3, resource: linearSampler },
 					],
 				}));
 				pass.draw(3);
@@ -429,8 +522,10 @@ class ZenBackground implements ZenBackgroundController {
 async function createPipelines(device: GPUDevice, format: GPUTextureFormat): Promise<RenderPipelines> {
 	const flowModule = device.createShaderModule({ label: 'ZenFG background flow shader', code: flowFieldShader });
 	const latticeModule = device.createShaderModule({ label: 'ZenFG background lattice shader', code: latticeShader });
+	const bloomExtractModule = device.createShaderModule({ label: 'ZenFG background bloom extraction shader', code: bloomExtractShader });
+	const bloomBlurModule = device.createShaderModule({ label: 'ZenFG background bloom blur shader', code: bloomBlurShader });
 	const compositeModule = device.createShaderModule({ label: 'ZenFG background composite shader', code: compositeShader });
-	const [flow, lattice, composite] = await Promise.all([
+	const [flow, lattice, bloomExtract, bloomBlur, composite] = await Promise.all([
 		device.createComputePipelineAsync({
 			label: 'ZenFG background · flow field',
 			layout: 'auto',
@@ -440,7 +535,21 @@ async function createPipelines(device: GPUDevice, format: GPUTextureFormat): Pro
 			label: 'ZenFG background · lattice',
 			layout: 'auto',
 			vertex: { module: latticeModule, entryPoint: 'fullscreen_vertex' },
-			fragment: { module: latticeModule, entryPoint: 'lattice_fragment', targets: [{ format: 'rgba8unorm' }] },
+			fragment: { module: latticeModule, entryPoint: 'lattice_fragment', targets: [{ format: 'rgba16float' }] },
+			primitive: { topology: 'triangle-list' },
+		}),
+		device.createRenderPipelineAsync({
+			label: 'ZenFG background · bloom extraction',
+			layout: 'auto',
+			vertex: { module: bloomExtractModule, entryPoint: 'fullscreen_vertex' },
+			fragment: { module: bloomExtractModule, entryPoint: 'bloom_extract_fragment', targets: [{ format: 'rgba16float' }] },
+			primitive: { topology: 'triangle-list' },
+		}),
+		device.createRenderPipelineAsync({
+			label: 'ZenFG background · bloom blur',
+			layout: 'auto',
+			vertex: { module: bloomBlurModule, entryPoint: 'fullscreen_vertex' },
+			fragment: { module: bloomBlurModule, entryPoint: 'bloom_blur_fragment', targets: [{ format: 'rgba16float' }] },
 			primitive: { topology: 'triangle-list' },
 		}),
 		device.createRenderPipelineAsync({
@@ -451,7 +560,7 @@ async function createPipelines(device: GPUDevice, format: GPUTextureFormat): Pro
 			primitive: { topology: 'triangle-list' },
 		}),
 	]);
-	return { flow, lattice, composite };
+	return { flow, lattice, bloomExtract, bloomBlur, composite };
 }
 
 export async function startZenBackground(
@@ -485,8 +594,15 @@ export async function startZenBackground(
 		const pipelines = await createPipelines(device, format);
 		const uniformBuffer = device.createBuffer({
 			label: 'ZenFG background frame params',
-			size: uniformFloatCount * Float32Array.BYTES_PER_ELEMENT,
+			size: frameParamsFloatCount * Float32Array.BYTES_PER_ELEMENT,
 			usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+		});
+		const linearSampler = device.createSampler({
+			label: 'ZenFG background linear clamp sampler',
+			addressModeU: 'clamp-to-edge',
+			addressModeV: 'clamp-to-edge',
+			magFilter: 'linear',
+			minFilter: 'linear',
 		});
 		const background = new ZenBackground(canvas, {
 			device,
@@ -494,6 +610,7 @@ export async function startZenBackground(
 			format,
 			graph: new FrameGraph(device),
 			uniformBuffer,
+			linearSampler,
 			pipelines,
 		}, options);
 		background.start();

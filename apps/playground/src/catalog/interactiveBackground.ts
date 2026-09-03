@@ -3,7 +3,7 @@ import type { PlaygroundExampleDefinition } from '../types.ts';
 export const interactiveBackgroundExample: PlaygroundExampleDefinition = {
 	id: 'interactive-background',
 	title: 'Interactive FrameGraph Background',
-	summary: 'WebGPU · Compute + Render · 3 passes',
+	summary: 'WebGPU · Compute + Render · 5 passes',
 	sourceFiles: [
 		{
 			id: 'background',

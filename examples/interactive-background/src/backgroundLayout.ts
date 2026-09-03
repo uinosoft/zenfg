@@ -6,6 +6,8 @@ export type CanvasDimensions = {
 	readonly height: number;
 	readonly fieldWidth: number;
 	readonly fieldHeight: number;
+	readonly bloomWidth: number;
+	readonly bloomHeight: number;
 };
 
 export function resolveCanvasDimensions(
@@ -28,5 +30,7 @@ export function resolveCanvasDimensions(
 		height,
 		fieldWidth: Math.max(1, Math.ceil(width / fieldDownsample)),
 		fieldHeight: Math.max(1, Math.ceil(height / fieldDownsample)),
+		bloomWidth: Math.max(1, Math.ceil(width / 2)),
+		bloomHeight: Math.max(1, Math.ceil(height / 2)),
 	};
 }

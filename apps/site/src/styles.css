@@ -270,6 +270,13 @@ html[data-language-pending] [data-language-toggle] {
 	place-items: center;
 	border-radius: 50%;
 	color: #8ddcff;
+	background: radial-gradient(
+		circle,
+		rgba(86, 199, 243, 0.15) 0 18%,
+		rgba(5, 20, 29, 0.5) 42%,
+		transparent 72%
+	);
+	filter: drop-shadow(0 0 9px rgba(56, 189, 248, 0.18));
 	text-decoration: none;
 	isolation: isolate;
 }
@@ -278,7 +285,7 @@ html[data-language-pending] [data-language-toggle] {
 .cover-story-marker::after {
 	content: "";
 	position: absolute;
-	border: 1px solid rgba(98, 207, 249, 0.5);
+	border: 1px solid rgba(112, 217, 255, 0.62);
 	border-radius: 50%;
 	pointer-events: none;
 }
@@ -286,14 +293,15 @@ html[data-language-pending] [data-language-toggle] {
 .cover-story-marker::before {
 	width: 22px;
 	height: 22px;
-	box-shadow: 0 0 20px rgba(56, 189, 248, 0.28);
+	box-shadow: 0 0 22px rgba(56, 189, 248, 0.38);
 	animation: cover-story-pulse 2.8s ease-out infinite;
 }
 
 .cover-story-marker::after {
 	width: 42px;
 	height: 42px;
-	border-color: rgba(98, 207, 249, 0.13);
+	border-color: rgba(98, 207, 249, 0.24);
+	box-shadow: inset 0 0 12px rgba(56, 189, 248, 0.05);
 	transition: border-color 160ms ease, transform 160ms ease;
 }
 
@@ -306,14 +314,14 @@ html[data-language-pending] [data-language-toggle] {
 .cover-story-marker__dot {
 	position: relative;
 	z-index: 1;
-	width: 7px;
-	height: 7px;
+	width: 8px;
+	height: 8px;
 	border: 1px solid rgba(217, 249, 255, 0.9);
 	border-radius: 50%;
-	background: #5ed4ff;
+	background: #82e2ff;
 	box-shadow:
-		0 0 8px rgba(94, 212, 255, 0.9),
-		0 0 22px rgba(56, 189, 248, 0.64);
+		0 0 9px rgba(130, 226, 255, 0.96),
+		0 0 24px rgba(56, 189, 248, 0.72);
 }
 
 .cover-story-marker__label {

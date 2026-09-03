@@ -120,7 +120,7 @@ async function mountExample(definition: PlaygroundExampleDefinition): Promise<Pl
 		const mounted = await definition.mount({
 			canvas: effectCanvas,
 			onReady: () => {
-				setEffectStatus('ready', 'Live · 3 FrameGraph passes');
+				setEffectStatus('ready', 'Live · 5 FrameGraph passes');
 			},
 			onError: (error) => {
 				reportedError = true;
