@@ -1,9 +1,9 @@
-import { startZenBackground, type ZenBackgroundController } from '@zenfg-example/interactive-background';
+import type { ZenBackgroundController } from '@zenfg-example/interactive-background';
+import { installAppPageLifecycle } from '../../shared/pageLifecycle.ts';
 
 type Language = 'en' | 'zh-CN';
 
 const preferenceKey = 'zenfg-language';
-const chineseLanguagePattern = /^(zh|cmn)(?:[-_]|$)/i;
 
 const translations: Record<Language, Record<string, string>> = {
 	en: {
@@ -40,24 +40,6 @@ const translations: Record<Language, Record<string, string>> = {
 	},
 };
 
-function getStoredLanguage(): Language | undefined {
-	try {
-		const stored = window.localStorage.getItem(preferenceKey);
-		return stored === 'en' || stored === 'zh-CN' ? stored : undefined;
-	} catch {
-		return undefined;
-	}
-}
-
-function getSystemLanguage(): Language {
-	const languages = navigator.languages.length > 0 ? navigator.languages : [navigator.language];
-	for (const language of languages) {
-		if (chineseLanguagePattern.test(language)) return 'zh-CN';
-		if (/^en(?:[-_]|$)/i.test(language)) return 'en';
-	}
-	return 'en';
-}
-
 function setStoredLanguage(language: Language): void {
 	try {
 		window.localStorage.setItem(preferenceKey, language);
@@ -92,10 +74,11 @@ function applyLanguage(language: Language): void {
 		toggle.title = content.languageAction;
 	}
 	if (label) label.textContent = content.languageLabel;
+	document.documentElement.removeAttribute('data-language-pending');
 }
 
 const toggle = document.querySelector<HTMLButtonElement>('[data-language-toggle]');
-let language = getStoredLanguage() ?? getSystemLanguage();
+let language: Language = document.documentElement.lang === 'zh-CN' ? 'zh-CN' : 'en';
 applyLanguage(language);
 
 toggle?.addEventListener('click', () => {
@@ -108,22 +91,35 @@ const backgroundCanvas = document.querySelector<HTMLCanvasElement>('[data-zenfg-
 let background: ZenBackgroundController | undefined;
 let pageDisposed = false;
 if (backgroundCanvas) {
-	void startZenBackground(backgroundCanvas, {
-		interactionTarget: window,
-		onReady: () => {
-			document.documentElement.dataset.webgpuBackground = 'ready';
-		},
-		onError: (error) => {
-			document.documentElement.removeAttribute('data-webgpu-background');
-			console.warn('ZenFG background fell back to CSS.', error);
-		},
-	}).then((controller) => {
-		if (pageDisposed) controller?.dispose();
-		else background = controller;
-	});
+	void import('@zenfg-example/interactive-background')
+		.then(({ startZenBackground }) => startZenBackground(backgroundCanvas, {
+			interactionTarget: window,
+			onReady: () => {
+				document.documentElement.dataset.webgpuBackground = 'ready';
+			},
+			onError: reportBackgroundError,
+		}))
+		.then((controller) => {
+			if (pageDisposed) controller?.dispose();
+			else background = controller;
+		})
+		.catch(reportBackgroundError);
 }
 
-window.addEventListener('beforeunload', () => {
-	pageDisposed = true;
-	background?.dispose();
-}, { once: true });
+function reportBackgroundError(error: unknown): void {
+	document.documentElement.removeAttribute('data-webgpu-background');
+	console.warn('ZenFG background fell back to CSS.', error);
+}
+
+installAppPageLifecycle(window, {
+	onDiscard: () => {
+		pageDisposed = true;
+		background?.dispose();
+	},
+	onRestore: () => {
+		applyLanguage(language);
+	},
+	reloadOnRestore: import.meta.hot ? () => {
+		window.location.reload();
+	} : undefined,
+});

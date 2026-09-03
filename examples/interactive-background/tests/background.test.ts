@@ -54,6 +54,9 @@ test('coalesces captures and disposes once after a device loss', async () => {
 		unconfigure: 0,
 	};
 	let observedTarget: Element | undefined;
+	let pageShowListener: EventListener | undefined;
+	let nextAnimationFrame = 0;
+	const canceledAnimationFrames: number[] = [];
 	class MockResizeObserver {
 		constructor(_callback: ResizeObserverCallback) {}
 		observe(target: Element): void {
@@ -101,8 +104,12 @@ test('coalesces captures and disposes once after a device loss', async () => {
 		window: {
 			devicePixelRatio: 1,
 			matchMedia: () => mediaQuery,
-			addEventListener: () => undefined,
-			removeEventListener: () => undefined,
+			addEventListener: (type: string, listener: EventListener) => {
+				if (type === 'pageshow') pageShowListener = listener;
+			},
+			removeEventListener: (type: string, listener: EventListener) => {
+				if (type === 'pageshow' && pageShowListener === listener) pageShowListener = undefined;
+			},
 		},
 		document: {
 			visibilityState: 'visible',
@@ -110,8 +117,8 @@ test('coalesces captures and disposes once after a device loss', async () => {
 			removeEventListener: () => undefined,
 		},
 		ResizeObserver: MockResizeObserver,
-		requestAnimationFrame: () => 1,
-		cancelAnimationFrame: () => undefined,
+		requestAnimationFrame: () => ++nextAnimationFrame,
+		cancelAnimationFrame: (frame: number) => { canceledAnimationFrames.push(frame); },
 		GPUBufferUsage: { UNIFORM: 64, COPY_DST: 8 },
 	});
 
@@ -124,6 +131,12 @@ test('coalesces captures and disposes once after a device loss', async () => {
 		});
 		assert.ok(controller);
 		assert.equal(observedTarget, canvas);
+		assert.equal(nextAnimationFrame, 1);
+		pageShowListener?.({ persisted: false } as PageTransitionEvent);
+		assert.equal(nextAnimationFrame, 1);
+		pageShowListener?.({ persisted: true } as PageTransitionEvent);
+		assert.equal(nextAnimationFrame, 2);
+		assert.deepEqual(canceledAnimationFrames, [1]);
 
 		const firstCapture = controller.captureSnapshot();
 		const secondCapture = controller.captureSnapshot();
@@ -142,6 +155,8 @@ test('coalesces captures and disposes once after a device loss', async () => {
 			disconnect: 1,
 			unconfigure: 1,
 		});
+		assert.equal(pageShowListener, undefined);
+		assert.deepEqual(canceledAnimationFrames, [1, 2]);
 	}
 	finally {
 		restore();

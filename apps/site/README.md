@@ -10,6 +10,9 @@ npm run dev:site
 npm run build --workspace @zenfg/site-app
 ```
 
+For the integrated Site, Inspector, and Playground development workflow, see
+the website development section in [`CONTRIBUTING.md`](../../CONTRIBUTING.md).
+
 The Pages assembly script places this output at the site root, the standalone
 Inspector at `/inspector/`, and the interactive example workbench at
 `/playground/`.

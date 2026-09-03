@@ -19,8 +19,32 @@ npm run pack:check
 npm run cargo:package-check
 ```
 
-Start the standalone Inspector development page from a clean checkout with
-`npm run dev:inspector`.
+## Website development
+
+Start the complete project site from a clean checkout with:
+
+```text
+npm run dev:all
+```
+
+This builds the workspace packages once, then starts the three Vite applications
+with independent hot module replacement behind one development origin:
+
+- project site: `http://127.0.0.1:5173/`;
+- Inspector: `http://127.0.0.1:5173/inspector/`;
+- Playground: `http://127.0.0.1:5173/playground/`.
+
+To work on one application in isolation, use `npm run dev:site`,
+`npm run dev:inspector`, or `npm run dev:playground`. Their fixed ports are
+5173, 5174, and 5175 respectively. Each command builds the packages first, so
+it also works when package `dist` directories do not exist. Package builds are
+not watched by these commands; restart the development command after changing
+a package, or run that package's `build:watch` script separately.
+
+`npm run build` builds every package and application. `npm run build:pages`
+additionally assembles the deployable tree in `.pages`, and
+`npm run preview:pages` rebuilds and serves that tree at
+`http://127.0.0.1:4173/` for a production-like check.
 
 Keep engine-specific scene, material, pipeline, and application policy outside
 the core packages. Changes to shared semantics or Snapshot V1 must update both
@@ -69,7 +93,7 @@ only when the shared model changes. Before publishing, verify that npm
 declaration maps resolve only to relative source paths included in the tarball
 and that Rust README examples still pass as doctests.
 
-If Storybook is added, stories own runtime presentation, controls, and embedded
-diagnostics only. They must display source that is actually built, link to the
-canonical package or Core Concepts documentation, and avoid copying API tables
-or semantic rules. Storybook is not the Rust or protocol documentation source.
+The Playground owns interactive showcase presentation, displayed source, and
+embedded Inspector integration. Showcase implementations remain independent of
+the Playground shell and do not replace package documentation or executable
+package recipes.

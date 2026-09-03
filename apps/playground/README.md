@@ -9,6 +9,9 @@ npm run dev:playground
 npm run build --workspace @zenfg/playground-app
 ```
 
+For the integrated Site, Inspector, and Playground development workflow, see
+the website development section in [`CONTRIBUTING.md`](../../CONTRIBUTING.md).
+
 Production examples are explicitly registered in `src/catalog/catalog.ts`.
 Catalog adapters own Playground metadata, source display, and Inspector wiring;
 example implementations must not import Playground code.

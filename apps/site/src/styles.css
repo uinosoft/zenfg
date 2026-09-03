@@ -189,6 +189,18 @@ main {
 	transition: border-color 160ms ease, background 160ms ease, color 160ms ease;
 }
 
+.language-toggle [data-language-label] {
+	display: inline-block;
+	inline-size: 4em;
+	text-align: center;
+}
+
+html[data-language-pending] [data-i18n],
+html[data-language-pending] [data-i18n-aria],
+html[data-language-pending] [data-language-toggle] {
+	visibility: hidden;
+}
+
 .language-toggle__icon {
 	width: 16px;
 	height: 16px;

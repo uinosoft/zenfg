@@ -1,4 +1,5 @@
 import type { FrameGraphInspector } from '@zenfg/inspector';
+import { installAppPageLifecycle } from '../../shared/pageLifecycle.ts';
 import { findPublicExample, publicExamples } from './catalog/catalog.ts';
 import { parsePlaygroundRoute, routeSearch, toggledPanel } from './routing.ts';
 import { disposeHighlighter, highlightTypeScript } from './syntaxHighlighter.ts';
@@ -100,12 +101,17 @@ if (example) {
 }
 setPanel(currentPanel, false);
 
-window.addEventListener('beforeunload', () => {
-	disposed = true;
-	inspector?.destroy();
-	runtime?.dispose();
-	void disposeHighlighter();
-}, { once: true });
+installAppPageLifecycle(window, {
+	onDiscard: () => {
+		disposed = true;
+		inspector?.destroy();
+		runtime?.dispose();
+		void disposeHighlighter();
+	},
+	reloadOnRestore: import.meta.hot ? () => {
+		window.location.reload();
+	} : undefined,
+});
 
 async function mountExample(definition: PlaygroundExampleDefinition): Promise<PlaygroundRuntime | undefined> {
 	setEffectStatus('loading', 'Initializing WebGPU…');

@@ -10,9 +10,8 @@ npm run dev:inspector
 npm run build --workspace @zenfg/inspector-app
 ```
 
-The root development command builds the workspace packages once before Vite
-starts, so it also works from a clean checkout where package `dist` directories
-do not exist yet.
+For the integrated Site, Inspector, and Playground development workflow, see
+the website development section in [`CONTRIBUTING.md`](../../CONTRIBUTING.md).
 
 The `dist` directory is deployable static output. CI assembles it under
 `/inspector/` alongside the project site and Playground, then deploys the

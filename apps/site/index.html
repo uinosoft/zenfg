@@ -3,6 +3,33 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script>
+    (() => {
+      let language;
+      try {
+        const stored = window.localStorage.getItem('zenfg-language');
+        if (stored === 'en' || stored === 'zh-CN') language = stored;
+      } catch {
+        // Blocked storage must not delay the first render.
+      }
+      if (!language) {
+        const languages = navigator.languages?.length ? navigator.languages : [navigator.language];
+        language = 'en';
+        for (const candidate of languages) {
+          if (/^(zh|cmn)(?:[-_]|$)/i.test(candidate)) {
+            language = 'zh-CN';
+            break;
+          }
+          if (/^en(?:[-_]|$)/i.test(candidate)) break;
+        }
+      }
+      document.documentElement.lang = language;
+      if (language !== 'en') {
+        document.documentElement.dataset.languagePending = '';
+        window.setTimeout(() => document.documentElement.removeAttribute('data-language-pending'), 2000);
+      }
+    })();
+  </script>
   <meta name="description" content="ZenFG is an independent, composable FrameGraph toolchain for WebGPU and wgpu." data-i18n="description">
   <meta name="theme-color" content="#080c11">
   <meta name="color-scheme" content="dark">

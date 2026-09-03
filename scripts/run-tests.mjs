@@ -12,6 +12,7 @@ const defaultTestRoots = [
 	resolve(rootDir, 'packages', 'inspector', 'tests'),
 	resolve(rootDir, 'apps', 'inspector', 'tests'),
 	resolve(rootDir, 'apps', 'playground', 'tests'),
+	resolve(rootDir, 'apps', 'site', 'tests'),
 	resolve(rootDir, 'examples', 'interactive-background', 'tests'),
 ];
 const requestedTestRoots = process.argv.slice(2).map((path) => resolve(rootDir, path));

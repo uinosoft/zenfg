@@ -85,6 +85,7 @@ class ZenBackground implements ZenBackgroundController {
 		this.resizeObserver?.observe(this.canvas);
 		this.interactionTarget.addEventListener('pointermove', this.handlePointer as EventListener, { passive: true });
 		this.interactionTarget.addEventListener('pointerdown', this.handlePointer as EventListener, { passive: true });
+		window.addEventListener('pageshow', this.handlePageShow);
 		document.addEventListener('visibilitychange', this.handleVisibility);
 		this.reducedMotion.addEventListener('change', this.handleMotionPreference);
 		this.coarsePointer.addEventListener('change', this.handleResize);
@@ -118,6 +119,7 @@ class ZenBackground implements ZenBackgroundController {
 		this.resizeObserver?.disconnect();
 		this.interactionTarget.removeEventListener('pointermove', this.handlePointer as EventListener);
 		this.interactionTarget.removeEventListener('pointerdown', this.handlePointer as EventListener);
+		window.removeEventListener('pageshow', this.handlePageShow);
 		document.removeEventListener('visibilitychange', this.handleVisibility);
 		this.reducedMotion.removeEventListener('change', this.handleMotionPreference);
 		this.coarsePointer.removeEventListener('change', this.handleResize);
@@ -151,11 +153,11 @@ class ZenBackground implements ZenBackgroundController {
 	};
 
 	private readonly handleVisibility = (): void => {
-		if (document.visibilityState === 'visible') {
-			this.previousFrameTime = 0;
-			this.dirty = true;
-			this.requestFrame();
-		}
+		if (document.visibilityState === 'visible') this.resumeRendering();
+	};
+
+	private readonly handlePageShow = (event: PageTransitionEvent): void => {
+		if (event.persisted) this.resumeRendering();
 	};
 
 	private readonly handleMotionPreference = (): void => {
@@ -163,6 +165,14 @@ class ZenBackground implements ZenBackgroundController {
 		this.dirty = true;
 		this.requestFrame();
 	};
+
+	private resumeRendering(): void {
+		if (this.animationFrame !== 0) cancelAnimationFrame(this.animationFrame);
+		this.animationFrame = 0;
+		this.previousFrameTime = 0;
+		this.dirty = true;
+		this.requestFrame();
+	}
 
 	private requestFrame(): void {
 		if (this.disposed || this.animationFrame !== 0 || document.visibilityState === 'hidden') return;
