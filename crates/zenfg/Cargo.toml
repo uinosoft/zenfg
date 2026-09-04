@@ -70,6 +70,10 @@ required-features = ["snapshot"]
 name = "gpu-timing"
 path = "examples/gpu_timing.rs"
 
+[[example]]
+name = "compute-output"
+path = "examples/compute_output.rs"
+
 [[test]]
 name = "cross_language_producers"
 path = "tests/cross_language_producers.rs"

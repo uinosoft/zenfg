@@ -1,4 +1,12 @@
-import { BufferAccess, FrameGraph } from '@zenfg/webgpu';
+import { BufferAccess, FrameGraph, type FrameGraphRecording } from '@zenfg/webgpu';
+
+export type ImportedUniformRecordOptions = {
+	readonly recorder: FrameGraphRecording;
+	readonly backbufferTexture: GPUTexture;
+	readonly pipeline: GPURenderPipeline;
+	readonly uniformBuffer: GPUBuffer;
+	readonly uniformSize: number;
+};
 
 export type ImportedResourceOptions = {
 	readonly graph: FrameGraph;
@@ -9,22 +17,21 @@ export type ImportedResourceOptions = {
 	readonly frameIndex: number;
 };
 
-/** Uses a caller-owned uniform buffer without transferring its ownership. */
-export function renderWithImportedUniform(options: ImportedResourceOptions): void {
-	const recorder = options.graph.beginFrame();
-	const uniforms = recorder.importBuffer(options.uniformBuffer, {
+/** Declares a draw that reads a caller-owned uniform buffer. */
+export function recordImportedUniformFrame(options: ImportedUniformRecordOptions): void {
+	const uniforms = options.recorder.importBuffer(options.uniformBuffer, {
 		label: 'frame-uniforms',
 		exposedSize: options.uniformSize,
 	});
-	const backbuffer = recorder.importSwapchainTexture(
-		options.context.getCurrentTexture(),
+	const backbuffer = options.recorder.importSwapchainTexture(
+		options.backbufferTexture,
 		{ label: 'backbuffer' },
 	);
-	const uniformRead = recorder.use(uniforms, BufferAccess.Uniform, {
+	const uniformRead = options.recorder.use(uniforms, BufferAccess.Uniform, {
 		range: { offset: 0, size: options.uniformSize },
 	});
 
-	recorder.render({
+	options.recorder.render({
 		label: 'draw-with-imported-uniforms',
 		uses: [uniformRead],
 		colorAttachments: [{
@@ -51,6 +58,18 @@ export function renderWithImportedUniform(options: ImportedResourceOptions): voi
 		},
 	});
 
-	recorder.markPresent(backbuffer);
+	options.recorder.markPresent(backbuffer);
+}
+
+/** Uses a caller-owned uniform buffer without transferring its ownership. */
+export function renderWithImportedUniform(options: ImportedResourceOptions): void {
+	const recorder = options.graph.beginFrame();
+	recordImportedUniformFrame({
+		recorder,
+		backbufferTexture: options.context.getCurrentTexture(),
+		pipeline: options.pipeline,
+		uniformBuffer: options.uniformBuffer,
+		uniformSize: options.uniformSize,
+	});
 	recorder.compile().execute({ frameIndex: options.frameIndex });
 }

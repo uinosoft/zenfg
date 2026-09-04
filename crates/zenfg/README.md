@@ -191,6 +191,7 @@ outside the workspace:
 | Opaque third-party submission | [`external_submission.rs`](https://github.com/uinosoft/zenfg/blob/main/crates/zenfg/examples/external_submission.rs) |
 | Portable Snapshot export | [`snapshot_export.rs`](https://github.com/uinosoft/zenfg/blob/main/crates/zenfg/examples/snapshot_export.rs) |
 | Asynchronous GPU timing | [`gpu_timing.rs`](https://github.com/uinosoft/zenfg/blob/main/crates/zenfg/examples/gpu_timing.rs) |
+| Compute storage output | [`compute_output.rs`](https://github.com/uinosoft/zenfg/blob/main/crates/zenfg/examples/compute_output.rs) |
 
 The repository also contains CPU-only compile and pool benchmarks. Snapshot
 export requires the `snapshot` feature.

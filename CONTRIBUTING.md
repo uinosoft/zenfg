@@ -83,7 +83,7 @@ Examples are maintained as executable contracts, not illustrative pseudocode:
 - use only public package/crate entrypoints and include every import;
 - accept device-, surface-, pipeline-, and application-owned state explicitly;
 - do not use test mocks, omitted-code markers, or undocumented subpaths;
-- keep the seven TypeScript and Rust runtime recipes aligned by workflow while
+- keep the eight TypeScript and Rust runtime recipes aligned by workflow while
   allowing each language to remain idiomatic;
 - type-check or compile every recipe, and execute CPU-only recipes in CI.
 
@@ -93,7 +93,9 @@ only when the shared model changes. Before publishing, verify that npm
 declaration maps resolve only to relative source paths included in the tarball
 and that Rust README examples still pass as doctests.
 
-The Playground owns interactive showcase presentation, displayed source, and
-embedded Inspector integration. Showcase implementations remain independent of
-the Playground shell and do not replace package documentation or executable
-package recipes.
+The Playground owns interactive presentation, displayed source, and embedded
+Inspector integration. Package recipes and repository showcases remain
+independent of the Playground shell. Package recipes keep their graph
+declarations in host-neutral `record*` functions so Playground adapters can
+compile the exact same recording with diagnostics enabled; repository showcases
+may instead expose application-level start, capture, and disposal controllers.

@@ -1,14 +1,12 @@
-import { FrameGraph } from '@zenfg/webgpu';
+import { FrameGraph, type FrameGraphRecording } from '@zenfg/webgpu';
 
-/** Records, executes, and presents one clear-only frame. */
-export function renderMinimalFrame(
-	graph: FrameGraph,
-	context: GPUCanvasContext,
-	frameIndex: number,
+/** Declares one clear-only presentation frame without compiling it. */
+export function recordMinimalFrame(
+	recorder: FrameGraphRecording,
+	backbufferTexture: GPUTexture,
 ): void {
-	const recorder = graph.beginFrame();
 	const backbuffer = recorder.importSwapchainTexture(
-		context.getCurrentTexture(),
+		backbufferTexture,
 		{ label: 'backbuffer' },
 	);
 
@@ -23,5 +21,15 @@ export function renderMinimalFrame(
 	});
 
 	recorder.markPresent(backbuffer);
+}
+
+/** Records, executes, and presents one clear-only frame. */
+export function renderMinimalFrame(
+	graph: FrameGraph,
+	context: GPUCanvasContext,
+	frameIndex: number,
+): void {
+	const recorder = graph.beginFrame();
+	recordMinimalFrame(recorder, context.getCurrentTexture());
 	recorder.compile().execute({ frameIndex });
 }

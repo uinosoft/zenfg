@@ -11,6 +11,7 @@ const effectStatus = requireElement<HTMLElement>('[data-effect-status]');
 const effectStatusText = requireElement<HTMLElement>('[data-effect-status-text]');
 const exampleSelect = requireElement<HTMLSelectElement>('[data-example-select]');
 const exampleSummary = requireElement<HTMLElement>('[data-example-summary]');
+const exampleHint = requireElement<HTMLElement>('[data-example-hint]');
 const playgroundFooter = requireElement<HTMLElement>('.playground-footer');
 const exampleError = requireElement<HTMLElement>('[data-example-error]');
 const overlay = requireElement<HTMLElement>('[data-tool-overlay]');
@@ -38,16 +39,25 @@ let currentSource: string | undefined;
 let sourceRevision = 0;
 let disposed = false;
 
+const exampleGroups = new Map<string, HTMLOptGroupElement>();
 for (const catalogExample of publicExamples) {
+	let group = exampleGroups.get(catalogExample.group);
+	if (!group) {
+		group = document.createElement('optgroup');
+		group.label = catalogExample.group;
+		exampleGroups.set(catalogExample.group, group);
+		exampleSelect.appendChild(group);
+	}
 	const option = document.createElement('option');
 	option.value = catalogExample.id;
 	option.textContent = catalogExample.title;
-	exampleSelect.appendChild(option);
+	group.appendChild(option);
 }
 
 if (example) {
 	exampleSelect.value = example.id;
 	exampleSummary.textContent = example.summary;
+	exampleHint.textContent = example.footerHint;
 	document.title = `${example.title} · ZenFG Playground`;
 }
 else {
@@ -119,8 +129,8 @@ async function mountExample(definition: PlaygroundExampleDefinition): Promise<Pl
 	try {
 		const mounted = await definition.mount({
 			canvas: effectCanvas,
-			onReady: () => {
-				setEffectStatus('ready', 'Live · 5 FrameGraph passes');
+			onReady: (message) => {
+				setEffectStatus('ready', message ?? definition.readyMessage);
 			},
 			onError: (error) => {
 				reportedError = true;
@@ -186,6 +196,7 @@ async function initializeCodeWorkspace(definition: PlaygroundExampleDefinition):
 		button.type = 'button';
 		button.textContent = file.label;
 		button.dataset.sourceId = file.id;
+		button.dataset.sourceRole = file.role;
 		button.addEventListener('click', () => {
 			void selectSource(file, button);
 		});

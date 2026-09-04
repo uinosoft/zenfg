@@ -76,6 +76,7 @@ const packages = [
             'examples/external-submission.ts',
             'examples/snapshot-export.ts',
             'examples/gpu-timing.ts',
+            'examples/compute-output.ts',
         ],
     },
     {
@@ -294,6 +295,7 @@ try {
         'external-submission.ts',
         'snapshot-export.ts',
         'gpu-timing.ts',
+        'compute-output.ts',
     ]) {
         copyFileSync(join(installedWebGpuExamples, example), join(exampleDirectory, example));
     }

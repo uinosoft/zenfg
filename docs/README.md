@@ -13,7 +13,7 @@ shared model, compatibility, and maintainer-facing guides.
 | Build with Rust and wgpu | [`zenfg` README](../crates/zenfg/README.md) |
 | Produce, validate, or migrate Snapshot data | [`@zenfg/snapshot` README](../packages/snapshot/README.md) or [`zenfg-snapshot` README](../crates/zenfg-snapshot/README.md) |
 | Embed or open the Inspector | [`@zenfg/inspector` README](../packages/inspector/README.md) or the [hosted Inspector](https://uinosoft.github.io/zenfg/inspector/) |
-| Explore a live WebGPU FrameGraph, its source, and capture | [Hosted Playground](https://uinosoft.github.io/zenfg/playground/?example=interactive-background&panel=inspector) |
+| Explore live WebGPU showcases and package recipes, their source, and captures | [Hosted Playground](https://uinosoft.github.io/zenfg/playground/?example=interactive-background&panel=inspector) |
 | Check supported versions and toolchains | [Compatibility](compatibility.md) |
 | Contribute or publish a release | [Contributing](../CONTRIBUTING.md) and [release process](release-process.md) |
 
@@ -40,9 +40,10 @@ The repository root README is maintained in English and Simplified Chinese.
 Technical documents, package READMEs, API documentation, and examples are
 maintained in English so semantic changes have one normative explanation.
 
-Interactive showcases live in private workspaces under `examples/` until they
-have a clear package owner and stable teaching contract. The hosted Playground
-owns presentation, exact-source display, and Inspector integration through
-application-local catalog adapters; showcase implementations do not import the
+Application-like showcases, cross-package workflows, and third-party
+integrations live in private workspaces under `examples/`. Focused public API
+recipes live with and ship in their owning package. The hosted Playground owns
+presentation, exact-source display, and Inspector integration through
+application-local catalog adapters; example implementations do not import the
 Playground. See [`examples/README.md`](../examples/README.md) for the ownership
 boundary.

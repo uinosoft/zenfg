@@ -95,6 +95,7 @@ try {
             'README.md',
             'examples/external_submission.rs',
             'examples/gpu_timing.rs',
+            'examples/compute_output.rs',
             'examples/imported_resource.rs',
             'examples/minimal_frame.rs',
             'examples/persistent_state.rs',

@@ -1,17 +1,16 @@
 import {
 	FrameGraph,
+	type FrameGraphRecording,
 	type FrameGraphGpuTimingReport,
 } from '@zenfg/webgpu';
 
-/** Times one retained render node; unsupported devices return an unavailable report. */
-export async function measureClearPass(
-	graph: FrameGraph,
-	context: GPUCanvasContext,
-	frameIndex: number,
-): Promise<FrameGraphGpuTimingReport> {
-	const recorder = graph.beginFrame();
+/** Declares the clear pass measured by the GPU timing workflow. */
+export function recordTimedClearPass(
+	recorder: FrameGraphRecording,
+	backbufferTexture: GPUTexture,
+): void {
 	const backbuffer = recorder.importSwapchainTexture(
-		context.getCurrentTexture(),
+		backbufferTexture,
 		{ label: 'backbuffer' },
 	);
 	recorder.render({
@@ -24,6 +23,16 @@ export async function measureClearPass(
 		}],
 	});
 	recorder.markPresent(backbuffer);
+}
+
+/** Times one retained render node; unsupported devices return an unavailable report. */
+export async function measureClearPass(
+	graph: FrameGraph,
+	context: GPUCanvasContext,
+	frameIndex: number,
+): Promise<FrameGraphGpuTimingReport> {
+	const recorder = graph.beginFrame();
+	recordTimedClearPass(recorder, context.getCurrentTexture());
 
 	return recorder.compile().execute({ frameIndex, gpuTiming: true });
 }

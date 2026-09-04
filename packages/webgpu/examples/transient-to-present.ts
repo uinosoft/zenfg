@@ -1,4 +1,14 @@
-import { FrameGraph, TextureAccess } from '@zenfg/webgpu';
+import { FrameGraph, TextureAccess, type FrameGraphRecording } from '@zenfg/webgpu';
+
+export type TransientToPresentRecordOptions = {
+	readonly recorder: FrameGraphRecording;
+	readonly backbufferTexture: GPUTexture;
+	readonly scenePipeline: GPURenderPipeline;
+	readonly presentPipeline: GPURenderPipeline;
+	readonly sampler: GPUSampler;
+	readonly width: number;
+	readonly height: number;
+};
 
 export type TransientToPresentOptions = {
 	readonly graph: FrameGraph;
@@ -11,20 +21,19 @@ export type TransientToPresentOptions = {
 	readonly frameIndex: number;
 };
 
-/** Renders into a transient texture and samples it into the current surface. */
-export function renderTransientToPresent(options: TransientToPresentOptions): void {
-	const recorder = options.graph.beginFrame();
-	const sceneColor = recorder.createTexture({
+/** Declares transient rendering followed by presentation without compiling it. */
+export function recordTransientToPresent(options: TransientToPresentRecordOptions): void {
+	const sceneColor = options.recorder.createTexture({
 		label: 'scene-color',
 		format: 'rgba16float',
 		size: [options.width, options.height],
 	});
-	const backbuffer = recorder.importSwapchainTexture(
-		options.context.getCurrentTexture(),
+	const backbuffer = options.recorder.importSwapchainTexture(
+		options.backbufferTexture,
 		{ label: 'backbuffer' },
 	);
 
-	recorder.render({
+	options.recorder.render({
 		label: 'scene',
 		colorAttachments: [{
 			target: sceneColor,
@@ -38,8 +47,8 @@ export function renderTransientToPresent(options: TransientToPresentOptions): vo
 		},
 	});
 
-	const sampledSceneColor = recorder.use(sceneColor, TextureAccess.Sampled);
-	recorder.render({
+	const sampledSceneColor = options.recorder.use(sceneColor, TextureAccess.Sampled);
+	options.recorder.render({
 		label: 'present',
 		uses: [sampledSceneColor],
 		colorAttachments: [{
@@ -62,6 +71,20 @@ export function renderTransientToPresent(options: TransientToPresentOptions): vo
 		},
 	});
 
-	recorder.markPresent(backbuffer);
+	options.recorder.markPresent(backbuffer);
+}
+
+/** Renders into a transient texture and samples it into the current surface. */
+export function renderTransientToPresent(options: TransientToPresentOptions): void {
+	const recorder = options.graph.beginFrame();
+	recordTransientToPresent({
+		recorder,
+		backbufferTexture: options.context.getCurrentTexture(),
+		scenePipeline: options.scenePipeline,
+		presentPipeline: options.presentPipeline,
+		sampler: options.sampler,
+		width: options.width,
+		height: options.height,
+	});
 	recorder.compile().execute({ frameIndex: options.frameIndex });
 }

@@ -1,9 +1,19 @@
-import { FrameGraph, TextureAccess } from '@zenfg/webgpu';
+import { FrameGraph, TextureAccess, type FrameGraphRecording } from '@zenfg/webgpu';
 
 export type ExternalRenderer = (options: {
 	readonly device: GPUDevice;
 	readonly color: GPUTextureView;
-}) => void;
+}) => undefined;
+
+export type ExternalSubmissionRecordOptions = {
+	readonly recorder: FrameGraphRecording;
+	readonly backbufferTexture: GPUTexture;
+	readonly presentPipeline: GPURenderPipeline;
+	readonly sampler: GPUSampler;
+	readonly width: number;
+	readonly height: number;
+	readonly renderAndSubmit: ExternalRenderer;
+};
 
 export type ExternalSubmissionOptions = {
 	readonly graph: FrameGraph;
@@ -16,37 +26,36 @@ export type ExternalSubmissionOptions = {
 	readonly renderAndSubmit: ExternalRenderer;
 };
 
-/** Orders an opaque, caller-submitted renderer before a native present pass. */
-export function renderExternalSubmission(options: ExternalSubmissionOptions): void {
-	const recorder = options.graph.beginFrame();
-	const externalColor = recorder.createTexture({
+/** Declares an opaque submission boundary followed by presentation. */
+export function recordExternalSubmission(options: ExternalSubmissionRecordOptions): void {
+	const externalColor = options.recorder.createTexture({
 		label: 'external-color',
 		format: 'rgba8unorm',
 		size: [options.width, options.height],
 	});
-	const backbuffer = recorder.importSwapchainTexture(
-		options.context.getCurrentTexture(),
+	const backbuffer = options.recorder.importSwapchainTexture(
+		options.backbufferTexture,
 		{ label: 'backbuffer' },
 	);
-	const externalColorWrite = recorder.use(
+	const externalColorWrite = options.recorder.use(
 		externalColor,
 		TextureAccess.ColorAttachmentWrite,
 		{ contents: 'overwrite' },
 	);
 
-	recorder.externalSubmission({
+	options.recorder.externalSubmission({
 		label: 'third-party-renderer',
 		uses: [externalColorWrite],
 		submit({ device, unwrap }) {
-			options.renderAndSubmit({
+			return options.renderAndSubmit({
 				device,
 				color: unwrap(externalColorWrite),
 			});
 		},
 	});
 
-	const sampledExternalColor = recorder.use(externalColor, TextureAccess.Sampled);
-	recorder.render({
+	const sampledExternalColor = options.recorder.use(externalColor, TextureAccess.Sampled);
+	options.recorder.render({
 		label: 'present-external-color',
 		uses: [sampledExternalColor],
 		colorAttachments: [{
@@ -69,6 +78,20 @@ export function renderExternalSubmission(options: ExternalSubmissionOptions): vo
 		},
 	});
 
-	recorder.markPresent(backbuffer);
+	options.recorder.markPresent(backbuffer);
+}
+
+/** Orders an opaque, caller-submitted renderer before a native present pass. */
+export function renderExternalSubmission(options: ExternalSubmissionOptions): void {
+	const recorder = options.graph.beginFrame();
+	recordExternalSubmission({
+		recorder,
+		backbufferTexture: options.context.getCurrentTexture(),
+		presentPipeline: options.presentPipeline,
+		sampler: options.sampler,
+		width: options.width,
+		height: options.height,
+		renderAndSubmit: options.renderAndSubmit,
+	});
 	recorder.compile().execute({ frameIndex: options.frameIndex });
 }

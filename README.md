@@ -57,7 +57,8 @@ for the complete ownership, content, dependency, lifetime, and execution model.
 - Open the [hosted Inspector](https://uinosoft.github.io/zenfg/inspector/),
   which runs entirely in the browser and does not upload imported snapshots.
 - Explore the [hosted Playground](https://uinosoft.github.io/zenfg/playground/?example=interactive-background&panel=inspector)
-  for a live WebGPU effect, its exact TypeScript source, and an Inspector capture.
+  for live WebGPU showcases and package recipes, their exact TypeScript source,
+  and Inspector captures.
 - Read [Contributing](CONTRIBUTING.md) before changing public semantics,
   examples, or release artifacts.
 

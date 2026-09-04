@@ -203,6 +203,7 @@ of supported public entrypoints:
 | Opaque third-party submission | [`external-submission.ts`](./examples/external-submission.ts) |
 | Portable Snapshot export | [`snapshot-export.ts`](./examples/snapshot-export.ts) |
 | Asynchronous GPU timing | [`gpu-timing.ts`](./examples/gpu-timing.ts) |
+| Compute storage output | [`compute-output.ts`](./examples/compute-output.ts) |
 
 GPU-dependent recipes are compile-checked. CPU-only workflows also execute in
 CI. See the [examples index](./examples/README.md) for their input contracts.

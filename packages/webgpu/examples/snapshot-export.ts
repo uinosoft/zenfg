@@ -1,4 +1,4 @@
-import { FrameGraph } from '@zenfg/webgpu';
+import { FrameGraph, type FrameGraphRecording } from '@zenfg/webgpu';
 import { createFrameGraphSnapshot } from '@zenfg/webgpu/snapshot';
 
 export type SnapshotExportOptions = {
@@ -8,11 +8,13 @@ export type SnapshotExportOptions = {
 	readonly producerVersion: string;
 };
 
-/** Captures matching compilation, timing, and pool reports as Snapshot 1.0 JSON. */
-export async function captureSnapshotJson(options: SnapshotExportOptions): Promise<string> {
-	const recorder = options.graph.beginFrame();
+/** Declares the frame used by the Snapshot export workflow. */
+export function recordSnapshotFrame(
+	recorder: FrameGraphRecording,
+	backbufferTexture: GPUTexture,
+): void {
 	const backbuffer = recorder.importSwapchainTexture(
-		options.context.getCurrentTexture(),
+		backbufferTexture,
 		{ label: 'backbuffer' },
 	);
 	recorder.render({
@@ -25,6 +27,12 @@ export async function captureSnapshotJson(options: SnapshotExportOptions): Promi
 		}],
 	});
 	recorder.markPresent(backbuffer);
+}
+
+/** Captures matching compilation, timing, and pool reports as Snapshot 1.0 JSON. */
+export async function captureSnapshotJson(options: SnapshotExportOptions): Promise<string> {
+	const recorder = options.graph.beginFrame();
+	recordSnapshotFrame(recorder, options.context.getCurrentTexture());
 
 	const compiled = recorder.compile({ report: true });
 	const timingPromise = compiled.execute({
