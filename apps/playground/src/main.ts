@@ -1,6 +1,7 @@
 import type { FrameGraphInspector } from '@zenfg/inspector';
 import { installAppPageLifecycle } from '../../shared/pageLifecycle.ts';
 import { findPublicExample, publicExamples } from './catalog/catalog.ts';
+import { createExamplePicker } from './examplePicker.ts';
 import { parsePlaygroundRoute, routeSearch, toggledPanel } from './routing.ts';
 import { disposeHighlighter, highlightTypeScript } from './syntaxHighlighter.ts';
 import type { PlaygroundExampleDefinition, PlaygroundPanel, PlaygroundRuntime, PlaygroundSourceFile } from './types.ts';
@@ -9,11 +10,12 @@ const playground = requireElement<HTMLElement>('[data-playground]');
 const effectCanvas = requireElement<HTMLCanvasElement>('[data-effect-canvas]');
 const effectStatus = requireElement<HTMLElement>('[data-effect-status]');
 const effectStatusText = requireElement<HTMLElement>('[data-effect-status-text]');
-const exampleSelect = requireElement<HTMLSelectElement>('[data-example-select]');
+const examplePickerHost = requireElement<HTMLElement>('[data-example-picker]');
 const exampleSummary = requireElement<HTMLElement>('[data-example-summary]');
 const exampleHint = requireElement<HTMLElement>('[data-example-hint]');
 const playgroundFooter = requireElement<HTMLElement>('.playground-footer');
 const exampleError = requireElement<HTMLElement>('[data-example-error]');
+const controlsHost = requireElement<HTMLElement>('[data-controls-host]');
 const overlay = requireElement<HTMLElement>('[data-tool-overlay]');
 const overlayEyebrow = requireElement<HTMLElement>('[data-overlay-eyebrow]');
 const overlayTitle = requireElement<HTMLElement>('[data-overlay-title]');
@@ -39,44 +41,30 @@ let currentSource: string | undefined;
 let sourceRevision = 0;
 let disposed = false;
 
-const exampleGroups = new Map<string, HTMLOptGroupElement>();
-for (const catalogExample of publicExamples) {
-	let group = exampleGroups.get(catalogExample.group);
-	if (!group) {
-		group = document.createElement('optgroup');
-		group.label = catalogExample.group;
-		exampleGroups.set(catalogExample.group, group);
-		exampleSelect.appendChild(group);
-	}
-	const option = document.createElement('option');
-	option.value = catalogExample.id;
-	option.textContent = catalogExample.title;
-	group.appendChild(option);
-}
+const examplePicker = createExamplePicker({
+	host: examplePickerHost,
+	examples: publicExamples,
+	selectedId: example?.id,
+	unavailableLabel: example ? undefined : `Unavailable · ${initialRoute.exampleId}`,
+	onSelect: (exampleId) => {
+		window.location.assign(routeSearch({ exampleId, panel: currentPanel }));
+	},
+});
 
 if (example) {
-	exampleSelect.value = example.id;
 	exampleSummary.textContent = example.summary;
 	exampleHint.textContent = example.footerHint;
 	document.title = `${example.title} · ZenFG Playground`;
+	controlsHost.hidden = !example.hasControls;
 }
 else {
-	const unavailableOption = document.createElement('option');
-	unavailableOption.value = initialRoute.exampleId;
-	unavailableOption.textContent = `Unavailable · ${initialRoute.exampleId}`;
-	unavailableOption.disabled = true;
-	exampleSelect.prepend(unavailableOption);
-	exampleSelect.value = initialRoute.exampleId;
 	exampleError.hidden = false;
 	effectStatus.hidden = true;
+	controlsHost.hidden = true;
 	playgroundFooter.hidden = true;
 	currentPanel = 'none';
 	for (const button of panelButtons) button.disabled = button.dataset.panelButton !== 'none';
 }
-
-exampleSelect.addEventListener('change', () => {
-	window.location.assign(routeSearch({ exampleId: exampleSelect.value, panel: currentPanel }));
-});
 
 for (const button of panelButtons) {
 	button.addEventListener('click', () => {
@@ -114,8 +102,10 @@ setPanel(currentPanel, false);
 installAppPageLifecycle(window, {
 	onDiscard: () => {
 		disposed = true;
+		examplePicker.destroy();
 		inspector?.destroy();
 		runtime?.dispose();
+		controlsHost.replaceChildren();
 		void disposeHighlighter();
 	},
 	reloadOnRestore: import.meta.hot ? () => {
@@ -129,6 +119,7 @@ async function mountExample(definition: PlaygroundExampleDefinition): Promise<Pl
 	try {
 		const mounted = await definition.mount({
 			canvas: effectCanvas,
+			controlsHost,
 			onReady: (message) => {
 				setEffectStatus('ready', message ?? definition.readyMessage);
 			},

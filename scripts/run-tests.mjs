@@ -2,6 +2,7 @@ import { spawnSync } from 'node:child_process';
 import { build } from 'esbuild';
 import { mkdirSync, readdirSync, rmSync, statSync } from 'node:fs';
 import { join, resolve } from 'node:path';
+import typegpuPlugin from 'unplugin-typegpu/esbuild';
 
 const rootDir = resolve(import.meta.dirname, '..');
 
@@ -14,6 +15,7 @@ const defaultTestRoots = [
 	resolve(rootDir, 'apps', 'playground', 'tests'),
 	resolve(rootDir, 'apps', 'site', 'tests'),
 	resolve(rootDir, 'examples', 'interactive-background', 'tests'),
+	resolve(rootDir, 'examples', 'typegpu-slime-mold', 'tests'),
 ];
 const requestedTestRoots = process.argv.slice(2).map((path) => resolve(rootDir, path));
 const testRoots = requestedTestRoots.length > 0 ? requestedTestRoots : defaultTestRoots;
@@ -115,7 +117,9 @@ await build({
                 loader: 'js',
             }));
         },
-	}],
+	}, typegpuPlugin({
+		include: /examples[\\/]typegpu-slime-mold[\\/]src[\\/].*\.ts$/,
+	})],
 });
 
 const compiledTests = collectCompiledTestFiles(outDir)

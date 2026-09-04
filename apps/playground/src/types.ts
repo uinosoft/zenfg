@@ -20,6 +20,7 @@ export type PlaygroundRuntime = {
 
 export type PlaygroundMountContext = {
 	readonly canvas: HTMLCanvasElement;
+	readonly controlsHost: HTMLElement;
 	readonly onReady: (message?: string) => void;
 	readonly onError: (error: Error) => void;
 };
@@ -31,6 +32,7 @@ export type PlaygroundExampleDefinition = {
 	readonly summary: string;
 	readonly readyMessage: string;
 	readonly footerHint: string;
+	readonly hasControls?: boolean;
 	readonly sourceFiles: readonly PlaygroundSourceFile[];
 	readonly mount: (context: PlaygroundMountContext) => Promise<PlaygroundRuntime | undefined>;
 };

@@ -22,7 +22,7 @@
 
       <div class="example-identity">
         <span class="example-identity__eyebrow">Live example</span>
-        <select class="example-select" data-example-select aria-label="Select example"></select>
+        <div data-example-picker></div>
       </div>
 
       <nav class="tool-launcher" aria-label="Playground tools">
@@ -47,6 +47,8 @@
       <span class="effect-status__signal" aria-hidden="true"></span>
       <span data-effect-status-text>Initializing WebGPU…</span>
     </section>
+
+    <aside class="playground-controls" data-controls-host aria-label="Example controls" hidden></aside>
 
     <section class="tool-overlay" id="tool-overlay" data-tool-overlay role="region" aria-labelledby="tool-overlay-title" hidden>
       <header class="tool-overlay__header">

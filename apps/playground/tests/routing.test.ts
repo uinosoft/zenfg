@@ -36,6 +36,7 @@ test('the production catalog is explicit, grouped, and keeps canonical sources f
 		publicExamples.map((example) => [example.id, example.group]),
 		[
 			['interactive-background', 'Showcases'],
+			['typegpu-slime-mold', 'Showcases'],
 			['minimal-frame', '@zenfg/webgpu basics'],
 			['transient-to-present', '@zenfg/webgpu basics'],
 			['imported-resource', '@zenfg/webgpu basics'],
@@ -47,7 +48,7 @@ test('the production catalog is explicit, grouped, and keeps canonical sources f
 		],
 	);
 	assert.deepEqual(
-		publicExamples.slice(1).map((example) => [example.sourceFiles[0]?.path, example.sourceFiles[0]?.role]),
+		publicExamples.slice(2).map((example) => [example.sourceFiles[0]?.path, example.sourceFiles[0]?.role]),
 		[
 			['packages/webgpu/examples/minimal-frame.ts', 'recipe'],
 			['packages/webgpu/examples/transient-to-present.ts', 'recipe'],
@@ -64,7 +65,19 @@ test('the production catalog is explicit, grouped, and keeps canonical sources f
 		assert.ok(example.footerHint.length > 0);
 		assert.equal(new Set(example.sourceFiles.map((file) => file.id)).size, example.sourceFiles.length);
 		assert.ok(example.sourceFiles.every((file) => file.language === 'typescript'));
+		if (example.hasControls) assert.equal(example.group, 'Showcases');
 	}
+	assert.deepEqual(
+		findPublicExample('typegpu-slime-mold')?.sourceFiles.map((file) => file.path),
+		[
+			'examples/typegpu-slime-mold/src/slimeMold.ts',
+			'examples/typegpu-slime-mold/src/startTypeGpuSlimeMold.ts',
+			'apps/playground/src/catalog/typeGpuSlimeMold.ts',
+		],
+	);
+	assert.ok(publicExamples
+		.filter((example) => example.group === '@zenfg/webgpu basics')
+		.every((example) => !example.hasControls));
 });
 
 test('package adapters call recipes instead of redeclaring FrameGraph nodes', () => {

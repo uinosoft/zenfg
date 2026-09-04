@@ -13,9 +13,14 @@
     "@shikijs/langs": "^4.4.3",
     "@shikijs/themes": "^4.4.3",
     "@zenfg-example/interactive-background": "0.0.0",
+    "@zenfg-example/typegpu-slime-mold": "0.0.0",
     "@zenfg/inspector": "0.1.0-beta.2",
     "@zenfg/snapshot": "0.1.0-beta.2",
     "@zenfg/webgpu": "0.1.0-beta.2",
-    "shiki": "^4.4.3"
+    "shiki": "^4.4.3",
+    "tweakpane": "4.0.5"
+  },
+  "devDependencies": {
+    "unplugin-typegpu": "0.12.3"
   }
 }

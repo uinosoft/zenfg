@@ -1,0 +1,19 @@
+{
+  "name": "@zenfg-example/typegpu-slime-mold",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "test": "node ../../scripts/run-tests.mjs examples/typegpu-slime-mold/tests",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "@typegpu/noise": "0.12.0",
+    "@zenfg/snapshot": "0.1.0-beta.2",
+    "@zenfg/webgpu": "0.1.0-beta.2",
+    "typegpu": "0.12.4"
+  }
+}
