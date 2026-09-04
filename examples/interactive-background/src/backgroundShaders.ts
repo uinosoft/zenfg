@@ -202,14 +202,14 @@ fn lattice_fragment(input: VertexOutput) -> @location(0) vec4f {
 	let caustic_breakup = smoothstep(0.52, 0.86, field_energy + sin(warped.x * 6.0 - motion_time * 0.21) * 0.14);
 	let caustic = caustic_ridge * caustic_breakup * (0.28 + fine_grid * 0.72);
 
-	let glint_selector = step(0.935, node_seed);
+	let glint_selector = step(0.905, node_seed);
 	let glint_wave = max(0.0, sin(node_seed * 18.849556 + dot(node_cell, vec2f(0.19, 0.31)) + motion_time * 0.86));
-	let glint_pulse = pow(glint_wave, 10.0);
+	let glint_pulse = pow(glint_wave, 8.0);
 	let amber_selector = step(0.92, hash12(node_cell + vec2f(31.7, 17.3)));
 	let warm_node_selector = step(0.935, hash12(node_cell + vec2f(8.2, 4.7)));
 	let flow_flash_phase = dot(warped + flow * 0.045, vec2f(12.0, -8.0)) + field_energy * 6.0 - motion_time * 0.62;
 	let flow_flash = pow(max(0.0, sin(flow_flash_phase)), 8.0)
-		* smoothstep(0.46, 0.82, field_energy) * (0.22 + fine_grid * 0.78);
+		* smoothstep(0.46, 0.82, field_energy) * (0.28 + fine_grid * 0.72);
 
 	let content_guard = mix(0.30, 1.0, smoothstep(0.40, 0.72, uv.x));
 	let edge_guard = smoothstep(0.02, 0.10, uv.x) * smoothstep(0.98, 0.90, uv.x)
@@ -225,30 +225,30 @@ fn lattice_fragment(input: VertexOutput) -> @location(0) vec4f {
 	let compression_heat = vec3f(1.62, 0.68, 0.060);
 	let base = vec3f(0.0025, 0.0045, 0.0075);
 	var color = base;
-	color += azure * ribbon_a * 0.055;
-	color += electric_blue * ribbon_b * 0.025;
-	color += cyan * fine_grid * (0.008 + field_energy * 0.025);
-	color += azure * deep_grid * 0.022;
-	color += mix(cyan, amber, warm_node_selector) * nodes * node_pulse * 0.070;
+	color += azure * ribbon_a * 0.080;
+	color += electric_blue * ribbon_b * 0.036;
+	color += cyan * fine_grid * (0.022 + field_energy * 0.060);
+	color += azure * deep_grid * 0.050;
+	color += mix(cyan, amber, warm_node_selector) * nodes * node_pulse * 0.080;
 	color += ice * caustic * (0.22 + field_energy * 0.42) * highlight_guard;
-	color += electric_blue * flow_flash * 0.18 * highlight_guard;
-	color += mix(ice, amber, amber_selector) * nodes * glint_selector * glint_pulse * 1.15 * highlight_guard;
+	color += electric_blue * flow_flash * 0.24 * highlight_guard;
+	color += mix(ice, amber, amber_selector) * nodes * glint_selector * glint_pulse * 1.35 * highlight_guard;
 
 	let pointer_visibility = params.pointer_pressure * params.pointer_pressure;
-	let outer_halo = exp(-pow(lens_distance - 0.82, 2.0) * 92.0) * pointer_visibility;
+	let outer_halo = exp(-pow(lens_distance - 0.68, 2.0) * 110.0) * pointer_visibility;
 	color += mix(electric_blue, cyan, 0.55) * outer_halo
-		* (0.024 + fine_grid * 0.016) * mobile_guard;
+		* (0.055 + fine_grid * 0.030) * mobile_guard;
 
-	let charge_radius = lens_radius * 0.70;
+	let charge_radius = lens_radius * 1.28;
 	let charge_distance = pointer_distance / max(charge_radius, 0.0001);
 	let charge_mask = exp(-charge_distance * charge_distance * 1.45)
-		* (1.0 - smoothstep(0.85, 1.35, charge_distance)) * pointer_visibility;
-	let charged_detail = fine_grid * 0.050
-		+ deep_grid * 0.030
-		+ nodes * node_pulse * 0.085
-		+ caustic * 0.070
-		+ flow_flash * 0.035
-		+ (ribbon_a + ribbon_b) * 0.012;
+		* (1.0 - smoothstep(0.95, 1.60, charge_distance)) * pointer_visibility;
+	let charged_detail = fine_grid * 0.095
+		+ deep_grid * 0.060
+		+ nodes * node_pulse * 0.150
+		+ caustic * 0.120
+		+ flow_flash * 0.070
+		+ (ribbon_a + ribbon_b) * 0.022;
 	color += mix(electric_blue, ice, 0.42) * charged_detail * charge_mask * mobile_guard;
 
 	let focus_radius = lens_radius * mix(0.59, 0.63, params.pointer_expansion);
@@ -258,23 +258,23 @@ fn lattice_fragment(input: VertexOutput) -> @location(0) vec4f {
 	let pointer_core = exp(-pow(pointer_distance / max(lens_radius * 0.24, 0.0001), 2.0))
 		* pointer_visibility * (0.42 + fine_grid * 0.38 + nodes * 0.20);
 	let heat_amount = smoothstep(0.68, 0.94, pressure_contraction);
-	let pointer_core_color = mix(mix(cyan, ice, 0.32), compression_heat, heat_amount * 0.54);
+	let pointer_core_color = mix(mix(cyan, ice, 0.32), compression_heat, heat_amount * 0.46);
 	color += pointer_core_color
-		* (refracted_edge * 0.045 + pointer_core * 0.030) * mobile_guard;
-	let heat_core_radius = lens_radius * mix(0.28, 0.21, heat_amount);
+		* (refracted_edge * 0.040 + pointer_core * 0.024) * mobile_guard;
+	let heat_core_radius = lens_radius * mix(0.34, 0.26, heat_amount);
 	let heat_shape = 0.88 + 0.12
 		* sin(lens_angle * 5.0 + field_energy * 4.2 - motion_time * 0.34);
-	let heat_core = exp(-pow(pointer_distance / max(heat_core_radius * heat_shape, 0.0001), 1.65))
-		* pointer_visibility * heat_amount;
+	let heat_core = exp(-pow(pointer_distance / max(heat_core_radius * heat_shape, 0.0001), 1.45))
+		* pointer_visibility * heat_amount * 0.88;
 	color += compression_heat * heat_core
-		* (0.016 + fine_grid * 0.040 + deep_grid * 0.018 + caustic * 0.025 + nodes * 0.025)
+		* (0.017 + fine_grid * 0.040 + deep_grid * 0.018 + caustic * 0.026 + nodes * 0.026)
 		* mobile_guard;
 	let heat_tint = min(
-		0.58,
-		heat_core * (0.20 + fine_grid * 0.24 + deep_grid * 0.14 + caustic * 0.22 + nodes * 0.12),
+		0.48,
+		heat_core * (0.17 + fine_grid * 0.22 + deep_grid * 0.14 + caustic * 0.20 + nodes * 0.12),
 	);
 	let heated_core = color * vec3f(1.04, 0.58, 0.20)
-		+ compression_heat * (0.055 + fine_grid * 0.030 + caustic * 0.025);
+		+ compression_heat * (0.042 + fine_grid * 0.022 + caustic * 0.018);
 	color = mix(color, heated_core, heat_tint);
 
 	let horizon = exp(-abs(uv.y - 0.68 - flow.x * 0.025) * 26.0);
@@ -389,7 +389,7 @@ fn composite_fragment(input: VertexOutput) -> @location(0) vec4f {
 	hdr_color.r = mix(hdr_color.r, shifted_a.r, aberration_strength * 0.08);
 	hdr_color.b = mix(hdr_color.b, shifted_b.b, aberration_strength * 0.10);
 
-	let mapped = max(aces_fitted(hdr_color * 1.05) - vec3f(0.00035), vec3f(0.0));
+	let mapped = max(aces_fitted(hdr_color * 1.20) - vec3f(0.00035), vec3f(0.0));
 	var color = linear_to_srgb(mapped);
 	let grain = hash11(input.position.x + input.position.y * 173.0 + floor(params.frame * 0.5)) - 0.5;
 	color += grain * 0.0025 * mix(1.0, 0.0, params.reduced_motion);
