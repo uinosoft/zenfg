@@ -140,6 +140,25 @@ fn hash12(point: vec2f) -> f32 {
 	return fract((q.x + q.y) * (q.x + q.y + 45.32));
 }
 
+fn smooth_pressure(value: f32) -> f32 {
+	return value * value * (3.0 - 2.0 * value);
+}
+
+fn smooth_noise(point: vec2f) -> f32 {
+	let cell = floor(point);
+	let local = fract(point);
+	let curve = local * local * (3.0 - 2.0 * local);
+	let a = hash12(cell);
+	let b = hash12(cell + vec2f(1.0, 0.0));
+	let c = hash12(cell + vec2f(0.0, 1.0));
+	let d = hash12(cell + vec2f(1.0, 1.0));
+	return mix(mix(a, b, curve.x), mix(c, d, curve.x), curve.y);
+}
+
+fn patch_curve(amount: f32, exponent: f32) -> f32 {
+	return pow(amount, exponent);
+}
+
 @fragment
 fn lattice_fragment(input: VertexOutput) -> @location(0) vec4f {
 	let uv = input.uv;
@@ -158,8 +177,8 @@ fn lattice_fragment(input: VertexOutput) -> @location(0) vec4f {
 	let pointer_direction = normalize(pointer_delta + vec2f(0.0001, 0.0));
 	let pointer_tangent = vec2f(-pointer_direction.y, pointer_direction.x);
 	let pointer_motion = vec2f(params.pointer_velocity.x * params.aspect, params.pointer_velocity.y);
-	let pressure_contraction = params.pointer_pressure * params.pointer_pressure
-		* (3.0 - 2.0 * params.pointer_pressure);
+	// Pointer deformation: pressure shrinks the lens while motion adds directional shear.
+	let pressure_contraction = smooth_pressure(params.pointer_pressure);
 	let lens_radius = mix(0.245, 0.081, pressure_contraction);
 	let lens_distance = pointer_distance / max(lens_radius, 0.0001);
 	let lens_envelope = max(
@@ -174,14 +193,17 @@ fn lattice_fragment(input: VertexOutput) -> @location(0) vec4f {
 		* params.pointer_pressure;
 	let edge_asymmetry = 0.34 + 0.66
 		* pow(0.5 + 0.5 * sin(lens_angle * 3.0 - motion_time * 0.37 + field_energy * 5.0), 2.0);
+	let edge_vector = pointer_direction * 0.024 + pointer_tangent * 0.012;
 	let pointer_warp = pointer_direction * lens_profile * 0.064
 		+ pointer_tangent * lens_envelope * 0.021
 		+ pointer_motion * lens_envelope * 0.22
-		+ (pointer_direction * 0.024 + pointer_tangent * 0.012) * edge_band * edge_asymmetry;
+		+ edge_vector * edge_band * edge_asymmetry;
 	let drift = flow * (0.018 + field_energy * 0.015);
 	let warped = aspect_uv + drift + pointer_warp + vec2f(motion_time * 0.006, -motion_time * 0.003);
 	let counter_warped = aspect_uv - drift * 0.72 - pointer_warp * 0.62 + vec2f(-motion_time * 0.003, motion_time * 0.002);
 
+	// Two grid layers share the same warped coordinates, while the counter-warped layer
+	// keeps the depth readable around the pointer.
 	let fine_grid = grid_line(warped + vec2f(sin(warped.y * 4.0) * 0.012, 0.0), 24.0, 0.022);
 	let deep_grid = grid_line(counter_warped, 11.0, 0.012);
 	let nodes = node_field(warped, 24.0);
@@ -189,18 +211,32 @@ fn lattice_fragment(input: VertexOutput) -> @location(0) vec4f {
 	let node_seed = hash12(node_cell);
 	let node_phase = 0.5 + 0.5 * sin(node_seed * 6.283185 + motion_time * 0.72);
 	let node_pulse = 0.42 + node_phase * 0.58;
+	let macro_noise = smooth_noise(warped * 2.35 + flow * 0.72
+		+ vec2f(motion_time * 0.018, -motion_time * 0.011));
+	let micro_noise = smooth_noise(counter_warped * 7.40 - flow * 1.25
+		+ vec2f(-motion_time * 0.042, motion_time * 0.028));
+	let patch_noise = macro_noise * 0.72 + micro_noise * 0.28;
+	let energy_patch = smoothstep(0.20, 0.82, patch_noise);
+	let grid_variation = mix(0.45, 1.95, patch_curve(energy_patch, 1.18))
+		* mix(0.70, 1.15, micro_noise);
+	let deep_grid_variation = mix(0.60, 1.55, patch_curve(energy_patch, 1.42))
+		* mix(0.78, 1.10, micro_noise);
+	let stream_variation = mix(0.36, 1.58, energy_patch)
+		* mix(0.74, 1.18, micro_noise);
+	let caustic_variation = mix(0.20, 1.78, patch_curve(energy_patch, 1.55));
 
 	let diagonal_a = abs(warped.y + sin(warped.x * 3.2 + motion_time * 0.22) * 0.16);
 	let diagonal_b = abs(counter_warped.y - 0.2 + sin(counter_warped.x * 4.8 - motion_time * 0.17) * 0.11);
-	let ribbon_a = exp(-diagonal_a * 11.0) * (0.42 + field_energy * 0.72);
-	let ribbon_b = exp(-diagonal_b * 18.0) * 0.55;
+	let ribbon_a = exp(-diagonal_a * 11.0) * (0.42 + field_energy * 0.72) * stream_variation;
+	let ribbon_b = exp(-diagonal_b * 18.0) * 0.55 * stream_variation;
 
+	// Ribbons and caustics provide the larger, moving energy bands behind the grid.
 	let caustic_wave_a = sin(warped.x * 18.0 + warped.y * 9.0 + field_energy * 4.8 - motion_time * 0.72);
 	let caustic_wave_b = sin(warped.y * 21.0 - warped.x * 7.0 - field_energy * 3.4 + motion_time * 0.49);
 	let caustic_interference = abs(caustic_wave_a + caustic_wave_b) * 0.5;
 	let caustic_ridge = pow(smoothstep(0.90, 0.995, caustic_interference), 4.0);
 	let caustic_breakup = smoothstep(0.52, 0.86, field_energy + sin(warped.x * 6.0 - motion_time * 0.21) * 0.14);
-	let caustic = caustic_ridge * caustic_breakup * (0.28 + fine_grid * 0.72);
+	let caustic = caustic_ridge * caustic_breakup * (0.28 + fine_grid * 0.72) * caustic_variation;
 
 	let glint_selector = step(0.905, node_seed);
 	let glint_wave = max(0.0, sin(node_seed * 18.849556 + dot(node_cell, vec2f(0.19, 0.31)) + motion_time * 0.86));
@@ -217,38 +253,41 @@ fn lattice_fragment(input: VertexOutput) -> @location(0) vec4f {
 	let mobile_guard = mix(1.0, 0.75, params.coarse_pointer);
 	let highlight_guard = content_guard * edge_guard * mobile_guard;
 
-	let cyan = vec3f(0.025, 0.42, 0.82);
-	let azure = vec3f(0.018, 0.09, 0.32);
-	let electric_blue = vec3f(0.025, 0.24, 0.62);
-	let ice = vec3f(0.18, 0.72, 1.35);
-	let amber = vec3f(1.45, 0.38, 0.055);
-	let compression_heat = vec3f(1.62, 0.68, 0.060);
+	// Palette stays blue/ice by default; amber is reserved for sparse nodes and pressure heat.
+	let cyan = vec3f(0.035, 0.62, 1.30);
+	let azure = vec3f(0.022, 0.135, 0.50);
+	let electric_blue = vec3f(0.030, 0.34, 0.95);
+	let ice = vec3f(0.26, 1.05, 2.20);
+	let amber = vec3f(2.10, 0.56, 0.070);
+	let compression_heat = vec3f(3.60, 1.22, 0.080);
 	let base = vec3f(0.0025, 0.0045, 0.0075);
 	var color = base;
-	color += azure * ribbon_a * 0.080;
-	color += electric_blue * ribbon_b * 0.036;
-	color += cyan * fine_grid * (0.022 + field_energy * 0.060);
-	color += azure * deep_grid * 0.050;
-	color += mix(cyan, amber, warm_node_selector) * nodes * node_pulse * 0.080;
-	color += ice * caustic * (0.22 + field_energy * 0.42) * highlight_guard;
-	color += electric_blue * flow_flash * 0.24 * highlight_guard;
-	color += mix(ice, amber, amber_selector) * nodes * glint_selector * glint_pulse * 1.35 * highlight_guard;
+	color += azure * ribbon_a * 0.115;
+	color += electric_blue * ribbon_b * 0.055;
+	color += cyan * fine_grid * (0.036 + field_energy * 0.105) * grid_variation;
+	color += azure * deep_grid * 0.078 * deep_grid_variation;
+	color += mix(cyan, amber, warm_node_selector) * nodes * node_pulse * 0.110
+		* mix(0.55, 1.42, energy_patch);
+	color += ice * caustic * (0.34 + field_energy * 0.64) * highlight_guard;
+	color += electric_blue * flow_flash * 0.38 * highlight_guard;
+	color += mix(ice, amber, amber_selector) * nodes * glint_selector * glint_pulse * 2.15 * highlight_guard;
 
+	// Pointer response is layered independently: a soft halo, charged grid, edge, then core.
 	let pointer_visibility = params.pointer_pressure * params.pointer_pressure;
 	let outer_halo = exp(-pow(lens_distance - 0.68, 2.0) * 110.0) * pointer_visibility;
 	color += mix(electric_blue, cyan, 0.55) * outer_halo
-		* (0.055 + fine_grid * 0.030) * mobile_guard;
+		* (0.085 + fine_grid * 0.050) * mobile_guard;
 
 	let charge_radius = lens_radius * 1.28;
 	let charge_distance = pointer_distance / max(charge_radius, 0.0001);
 	let charge_mask = exp(-charge_distance * charge_distance * 1.45)
 		* (1.0 - smoothstep(0.95, 1.60, charge_distance)) * pointer_visibility;
-	let charged_detail = fine_grid * 0.095
-		+ deep_grid * 0.060
-		+ nodes * node_pulse * 0.150
-		+ caustic * 0.120
-		+ flow_flash * 0.070
-		+ (ribbon_a + ribbon_b) * 0.022;
+	let charged_detail = fine_grid * 0.155
+		+ deep_grid * 0.100
+		+ nodes * node_pulse * 0.220
+		+ caustic * 0.200
+		+ flow_flash * 0.120
+		+ (ribbon_a + ribbon_b) * 0.036;
 	color += mix(electric_blue, ice, 0.42) * charged_detail * charge_mask * mobile_guard;
 
 	let focus_radius = lens_radius * mix(0.59, 0.63, params.pointer_expansion);
@@ -257,24 +296,24 @@ fn lattice_fragment(input: VertexOutput) -> @location(0) vec4f {
 		* pointer_visibility * edge_asymmetry * (0.16 + fine_grid * 0.84);
 	let pointer_core = exp(-pow(pointer_distance / max(lens_radius * 0.24, 0.0001), 2.0))
 		* pointer_visibility * (0.42 + fine_grid * 0.38 + nodes * 0.20);
-	let heat_amount = smoothstep(0.68, 0.94, pressure_contraction);
-	let pointer_core_color = mix(mix(cyan, ice, 0.32), compression_heat, heat_amount * 0.46);
+	let heat_amount = smoothstep(0.56, 0.90, pressure_contraction);
+	let pointer_core_color = mix(mix(cyan, ice, 0.32), compression_heat, heat_amount * 0.64);
 	color += pointer_core_color
-		* (refracted_edge * 0.040 + pointer_core * 0.024) * mobile_guard;
-	let heat_core_radius = lens_radius * mix(0.34, 0.26, heat_amount);
+		* (refracted_edge * 0.10 + pointer_core * 0.12) * mobile_guard;
+	let heat_core_radius = lens_radius * mix(0.38, 0.28, heat_amount);
 	let heat_shape = 0.88 + 0.12
 		* sin(lens_angle * 5.0 + field_energy * 4.2 - motion_time * 0.34);
-	let heat_core = exp(-pow(pointer_distance / max(heat_core_radius * heat_shape, 0.0001), 1.45))
-		* pointer_visibility * heat_amount * 0.88;
+	let heat_core = exp(-pow(pointer_distance / max(heat_core_radius * heat_shape, 0.0001), 1.30))
+		* pointer_visibility * heat_amount * 0.92;
 	color += compression_heat * heat_core
-		* (0.017 + fine_grid * 0.040 + deep_grid * 0.018 + caustic * 0.026 + nodes * 0.026)
+		* (0.18 + fine_grid * 0.24 + deep_grid * 0.11 + caustic * 0.17 + nodes * 0.15)
 		* mobile_guard;
 	let heat_tint = min(
-		0.48,
-		heat_core * (0.17 + fine_grid * 0.22 + deep_grid * 0.14 + caustic * 0.20 + nodes * 0.12),
+		0.66,
+		heat_core * (0.25 + fine_grid * 0.30 + deep_grid * 0.18 + caustic * 0.27 + nodes * 0.16),
 	);
 	let heated_core = color * vec3f(1.04, 0.58, 0.20)
-		+ compression_heat * (0.042 + fine_grid * 0.022 + caustic * 0.018);
+		+ compression_heat * (0.115 + fine_grid * 0.070 + caustic * 0.055);
 	color = mix(color, heated_core, heat_tint);
 
 	let horizon = exp(-abs(uv.y - 0.68 - flow.x * 0.025) * 26.0);
@@ -295,8 +334,8 @@ fn hdr_at(pixel: vec2i) -> vec3f {
 
 fn prefilter(color: vec3f) -> vec3f {
 	let brightness = dot(color, vec3f(0.2126, 0.7152, 0.0722));
-	let threshold = 0.68;
-	let knee = 0.22;
+	let threshold = 0.42;
+	let knee = 0.28;
 	let soft_value = clamp((brightness - threshold + knee) / (2.0 * knee), 0.0, 1.0);
 	let soft_curve = soft_value * soft_value * (3.0 - 2.0 * soft_value) * knee;
 	let contribution = max(brightness - threshold, soft_curve);
@@ -380,7 +419,7 @@ fn composite_fragment(input: VertexOutput) -> @location(0) vec4f {
 	let pixel = vec2i(input.position.xy);
 	let center = hdr_at(pixel);
 	let bloom = textureSampleLevel(bloom_texture, bloom_sampler, input.uv, 0.0).rgb;
-	let bloom_gain = mix(0.22, 0.165, params.coarse_pointer);
+	let bloom_gain = mix(0.42, 0.32, params.coarse_pointer);
 	var hdr_color = center + bloom * bloom_gain;
 
 	let aberration_strength = params.pointer_pressure * exp(-distance(input.uv, params.pointer) * 5.0);
@@ -389,7 +428,7 @@ fn composite_fragment(input: VertexOutput) -> @location(0) vec4f {
 	hdr_color.r = mix(hdr_color.r, shifted_a.r, aberration_strength * 0.08);
 	hdr_color.b = mix(hdr_color.b, shifted_b.b, aberration_strength * 0.10);
 
-	let mapped = max(aces_fitted(hdr_color * 1.20) - vec3f(0.00035), vec3f(0.0));
+	let mapped = max(aces_fitted(hdr_color * 1.35) - vec3f(0.00035), vec3f(0.0));
 	var color = linear_to_srgb(mapped);
 	let grain = hash11(input.position.x + input.position.y * 173.0 + floor(params.frame * 0.5)) - 0.5;
 	color += grain * 0.0025 * mix(1.0, 0.0, params.reduced_motion);
