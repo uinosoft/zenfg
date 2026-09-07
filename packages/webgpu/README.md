@@ -22,7 +22,7 @@ diagnostic subpath is `@zenfg/webgpu/snapshot`.
 ## Installation
 
 ```sh
-npm install @zenfg/webgpu@0.1.0-beta.2
+npm install @zenfg/webgpu@0.1.0-beta.3
 ```
 
 ## Quick start

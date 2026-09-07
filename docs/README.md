@@ -31,7 +31,7 @@ shared model, compatibility, and maintainer-facing guides.
 
 Additional maintainer documents cover the
 [release process](release-process.md), the current
-[release checklist](release-checklist-0.1.0-beta.2.md), and Snapshot or runtime
+[release checklist](release-checklist-0.1.0-beta.3.md), and Snapshot or runtime
 conformance procedures referenced by those guides.
 
 ## Documentation policy

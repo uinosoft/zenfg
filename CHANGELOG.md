@@ -7,6 +7,32 @@ packages use independent versions; component tags identify each release.
 
 No changes yet.
 
+## [0.1.0-beta.3] - 2026-09-07
+
+### Breaking changes
+
+- Upgrade the canonical Snapshot wire format from 1.0 to 1.1. Both decoders
+  reject canonical 1.0; Legacy V0 and Legacy Candidate V1 remain supported.
+- Require normalized resource-root ranges and final-content resolution in native
+  Snapshot 1.1. Roots now distinguish resource selections from side effects.
+- Replace Rust `RootReport.producers` with
+  `RootReport.resolution.producer_node_ids` and change `SnapshotRoot` from a
+  struct to a reason-tagged enum.
+- Reject undefined or discarded selected root contents during WebGPU compilation
+  with FG1004, and reject empty resource-root ranges.
+
+### Added and changed
+
+- Add WebGPU buffer-range and texture-view root selections, final-writer and
+  initial-content reporting, and matching cross-language conformance coverage.
+- Unify Inspector visualization into Frame Flow with output endpoints, range
+  identity, final-content sources, and refined labels, colors, and legend.
+- Add the public Playground, runnable package recipes, interactive background,
+  and attributed TypeGPU slime-mold showcase.
+
+Coordinate all five packages at `0.1.0-beta.3` with exact internal dependencies.
+See the [beta.3 migration guide](docs/migration-0.1.0-beta.3.md).
+
 ## [0.1.0-beta.2] - 2026-09-02
 
 - Aligned WebGPU texture-size and copy-operation input types with the runtime's
@@ -72,7 +98,8 @@ release:
 The package versions are independent of the ZenFG FrameGraph Snapshot wire
 format, which is version `1.0` in this candidate.
 
-[Unreleased]: https://github.com/uinosoft/zenfg/compare/cargo/zenfg/v0.1.0-beta.2...HEAD
+[Unreleased]: https://github.com/uinosoft/zenfg/compare/cargo/zenfg/v0.1.0-beta.3...HEAD
+[0.1.0-beta.3]: https://github.com/uinosoft/zenfg/tree/cargo%2Fzenfg%2Fv0.1.0-beta.3
 [0.1.0-beta.2]: https://github.com/uinosoft/zenfg/tree/cargo%2Fzenfg%2Fv0.1.0-beta.2
 [0.1.0-beta.1]: https://github.com/uinosoft/zenfg/tree/cargo%2Fzenfg%2Fv0.1.0-beta.1
 [npm-snapshot-0.1.0-beta.1]: https://github.com/uinosoft/zenfg/tree/npm%2Fsnapshot%2Fv0.1.0-beta.1

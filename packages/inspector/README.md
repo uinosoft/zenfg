@@ -16,7 +16,7 @@ retention, and the renderer that produces Snapshot data.
 ## Installation
 
 ```sh
-npm install @zenfg/inspector@0.1.0-beta.2
+npm install @zenfg/inspector@0.1.0-beta.3
 ```
 
 ## Quick start

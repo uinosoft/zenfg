@@ -12,8 +12,8 @@
   },
   "dependencies": {
     "@typegpu/noise": "0.12.0",
-    "@zenfg/snapshot": "0.1.0-beta.2",
-    "@zenfg/webgpu": "0.1.0-beta.2",
+    "@zenfg/snapshot": "0.1.0-beta.3",
+    "@zenfg/webgpu": "0.1.0-beta.3",
     "typegpu": "0.12.4"
   }
 }

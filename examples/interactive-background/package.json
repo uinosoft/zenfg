@@ -11,7 +11,7 @@
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
-    "@zenfg/snapshot": "0.1.0-beta.2",
-    "@zenfg/webgpu": "0.1.0-beta.2"
+    "@zenfg/snapshot": "0.1.0-beta.3",
+    "@zenfg/webgpu": "0.1.0-beta.3"
   }
 }

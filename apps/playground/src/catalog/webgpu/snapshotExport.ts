@@ -43,7 +43,7 @@ export const snapshotExportExample: PlaygroundExampleDefinition = {
 					graph: host.graph,
 					context: host.context,
 					frameIndex: host.nextFrameIndex(),
-					producerVersion: '0.1.0-beta.2',
+					producerVersion: '0.1.0-beta.3',
 				});
 				const parsed = parseFrameGraphSnapshot(json);
 				if (!parsed.ok) {

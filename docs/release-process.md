@@ -3,7 +3,7 @@
 Releases are manual and auditable during the `0.1.x` phase.
 
 The current coordinated release is tracked in the
-[`0.1.0-beta.2` release checklist](release-checklist-0.1.0-beta.2.md). The
+[`0.1.0-beta.3` release checklist](release-checklist-0.1.0-beta.3.md). The
 completed first release remains recorded in the
 [`0.1.0-beta.1` release checklist](release-checklist-0.1.0.md).
 
