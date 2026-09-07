@@ -117,7 +117,7 @@ function renderGraphLegend(host: HTMLElement | undefined, snapshot: FrameGraphDe
             svg.setAttribute('aria-hidden', 'true');
             const polygon = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
             polygon.setAttribute('points', entry.shape === 'tag'
-                ? '1,1 12,1 19,7 12,13 1,13'
+                ? '1,1 16,1 19,7 16,13 1,13'
                 : '4,1 16,1 19,4 19,10 16,13 4,13 1,10 1,4');
             svg.appendChild(polygon);
             swatch.appendChild(svg);

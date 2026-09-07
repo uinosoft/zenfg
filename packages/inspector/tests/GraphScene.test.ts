@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { nodeDimensions } from '../src/panelGraphVisuals.ts';
 import { rootKey } from '../src/debugCaptureModel.ts';
 import { resolveSelectedDetail, selectionExists } from '../src/panelSelection.ts';
 
@@ -13,9 +14,9 @@ import {
     type GroupSceneNode,
 } from '../src/panelGraphScene.ts';
 
-test('resource labels prioritize roles, truncate names and show ranges only for ambiguous root families', () => {
+test('resource labels prioritize roles, wrap names and show ranges only for ambiguous root families', () => {
     const base = createLegacyDebugViewModel(createGroupedCapture());
-    const longName = 'Very.long.resource.name.that.must.not.wrap';
+    const longName = 'Very.long.resource.name.that.must.be.truncated';
     const resource = { ...base.resources[0]!, label: longName };
     const roots = [0, 1].map((mip) => ({ key: `mip-${mip}`, reason: 'output' as const, resourceId: resource.id, resource,
         range: { kind: 'texture' as const, regions: [{ baseMipLevel: mip, mipLevelCount: 1, baseArrayLayer: 0, arrayLayerCount: 1, aspect: 'all' }] },
@@ -25,23 +26,49 @@ test('resource labels prioritize roles, truncate names and show ranges only for 
         const snapshot = { ...base, resources: [resource, ...base.resources.slice(1)], resourceById: new Map(base.resourceById).set(resource.id, resource), roots };
         const scene = createGraphScene(snapshot, { groupsEnabled: true, expandedGroupPaths });
         const entrance = scene.nodes.find((node) => node.kind === 'resource' && node.resourceId === resource.id)!;
-        assert.equal(entrance.label, 'Imported · Texture\nVery.long.resourc…');
+        assert.equal(entrance.label, 'Imported · Texture\nVery.long.\nresource.name.tha…');
         assert.ok(entrance.title.includes(longName));
         const outputs = scene.nodes.filter((node) => node.kind === 'root');
         assert.equal(outputs.length, 2);
         assert.notEqual(outputs[0]!.label, outputs[1]!.label);
-        assert.ok(outputs.every((node) => node.label.startsWith('Output\n') && node.label.split('\n').length === 3));
+        assert.ok(outputs.every((node) => node.label.startsWith('Output\n') && node.label.split('\n').length === 4));
         assert.ok(outputs.every((node) => node.overviewLabel.split('\n').length === 2));
         const single = createGraphScene({ ...snapshot, roots: roots.slice(0, 1) }, { groupsEnabled: true, expandedGroupPaths });
-        assert.equal(single.nodes.find((node) => node.kind === 'root')!.label.split('\n').length, 2);
+        assert.equal(single.nodes.find((node) => node.kind === 'root')!.label.split('\n').length, 3);
         const legacy = createGraphScene({ ...snapshot, roots: [{ ...roots[0]!, range: undefined, resolution: undefined }] }, { groupsEnabled: false, expandedGroupPaths });
         assert.match(legacy.nodes.find((node) => node.kind === 'root')!.title, /Range unavailable/);
         const wide = { ...resource, label: '资源名称非常长而且不能自动换行😀' };
         const wideScene = createGraphScene({ ...snapshot, resources: [wide, ...base.resources.slice(1)] },
             { groupsEnabled: false, expandedGroupPaths });
         const wideEntrance = wideScene.nodes.find((node) => node.kind === 'resource' && node.resourceId === resource.id)!;
-        assert.equal(wideEntrance.label.split('\n').length, 2);
+        assert.equal(wideEntrance.label.split('\n').length, 3);
         assert.ok([...wideEntrance.label.split('\n')[1]!].length <= 9);
+    }
+});
+
+test('resource names use a second line only when needed and grow node height', () => {
+    const base = createLegacyDebugViewModel(createGroupedCapture());
+    for (const [name, formatted] of [
+        ['surface', 'surface'],
+        ['monocular.stable-range', 'monocular.\nstable-range'],
+        ['model/depth/history', 'model/depth/\nhistory'],
+        ['abcdefghijklmnopqrstuvwxyz0123456789EXTRA', 'abcdefghijklmnopqr\nstuvwxyz012345678…'],
+    ]) {
+        const resource = { ...base.resources[0]!, label: name! };
+        const scene = createGraphScene({ ...base,
+            resources: [resource, ...base.resources.slice(1)],
+            resourceById: new Map(base.resourceById).set(resource.id, resource),
+            roots: [{ key: 'name', reason: 'persistent-state', resourceId: resource.id, resource }],
+        }, { groupsEnabled: false, expandedGroupPaths: new Set() });
+        const entrance = scene.nodes.find(node => node.kind === 'resource' && node.resourceId === resource.id)!;
+        const output = scene.nodes.find(node => node.kind === 'root')!;
+        assert.equal(entrance.label, 'Imported · Texture\n' + formatted);
+        assert.equal(output.label, 'Persistent State\n' + formatted);
+        assert.equal(nodeDimensions(entrance).height, name === 'surface' ? 58 : 75);
+        assert.equal(nodeDimensions(output).height, nodeDimensions(entrance).height);
+        assert.equal(entrance.overviewLabel.split('\n').length, 2);
+        assert.equal(output.overviewLabel.split('\n').length, 2);
+        assert.ok(output.title.includes(name!));
     }
 });
 

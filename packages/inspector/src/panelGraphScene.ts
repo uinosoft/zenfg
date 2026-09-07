@@ -289,7 +289,7 @@ function createFrameFlowScene(
         const node: ResourceSceneNode = {
             id: resourceElementId(resource.id), kind: 'resource', resourceId: resource.id, resourceKind: resource.kind,
             label: origin + ' · ' + (resource.kind === 'buffer' ? 'Buffer' : 'Texture') + '\n' + formatGraphResourceLabel(labelResource(resource)),
-            overviewLabel: origin + '\n' + formatGraphResourceLabel(shortGraphLabel(labelResource(resource))),
+            overviewLabel: origin + '\n' + formatGraphResourceLabel(shortGraphLabel(labelResource(resource)), 1),
             title: createResourceTitle(resource, snapshot, snapshot.accessesByResourceId.get(resource.id) ?? [])
                 + '\nDeclaration entrance, not a complete initial-content provenance graph.',
             parentId: useGroups && resource.debugGroupId ? graphGroupElementId(groupsById.get(resource.debugGroupId)!.pathKey) : undefined,
@@ -346,8 +346,8 @@ function createFrameFlowScene(
         rootNodes.push({
             id, kind: 'root', rootKey: root.key, resourceId: resource.id, resourceKind: resource.kind,
             label: reasonLabel + '\n' + formatGraphResourceLabel(labelResource(resource))
-                + (disambiguate ? '\n' + formatGraphResourceLabel(rangeSummary) : ''),
-            overviewLabel: reasonLabel + '\n' + formatGraphResourceLabel(shortGraphLabel(labelResource(resource))),
+                + (disambiguate ? '\n' + formatGraphResourceLabel(rangeSummary, 1) : ''),
+            overviewLabel: reasonLabel + '\n' + formatGraphResourceLabel(shortGraphLabel(labelResource(resource)), 1),
             title: labelResource(resource) + '\n' + root.reason + '\n' + rangeLabel
                 + (root.resolution ? '\nProducers: ' + (root.resolution.producerNodeIds.join(', ') || 'none') + '\nInitial contents: ' + root.resolution.usesInitialContents : '\nOutput sources unavailable in Legacy capture.'),
         });
@@ -479,20 +479,47 @@ function formatGraphNodeLabel(label: string): string {
     return formatGraphLabel(label, 20, 3);
 }
 
-function formatGraphResourceLabel(label: string): string {
-    const singleLine = label.replace(/\s+/g, ' ').trim();
+function formatGraphResourceLabel(label: string, maxLines = 2): string {
+    let remaining = [...label.replace(/\s+/g, ' ').trim()];
     // Reserve conservative monospace cells for CJK/emoji fallback glyphs as well.
-    const glyphs = [...singleLine];
     const cells = (glyph: string) => /\p{Mark}/u.test(glyph) ? 0 : glyph.codePointAt(0)! > 255 ? 2 : 1;
-    if (glyphs.reduce((sum, glyph) => sum + cells(glyph), 0) <= 18) return singleLine;
-    let result = '';
-    let width = 0;
-    for (const glyph of glyphs) {
-        if (width + cells(glyph) > 17) break;
-        result += glyph;
-        width += cells(glyph);
+    const take = (limit: number) => {
+        let width = 0;
+        let count = 0;
+        for (const glyph of remaining) {
+            if (width + cells(glyph) > limit) break;
+            width += cells(glyph);
+            count++;
+        }
+        return count;
+    };
+    const lines: string[] = [];
+    while (remaining.length) {
+        let count = take(18);
+        if (count === remaining.length) {
+            lines.push(remaining.join(''));
+            break;
+        }
+        if (lines.length === maxLines - 1) {
+            lines.push(remaining.slice(0, take(17)).join('').trimEnd() + '…');
+            break;
+        }
+        // Prefer a readable namespace/path boundary over splitting a word.
+        let boundary = 0;
+        for (const separators of [/[./]/u, /[_\-\s]/u]) {
+            for (let index = count - 1; index > 0; index--) {
+                if (separators.test(remaining[index]!)) {
+                    boundary = index + 1;
+                    break;
+                }
+            }
+            if (boundary) break;
+        }
+        if (boundary) count = boundary;
+        lines.push(remaining.slice(0, count).join('').trimEnd());
+        remaining = remaining.slice(count);
     }
-    return result + '…';
+    return lines.join('\n');
 }
 
 function formatGraphLabel(label: string, maxLineLength: number, maxLines: number): string {

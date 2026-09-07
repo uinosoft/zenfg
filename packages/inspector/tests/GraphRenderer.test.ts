@@ -309,11 +309,11 @@ test('uses native output and external shapes with safe labels and boundary ports
     context.after(() => renderer.destroy());
     renderer.render(graphRequest(scene, { selected: { kind: 'root', key: 'shape-output' } }));
     await waitFor(() => harness.core?.getElementById(output.id).nonempty() === true);
-    assert.equal(harness.core!.getElementById(output.id).style('shape'), 'tag');
+    assert.equal(harness.core!.getElementById(output.id).style('shape'), 'polygon');
     assert.equal(harness.core!.getElementById(external.id).style('shape'), 'cut-rectangle');
     assert.ok(harness.core!.nodes().every((node) => node.style('border-style') === 'solid'));
-    assert.equal(harness.core!.getElementById(output.id).style('text-margin-x'), '-48px');
-    assert.ok(GRAPH_GEOMETRY.outputLabelWidth + 16 <= nodeDimensions(output).width * 5 / 8);
+    assert.equal(harness.core!.getElementById(output.id).style('text-margin-x'), '-12px');
+    assert.ok(GRAPH_GEOMETRY.outputLabelWidth + 16 <= nodeDimensions(output).width - GRAPH_GEOMETRY.outputTipWidth);
 });
 
 test('derives a stable compact legend from the snapshot rather than its projection', () => {

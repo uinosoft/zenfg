@@ -17,8 +17,9 @@ export const GRAPH_GEOMETRY = {
     groupPadding: 32,
     elkGroupPadding: { top: 46, right: 24, bottom: 24, left: 24 },
     edgeCornerRadius: 6,
-    outputWidth: 256,
-    outputLabelWidth: 144,
+    outputWidth: 208,
+    outputTipWidth: 24,
+    outputLabelWidth: 160,
 } as const;
 
 const ENDPOINT_EDGE_DISTANCES = 'endpoints' as unknown as cytoscape.Css.Edge['edge-distances'];
@@ -125,12 +126,13 @@ export function createGraphStyles(): cytoscape.StylesheetJson {
         {
             selector: 'node[kind = "root"]',
             style: {
-                'shape': 'tag',
+                'shape': 'polygon',
+                'shape-polygon-points': `-1 -1 ${1 - 2 * GRAPH_GEOMETRY.outputTipWidth / GRAPH_GEOMETRY.outputWidth} -1 1 0 ${1 - 2 * GRAPH_GEOMETRY.outputTipWidth / GRAPH_GEOMETRY.outputWidth} 1 -1 1`,
                 'background-color': theme.output.fill,
                 'border-color': theme.output.stroke,
                 'text-max-width': `${GRAPH_GEOMETRY.outputLabelWidth}px`,
-                // Native tag shoulders sit at 5/8 of its width. Center text in the rectangular body.
-                'text-margin-x': -GRAPH_GEOMETRY.outputWidth * 3 / 16,
+                // Keep a short tip and center the label in the rectangular body.
+                'text-margin-x': -GRAPH_GEOMETRY.outputTipWidth / 2,
             },
         },
         {
