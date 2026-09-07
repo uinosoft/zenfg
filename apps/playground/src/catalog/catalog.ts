@@ -1,5 +1,6 @@
 import { interactiveBackgroundExample } from './interactiveBackground.ts';
 import { typeGpuSlimeMoldExample } from './typeGpuSlimeMold.ts';
+import { typeGpuMonocularLightInjectionExample } from './typeGpuMonocularLightInjection.ts';
 import { computeOutputExample } from './webgpu/computeOutput.ts';
 import { externalSubmissionExample } from './webgpu/externalSubmission.ts';
 import { gpuTimingExample } from './webgpu/gpuTiming.ts';
@@ -13,6 +14,7 @@ import type { PlaygroundExampleDefinition } from '../types.ts';
 export const publicExamples = [
 	interactiveBackgroundExample,
 	typeGpuSlimeMoldExample,
+	typeGpuMonocularLightInjectionExample,
 	minimalFrameExample,
 	transientToPresentExample,
 	importedResourceExample,

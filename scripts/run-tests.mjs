@@ -16,6 +16,7 @@ const defaultTestRoots = [
 	resolve(rootDir, 'apps', 'site', 'tests'),
 	resolve(rootDir, 'examples', 'interactive-background', 'tests'),
 	resolve(rootDir, 'examples', 'typegpu-slime-mold', 'tests'),
+	resolve(rootDir, 'examples', 'typegpu-monocular-light-injection', 'tests'),
 ];
 const requestedTestRoots = process.argv.slice(2).map((path) => resolve(rootDir, path));
 const testRoots = requestedTestRoots.length > 0 ? requestedTestRoots : defaultTestRoots;
@@ -118,7 +119,7 @@ await build({
             }));
         },
 	}, typegpuPlugin({
-		include: /examples[\\/]typegpu-slime-mold[\\/]src[\\/].*\.ts$/,
+		include: /examples[\\/]typegpu-(?:slime-mold|monocular-light-injection)[\\/]src[\\/].*\.ts$/,
 	})],
 });
 

@@ -40,6 +40,7 @@ let codePromise: Promise<void> | undefined;
 let currentSource: string | undefined;
 let sourceRevision = 0;
 let disposed = false;
+const mountAbort = new AbortController();
 
 const examplePicker = createExamplePicker({
 	host: examplePickerHost,
@@ -102,6 +103,7 @@ setPanel(currentPanel, false);
 installAppPageLifecycle(window, {
 	onDiscard: () => {
 		disposed = true;
+		mountAbort.abort();
 		examplePicker.destroy();
 		inspector?.destroy();
 		runtime?.dispose();
@@ -118,6 +120,8 @@ async function mountExample(definition: PlaygroundExampleDefinition): Promise<Pl
 	let reportedError = false;
 	try {
 		const mounted = await definition.mount({
+			signal: mountAbort.signal,
+			onLoading: (message) => { if (!disposed) setEffectStatus('loading', message); },
 			canvas: effectCanvas,
 			controlsHost,
 			onReady: (message) => {
@@ -250,6 +254,7 @@ async function initializeInspectorWorkspace(): Promise<void> {
 }
 
 function setEffectStatus(state: 'loading' | 'ready' | 'error', message: string): void {
+	if (state === 'ready') playground.dataset.hasFrame = 'true';
 	effectStatus.hidden = false;
 	effectStatus.dataset.state = state;
 	effectStatusText.textContent = message;

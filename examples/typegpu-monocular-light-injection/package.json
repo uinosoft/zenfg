@@ -1,0 +1,18 @@
+{
+  "name": "@zenfg-example/typegpu-monocular-light-injection",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "test": "node ../../scripts/run-tests.mjs examples/typegpu-monocular-light-injection/tests",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "@zenfg/snapshot": "0.1.0-beta.3",
+    "@zenfg/webgpu": "0.1.0-beta.3",
+    "typegpu": "0.12.4"
+  }
+}

@@ -18,7 +18,8 @@
     "@zenfg/snapshot": "0.1.0-beta.3",
     "@zenfg/webgpu": "0.1.0-beta.3",
     "shiki": "^4.4.3",
-    "tweakpane": "4.0.5"
+    "tweakpane": "4.0.5",
+    "@zenfg-example/typegpu-monocular-light-injection": "0.0.0"
   },
   "devDependencies": {
     "unplugin-typegpu": "0.12.3"

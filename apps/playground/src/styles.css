@@ -65,7 +65,8 @@ a:focus-visible {
 	transition: opacity 500ms ease;
 }
 
-.playground[data-effect-state="ready"] .effect-stage { opacity: 1; }
+.playground[data-effect-state="ready"] .effect-stage,
+.playground[data-has-frame="true"] .effect-stage { opacity: 1; }
 
 .playground-header {
 	position: absolute;

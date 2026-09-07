@@ -37,6 +37,7 @@ test('the production catalog is explicit, grouped, and keeps canonical sources f
 		[
 			['interactive-background', 'Showcases'],
 			['typegpu-slime-mold', 'Showcases'],
+			['typegpu-monocular-light-injection', 'Showcases'],
 			['minimal-frame', '@zenfg/webgpu basics'],
 			['transient-to-present', '@zenfg/webgpu basics'],
 			['imported-resource', '@zenfg/webgpu basics'],
@@ -48,7 +49,7 @@ test('the production catalog is explicit, grouped, and keeps canonical sources f
 		],
 	);
 	assert.deepEqual(
-		publicExamples.slice(2).map((example) => [example.sourceFiles[0]?.path, example.sourceFiles[0]?.role]),
+		publicExamples.filter((example) => example.group === '@zenfg/webgpu basics').map((example) => [example.sourceFiles[0]?.path, example.sourceFiles[0]?.role]),
 		[
 			['packages/webgpu/examples/minimal-frame.ts', 'recipe'],
 			['packages/webgpu/examples/transient-to-present.ts', 'recipe'],

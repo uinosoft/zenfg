@@ -14,11 +14,14 @@ export type PlaygroundSourceFile = {
 };
 
 export type PlaygroundRuntime = {
+	/** Requests the next real frame, waiting through preparation. Failure, suspension, or disposal must settle the request. */
 	readonly captureSnapshot: () => Promise<FrameGraphSnapshot | undefined>;
 	readonly dispose: () => void;
 };
 
 export type PlaygroundMountContext = {
+	readonly signal?: AbortSignal;
+	readonly onLoading?: (message: string) => void;
 	readonly canvas: HTMLCanvasElement;
 	readonly controlsHost: HTMLElement;
 	readonly onReady: (message?: string) => void;
