@@ -1,9 +1,12 @@
-use zenfg_snapshot::{FRAME_GRAPH_SNAPSHOT_FORMAT, decode_frame_graph_snapshot, to_json_pretty};
+use zenfg_snapshot::{
+    FRAME_GRAPH_SNAPSHOT_FORMAT, FRAME_GRAPH_SNAPSHOT_VERSION, decode_frame_graph_snapshot,
+    to_json_pretty,
+};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let value = serde_json::json!({
-        "format": "zenfg.frame-graph-snapshot",
-        "version": { "major": 1, "minor": 0 },
+        "format": FRAME_GRAPH_SNAPSHOT_FORMAT,
+        "version": FRAME_GRAPH_SNAPSHOT_VERSION,
         "producer": { "name": "snapshot-basic-example" },
         "capture": { "frameIndex": 0 },
         "graph": {
@@ -29,6 +32,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let decoded = decode_frame_graph_snapshot(value)?;
     assert_eq!(decoded.snapshot.format, FRAME_GRAPH_SNAPSHOT_FORMAT);
+    assert_eq!(decoded.snapshot.version, FRAME_GRAPH_SNAPSHOT_VERSION);
     println!("{}", to_json_pretty(&decoded.snapshot)?);
     Ok(())
 }
