@@ -13,6 +13,11 @@ The package owns Snapshot validation, migration, visualization, and workbench
 state. The host owns layout around the workbench, live-capture policy, file
 retention, and the renderer that produces Snapshot data.
 
+Resource and access statistics describe the declarations captured in the graph.
+They do not automatically scan all shader bindings or measure total GPU memory;
+workload-private buffers can be absent. More explicit declarations can be useful
+for diagnosis. See [Choosing resource declaration granularity](../../docs/core-concepts.md#choosing-resource-declaration-granularity).
+
 ## Installation
 
 ```sh

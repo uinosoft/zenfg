@@ -17,7 +17,12 @@ export type ImportedResourceOptions = {
 	readonly frameIndex: number;
 };
 
-/** Declares a draw that reads a caller-owned uniform buffer. */
+/**
+ * Declares a draw that reads a caller-owned uniform buffer.
+ * This teaching example intentionally exposes the uniform to demonstrate
+ * imports, access tokens, and input-range validation. Private uniforms in
+ * complex workloads can instead remain internally bound when appropriate.
+ */
 export function recordImportedUniformFrame(options: ImportedUniformRecordOptions): void {
 	const uniforms = options.recorder.importBuffer(options.uniformBuffer, {
 		label: 'frame-uniforms',

@@ -147,6 +147,13 @@ pipeline and bind-group setup without placeholder helpers.
 
 ## Resource and integration choices
 
+Declaration granularity is optional: complex workloads can keep private weights,
+parameters, and scratch internally bound, while teaching or diagnostic use can
+expose more resources. Graph-visible dependencies and access correctness still
+apply. See [Choosing resource declaration granularity](../../docs/core-concepts.md#choosing-resource-declaration-granularity).
+
+For resources exposed to the graph:
+
 - Create a transient resource when native storage is needed only for the
   compiled frame. Import a resource when the caller owns its native storage or
   it must survive execution.

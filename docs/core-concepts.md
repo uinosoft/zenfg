@@ -92,6 +92,46 @@ same logical handle to every participating subsystem. State without
 graph-visible data flow, such as a camera object or pipeline cache, normally
 stays outside the graph.
 
+### Choosing resource declaration granularity
+
+Declaration granularity is a caller choice based on workload organization,
+debugging needs, and graph complexity. For complex graphs, consider keeping
+resources inside the domain workload when exposing them adds no useful graph
+dependency, resource management, or observable result. This can keep the main
+data flow readable. More explicit declarations remain reasonable for simple
+examples, teaching, or detailed resource diagnostics; this is a recommendation,
+not a new rule or validation mode.
+
+| Situation | Suggested choice and reason |
+| --- | --- |
+| Fixed inference weights and operator parameters | Consider binding internally to avoid overwhelming the main data flow with read-only inputs. |
+| CPU-updated camera or frame uniforms read by several passes | Internal binding is reasonable; explicitly import them when inspecting their usage scope is useful. |
+| Scratch buffers reused inside one workload | Manage internally, or expose them when graph allocation, content validation, or resource diagnostics are needed. |
+| Uniforms in simple or teaching examples | Explicit declarations help demonstrate imports, access tokens, and ownership. |
+| Investigating which passes use a resource | Add relevant declarations to obtain access and resource information. |
+| A texture written by one pass and consumed by another | Keep declarations to express the actual dependency. |
+| History state, readback, and presentation results | Keep corresponding declarations and roots to express why results must execute and survive culling. |
+
+Choosing granularity does not relax existing correctness requirements. Do not
+hide dependencies that the graph needs to order or manage. Once a resource is
+part of the graph contract, declare its accesses completely and accurately,
+including write-content semantics. Resources outside that contract remain the
+caller's responsibility for lifetime, initialization, and internal access safety.
+A workload's internal dispatch order is still its own responsibility.
+
+For example, Monocular exposes history, stable range, reconstructed surface,
+and the output target during inference; weights and internal scratch remain
+workload-owned. A stable image frame needs only surface and output. Slime Mold
+exposes agents and trail textures but binds its three uniforms internally.
+The Imported Resource teaching example deliberately exposes a single-pass
+uniform to demonstrate borrowing and explicit input validation.
+
+Explicit declarations are not complete GPU tracking. Inspector statistics come
+from declared graph resources and accesses, not automatic scanning of shader
+bindings or measurement of total GPU memory.
+
+### Content validity
+
 Content validity is tracked per normalized texture subresource or buffer byte
 range:
 

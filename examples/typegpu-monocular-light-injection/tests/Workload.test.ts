@@ -60,6 +60,9 @@ test('workload keeps inference in one compute node and commits history only afte
         const depthNode = first.nodes.find((node) => node.label === 'monocular-light-injection.depth')!;
         const relightNode = first.nodes.find((node) => node.label === 'monocular-light-injection.relight')!;
         assert.equal(depthNode.sideEffect, false);
+        assert.deepEqual(first.dependencies.map(edge => [edge.fromNodeId, edge.toNodeId, edge.kind]), [
+            [depthNode.id, relightNode.id, 'value'],
+        ]);
         assert.deepEqual(first.roots.filter((root) => root.reason === 'persistent-state').map((root) =>
             first.resources.find((resource) => resource.id === root.resourceId)!.label).sort(),
         ['monocular.history', 'monocular.stable-range', 'monocular.surface']);
@@ -71,12 +74,6 @@ test('workload keeps inference in one compute node and commits history only afte
             const resource = first.resources.find((entry) => entry.label === label)!;
             return first.accesses.filter((access) => access.nodeId === depthNode.id && access.resourceId === resource.id);
         };
-        assert.deepEqual(accessFor('monocular.range-storage').map(({ access, contents }) => ({ access, contents })), [
-            { access: BufferAccess.StorageWrite, contents: 'overwrite' },
-        ]);
-        assert.deepEqual(accessFor('monocular.frame-range').map(({ access, contents }) => ({ access, contents })), [
-            { access: BufferAccess.StorageWrite, contents: 'overwrite' },
-        ]);
         assert.deepEqual(accessFor('monocular.stable-range').map(({ access, contents }) => ({ access, contents })), [
             { access: BufferAccess.StorageWrite, contents: 'preserve' },
         ]);
@@ -86,11 +83,9 @@ test('workload keeps inference in one compute node and commits history only afte
         assert.deepEqual(accessFor('monocular.surface').map(({ access, contents }) => ({ access, contents })), [
             { access: TextureAccess.StorageWrite, contents: 'overwrite' },
         ]);
-        const arenaAccesses = first.resources
-            .filter((resource) => resource.label?.startsWith('monocular.arena.'))
-            .flatMap((resource) => first.accesses.filter((access) => access.nodeId === depthNode.id && access.resourceId === resource.id));
-        assert.ok(arenaAccesses.length > 0);
-        assert.ok(arenaAccesses.every((access) => access.access === BufferAccess.StorageWrite && access.contents === 'preserve'));
+        assert.deepEqual(first.resources.map((resource) => resource.label).sort(), [
+            'monocular.history', 'monocular.stable-range', 'monocular.surface', 'test.backbuffer',
+        ]);
         firstFrame.pending.discard();
         assert.equal(feature.getRuntimeStats().submittedDepthUpdates, 0);
 
@@ -102,11 +97,12 @@ test('workload keeps inference in one compute node and commits history only afte
         const stable = recordDetailed(feature, device, false);
         assert.equal(stable.report.resources.find((resource) => resource.label === 'monocular.surface')!.initialContents, 'defined');
         assert.deepEqual(stable.report.nodes.map((node) => node.label), ['monocular-light-injection.relight']);
-        assert.equal(stable.importCount, 2);
+        assert.equal(stable.importCount, 1);
         assert.deepEqual(
             stable.report.resources.filter((resource) => resource.origin === 'imported').map((resource) => resource.label).sort(),
-            ['monocular.relight-params', 'monocular.surface'],
+            ['monocular.surface'],
         );
+        assert.equal(stable.report.resources.length, 2);
         stable.pending.commit();
         feature.resetHistory();
         const reset = record(feature, device, false);

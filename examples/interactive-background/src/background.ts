@@ -1,5 +1,5 @@
 import type { FrameGraphSnapshot } from '@zenfg/snapshot';
-import { BufferAccess, FrameGraph, TextureAccess, type FrameGraphCompilationReport, type FrameGraphGpuTimingReport } from '@zenfg/webgpu';
+import { FrameGraph, TextureAccess, type FrameGraphCompilationReport, type FrameGraphGpuTimingReport } from '@zenfg/webgpu';
 import { resolvePointerPressure } from './backgroundInteraction.ts';
 import { resolveCanvasDimensions } from './backgroundLayout.ts';
 import {
@@ -306,7 +306,6 @@ class ZenBackground implements ZenBackgroundController {
 	private recordAndExecuteFrame(): void {
 		const { context, format, graph, linearSampler, pipelines, uniformBuffer } = this.resources;
 		const recorder = graph.beginFrame();
-		const frameUniforms = recorder.importBuffer(uniformBuffer, { label: 'background-frame-params' });
 		const flowField = recorder.createTexture({
 			label: 'interactive-flow-field',
 			format: 'rgba8unorm',
@@ -331,17 +330,16 @@ class ZenBackground implements ZenBackgroundController {
 			label: `background-${format}-backbuffer`,
 		});
 
-		const computeUniforms = recorder.use(frameUniforms, BufferAccess.Uniform);
 		const flowWrite = recorder.use(flowField, TextureAccess.StorageWrite, { contents: 'overwrite' });
 		recorder.compute({
 			label: '01 · advect flow field',
-			uses: [computeUniforms, flowWrite],
+			uses: [flowWrite],
 			encode: ({ device, pass, unwrap }) => {
 				pass.setPipeline(pipelines.flow);
 				pass.setBindGroup(0, device.createBindGroup({
 					layout: pipelines.flow.getBindGroupLayout(0),
 					entries: [
-						{ binding: 0, resource: { buffer: unwrap(computeUniforms) } },
+						{ binding: 0, resource: { buffer: uniformBuffer } },
 						{ binding: 1, resource: unwrap(flowWrite) },
 					],
 				}));
@@ -349,11 +347,10 @@ class ZenBackground implements ZenBackgroundController {
 			},
 		});
 
-		const latticeUniforms = recorder.use(frameUniforms, BufferAccess.Uniform);
 		const flowSample = recorder.use(flowField, TextureAccess.Sampled);
 		recorder.render({
 			label: '02 · resolve HDR luminous lattice',
-			uses: [latticeUniforms, flowSample],
+			uses: [flowSample],
 			colorAttachments: [{
 				target: hdrScene,
 				loadOp: 'clear',
@@ -365,7 +362,7 @@ class ZenBackground implements ZenBackgroundController {
 				pass.setBindGroup(0, device.createBindGroup({
 					layout: pipelines.lattice.getBindGroupLayout(0),
 					entries: [
-						{ binding: 0, resource: { buffer: unwrap(latticeUniforms) } },
+						{ binding: 0, resource: { buffer: uniformBuffer } },
 						{ binding: 1, resource: unwrap(flowSample) },
 					],
 				}));
@@ -418,12 +415,11 @@ class ZenBackground implements ZenBackgroundController {
 			},
 		});
 
-		const compositeUniforms = recorder.use(frameUniforms, BufferAccess.Uniform);
 		const hdrSceneSample = recorder.use(hdrScene, TextureAccess.Sampled);
 		const bloomSample = recorder.use(bloomSoft, TextureAccess.Sampled);
 		recorder.render({
 			label: '05 · tone map & present',
-			uses: [compositeUniforms, hdrSceneSample, bloomSample],
+			uses: [hdrSceneSample, bloomSample],
 			colorAttachments: [{
 				target: backbuffer,
 				loadOp: 'clear',
@@ -435,7 +431,7 @@ class ZenBackground implements ZenBackgroundController {
 				pass.setBindGroup(0, device.createBindGroup({
 					layout: pipelines.composite.getBindGroupLayout(0),
 					entries: [
-						{ binding: 0, resource: { buffer: unwrap(compositeUniforms) } },
+						{ binding: 0, resource: { buffer: uniformBuffer } },
 						{ binding: 1, resource: unwrap(hdrSceneSample) },
 						{ binding: 2, resource: unwrap(bloomSample) },
 						{ binding: 3, resource: linearSampler },

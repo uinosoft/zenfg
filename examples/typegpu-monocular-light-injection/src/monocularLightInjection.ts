@@ -103,21 +103,11 @@ interface ModelAttachment {
 }
 
 interface RelightFrameGraphHandles {
-    readonly relightParams: BufferHandle;
     readonly surface: TextureHandle;
 }
 
 interface DepthFrameGraphHandles extends RelightFrameGraphHandles {
-    readonly arena: readonly BufferHandle[];
-    readonly weights: readonly BufferHandle[];
-    readonly inferenceUniforms: readonly BufferHandle[];
-    readonly mutableInferenceStorage: readonly BufferHandle[];
-    readonly readonlyInferenceStorage: readonly BufferHandle[];
-    readonly rangeUniform: BufferHandle;
-    readonly rangeStorage: BufferHandle;
-    readonly frameRange: BufferHandle;
     readonly stableRange: BufferHandle;
-    readonly depthParams: BufferHandle;
     readonly history: BufferHandle;
 }
 
@@ -287,15 +277,6 @@ class MonocularLightInjection {
         graph.compute({
             label: 'monocular-light-injection.depth',
             uses: [
-                ...handles.arena.map((handle) => graph.use(handle, BufferAccess.StorageWrite, { contents: 'preserve' })),
-                ...handles.weights.map((handle) => graph.use(handle, BufferAccess.StorageRead)),
-                ...handles.inferenceUniforms.map((handle) => graph.use(handle, BufferAccess.Uniform)),
-                ...handles.mutableInferenceStorage.map((handle) => graph.use(handle, BufferAccess.StorageWrite, { contents: 'preserve' })),
-                ...handles.readonlyInferenceStorage.map((handle) => graph.use(handle, BufferAccess.StorageRead)),
-                graph.use(handles.rangeUniform, BufferAccess.Uniform),
-                graph.use(handles.rangeStorage, BufferAccess.StorageWrite, { contents: 'overwrite' }),
-                graph.use(handles.depthParams, BufferAccess.Uniform),
-                graph.use(handles.frameRange, BufferAccess.StorageWrite, { contents: 'overwrite' }),
                 graph.use(handles.stableRange, BufferAccess.StorageWrite, { contents: 'preserve' }),
                 graph.use(handles.history, BufferAccess.StorageWrite, { contents: 'preserve' }),
                 graph.use(handles.surface, TextureAccess.StorageWrite, { contents: 'overwrite' }),
@@ -327,7 +308,6 @@ class MonocularLightInjection {
             label: 'monocular-light-injection.relight',
             uses: [
                 graph.use(handles.surface, TextureAccess.Sampled),
-                graph.use(handles.relightParams, BufferAccess.Uniform),
             ],
             colorAttachments: [{
                 target: color,
@@ -510,7 +490,6 @@ function importRelightResources(
     surfaceDefined: boolean,
 ): RelightFrameGraphHandles {
     return {
-        relightParams: graph.importBuffer(resources.root.unwrap(resources.relightParams), { label: 'monocular.relight-params' }),
         surface: graph.importTexture(resources.root.unwrap(attachment.surface), { label: 'monocular.surface', initialContents: surfaceDefined ? 'defined' : 'undefined' }),
     };
 }
@@ -521,22 +500,13 @@ function importDepthResources(
     attachment: ModelAttachment,
     relight: RelightFrameGraphHandles,
 ): DepthFrameGraphHandles {
-    // Native WebGPU allocations start zero-initialized. Scratch can be sparsely
-    // written within the fused inference pass, so its access must preserve.
+    // Private weights, parameters and scratch remain workload-owned and bound.
+    // Native history allocations start zero-initialized.
     // Only surface validity depends on a prior successful depth submission.
     const importBuffer = (buffer: GPUBuffer, label: string) => graph.importBuffer(buffer, { label, initialContents: 'defined' });
     return {
         ...relight,
-        arena: attachment.plan.arenaBuffers.map((buffer, index) => importBuffer(buffer, `monocular.arena.${index}`)),
-        weights: attachment.plan.weightBuffers.map((buffer, index) => importBuffer(buffer, `monocular.weights.${index}`)),
-        inferenceUniforms: attachment.plan.uniformBuffers.map((buffer, index) => importBuffer(buffer, `monocular.inference-uniform.${index}`)),
-        mutableInferenceStorage: attachment.plan.mutableStorageBuffers.map((buffer, index) => importBuffer(buffer, `monocular.inference-storage.mutable.${index}`)),
-        readonlyInferenceStorage: attachment.plan.readonlyStorageBuffers.map((buffer, index) => importBuffer(buffer, `monocular.inference-storage.readonly.${index}`)),
-        rangeUniform: importBuffer(attachment.rangeEstimator.uniformBuffer, 'monocular.range-uniform'),
-        rangeStorage: importBuffer(attachment.rangeEstimator.storageBuffer, 'monocular.range-storage'),
-        frameRange: importBuffer(resources.root.unwrap(resources.frameRange), 'monocular.frame-range'),
         stableRange: importBuffer(resources.root.unwrap(resources.stableRange), 'monocular.stable-range'),
-        depthParams: importBuffer(resources.root.unwrap(resources.depthParams), 'monocular.depth-params'),
         history: importBuffer(resources.root.unwrap(attachment.history), 'monocular.history'),
     };
 }

@@ -1,4 +1,5 @@
 export interface FakeGpuTrace {
+    readonly bindGroups: GPUBindGroupDescriptor[];
     readonly textureCreates: GPUTextureDescriptor[];
     readonly destroyedTextures: string[];
     readonly destroyedBuffers: string[];
@@ -16,6 +17,7 @@ export interface FakeGpuTrace {
 
 export function createGpuTrace(): FakeGpuTrace {
     return {
+        bindGroups: [],
         textureCreates: [],
         destroyedTextures: [],
         destroyedBuffers: [],
@@ -162,7 +164,7 @@ export function createFakeDevice(
         createSampler() { return {} as GPUSampler; },
         createBindGroupLayout() { return {} as GPUBindGroupLayout; },
         createPipelineLayout() { return {} as GPUPipelineLayout; },
-        createBindGroup() { return {} as GPUBindGroup; },
+        createBindGroup(descriptor: GPUBindGroupDescriptor) { trace.bindGroups.push(descriptor); return {} as GPUBindGroup; },
         createShaderModule(descriptor: GPUShaderModuleDescriptor) {
             trace.shaderSources.push(descriptor.code);
             return {} as GPUShaderModule;

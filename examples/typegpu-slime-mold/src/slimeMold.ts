@@ -56,9 +56,6 @@ type TrailIndex = 0 | 1;
 
 interface SlimeMoldFrameGraphHandles {
     readonly agents: BufferHandle;
-    readonly params: BufferHandle;
-    readonly deltaTime: BufferHandle;
-    readonly resolution: BufferHandle;
     readonly trails: readonly [TextureHandle, TextureHandle];
 }
 
@@ -194,7 +191,6 @@ export class TypeGpuSlimeMold {
             label: 'slime-mold.reset',
             uses: [
                 graph.use(handles.agents, BufferAccess.StorageWrite, { contents: 'overwrite' }),
-                graph.use(handles.resolution, BufferAccess.Uniform),
                 graph.use(handles.trails[0], TextureAccess.StorageWrite, { contents: 'overwrite' }),
                 graph.use(handles.trails[1], TextureAccess.StorageWrite, { contents: 'overwrite' }),
             ],
@@ -225,7 +221,6 @@ export class TypeGpuSlimeMold {
         graph.compute({
             label: 'slime-mold.diffuse',
             uses: [
-                graph.use(handles.params, BufferAccess.Uniform),
                 graph.use(handles.trails[readIndex], TextureAccess.StorageRead),
                 graph.use(handles.trails[writeIndex], TextureAccess.StorageWrite, { contents: 'overwrite' }),
             ],
@@ -252,8 +247,6 @@ export class TypeGpuSlimeMold {
             uses: [
                 graph.use(handles.agents, BufferAccess.StorageRead),
                 graph.use(handles.agents, BufferAccess.StorageWrite, { contents: 'overwrite' }),
-                graph.use(handles.params, BufferAccess.Uniform),
-                graph.use(handles.deltaTime, BufferAccess.Uniform),
                 graph.use(handles.trails[readIndex], TextureAccess.StorageRead),
                 graph.use(handles.trails[writeIndex], TextureAccess.StorageWrite, { contents: 'preserve' }),
             ],
@@ -675,15 +668,8 @@ class SlimeMoldGpuResources {
     ): SlimeMoldFrameGraphHandles {
         this.assertNotDestroyed();
         const persistentImport = { initialContents: persistentStateDefined ? 'defined' : 'undefined' } as const;
-        const importBuffer = (buffer: TgpuBuffer<any>, label: string, persistent = false) => graph.importBuffer(
-            this.root.unwrap(buffer),
-            persistent ? { label, ...persistentImport } : { label },
-        );
         return {
-            agents: importBuffer(this.agentBuffer, 'slime-mold.agents', true),
-            params: importBuffer(this.paramsBuffer, 'slime-mold.params'),
-            deltaTime: importBuffer(this.deltaTimeBuffer, 'slime-mold.delta-time'),
-            resolution: importBuffer(this.resolutionBuffer, 'slime-mold.resolution'),
+            agents: graph.importBuffer(this.root.unwrap(this.agentBuffer), { label: 'slime-mold.agents', ...persistentImport }),
             trails: this.trails.map((trail, index) => graph.importTexture(
                 this.root.unwrap(trail),
                 { label: `slime-mold.trail.${index}`, ...persistentImport },

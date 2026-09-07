@@ -43,9 +43,11 @@ test('capture waits across download, model compilation, photo preparation and th
         assert.deepEqual((await pending)!.graph.nodes.map((node) => node.label), [
             'monocular-light-injection.depth', 'monocular-light-injection.relight',
         ]);
+        assert.equal((await pending)!.graph.resources.length, 4);
         const stable = host.captureSnapshot();
         env.frame();
         assert.deepEqual((await stable)!.graph.nodes.map((node) => node.label), ['monocular-light-injection.relight']);
+        assert.equal((await stable)!.graph.resources.length, 2);
     } finally { host.dispose(); env.restore(); }
 });
 
@@ -333,4 +335,40 @@ test('stale decoded uploads cannot replace a newer source or survive disposal', 
         host.dispose(); resolve(bitmap); await second;
         assert.equal(closed, 2);
     } finally { env.restore(); }
+});
+
+
+test('private native buffers remain bound, updated and disposed without graph imports', async () => {
+    const env = hostEnvironment();
+    const buffers = new Set<GPUBuffer>();
+    const destroyed = new Set<GPUBuffer>();
+    const bound = new Set<GPUBuffer>();
+    const written = new Set<GPUBuffer>();
+    const createBuffer = env.device.createBuffer.bind(env.device);
+    env.device.createBuffer = descriptor => {
+        const buffer = createBuffer(descriptor);
+        buffers.add(buffer);
+        buffer.destroy = () => { destroyed.add(buffer); };
+        return buffer;
+    };
+    env.device.createBindGroup = descriptor => {
+        for (const entry of descriptor.entries) if ('buffer' in entry.resource) bound.add(entry.resource.buffer);
+        return {} as GPUBindGroup;
+    };
+    env.device.queue.writeBuffer = buffer => { written.add(buffer); };
+    const host = await startMonocularLightInjection(env.canvas);
+    try {
+        await until(() => !host.getState().busy);
+        const capture = host.captureSnapshot();
+        env.frame();
+        assert.equal((await capture)!.graph.resources.length, 4);
+        assert.ok(buffers.size > 2);
+        const uniforms = [...buffers].filter(buffer => buffer.usage & GPUBufferUsage.UNIFORM);
+        assert.ok(uniforms.length > 0);
+        assert.ok(uniforms.every(buffer => bound.has(buffer)));
+        assert.ok(uniforms.some(buffer => written.has(buffer)));
+        assert.ok([...buffers].some(buffer => (buffer.usage & GPUBufferUsage.STORAGE) && bound.has(buffer)));
+        host.dispose();
+        assert.deepEqual(destroyed, buffers);
+    } finally { host.dispose(); env.restore(); }
 });

@@ -27,11 +27,16 @@ Both are idempotent; recording errors release pending state internally. Settings
 history, and model changes cannot overlap a pending frame. Model compilation is
 serialized and recording is paused during replacement.
 
-Native allocations are imported once per frame. Buffers start zero-initialized;
-scratch and partial/conditional writes use preserving accesses. Surface contents
-are undefined until a depth frame is submitted. History, stabilized disparity
-range, and surface have explicit `markPersistentState()` roots; scratch does not.
-No blanket side-effect node is needed. Static images reuse successfully submitted
+Only history, stable range, and surface are imported during inference; with the
+output target this is four graph resources. Stable image frames import only
+surface, for two resources including the target. Weights, uniforms, auxiliary
+storage, and inference scratch remain internally allocated, bound, updated,
+validated against device limits, and released by the workload.
+
+History and stable range start zero-initialized and use preserving writes.
+Surface contents are undefined until a depth frame is submitted. History,
+stabilized disparity range, and surface have explicit `markPersistentState()`
+roots. No blanket side-effect node is needed. Static images reuse successfully submitted
 depth; source/model changes and history reset force inference again.
 
 The source `GPUExternalTexture` remains outside graph tracking and must remain
@@ -80,3 +85,5 @@ npm run docs:check
 Tests cover graph content/roots, frame settlement, replacement and disposal,
 submission/capture, async source races, camera replacement, cache fallback, and
 Playground retry/cleanup. See [VALIDATION.md](./VALIDATION.md) for browser observations.
+
+See [Choosing resource declaration granularity](../../docs/core-concepts.md#choosing-resource-declaration-granularity) for this optional integration choice.

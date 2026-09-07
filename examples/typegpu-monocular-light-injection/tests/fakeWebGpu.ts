@@ -51,7 +51,7 @@ export function fakeDevice(limitOverrides: Partial<{
             return {
                 label: descriptor.label, size: descriptor.size, usage: descriptor.usage,
                 mapState: descriptor.mappedAtCreation ? 'mapped' : 'unmapped',
-                getMappedRange() { return data; }, unmap() {}, destroy() {},
+                getMappedRange() { return data; }, mapAsync: async () => {}, unmap() {}, destroy() {},
             } as GPUBuffer;
         },
         createTexture,

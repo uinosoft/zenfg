@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { createFakeDevice, createFakeTexture, createGpuTrace, installWebGpuGlobals } from '../../typegpu-slime-mold/tests/fakeWebGpu.ts';
 import { startZenBackground } from '../src/background.ts';
 import { resolvePointerPressure } from '../src/backgroundInteraction.ts';
 import { resolveCanvasDimensions } from '../src/backgroundLayout.ts';
@@ -253,3 +254,76 @@ function installGlobals(values: Record<string, unknown>): () => void {
 		}
 	};
 }
+
+
+test('captures five texture resources while native frame uniforms remain bound, updated and released', async () => {
+	const restoreGpu = installWebGpuGlobals();
+	const trace = createGpuTrace();
+	const device = createFakeDevice(trace);
+	const pipeline = { getBindGroupLayout: () => ({}) };
+	device.createComputePipelineAsync = async () => pipeline as GPUComputePipeline;
+	device.createRenderPipelineAsync = async () => pipeline as GPURenderPipeline;
+	const bindings: GPUBindGroupDescriptor[] = [];
+	device.createBindGroup = (descriptor) => { bindings.push(descriptor); return {} as GPUBindGroup; };
+	let frame: FrameRequestCallback = () => {};
+	const canvas = {
+		width: 64, height: 32, dataset: {},
+		getBoundingClientRect: () => ({ width: 64, height: 32 }),
+		addEventListener() {}, removeEventListener() {},
+		getContext: () => ({ configure() {}, unconfigure() {},
+			getCurrentTexture: () => createFakeTexture('surface', 'bgra8unorm', 64, 32),
+		}),
+	} as unknown as HTMLCanvasElement;
+	const restore = installGlobals({
+		navigator: { gpu: {
+			requestAdapter: async () => ({ features: new Set(), requestDevice: async () => device }),
+			getPreferredCanvasFormat: () => 'bgra8unorm',
+		} },
+		window: { devicePixelRatio: 1, matchMedia: () => ({ matches: false, addEventListener() {}, removeEventListener() {} }),
+			addEventListener() {}, removeEventListener() {} },
+		document: { visibilityState: 'visible', addEventListener() {}, removeEventListener() {} },
+		ResizeObserver: class { observe() {} disconnect() {} },
+		requestAnimationFrame: (callback: FrameRequestCallback) => { frame = callback; return 1; },
+		cancelAnimationFrame() {},
+	});
+	try {
+		let failure: Error | undefined;
+		const controller = await startZenBackground(canvas, { onError: error => { failure = error; } });
+		assert.ok(controller);
+		const capture = controller.captureSnapshot();
+		frame(100);
+		assert.equal(failure, undefined);
+		const snapshot = await capture;
+		assert.ok(snapshot);
+		assert.equal(snapshot.graph.nodes.length, 5);
+		assert.deepEqual(snapshot.graph.resources.map(resource => resource.label), [
+			'interactive-flow-field', 'hdr-lattice-scene-color', 'half-resolution-bloom-seed',
+			'half-resolution-soft-bloom', 'background-bgra8unorm-backbuffer',
+		]);
+		const nodeOrder = new Map(snapshot.graph.nodes.map((node, index) => [node.id, index]));
+		assert.deepEqual(snapshot.graph.dependencies.map(edge => [
+			nodeOrder.get(edge.fromNodeId), nodeOrder.get(edge.toNodeId), edge.kind,
+		]).sort(), [[0, 1, 'value'], [1, 2, 'value'], [1, 4, 'value'], [2, 3, 'value'], [3, 4, 'value']]);
+		assert.deepEqual(snapshot.graph.roots.map(root => root.reason), ['present']);
+		assert.ok(snapshot.graph.resources.every(resource => resource.initialContents === 'undefined'));
+		assert.equal(snapshot.graph.accesses.filter(access => access.mode === 'write').length, 5);
+		assert.ok(snapshot.graph.accesses.filter(access => access.mode === 'write')
+			.every(access => access.contents === 'overwrite'));
+		assert.ok(snapshot.graph.resources.every(resource => resource.kind === 'texture'));
+		assert.equal(trace.dispatches, 1);
+		assert.equal(trace.draws, 4);
+		assert.equal(trace.submits, 1);
+		const uniformBindings = bindings.flatMap(group => [...group.entries])
+			.filter(entry => 'buffer' in entry.resource);
+		assert.equal(uniformBindings.length, 3);
+		const uniform = (uniformBindings[0]!.resource as GPUBufferBinding).buffer;
+		assert.ok(uniformBindings.every(entry => (entry.resource as GPUBufferBinding).buffer === uniform));
+		assert.equal(trace.bufferWrites[0]?.label, uniform.label);
+		frame(200);
+		assert.equal(trace.bufferWrites.length, 2);
+		controller.dispose();
+		assert.deepEqual(trace.destroyedBuffers, [uniform.label]);
+		assert.equal(trace.destroyedTextures.length, 4);
+		assert.equal(trace.deviceDestroys, 1);
+	} finally { restore(); restoreGpu(); }
+});

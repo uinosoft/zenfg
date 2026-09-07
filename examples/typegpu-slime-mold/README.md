@@ -3,7 +3,7 @@
 This private repository showcase adapts the official TypeGPU Slime Mold example
 to run as native ZenFG compute and render nodes. It demonstrates how a subsystem
 can use TypeGPU to define shaders, pipelines, bind groups, and persistent GPU
-resources while giving ZenFG complete graph-visible resource declarations and
+resources while giving ZenFG declarations for graph-visible data flow and
 submission ownership.
 
 The reusable `TypeGpuSlimeMold` module receives a caller-owned `GPUDevice`. It
@@ -20,3 +20,11 @@ Tweakpane.
 The simulation rules, 200,000-agent default, frame-time behavior, parameters,
 and visual direction intentionally follow the pinned upstream example. See
 `THIRD_PARTY_NOTICES.md` for source and license details.
+
+The graph contains agents, two trail textures, and the output target (four
+resources). Params, delta-time, and resolution uniforms remain internally bound,
+CPU-updated, and destroyed by the workload. Reset, ping-pong dependencies, and
+persistent-state roots retain their existing semantics.
+
+See [Choosing resource declaration granularity](../../docs/core-concepts.md#choosing-resource-declaration-granularity)
+for why this showcase chooses a smaller graph while teaching examples may expose more.

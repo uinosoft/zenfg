@@ -63,6 +63,7 @@ test('records TypeGPU work without submitting and declares exact first-frame sem
             'slime-mold.simulate',
             'slime-mold.render',
         ]);
+        assert.equal(report.resources.length, 4);
         assert.deepEqual(report.debugGroups, []);
         assert.ok(report.nodes.every((node) => node.debugGroupId === undefined));
 
@@ -89,14 +90,11 @@ test('records TypeGPU work without submitting and declares exact first-frame sem
                 }));
         };
         assert.deepEqual(accessesFor('slime-mold.diffuse'), [
-            { resource: 'slime-mold.params', access: BufferAccess.Uniform, mode: 'read', contents: undefined },
             { resource: 'slime-mold.trail.0', access: TextureAccess.StorageRead, mode: 'read', contents: undefined },
             { resource: 'slime-mold.trail.1', access: TextureAccess.StorageWrite, mode: 'write', contents: 'overwrite' },
         ]);
         assert.deepEqual(accessesFor('slime-mold.simulate'), [
             { resource: 'slime-mold.agents', access: BufferAccess.StorageRead, mode: 'read', contents: undefined },
-            { resource: 'slime-mold.params', access: BufferAccess.Uniform, mode: 'read', contents: undefined },
-            { resource: 'slime-mold.delta-time', access: BufferAccess.Uniform, mode: 'read', contents: undefined },
             { resource: 'slime-mold.trail.0', access: TextureAccess.StorageRead, mode: 'read', contents: undefined },
             { resource: 'slime-mold.agents', access: BufferAccess.StorageWrite, mode: 'write', contents: 'overwrite' },
             { resource: 'slime-mold.trail.1', access: TextureAccess.StorageWrite, mode: 'write', contents: 'preserve' },
@@ -117,6 +115,11 @@ test('records TypeGPU work without submitting and declares exact first-frame sem
         assert.equal(trace.submits, 1);
         assert.equal(trace.dispatches, 5);
         assert.equal(trace.draws, 1);
+        const boundUniforms = new Set(trace.bindGroups.flatMap(group => [...group.entries])
+            .flatMap(entry => 'buffer' in entry.resource && (entry.resource.buffer.usage & GPUBufferUsage.UNIFORM)
+                ? [entry.resource.buffer.label] : []));
+        assert.equal(boundUniforms.size, 3);
+        assert.ok(trace.bufferWrites.some(write => boundUniforms.has(write.label)));
         simulation.destroy();
         simulation.destroy();
         assert.equal(trace.destroyedBuffers.length, 4);

@@ -19,6 +19,11 @@ recording with diagnostics enabled.
 | [`gpu-timing.ts`](./gpu-timing.ts) | Opt-in asynchronous timestamp readback and unavailable results |
 | [`compute-output.ts`](./compute-output.ts) | Compute storage output retained through an output root |
 
+Imported Resource intentionally exposes its single-pass uniform for teaching
+imports, access tokens, and input validation. Complex workloads can choose to
+bind private parameters internally instead; see
+[Choosing resource declaration granularity](../../../docs/core-concepts.md#choosing-resource-declaration-granularity).
+
 Create one `FrameGraph` for each `GPUDevice`, invoke a recipe after acquiring
 the inputs shown by its exported function, and call `graph.destroy()` when that
 device-bound renderer stack is released.

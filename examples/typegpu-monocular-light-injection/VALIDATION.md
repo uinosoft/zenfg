@@ -15,7 +15,8 @@ device, and the static Pages build at `/playground/`. The browser exposed
   controller returned to `Live · base`. Reloads used cached models. Clearing
   downloads changed the cache indicator to `not cached` without stopping rendering.
 - Inspector captured a stable image frame with only
-  `monocular-light-injection.relight`, two reads, one write, and no side effect.
+  `monocular-light-injection.relight`, one read, one write, and no side effect
+  after the declaration-granularity cleanup.
   Code displayed the real workload, host, shader, model-store, and adapter files.
 - After the capture-wait fix, reloaded with Inspector already open using both
   cached models and a cleared model cache. Initial capture automatically showed
@@ -54,3 +55,22 @@ GPU hardware and the large model were not exercised in the browser.
 Repository validation uses `npm run typecheck`, `npm test`, `npm run build:pages`,
 and `npm run docs:check`. The Pages build retains the existing large Inspector
 dependency chunk warning; the new workload is lazy-loaded.
+
+## Declaration-granularity regression (2026-09-07)
+
+The rebuilt Pages app was checked on the same real WebGPU device:
+
+- Monocular automatically captured depth + relight with exactly four resources:
+  backbuffer, surface, stable range, and history. A subsequent stable capture
+  contained only backbuffer and surface. Relit and normals rendered correctly;
+  moving the light and resizing to 800 × 900 preserved the centered square.
+- Slime Mold captured exactly four resources (agents, both trails, backbuffer).
+  Changing Move Speed to 80 and resizing to 1100 × 720 continued rendering.
+- Interactive Background captured five textures and five passes; pointer
+  disturbance and resizing to 800 × 900 continued rendering.
+- Inspector remained open across showcase switches. No browser console errors
+  were observed. Temporary viewport overrides were reset afterward.
+
+These checks cover the available shader-f16 desktop path. No additional camera,
+large-model, mobile hardware, or real f32-only device validation was performed
+for this declaration-only change; lifecycle and fallback tests remain in place.
