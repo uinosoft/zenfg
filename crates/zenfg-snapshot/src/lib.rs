@@ -15,13 +15,13 @@ pub use json::{to_json, to_json_pretty, validate_typed_frame_graph_snapshot};
 pub use types::*;
 pub use validator::validate_frame_graph_snapshot;
 
-/// Canonical `format` discriminator for ZenFG Snapshot 1.0 documents.
+/// Canonical `format` discriminator for ZenFG Snapshot 1.1 documents.
 pub const FRAME_GRAPH_SNAPSHOT_FORMAT: &str = "zenfg.frame-graph-snapshot";
 /// Historical pre-release `format` discriminator accepted for migration.
 pub const LEGACY_CANDIDATE_FRAME_GRAPH_SNAPSHOT_FORMAT: &str =
     "zenfg.frame-graph-snapshot-candidate";
 /// Snapshot wire version emitted by this crate.
-pub const FRAME_GRAPH_SNAPSHOT_VERSION: SnapshotVersion = SnapshotVersion { major: 1, minor: 0 };
+pub const FRAME_GRAPH_SNAPSHOT_VERSION: SnapshotVersion = SnapshotVersion { major: 1, minor: 1 };
 /// Maximum number of nested JSON container levels allowed in one extension value.
 ///
 /// Primitive extension values have depth zero. An extension value whose root is

@@ -180,7 +180,7 @@ fn rejects_unknown_format_and_version_and_validates_programmatic_values() {
 
     let mut value: Value =
         serde_json::from_str(&read(corpus().join("fixtures/minimal.fgsnapshot.json"))).unwrap();
-    value["version"]["minor"] = Value::from(1);
+    value["version"]["minor"] = Value::from(0);
     assert_eq!(
         decode_frame_graph_snapshot(value).unwrap_err().issues[0].code,
         "unsupported-version"

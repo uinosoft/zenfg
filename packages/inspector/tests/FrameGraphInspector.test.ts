@@ -6,8 +6,11 @@ import test from 'node:test';
 import { Window } from 'happy-dom';
 
 import { FrameGraphInspector, mountFrameGraphInspector } from '../src/FrameGraphInspector.ts';
+import type { GraphRenderRequest } from '../src/panelGraphRenderer.ts';
+import type { GraphViewState } from '../src/panelTypes.ts';
 import { BufferAccess, TextureAccess } from './accessKinds.ts';
 import { createLegacyDebugViewModel, toSnapshot, type LegacyFrameGraphCapture } from './legacySnapshotFixture.ts';
+import { createFrameFlowVisualFixture } from '../../webgpu/tests/frameFlowVisualFixture.ts';
 
 test('renders an always-visible branded workbench with commands outside the tablist', () => {
 	const testWindow = installDom();
@@ -743,6 +746,218 @@ test('renders persistent workbench tabs and Inspector Summary, Relations, and Ra
 	panel.destroy();
 	testWindow.close();
 });
+test('renders native-role shape swatches for external submissions and output roots', () => {
+    const testWindow = installDom();
+    const panel = new FrameGraphInspector({ maxGraphElements: 1 });
+    panel.setSnapshot(JSON.parse(readFileSync(resolve('packages/snapshot/fixtures/full-webgpu.fgsnapshot.json'), 'utf8')));
+    const legend = panel.dom.querySelector('.zenfg-inspector-graph-legend') ?? panel.dom.querySelector('[aria-label="Graph legend"]');
+    assert.ok(legend);
+    for (const shape of ['cut-rectangle', 'tag']) {
+        const swatch = legend.querySelector(`[data-shape="${shape}"]`)!;
+        assert.ok(swatch.querySelector('svg[aria-hidden="true"] polygon'));
+        assert.ok(swatch.parentElement!.textContent?.includes(shape === 'tag' ? 'Output' : 'External'));
+    }
+    panel.destroy();
+    testWindow.close();
+});
+
+test('resource navigation replaces selection in Summary without switching views or changing graph projection', () => {
+    const testWindow = installDom();
+    const panel = new FrameGraphInspector();
+    const graphView = (panel as unknown as { graphView: GraphViewState }).graphView;
+    let request: GraphRenderRequest;
+    graphView.renderer = {
+        render: (next) => { request = next; }, destroy: () => undefined,
+        resize: () => undefined, fit: () => assert.fail('Resource navigation must not fit'), relayout: () => undefined,
+    };
+    const capture = createGroupedCapture();
+    const snapshot = toSnapshot({ ...capture, compilation: { ...capture.compilation,
+        roots: [...capture.compilation.roots, { reason: 'output', resourceId: 2 }],
+    } });
+    panel.setSnapshot(snapshot);
+    const tabs = panel.dom.querySelector('.zenfg-inspector-workbench-tabs')!;
+    const inspectorTabs = panel.dom.querySelector('.zenfg-inspector-inspector-tabs')!;
+    const search = panel.dom.querySelector<HTMLInputElement>('.zenfg-inspector-resources-view input[type="search"]')!;
+    search.value = 'no match';
+    search.dispatchEvent(new testWindow.Event('input') as unknown as Event);
+    const selectedResource = { kind: 'resource' as const, id: 'resource:2' };
+    const selectionKey = 'resource:resource:2';
+    const edge = request!.scene.edges.find((edge) => edge.resourceId === selectedResource.id)!;
+    const edgeSelection = request!.scene.interaction.selectionByElementId.get(edge.id)!;
+    assert.deepEqual(edgeSelection, selectedResource);
+    request!.onSelect(edgeSelection);
+    tabButton(inspectorTabs, 'Relations').click();
+    request!.onSelect(edgeSelection);
+    assert.equal(tabButton(inspectorTabs, 'Relations').getAttribute('aria-selected'), 'true');
+    request!.onSelect({ kind: 'resource', id: 'resource:1' });
+    assert.equal(tabButton(inspectorTabs, 'Summary').getAttribute('aria-selected'), 'true');
+    const rootNode = request!.scene.nodes.find((node) => node.kind === 'root')!;
+    const root = request!.scene.interaction.selectionByElementId.get(rootNode.id)!;
+    for (const selection of [root]) {
+        for (const tab of ['Summary', 'Relations']) {
+            request!.onSelect(selection);
+            tabButton(inspectorTabs, tab).click();
+            const content = panel.dom.querySelector('.zenfg-inspector-inspector-content')!;
+            const button = Array.from(content.querySelectorAll<HTMLButtonElement>('button')).find((button) =>
+                tab === 'Summary' ? button.textContent === 'View resource · postfx-color' : button.textContent === 'postfx-color');
+            assert.ok(button);
+            button.dispatchEvent(new testWindow.MouseEvent('mouseenter') as unknown as Event);
+            assert.deepEqual(request!.hovered, selectedResource);
+            assert.deepEqual(request!.selected, selection);
+            assert.equal(tabButton(inspectorTabs, tab).getAttribute('aria-selected'), 'true');
+            button.dispatchEvent(new testWindow.MouseEvent('mouseleave') as unknown as Event);
+            assert.equal(request!.hovered, undefined);
+            button.dispatchEvent(new testWindow.MouseEvent('mouseenter') as unknown as Event);
+            button.click();
+            assert.deepEqual(request!.selected, selectedResource);
+            assert.equal(request!.hovered, undefined);
+            assert.equal(request!.fit, false);
+            assert.equal(request!.anchorElementId, undefined);
+            assert.equal(tabButton(tabs, 'Graph').getAttribute('aria-selected'), 'true');
+            assert.equal(tabButton(inspectorTabs, 'Summary').getAttribute('aria-selected'), 'true');
+            assert.match(content.textContent ?? '', /Kind \/ origin/);
+            assert.equal(search.value, 'no match');
+            assert.equal(graphView.expandedGroupPaths.size, 0);
+            assert.deepEqual(request!.scene.interaction.primaryElementIdsBySelection.get(selectionKey),
+                request!.scene.edges.filter((edge) => edge.resourceId === selectedResource.id).map((edge) => edge.id));
+        }
+    }
+    const groups = createLegacyDebugViewModel(capture).debugGroups;
+    for (const group of groups.slice(0, 2)) request!.onToggleGroup(group.pathKey);
+    assert.deepEqual(request!.scene.interaction.primaryElementIdsBySelection.get(selectionKey), [
+        'resource:resource:2', ...request!.scene.edges.filter((edge) => edge.resourceId === selectedResource.id).map((edge) => edge.id),
+    ]);
+    const summary = panel.dom.querySelector('.zenfg-inspector-inspector-content')!.textContent;
+    request!.onHover(selectedResource);
+    assert.deepEqual(request!.selected, selectedResource);
+    assert.equal(panel.dom.querySelector('.zenfg-inspector-inspector-content')!.textContent, summary);
+    request!.onToggleGroup(groups[0]!.pathKey);
+    assert.equal(request!.hovered, undefined);
+    request!.onHover(selectedResource);
+    panel.setSnapshot(snapshot);
+    assert.equal(request!.hovered, undefined);
+    assert.deepEqual(request!.selected, selectedResource);
+    panel.destroy();
+    testWindow.close();
+});
+
+test('detail link hover previews exact targets and clears on pane changes without turning access metadata into links', () => {
+    const testWindow = installDom();
+    const panel = new FrameGraphInspector();
+    const graphView = (panel as unknown as { graphView: GraphViewState }).graphView;
+    let request: GraphRenderRequest;
+    graphView.renderer = {
+        render: (next) => { request = next; }, destroy: () => undefined,
+        resize: () => undefined, fit: () => assert.fail('Hover must not fit'), relayout: () => undefined,
+    };
+    const capture = createGroupedCapture();
+    const snapshot = toSnapshot({ ...capture, compilation: { ...capture.compilation,
+        roots: [...capture.compilation.roots, { reason: 'output', resourceId: 2 }],
+        accesses: capture.compilation.accesses.map((access) => access.id === 3 ? { ...access,
+            textureRegion: { baseMipLevel: 0, mipLevelCount: 1, baseArrayLayer: 0, arrayLayerCount: 1, aspect: 'all' },
+        } : access),
+    } });
+    panel.setSnapshot(snapshot);
+    const tabs = panel.dom.querySelector('.zenfg-inspector-inspector-tabs')!;
+    const content = panel.dom.querySelector('.zenfg-inspector-inspector-content')!;
+    const enter = (element: HTMLElement) => element.dispatchEvent(new testWindow.MouseEvent('mouseenter') as unknown as Event);
+    const leave = (element: HTMLElement) => element.dispatchEvent(new testWindow.MouseEvent('mouseleave') as unknown as Event);
+    request!.onSelect({ kind: 'resource', id: 'resource:2' });
+    tabButton(tabs, 'Relations').click();
+    const passLink = tabButton(content, 'bloom');
+    assert.equal(passLink.textContent, 'bloom');
+    assert.match(passLink.parentElement!.querySelector('span')!.textContent!, /write.*color-attachment.*overwrite.*baseMipLevel/);
+    assert.equal(passLink.parentElement!.querySelector('span')!.querySelector('button'), null);
+    enter(passLink);
+    assert.deepEqual(request!.hovered, { kind: 'node', id: 'node:2' });
+    assert.deepEqual(request!.selected, { kind: 'resource', id: 'resource:2' });
+    assert.deepEqual(request!.scene.interaction.hoverElementIdsBySelection.get('node:node:2') ?? [], []);
+    assert.equal(request!.fit, false);
+    assert.equal(request!.anchorElementId, undefined);
+    leave(passLink);
+    assert.equal(request!.hovered, undefined);
+    enter(passLink);
+    passLink.click();
+    assert.deepEqual(request!.selected, { kind: 'node', id: 'node:2' });
+    assert.equal(request!.hovered, undefined);
+    const resourceLink = Array.from(content.querySelectorAll<HTMLButtonElement>('button')).find((button) => button.textContent?.includes('postfx-color'))!;
+    enter(resourceLink);
+    assert.deepEqual(request!.hovered, { kind: 'resource', id: 'resource:2' });
+    tabButton(tabs, 'Raw').click();
+    assert.equal(request!.hovered, undefined);
+    tabButton(tabs, 'Relations').click();
+    const segment = tabButton(content, '#0 frame-graph');
+    enter(segment);
+    assert.deepEqual(request!.hovered, { kind: 'segment', index: 0 });
+    assert.deepEqual(request!.scene.interaction.hoverElementIdsBySelection.get('segment:0') ?? [], []);
+    panel.dom.querySelector<HTMLButtonElement>('.zenfg-inspector-inspector-close')!.click();
+    assert.equal(request!.hovered, undefined);
+    panel.setSnapshot(JSON.parse(readFileSync(resolve('packages/snapshot/fixtures/full-webgpu.fgsnapshot.json'), 'utf8')));
+    const output = request!.scene.nodes.find((node) => node.kind === 'root')!;
+    const outputEdge = request!.scene.edges.find((edge) => edge.to === output.id)!;
+    request!.onSelect(request!.scene.interaction.selectionByElementId.get(outputEdge.id)!);
+    tabButton(tabs, 'Relations').click();
+    const outputLink = Array.from(content.querySelectorAll<HTMLButtonElement>('button')).find((button) => button.textContent?.startsWith('present · mip'))!;
+    assert.ok(outputLink);
+    enter(outputLink);
+    assert.deepEqual(request!.hovered, request!.scene.interaction.selectionByElementId.get(output.id));
+    assert.deepEqual(request!.scene.interaction.hoverElementIdsBySelection.get(output.id), [output.id]);
+    panel.setSnapshot(snapshot);
+    assert.equal(request!.hovered, undefined);
+    panel.destroy();
+    testWindow.close();
+});
+
+test('resource selection exposes exact access facts and distinct output roots without edge details', () => {
+    const testWindow = installDom();
+    const panel = new FrameGraphInspector();
+    const graphView = (panel as unknown as { graphView: GraphViewState }).graphView;
+    let request: GraphRenderRequest;
+    graphView.renderer = {
+        render: (next) => { request = next; }, destroy: () => undefined,
+        resize: () => undefined, fit: () => assert.fail('Selection must not fit'), relayout: () => undefined,
+    };
+    const snapshot = createFrameFlowVisualFixture();
+    panel.setSnapshot(snapshot);
+    const history = snapshot.graph.resources.find((resource) => resource.label === 'Temporal history')!;
+    const edge = request!.scene.edges.find((edge) => edge.resourceId === history.id)!;
+    const selected = request!.scene.interaction.selectionByElementId.get(edge.id)!;
+    request!.onSelect(selected);
+    const tabs = panel.dom.querySelector('.zenfg-inspector-inspector-tabs')!;
+    const content = panel.dom.querySelector('.zenfg-inspector-inspector-content')!;
+    tabButton(tabs, 'Relations').click();
+    const accessLink = tabButton(content, 'Update history 0');
+    const facts = accessLink.parentElement!.querySelector('span')!.textContent!;
+    assert.match(facts, /write.*overwrite.*producesValue: true.*bytes 0–8/);
+    accessLink.click();
+    const historyLink = tabButton(content, 'Temporal history');
+    assert.equal(historyLink.parentElement!.querySelector('span')!.textContent, facts);
+    historyLink.click();
+    assert.equal(tabButton(tabs, 'Summary').getAttribute('aria-selected'), 'true');
+    const expectedRoots = ['persistent-state · bytes 0–32', 'debug-capture · bytes 16–32'];
+    for (const label of expectedRoots) {
+        tabButton(tabs, 'Relations').click();
+        assert.match(content.textContent!, /Output roots 2/);
+        assert.doesNotMatch(content.textContent!, /Flow relationships|View resource/);
+        tabButton(content, label).click();
+        assert.equal(request!.selected?.kind, 'root');
+        tabButton(tabs, 'Summary').click();
+        assert.match(content.textContent!, /Initial contents/);
+        tabButton(content, 'View resource · Temporal history').click();
+        assert.deepEqual(request!.selected, selected);
+        assert.equal(tabButton(tabs, 'Summary').getAttribute('aria-selected'), 'true');
+    }
+    tabButton(tabs, 'Relations').click();
+    const workbenchTabs = panel.dom.querySelector('.zenfg-inspector-workbench-tabs')!;
+    tabButton(workbenchTabs, 'Resources').click();
+    tabButton(panel.dom.querySelector('.zenfg-inspector-resources-view')!, 'Temporal history').click();
+    assert.equal(tabButton(tabs, 'Relations').getAttribute('aria-selected'), 'true');
+    tabButton(workbenchTabs, 'Graph').click();
+    assert.deepEqual(request!.selected, selected);
+    panel.destroy();
+    testWindow.close();
+});
+
 test('filters clear-buffer passes, searches labels, and sorts timed passes by GPU duration', () => {
 	const testWindow = installDom();
 	const capture: LegacyFrameGraphCapture = {

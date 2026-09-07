@@ -5,6 +5,8 @@ import {
 	type CompiledTextureRegion,
 	type FrameGraphCompilationReport,
 	type FrameGraphCompilationAccess,
+	type FrameGraphCompilationRoot,
+	type FrameGraphResourceRange,
 	type FrameGraphExecutionSegmentKind,
 	type GraphRootReason,
 	type ResourceHandle,
@@ -24,14 +26,14 @@ import type {
 } from './internalTypes.ts';
 
 type DependencyAnalysis = {
-	readonly producers: ReadonlyMap<number, ReadonlySet<number>>;
+	readonly roots: readonly FrameGraphCompilationRoot[];
 	// Value edges retain the producer selected by ordered logical value history.
 	readonly valueReverseEdges: ReadonlyMap<number, ReadonlySet<number>>;
 	readonly reportDependencies?: readonly FrameGraphCompilationReport['dependencies'][number][];
 };
 
 type MutableDependencyAnalysis = {
-	readonly producers: Map<number, Set<number>>;
+	readonly roots: FrameGraphCompilationRoot[];
 	readonly valueReverseEdges: Map<number, Set<number>>;
 	readonly reportDependencies?: FrameGraphCompilationReport['dependencies'][number][];
 };
@@ -84,10 +86,12 @@ type RetentionAnalysis = {
 	readonly roots: readonly InternalGraphRoot[];
 };
 
-type InternalGraphRoot = {
-	readonly reason: GraphRootReason;
-	readonly nodeId?: number;
-	readonly resourceId?: number;
+type InternalGraphRoot = FrameGraphCompilationRoot;
+
+export type ResourceRootDeclaration = {
+	readonly resourceId: number;
+	readonly reason: Exclude<GraphRootReason, 'side-effect'>;
+	readonly range: FrameGraphResourceRange;
 };
 
 export type InternalResourceLifetime = {
@@ -140,7 +144,7 @@ export type GraphCompilerInput = {
 	readonly nodes: readonly InternalNode[];
 	readonly resources: ReadonlyMap<number, InternalResource>;
 	readonly textureViews: ReadonlyMap<number, InternalTextureView>;
-	readonly rootResources: ReadonlyMap<number, ReadonlySet<GraphRootReason>>;
+	readonly rootResources: ReadonlyMap<string, ResourceRootDeclaration>;
 	readonly debugGroups: FrameGraphCompilationReport['debugGroups'];
 	readonly nodeDebugGroupIds: ReadonlyMap<number, number>;
 	readonly resourceDebugGroupIds: ReadonlyMap<number, number>;
@@ -170,7 +174,7 @@ export function compileFrameGraph(input: GraphCompilerInput): CompileFrameGraphR
 
 function analyzeGraphAccesses(input: GraphCompilerInput): DependencyAnalysis {
 	const dependencies: MutableDependencyAnalysis = {
-		producers: new Map(),
+		roots: [],
 		valueReverseEdges: new Map(),
 		...(input.report ? { reportDependencies: [] } : {}),
 	};
@@ -199,17 +203,39 @@ function analyzeGraphAccesses(input: GraphCompilerInput): DependencyAnalysis {
 		}
 	}
 
-	for (const [resourceId, state] of bufferStates) {
-		for (const writer of state.lastWriters) {
-			addProducer(dependencies.producers, resourceId, writer.nodeId);
-		}
-	}
-	for (const [resourceId, state] of textureStates) {
-		for (const write of state.lastWrites) {
-			if (write.producesValue) {
-				addProducer(dependencies.producers, resourceId, write.nodeId);
+	for (const root of input.rootResources.values()) {
+		const resource = input.resources.get(root.resourceId)!;
+		const producers = new Set<number>();
+		let usesInitialContents = false;
+		const undefinedContents = () => {
+			throw new FrameGraphError(FRAME_GRAPH_ERROR_CODES.RootReferencesUndefinedContents,
+				`Root references undefined contents of resource "${resource.handle.label ?? root.resourceId}".`,
+				{ phase: 'compile', resourceId: root.resourceId, context: { range: root.range } });
+		};
+		if (root.range.kind === 'buffer') {
+			let uncovered: BufferAccessStateEntry[] = [{ nodeId: -1, range: root.range }];
+			for (const writer of bufferStates.get(root.resourceId)?.lastWriters ?? []) {
+				if (bufferRangesOverlap(root.range, writer.range)) producers.add(writer.nodeId);
+				uncovered = subtractBufferRange(uncovered, writer.range);
+			}
+			usesInitialContents = uncovered.length > 0;
+		} else {
+			for (const region of root.range.regions) {
+				const range = compiledTextureStateRange(region, resource.desc as TextureDesc);
+				const writes = (textureStates.get(root.resourceId)?.lastWrites ?? [])
+					.filter((write) => resolvedTextureRangesOverlap(range, write.range));
+				for (const write of writes) {
+					if (!write.producesValue) undefinedContents();
+					producers.add(write.nodeId);
+				}
+				usesInitialContents ||= subtractResolvedTextureRanges([range], writes.map((write) => write.range)).length > 0;
 			}
 		}
+		if (usesInitialContents && resource.initialContents !== 'defined') undefinedContents();
+		dependencies.roots.push({ ...root, resolution: {
+			producerNodeIds: input.nodes.filter((node) => producers.has(node.id)).map((node) => node.id),
+			usesInitialContents,
+		} });
 	}
 
 	return dependencies;
@@ -400,13 +426,9 @@ function collectRetainedNodes(input: GraphCompilerInput, dependencies: Dependenc
 			visit(node.id);
 		}
 	}
-	for (const [resourceId, reasons] of input.rootResources) {
-		if (input.resources.has(resourceId)) {
-			for (const reason of reasons) {
-				roots.push({ reason, resourceId });
-			}
-		}
-		for (const producer of dependencies.producers.get(resourceId) ?? []) {
+	for (const root of dependencies.roots) {
+		roots.push(root);
+		for (const producer of root.resolution?.producerNodeIds ?? []) {
 			visit(producer);
 		}
 	}
@@ -767,15 +789,6 @@ function buildPhysicalAllocations(
 	return allocationByResource;
 }
 
-function addProducer(producers: Map<number, Set<number>>, resourceId: number, nodeId: number): void {
-	let nodes = producers.get(resourceId);
-	if (!nodes) {
-		nodes = new Set();
-		producers.set(resourceId, nodes);
-	}
-	nodes.add(nodeId);
-}
-
 export function resolveTextureAccessRange(
 	resourceFor: ResourceResolver,
 	access: InternalAccess,
@@ -800,12 +813,45 @@ export function resolveTextureAccessRange(
 	};
 }
 
+export function normalizeTextureRootRange(desc: TextureDesc, selected?: InternalTextureRegion): FrameGraphResourceRange {
+	const dimension = desc.dimension ?? '2d';
+	const depth = textureSizeTuple(desc.size)[2];
+	const firstMip = selected?.baseMipLevel ?? 0;
+	const mipCount = selected?.mipLevelCount ?? desc.mipLevelCount ?? 1;
+	const mask = resolveTextureAspectMask(desc.format, selected?.aspect ?? 'all');
+	const aspects: GPUTextureAspect[] = mask === TEXTURE_ASPECT_COLOR ? ['all']
+		: [...(mask & TEXTURE_ASPECT_DEPTH ? ['depth-only' as const] : []), ...(mask & TEXTURE_ASPECT_STENCIL ? ['stencil-only' as const] : [])];
+	const regions: CompiledTextureRegion[] = [];
+	for (let mip = firstMip; mip < firstMip + mipCount; mip++) {
+		for (const aspect of aspects) {
+			regions.push(toCompiledTextureRegion({
+				baseMipLevel: mip, mipLevelCount: 1,
+				baseArrayLayer: selected?.baseArrayLayer ?? 0,
+				arrayLayerCount: selected?.arrayLayerCount ?? (dimension === '2d' ? depth : 1),
+				baseDepthSlice: selected?.baseDepthSlice ?? 0,
+				depthSliceCount: dimension === '3d' ? Math.min(selected?.depthSliceCount ?? depth, Math.max(1, Math.floor(depth / 2 ** mip)) - (selected?.baseDepthSlice ?? 0)) : 1,
+				aspect,
+			}, desc));
+		}
+	}
+	return { kind: 'texture', regions };
+}
+
+function compiledTextureStateRange(region: CompiledTextureRegion, desc: TextureDesc): ResolvedTextureRange {
+	return {
+		baseMipLevel: region.baseMipLevel, mipLevelCount: region.mipLevelCount,
+		baseArrayLayer: region.baseArrayLayer ?? 0, arrayLayerCount: region.arrayLayerCount ?? 1,
+		baseDepthSlice: region.baseDepthSlice ?? 0, depthSliceCount: region.depthSliceCount ?? 1,
+		aspectMask: resolveTextureAspectMask(desc.format, region.aspect),
+	};
+}
+
 function toCompiledTextureRegion(range: InternalTextureRegion, desc: TextureDesc): CompiledTextureRegion {
 	const dimension = desc.dimension ?? '2d';
 	return {
 		baseMipLevel: range.baseMipLevel,
 		mipLevelCount: range.mipLevelCount,
-		...(dimension === '2d'
+		...(dimension !== '3d'
 			? { baseArrayLayer: range.baseArrayLayer, arrayLayerCount: range.arrayLayerCount }
 			: {}),
 		...(dimension === '3d'

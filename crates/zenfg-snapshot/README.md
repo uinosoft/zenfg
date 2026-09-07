@@ -6,7 +6,7 @@
 [![CI](https://github.com/uinosoft/zenfg/actions/workflows/ci.yml/badge.svg)](https://github.com/uinosoft/zenfg/actions/workflows/ci.yml)
 [![license: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/uinosoft/zenfg/blob/main/LICENSE)
 
-`zenfg-snapshot` provides portable, wgpu-independent Snapshot 1.0 wire types,
+`zenfg-snapshot` provides portable, wgpu-independent Snapshot 1.1 wire types,
 JSON codec, validation, and legacy migration. It is the Rust counterpart of the
 normative `@zenfg/snapshot` package and depends only on Serde, `serde_json`, and
 `thiserror`.
@@ -33,7 +33,7 @@ use zenfg_snapshot::{
 
 let json_text = r#"{
   "format": "zenfg.frame-graph-snapshot",
-  "version": { "major": 1, "minor": 0 },
+  "version": { "major": 1, "minor": 1 },
   "producer": { "name": "example" },
   "capture": { "frameIndex": 0 },
   "graph": {
@@ -64,7 +64,7 @@ assert!(canonical_json.contains("zenfg.frame-graph-snapshot"));
 # Ok::<(), Box<dyn std::error::Error>>(())
 ```
 
-Successful decoding returns a canonical Snapshot 1.0 value and explicit
+Successful decoding returns a canonical Snapshot 1.1 value and explicit
 migration provenance when historical input was upgraded. Unknown formats and
 versions are rejected.
 
@@ -87,7 +87,7 @@ The crate exports `FrameGraphSnapshotV1` and all wire types with `Serialize` and
 
 ## Consumer and producer boundaries
 
-- Use parse or decode for untrusted input. Canonical Snapshot 1.0, Legacy V0,
+- Use parse or decode for untrusted input. Canonical Snapshot 1.1, Legacy V0,
   and Legacy Candidate V1 are accepted; supported historical data is migrated
   explicitly.
 - Use `validate_typed_frame_graph_snapshot()` before returning a typed producer
@@ -102,7 +102,7 @@ The crate exports `FrameGraphSnapshotV1` and all wire types with `Serialize` and
 
 The normative Schema, specification, fixtures, and conformance manifest are
 published by `@zenfg/snapshot`. See the
-[Snapshot 1.0 specification](https://github.com/uinosoft/zenfg/blob/main/packages/snapshot/SPEC.md)
+[Snapshot 1.1 specification](https://github.com/uinosoft/zenfg/blob/main/packages/snapshot/SPEC.md)
 for the complete structural and cross-field contract.
 
 ## Common mistakes
@@ -124,7 +124,7 @@ normative `@zenfg/snapshot` conformance corpus.
 
 ## Further reading
 
-- [Snapshot 1.0 specification](https://github.com/uinosoft/zenfg/blob/main/packages/snapshot/SPEC.md)
+- [Snapshot 1.1 specification](https://github.com/uinosoft/zenfg/blob/main/packages/snapshot/SPEC.md)
 - [ZenFG Core concepts](https://github.com/uinosoft/zenfg/blob/main/docs/core-concepts.md)
 - [`@zenfg/snapshot`](https://github.com/uinosoft/zenfg/blob/main/packages/snapshot/README.md)
 - [`zenfg`](https://github.com/uinosoft/zenfg/blob/main/crates/zenfg/README.md)

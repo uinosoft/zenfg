@@ -104,7 +104,7 @@ runtime       recording         retained CPU plan        optional, one-shot
 | Execute retained work | `execute()`, `execute_with_options()` |
 | Request GPU timing | `execute_with_gpu_timing()` |
 | Inspect or clear retained allocations | `resource_pool_stats()`, `clear_resource_pool()` |
-| Export Snapshot 1.0 | `snapshot::create_frame_graph_snapshot()` with feature `snapshot` |
+| Export Snapshot 1.1 | `snapshot::create_frame_graph_snapshot()` with feature `snapshot` |
 
 Exact signatures, fields, defaults, and structured `FGxxxx` errors are
 documented on [docs.rs](https://docs.rs/zenfg).

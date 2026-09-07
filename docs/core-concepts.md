@@ -131,7 +131,20 @@ readback, debug capture, imported persistent state, and genuine side effects
 can retain work. Compilation walks backward from those roots and culls nodes
 that contribute to no observable result.
 
-A root retains the final producer for its selected resource range. It does not
+A resource root retains all final producers for its selected range and records
+whether defined initial contents also contribute. Undefined or discarded portions
+of that range fail compilation with FG1004, with or without reports enabled.
+Root identity is resource, reason, and normalized range; identical declarations
+deduplicate, while overlapping but distinct ranges remain independent.
+
+In TypeScript, `markOutput`, `markPersistentState`, and `markDebugCapture` accept
+a whole resource, a texture view, or `(buffer, range)`. `markReadback(buffer,
+range?)` supports partial staging buffers. `markPresent` always selects the whole
+surface texture. Rust's ranged root API has the same normalization and resolution
+semantics. Empty root ranges are rejected; ordinary empty buffer accesses are
+still allowed.
+
+A root does not
 transfer ownership, extend a transient allocation beyond execution, or make a
 transient native object safe to cache. Results needed after execution must live
 in caller-owned imported storage.
@@ -209,7 +222,7 @@ Runtime report types may contain implementation-oriented details and can evolve
 with that runtime.
 
 Snapshot adapters explicitly project compatible report data into the portable
-Snapshot 1.0 model. Snapshot contains graph structure, diagnostics, allocation
+Snapshot 1.1 model. Snapshot contains graph structure, diagnostics, allocation
 facts, and optional timing or pool facts; it does not contain GPU commands or
 resource contents and cannot replay a frame.
 
@@ -222,5 +235,5 @@ naming, transport, and retention policy remain caller-owned.
 
 - [`@zenfg/webgpu` quick start and API task map](../packages/webgpu/README.md)
 - [`zenfg` quick start and API task map](../crates/zenfg/README.md)
-- [Snapshot 1.0 specification](../packages/snapshot/SPEC.md)
+- [Snapshot 1.1 specification](../packages/snapshot/SPEC.md)
 - [Compatibility](compatibility.md)

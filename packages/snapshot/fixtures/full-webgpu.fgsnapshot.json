@@ -2,7 +2,7 @@
   "format": "zenfg.frame-graph-snapshot",
   "version": {
     "major": 1,
-    "minor": 0
+    "minor": 1
   },
   "producer": {
     "name": "@zenfg/webgpu",
@@ -214,7 +214,7 @@
         },
         "mode": "write",
         "contents": "overwrite",
-        "producesValue": false
+        "producesValue": true
       },
       {
         "id": "access:unused-write",
@@ -241,7 +241,25 @@
     "roots": [
       {
         "reason": "present",
-        "resourceId": "resource:backbuffer"
+        "resourceId": "resource:backbuffer",
+        "range": {
+          "kind": "texture",
+          "regions": [
+            {
+              "baseMipLevel": 0,
+              "mipLevelCount": 1,
+              "baseArrayLayer": 0,
+              "arrayLayerCount": 1,
+              "aspect": "all"
+            }
+          ]
+        },
+        "resolution": {
+          "producerNodeIds": [
+            "node:present"
+          ],
+          "usesInitialContents": false
+        }
       },
       {
         "reason": "side-effect",

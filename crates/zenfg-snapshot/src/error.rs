@@ -70,7 +70,7 @@ impl SnapshotDecodeError {
 #[non_exhaustive]
 #[derive(Debug, thiserror::Error)]
 pub enum SnapshotJsonError {
-    /// The in-memory value does not satisfy Snapshot 1.0 invariants.
+    /// The in-memory value does not satisfy Snapshot 1.1 invariants.
     #[error("FrameGraph Snapshot failed validation")]
     Validation {
         /// Structured validation diagnostics.

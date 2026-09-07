@@ -240,7 +240,7 @@ test('raw render attachments default to one mip and one array layer', () => {
 		label: 'raw-default',
 		colorAttachments: [{ target, loadOp: 'clear', storeOp: 'store' }],
 	});
-	graph.markOutput(target);
+	graph.markOutput(graph.createTextureView(target, { mipLevelCount: 1, arrayLayerCount: 1 }));
 
 	assert.deepEqual(graph.compile({ report: true }).compilationReport.accesses.map((access) => access.textureRegion), [{
 		baseMipLevel: 0,
@@ -596,7 +596,7 @@ test('descriptor getters return defensive snapshots', () => {
 			ctx.unwrap(sampled);
 		},
 	});
-	textureGraph.markOutput(color);
+	textureGraph.markOutput(view);
 	const textureCompiled = textureGraph.compile({ report: true });
 	const textureReport = textureCompiled.compilationReport.resources.find((resource) => resource.id === color.id);
 	const viewReport = textureCompiled.compilationReport.textureViews.find((entry) => entry.id === view.id);
@@ -930,9 +930,9 @@ test('compile validates 3d color attachment depth slices and reports them separa
 	});
 	graph.render({
 		label: 'slice-2',
+		sideEffect: true,
 		colorAttachments: [{ target: volume, depthSlice: 2, loadOp: 'clear', storeOp: 'store' }],
 	});
-	graph.markOutput(volume);
 
 	assert.deepEqual(graph.compile({ report: true }).compilationReport.accesses[0]?.textureRegion, {
 		baseMipLevel: 0,
@@ -1201,7 +1201,7 @@ test('compile compares resolve source and target extents at their selected mip l
 				storeOp: 'discard',
 			}],
 		});
-		graph.markOutput(resolve);
+		graph.markOutput(resolveView);
 
 		assert.doesNotThrow(() => graph.compile({ report: true }).compilationReport);
 	}
@@ -1219,7 +1219,7 @@ test('compile compares resolve source and target extents at their selected mip l
 				storeOp: 'discard',
 			}],
 		});
-		graph.markOutput(resolve);
+		graph.markOutput(resolveView);
 
 		assert.throws(
 			() => graph.compile({ report: true }).compilationReport,

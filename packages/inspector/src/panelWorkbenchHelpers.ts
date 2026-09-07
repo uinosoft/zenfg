@@ -22,7 +22,7 @@ export function selectionKey(selection: Selection): string {
 		case 'node': return `node:${selection.id}`;
 		case 'group': return `group:${selection.pathKey}`;
 		case 'resource': return `resource:${selection.id}`;
-		case 'root': return `root:${selection.index}`;
+		case 'root': return `root:${selection.key}`;
 		case 'culled': return `culled:${selection.index}`;
 		case 'allocation': return `allocation:${selection.id}`;
 		case 'segment': return `segment:${selection.index}`;

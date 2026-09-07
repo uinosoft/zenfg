@@ -394,10 +394,10 @@ test('compile separates transient texture pool keys by descriptor dimensions use
 	for (const target of [base, differentFormat, differentSize, differentDimension, differentSampleCount, differentMipLevelCount]) {
 		graph.render({
 			label: `write-${target.label}`,
+			sideEffect: true,
 			uses: [graph.use(source, TextureAccess.Sampled)],
 			colorAttachments: [{ target, loadOp: 'clear', storeOp: 'store', ...(target === differentDimension ? { depthSlice: 0 } : {}) }],
 		});
-		graph.markOutput(target);
 	}
 	graph.render({
 		label: `write-${differentUsage.label}`,

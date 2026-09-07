@@ -145,6 +145,11 @@ export function normalizeProducerSnapshot(caseName, snapshot) {
         reason: root.reason,
         ...(root.nodeId === undefined ? {} : { node: lookup(nodeLabels, root.nodeId, 'node') }),
         ...(root.resourceId === undefined ? {} : { resource: lookup(resourceLabels, root.resourceId, 'resource') }),
+        ...(root.range === undefined ? {} : { range: root.range }),
+        ...(root.resolution === undefined ? {} : { resolution: {
+            usesInitialContents: root.resolution.usesInitialContents,
+            producerNodes: root.resolution.producerNodeIds.map((id) => lookup(nodeLabels, id, 'node')),
+        } }),
     })).sort(compareJsonValue);
 
     const segments = graph.segments.map((segment) => ({

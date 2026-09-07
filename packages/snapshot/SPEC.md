@@ -1,9 +1,9 @@
-# FrameGraph Snapshot 1.0 Specification
+# FrameGraph Snapshot 1.1 Specification
 
 ## 1. Status and terminology
 
 This document is the language-neutral normative definition of FrameGraph
-Snapshot 1.0. The key words MUST, MUST NOT, REQUIRED, SHOULD, SHOULD NOT, and
+Snapshot 1.1. The key words MUST, MUST NOT, REQUIRED, SHOULD, SHOULD NOT, and
 MAY are requirements on producers and consumers.
 
 A Snapshot is a diagnostic description of one compiled FrameGraph frame. It
@@ -18,7 +18,7 @@ semantics. A Snapshot is valid only when it satisfies both layers.
 
 - Files MUST be UTF-8 JSON and conventionally use `.fgsnapshot.json`.
 - `format` MUST be `zenfg.frame-graph-snapshot`.
-- Version 1.0 is `{ "major": 1, "minor": 0 }`.
+- Version 1.1 is `{ "major": 1, "minor": 1 }`. Canonical 1.0 is no longer accepted.
 - Readers MUST reject unknown major or minor versions and MUST NOT guess that
   an unknown version is compatible.
 - Canonical V1 means the current V1 data model. It does not prescribe object-key
@@ -86,6 +86,9 @@ The allowed unavailable facts and their invariants are:
   array order MUST NOT be interpreted as original recording order.
 - `graph.accesses.regions`: one or more accesses lack their matching range.
   Present ranges remain authoritative and MUST be valid.
+- `graph.roots.range`: one or more resource roots lack their normalized range.
+- `graph.roots.resolution`: one or more resource roots lack their final-content
+  resolution. Missing resolution is Unknown, not an empty producer list or false.
 
 Without the corresponding unavailable fact, normal V1 completeness rules
 apply. Migration metadata is part of canonical V1 and MUST survive re-encoding.
@@ -103,7 +106,8 @@ apply. Migration metadata is part of canonical V1 and MUST survive re-encoding.
 - A texture view MUST reference a texture resource. An access view and resource
   MUST identify the same resource. A resource and its allocation MUST have the
   same kind.
-- A root MUST reference exactly one node or resource.
+- A `side-effect` root MUST reference only a retained node. Every other root
+  reason MUST reference only a resource.
 
 Resource `lifetime.firstUse` and `lastUse`, when present, use retained execution
 order indices, satisfy `firstUse <= lastUse`, and lie inside `0..N-1`.
@@ -158,7 +162,37 @@ A texture region has a positive mip count and exactly one complete interval:
 `baseArrayLayer` plus `arrayLayerCount`, or `baseDepthSlice` plus
 `depthSliceCount`. It MUST NOT contain both interval forms.
 
-## 7. Memory, timing, diagnostics, and extensions
+## 7. Roots and final contents
+
+Native 1.1 resource roots MUST contain `range` and `resolution`. A buffer range
+contains `kind: "buffer"`, a resolved `offset`, and a positive `size`. A texture
+range contains `kind: "texture"` and non-empty normalized `regions` using the
+texture-region fields above. Ranges MUST match the resource kind and remain
+within its descriptor, including mip-dependent depth for 3D textures. Empty
+root ranges are invalid; this does not change the ordinary empty-buffer-access
+contract.
+
+Root identity is resource ID, reason, and normalized range, never array position
+or texture-view ID. Producers deduplicate identical declarations, retain distinct
+ranges independently, and do not merge overlapping roots. Texture producers
+normalize selected regions by mip and aspect, with resolved slice intervals.
+
+`resolution` contains only `producerNodeIds` and `usesInitialContents`. Producer
+IDs MUST be unique retained nodes in execution order. They identify every final
+writer contributing to the selected range. `usesInitialContents` is true if
+defined initial contents contribute; it MAY be true alongside non-empty producer
+IDs. At least one producer or initial contents MUST contribute. Compilers MUST
+reject partially undefined or discarded selected contents (FG1004), regardless
+of whether diagnostic reports are enabled. A side-effect root has neither range
+nor resolution.
+
+Historical migration MAY omit unavailable range or resolution, with the
+corresponding unavailable fact above. It MUST NOT guess final writers from graph
+reachability. Inspectors retain unknown-source output endpoints without invented
+source edges. Ambiguous historical roots cannot provide stable cross-capture
+selection identity.
+
+## 8. Memory, timing, diagnostics, and extensions
 
 Resources point one way to allocations; allocations do not repeat resource IDs.
 Segments likewise list nodes one way. Consumers construct reverse indices.
@@ -183,7 +217,7 @@ each over-limit extension. Its path is the JSON Pointer to that extension root
 message is `Extension JSON nesting depth must not exceed 64 container levels.`
 Consumers MUST preserve extensions they do not understand.
 
-## 8. Historical migration
+## 9. Historical migration
 
 Readers recognize the unversioned `{ compilation, gpuTiming, resourcePool }`
 Legacy V0 capture and the `zenfg.frame-graph-snapshot-candidate` Legacy
@@ -201,10 +235,11 @@ remains unchanged because that intent cannot be reconstructed.
 
 Migration MUST validate source values before conversion and MUST reject unknown
 usage bits or malformed fields. It MUST NOT invent stable keys, descriptors,
-estimates, group tables, view tables, recording order, or access regions.
-Re-encoding always writes V1 with persistent `capture.migration` provenance.
+estimates, group tables, view tables, recording order, access regions, root ranges,
+or output resolutions. Re-encoding always writes 1.1 with persistent
+`capture.migration` provenance.
 
-## 9. Conformance
+## 10. Conformance
 
 `conformance/manifest.json` is the portable test index. V1 valid cases pass the
 Schema and semantic validator. Structural-invalid cases fail both. Semantic-

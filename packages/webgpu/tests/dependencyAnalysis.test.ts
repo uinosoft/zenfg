@@ -183,7 +183,8 @@ test('compile lets a later texture overwrite replace an unused previous producer
 	const report = graph.compile({ report: true }).compilationReport;
 	assert.deepEqual(report.nodes.map((node) => node.label), ['second']);
 	assert.deepEqual(report.culledNodes.map((node) => node.label), ['first']);
-	assert.deepEqual(report.roots, [{ reason: 'output', resourceId: color.id }]);
+	assert.deepEqual(report.roots.map(({ reason, resourceId }) => ({ reason, resourceId })), [{ reason: 'output', resourceId: color.id }]);
+	assert.deepEqual(report.roots[0]?.resolution, { producerNodeIds: [report.nodes[0]!.id], usesInitialContents: false });
 });
 
 test('compile allows independent producers for different texture array layers', () => {
@@ -226,7 +227,7 @@ test('compile tracks independent 3d attachment slices and orders a loaded slice 
 	const volume = graph.createTexture({
 		label: 'volume',
 		format: 'rgba8unorm',
-		size: [8, 8, 3],
+		size: [8, 8, 2],
 		dimension: '3d',
 	});
 	graph.render({
@@ -917,7 +918,7 @@ test('discarded attachment writes do not produce a marked output texture value',
 	});
 	graph.markOutput(color);
 
-	assert.deepEqual(graph.compile({ report: true }).compilationReport.nodes, []);
+	assert.throws(() => graph.compile(), (error) => error instanceof FrameGraphError && error.code === 'FG1004');
 });
 
 test('compile rejects reading color and depth attachment values after discard', () => {
@@ -1192,9 +1193,7 @@ test('discard prevents marking an earlier stored texture value as output', () =>
 	});
 	graph.markOutput(color);
 
-	const compiled = graph.compile({ report: true }).compilationReport;
-	assert.deepEqual(compiled.nodes, []);
-	assert.deepEqual(compiled.culledNodes.map((node) => node.label), ['store', 'discard']);
+	assert.throws(() => graph.compile({ report: true }), (error) => error instanceof FrameGraphError && error.code === 'FG1004');
 });
 
 test('discarded values remain invalid until a later producer is recorded', () => {
@@ -1524,7 +1523,7 @@ test('copy node tracks texture subresource ranges', () => {
 			copySize: [2, 2, 1],
 		}],
 	});
-	graph.markOutput(destination);
+	graph.markOutput(graph.createTextureView(destination, { baseMipLevel: 2, mipLevelCount: 1, baseArrayLayer: 1, arrayLayerCount: 1 }));
 
 	const compiled = graph.compile({ report: true }).compilationReport;
 	const debug = compiled;
@@ -1911,7 +1910,7 @@ test('marked buffer output retains only final fully-overwriting ranged writer wh
 		sideEffect: false,
 		uses: [graph.use(target, BufferAccess.StorageWrite, { range: { offset: 0, size: 16 }, contents: 'overwrite' })],
 	});
-	graph.markOutput(target);
+	graph.markOutput(target, { offset: 0, size: 16 });
 
 	const compiled = graph.compile({ report: true }).compilationReport;
 	const debug = compiled;

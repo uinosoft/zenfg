@@ -79,7 +79,7 @@ pub fn decode_frame_graph_snapshot(
             vec![SnapshotIssue::warning(
                 "legacy-v0-migrated",
                 "",
-                "The unversioned debug capture was migrated to FrameGraph Snapshot 1.0.",
+                "The unversioned debug capture was migrated to FrameGraph Snapshot 1.1.",
             )],
         );
     }
@@ -92,7 +92,23 @@ pub fn decode_frame_graph_snapshot(
     };
     match root.get("format").and_then(Value::as_str) {
         Some(LEGACY_CANDIDATE_FRAME_GRAPH_SNAPSHOT_FORMAT) => {
-            check_version(root)?;
+            if root
+                .get("version")
+                .and_then(|v| v.get("major"))
+                .and_then(Value::as_u64)
+                != Some(1)
+                || root
+                    .get("version")
+                    .and_then(|v| v.get("minor"))
+                    .and_then(Value::as_u64)
+                    != Some(0)
+            {
+                return failure(
+                    "unsupported-version",
+                    "/version",
+                    "Legacy Candidate supports only 1.0.",
+                );
+            }
             finish(
                 migrate_legacy_candidate_v1(value),
                 SnapshotDecodeSource::LegacyCandidateV1,
@@ -100,7 +116,7 @@ pub fn decode_frame_graph_snapshot(
                 vec![SnapshotIssue::warning(
                     "legacy-candidate-v1-migrated",
                     "",
-                    "Legacy Candidate V1 was migrated to ZenFG Snapshot 1.0.",
+                    "Legacy Candidate V1 was migrated to ZenFG Snapshot 1.1.",
                 )],
             )
         }
@@ -161,12 +177,23 @@ fn check_version(root: &Map<String, Value>) -> Result<(), SnapshotDecodeError> {
     failure(
         "unsupported-version",
         "/version",
-        format!("Snapshot version {actual} is not supported; this Viewer supports 1.0."),
+        format!("Snapshot version {actual} is not supported; this Viewer supports 1.1."),
     )
 }
 
 fn migrate_legacy_candidate_v1(mut value: Value) -> Value {
     let root = value.as_object_mut().expect("checked object");
+    root.insert("version".into(), json!({ "major": 1, "minor": 1 }));
+    let unavailable = if root
+        .get("graph")
+        .and_then(|g| g.get("roots"))
+        .and_then(Value::as_array)
+        .is_some_and(|roots| roots.iter().any(|r| r.get("resourceId").is_some()))
+    {
+        vec!["graph.roots.range", "graph.roots.resolution"]
+    } else {
+        vec![]
+    };
     root.insert(
         "format".into(),
         Value::String(FRAME_GRAPH_SNAPSHOT_FORMAT.into()),
@@ -174,7 +201,7 @@ fn migrate_legacy_candidate_v1(mut value: Value) -> Value {
     if let Some(capture) = root.get_mut("capture").and_then(Value::as_object_mut) {
         capture.insert(
             "migration".into(),
-            json!({ "sourceFormat": "legacy-candidate-v1", "unavailableFacts": [] }),
+            json!({ "sourceFormat": "legacy-candidate-v1", "unavailableFacts": unavailable }),
         );
     }
     if let Some(resources) = root
@@ -643,6 +670,15 @@ fn migrate_legacy_v0(value: &Value) -> Result<Value, SnapshotDecodeError> {
         Value::String("graph.textureViews".into()),
         Value::String("graph.nodes.recordingOrder".into()),
     ];
+    if mapped_roots
+        .iter()
+        .any(|root| root.get("resourceId").is_some())
+    {
+        unavailable.extend([
+            Value::String("graph.roots.range".into()),
+            Value::String("graph.roots.resolution".into()),
+        ]);
+    }
     if !groups_available {
         unavailable.insert(0, Value::String("graph.groups".into()));
     }
@@ -671,7 +707,7 @@ fn migrate_legacy_v0(value: &Value) -> Result<Value, SnapshotDecodeError> {
             .insert("estimatedRetainedBytes".into(), Value::from(estimated));
     }
     Ok(json!({
-        "format": FRAME_GRAPH_SNAPSHOT_FORMAT, "version": { "major": 1, "minor": 0 },
+        "format": FRAME_GRAPH_SNAPSHOT_FORMAT, "version": { "major": 1, "minor": 1 },
         "producer": { "name": "legacy-unversioned" },
         "capture": { "frameIndex": frame_index.unwrap(), "migration": { "sourceFormat": "legacy-v0", "unavailableFacts": unavailable } },
         "graph": { "groups": mapped_groups, "nodes": mapped_nodes, "resources": mapped_resources, "textureViews": [], "accesses": mapped_accesses, "dependencies": mapped_dependencies, "roots": mapped_roots, "segments": mapped_segments },

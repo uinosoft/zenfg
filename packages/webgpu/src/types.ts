@@ -950,10 +950,26 @@ type FrameGraphCompilationResource = FrameGraphCompilationResourceBase & (
 );
 
 /**
- * Optional diagnostic projection of a compiled FrameGraph recording.
+ * Resolved non-empty range of an observable resource root.
  *
  * @beta
  */
+export type FrameGraphResourceRange =
+	| { readonly kind: 'buffer'; readonly offset: number; readonly size: number }
+	| { readonly kind: 'texture'; readonly regions: readonly CompiledTextureRegion[] };
+
+/** Final contents selected by an observable resource root. */
+export type FrameGraphRootResolution = {
+	readonly producerNodeIds: readonly number[];
+	readonly usesInitialContents: boolean;
+};
+
+/** A side effect or a precisely selected final resource value. */
+export type FrameGraphCompilationRoot =
+	| { readonly reason: 'side-effect'; readonly nodeId: number; readonly resourceId?: never; readonly range?: never; readonly resolution?: never }
+	| { readonly reason: Exclude<GraphRootReason, 'side-effect'>; readonly resourceId: number; readonly nodeId?: never; readonly range: FrameGraphResourceRange; readonly resolution: FrameGraphRootResolution };
+
+/** Optional diagnostic projection of a compiled recording. @beta */
 export type FrameGraphCompilationReport = {
 	/** Retained nodes in execution order. */
 	readonly nodes: readonly {
@@ -1010,11 +1026,7 @@ export type FrameGraphCompilationReport = {
 		readonly kind: 'value' | 'ordering';
 	}[];
 	/** Reasons graph work was retained. */
-	readonly roots: readonly {
-		readonly reason: GraphRootReason;
-		readonly nodeId?: number;
-		readonly resourceId?: number;
-	}[];
+	readonly roots: readonly FrameGraphCompilationRoot[];
 	/** Physical transient allocations, without allocator-private keys. */
 	readonly allocations: readonly {
 		readonly id: number;
@@ -1230,16 +1242,19 @@ export interface FrameGraphRecording {
 	 * transient physical resource. Post-execution access requires caller-owned
 	 * imported storage.
 	 */
-	markOutput(resource: ResourceHandle): void;
+	markOutput(resource: ResourceHandle | TextureViewHandle): void;
+	markOutput(buffer: BufferHandle, range: BufferRange): void;
 	/** Retains the final producer of caller-owned state needed by a later frame. */
-	markPersistentState(resource: ResourceHandle): void;
+	markPersistentState(resource: ResourceHandle | TextureViewHandle): void;
+	markPersistentState(buffer: BufferHandle, range: BufferRange): void;
 	/**
 	 * Retains the final visible producer of a caller-owned staging buffer imported
 	 * with graph-visible `GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ`.
 	 */
-	markReadback(resource: BufferHandle): void;
+	markReadback(resource: BufferHandle, range?: BufferRange): void;
 	/** Retains the final visible producer of a resource for debug capture. */
-	markDebugCapture(resource: ResourceHandle): void;
+	markDebugCapture(resource: ResourceHandle | TextureViewHandle): void;
+	markDebugCapture(buffer: BufferHandle, range: BufferRange): void;
 }
 
 /**

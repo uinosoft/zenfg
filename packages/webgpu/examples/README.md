@@ -15,7 +15,7 @@ recording with diagnostics enabled.
 | [`imported-resource.ts`](./imported-resource.ts) | Caller-owned buffer import and graph-visible uniform access |
 | [`persistent-state.ts`](./persistent-state.ts) | Defined/undefined imported contents and a cross-frame state root |
 | [`external-submission.ts`](./external-submission.ts) | Opaque caller-owned submission boundary followed by native work |
-| [`snapshot-export.ts`](./snapshot-export.ts) | Matching compilation, timing, and pool reports encoded as Snapshot 1.0 |
+| [`snapshot-export.ts`](./snapshot-export.ts) | Matching compilation, timing, and pool reports encoded as Snapshot 1.1 |
 | [`gpu-timing.ts`](./gpu-timing.ts) | Opt-in asynchronous timestamp readback and unavailable results |
 | [`compute-output.ts`](./compute-output.ts) | Compute storage output retained through an output root |
 

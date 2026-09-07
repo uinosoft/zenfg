@@ -152,7 +152,7 @@ test('migrates Legacy Candidate V1 and preserves unknown imported initial conten
 	assert.equal(decoded.source, 'legacy-candidate-v1');
 	assert.equal(decoded.migrated, true);
 	assert.equal(decoded.snapshot.format, FRAME_GRAPH_SNAPSHOT_FORMAT);
-	assert.deepEqual(decoded.snapshot.capture.migration, { sourceFormat: 'legacy-candidate-v1', unavailableFacts: [] });
+	assert.deepEqual(decoded.snapshot.capture.migration, { sourceFormat: 'legacy-candidate-v1', unavailableFacts: ['graph.roots.range', 'graph.roots.resolution'] });
 	for (const resource of decoded.snapshot.graph.resources) {
 		if (resource.origin === 'imported') assert.equal(resource.initialContents, undefined);
 		else assert.equal(resource.initialContents, 'undefined');
@@ -233,7 +233,7 @@ test('reports stable parse, format, and version failures', () => {
 	assert.equal(wrongFormat.ok, false);
 	if (!wrongFormat.ok) assert.deepEqual(wrongFormat.issues.map((issue) => [issue.code, issue.path]), [['unsupported-format', '/format']]);
 
-	for (const version of [{ major: 2, minor: 0 }, { major: 1, minor: 1 }]) {
+	for (const version of [{ major: 2, minor: 0 }, { major: 1, minor: 0 }, { major: 1, minor: 2 }]) {
 		const future = clone(readJson('../fixtures/minimal.fgsnapshot.json')) as any;
 		future.version = version;
 		const result = decodeFrameGraphSnapshot(future);

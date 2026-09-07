@@ -1,6 +1,6 @@
 {
   "format": "zenfg.frame-graph-snapshot",
-  "version": { "major": 1, "minor": 0 },
+  "version": { "major": 1, "minor": 1 },
   "producer": { "name": "conformance" },
   "capture": { "frameIndex": 0 },
   "graph": {

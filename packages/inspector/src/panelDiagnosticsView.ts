@@ -71,8 +71,8 @@ export class DiagnosticsView {
 		const section = this.createSection('Retention roots', 'Roots explain why graph work survived dead-node elimination.');
 		const list = document.createElement('div');
 		list.className = 'zenfg-inspector-diagnostic-list';
-		snapshot.roots.forEach((root, index) => {
-			const selection: Selection = { kind: 'root', index };
+		snapshot.roots.forEach((root) => {
+			const selection: Selection = { kind: 'root', key: root.key };
 			const button = createRelationButton(
 				`${root.reason} · ${root.resource ? labelResource(root.resource) : root.nodeId === undefined ? '-' : `node-${root.nodeId}`}`,
 				selection,

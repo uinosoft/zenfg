@@ -1,28 +1,28 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { rootKey } from '../src/debugCaptureModel.ts';
+import { resolveSelectedDetail, selectionExists } from '../src/panelSelection.ts';
 
 import { BufferAccess, TextureAccess } from './accessKinds.ts';
 import { createLegacyDebugViewModel, type LegacyFrameGraphCapture } from './legacySnapshotFixture.ts';
 import {
     createGraphScene,
     graphGroupElementId,
-    indexAccessesByResourceId,
     selectionKey,
-    type AccessSceneEdge,
-    type DependencySceneEdge,
+    type GraphSceneEdge,
     type GroupSceneNode,
 } from '../src/panelGraphScene.ts';
 
 test('creates the exact retained pass DAG when diagnostic groups are disabled', () => {
     const snapshot = createLegacyDebugViewModel(createGroupedCapture());
     const scene = createGraphScene(snapshot, {
-        mode: 'passes',
+
         groupsEnabled: false,
         expandedGroupPaths: new Set(),
     });
 
-    assert.deepEqual(scene.nodes.map((node) => node.id), ['pass:node:1', 'pass:node:2', 'pass:node:3']);
-    assert.deepEqual(scene.edges.map((edge) => [edge.from, edge.to]), [
+    assert.deepEqual(scene.nodes.filter((node) => node.kind === 'pass' || node.kind === 'group').map((node) => node.id), ['pass:node:1', 'pass:node:2', 'pass:node:3']);
+    assert.deepEqual(scene.edges.filter((edge) => edge.underlyingDependencyCount > 0).map((edge) => [edge.from, edge.to]), [
         ['pass:node:1', 'pass:node:2'],
         ['pass:node:2', 'pass:node:3'],
     ]);
@@ -34,15 +34,15 @@ test('projects collapsed groups while keeping compound hierarchy in the scene', 
     const outer = snapshot.debugGroups[0]!;
     const bloom = snapshot.debugGroups[1]!;
     const collapsed = createGraphScene(snapshot, {
-        mode: 'passes',
+
         groupsEnabled: true,
         expandedGroupPaths: new Set(),
     });
     const outerId = graphGroupElementId(outer.pathKey);
 
-    assert.deepEqual(collapsed.nodes.map((node) => node.id), [outerId, 'pass:node:1', 'pass:node:3']);
+    assert.deepEqual(collapsed.nodes.filter((node) => node.kind === 'pass' || node.kind === 'group').map((node) => node.id), [outerId, 'pass:node:1', 'pass:node:3']);
     assert.equal(collapsed.nodes.some((node) => node.kind === 'group' && node.groupPathKey === snapshot.debugGroups[2]!.pathKey), false);
-    assert.deepEqual(collapsed.edges.map((edge) => [edge.from, edge.to, edge.resourceId]), [
+    assert.deepEqual(collapsed.edges.filter((edge) => edge.underlyingDependencyCount > 0).map((edge) => [edge.from, edge.to, edge.resourceId]), [
         ['pass:node:1', outerId, 'resource:1'],
         [outerId, 'pass:node:3', 'resource:2'],
     ]);
@@ -56,7 +56,7 @@ test('projects collapsed groups while keeping compound hierarchy in the scene', 
     );
 
     const rootExpanded = createGraphScene(snapshot, {
-        mode: 'passes',
+
         groupsEnabled: true,
         expandedGroupPaths: new Set([outer.pathKey]),
     });
@@ -73,13 +73,13 @@ test('projects collapsed groups while keeping compound hierarchy in the scene', 
     assert.deepEqual(outerNode.childNodeIds, [bloomNode.id]);
 
     const fullyExpanded = createGraphScene(snapshot, {
-        mode: 'passes',
+
         groupsEnabled: true,
         expandedGroupPaths: new Set([outer.pathKey, bloom.pathKey]),
     });
     assert.equal(fullyExpanded.nodes.filter((node) => node.kind === 'group').length, 2);
     assert.equal(fullyExpanded.nodes.find((node) => node.id === 'pass:node:2')?.parentId, graphGroupElementId(bloom.pathKey));
-    assert.deepEqual(fullyExpanded.edges.map((edge) => [edge.from, edge.to]), [
+    assert.deepEqual(fullyExpanded.edges.filter((edge) => edge.underlyingDependencyCount > 0).map((edge) => [edge.from, edge.to]), [
         ['pass:node:1', 'pass:node:2'],
         ['pass:node:2', 'pass:node:3'],
     ]);
@@ -102,14 +102,14 @@ test('folds representative dependencies per resource and gives value dependencie
         },
     });
     const scene = createGraphScene(snapshot, {
-        mode: 'passes',
+
         groupsEnabled: true,
         expandedGroupPaths: new Set(),
     });
-    const edge = scene.edges.find((candidate): candidate is DependencySceneEdge => (
-        candidate.kind === 'dependency' && candidate.resourceId === 'resource:1'
+    const edge = scene.edges.find((candidate): candidate is GraphSceneEdge => (
+        candidate.underlyingDependencyCount > 0 && candidate.resourceId === 'resource:1'
     ))!;
-    assert.equal(edge.dependencyKind, 'value');
+    assert.equal(edge.kind, 'flow');
     assert.equal(edge.underlyingDependencyCount, 2);
     assert.equal(scene.interaction.semanticReferencesByElementId.get(edge.id)?.dependencies.length, 2);
 });
@@ -133,13 +133,13 @@ test('eliminates dependencies internal to one collapsed representative', () => {
         },
     });
     const scene = createGraphScene(snapshot, {
-        mode: 'passes', groupsEnabled: true, expandedGroupPaths: new Set(),
+         groupsEnabled: true, expandedGroupPaths: new Set(),
     });
 
     assert.equal(scene.edges.some((edge) => edge.from === edge.to), false);
-    assert.equal(scene.edges.some((edge) => edge.kind === 'dependency'
+    assert.equal(scene.edges.some((edge) => edge.underlyingDependencyCount > 0
         && edge.underlyingDependencies.some((dependency) => dependency.toNodeId === 'node:5')), false);
-    assert.deepEqual(scene.edges.map((edge) => [edge.from, edge.to]), [
+    assert.deepEqual(scene.edges.filter((edge) => edge.underlyingDependencyCount > 0).map((edge) => [edge.from, edge.to]), [
         ['pass:node:1', graphGroupElementId(snapshot.debugGroups[0]!.pathKey)],
         [graphGroupElementId(snapshot.debugGroups[0]!.pathKey), 'pass:node:3'],
     ]);
@@ -164,7 +164,7 @@ test('keeps duplicate sibling groups independently expandable', () => {
     assert.notEqual(firstBloom!.pathKey, secondBloom!.pathKey);
 
     const scene = createGraphScene(snapshot, {
-        mode: 'passes',
+
         groupsEnabled: true,
         expandedGroupPaths: new Set([outer!.pathKey, firstBloom!.pathKey]),
     });
@@ -173,44 +173,83 @@ test('keeps duplicate sibling groups independently expandable', () => {
     assert.ok(scene.nodes.some((node) => node.kind === 'group' && node.groupId === secondBloom!.id));
 });
 
-test('creates a renderer-independent resource access scene including culled passes', () => {
+test('creates declaration entrances only for retained topology boundaries', () => {
     const snapshot = createLegacyDebugViewModel(createGroupedCapture());
-    const accessesByResourceId = indexAccessesByResourceId(snapshot.accessEdges);
-    assert.deepEqual(accessesByResourceId.get('resource:1')?.map((access) => access.accessId), ['access:1', 'access:2']);
-    assert.deepEqual(accessesByResourceId.get('resource:2')?.map((access) => access.accessId), ['access:3', 'access:4']);
-    assert.deepEqual(accessesByResourceId.get('resource:3')?.map((access) => access.accessId), ['access:5']);
-    const scene = createGraphScene(snapshot, {
-        mode: 'resources',
-        groupsEnabled: true,
-        expandedGroupPaths: new Set(),
-    });
-
-    assert.ok(scene.nodes.some((node) => node.kind === 'culled-pass' && node.nodeId === 'node:4'));
-    assert.ok(scene.nodes.some((node) => node.kind === 'resource' && node.resourceId === 'resource:3'));
-    const culledAccess = scene.edges.find((edge): edge is AccessSceneEdge => edge.kind === 'access' && edge.accessId === 'access:5');
-    assert.equal(culledAccess?.from, 'culled-pass:0:node:4');
-    assert.equal(culledAccess?.to, 'resource:resource:3');
-    assert.equal(culledAccess?.dashed, true);
-    assert.match(culledAccess?.title ?? '', /buffer: 16\+32/);
-    const readAccess = scene.edges.find((edge): edge is AccessSceneEdge => edge.kind === 'access' && edge.accessId === 'access:2')!;
-    assert.equal(readAccess.from, 'resource:resource:1');
-    assert.equal(readAccess.to, 'pass:node:2');
-    assert.match(readAccess.title, /texture: mip 1\+1/);
-    assert.deepEqual(scene.interaction.semanticReferencesByElementId.get(readAccess.id)?.accessIds, ['access:2']);
-    const resourceKey = selectionKey({ kind: 'resource', id: 'resource:1' });
-    assert.deepEqual(scene.interaction.primaryElementIdsBySelection.get(resourceKey), ['resource:resource:1']);
-    assert.deepEqual(scene.interaction.relatedElementIdsBySelection.get(resourceKey), [
-        'resource:resource:1',
-        'access:access:1:resource:1',
-        'access:access:2:resource:1',
+    const scene = createGraphScene(snapshot, { groupsEnabled: false, expandedGroupPaths: new Set() });
+    assert.deepEqual(scene.nodes.filter((node) => node.kind === 'resource').map((node) => node.resourceId), ['resource:1', 'resource:2']);
+    assert.deepEqual(scene.edges.filter((edge) => edge.relations.some((relation) => relation.role === 'declaration')).map((edge) => [edge.from, edge.to]), [
+        ['resource:resource:1', 'pass:node:1'], ['resource:resource:2', 'pass:node:2'],
     ]);
-    assert.equal(scene.interaction.selectionByElementId.get('access:access:2:resource:1')?.kind, 'resource');
+    assert.ok(scene.nodes.every((node) => node.kind !== ('culled-pass' as string)));
+    assert.ok(scene.edges.every((edge) => !('label' in edge)));
+    assert.ok(scene.nodes.find((node) => node.id === 'resource:resource:1')?.label.includes('Imported'));
+    assert.ok(scene.nodes.find((node) => node.id === 'resource:resource:1')?.label.includes('\nImported'));
+    assert.deepEqual(scene.interaction.hoverElementIdsBySelection.get('node:node:1'), ['pass:node:1']);
+    const declaration = scene.edges.find((edge) => edge.relations[0]?.role === 'declaration')!;
+    const selected = scene.interaction.selectionByElementId.get(declaration.id)!;
+    assert.deepEqual(selected, { kind: 'resource', id: declaration.resourceId });
+    assert.equal((resolveSelectedDetail(snapshot, selected) as { id: string }).id, declaration.resourceId);
+});
+
+test('root selection follows normalized identity across array reorder, but not ambiguous Legacy roots', () => {
+    const snapshot = createLegacyDebugViewModel(createGroupedCapture());
+    const resource = snapshot.resources[2]!;
+    const roots = [0, 8].map((offset) => {
+        const declaration = { reason: 'output' as const, resourceId: resource.id, range: { kind: 'buffer' as const, offset, size: 8 } };
+        return { ...declaration, resource, key: rootKey(declaration) };
+    });
+    const selection = { kind: 'root' as const, key: roots[0]!.key };
+    const reordered = { ...snapshot, roots: [...roots].reverse() };
+    assert.equal(selectionExists(reordered, selection), true);
+    assert.equal(resolveSelectedDetail(reordered, selection), roots[0]);
+    const legacy = { reason: 'output' as const, resourceId: resource.id, resource };
+    const ambiguous = { ...snapshot, roots: [legacy, legacy].map((root) => ({ ...root, key: rootKey(root) })) };
+    assert.equal(selectionExists(ambiguous, { kind: 'root', key: rootKey(legacy) }), false);
+});
+
+test('ordering dependencies also suppress redundant declaration entrances', () => {
+    const capture = createGroupedCapture();
+    const snapshot = createLegacyDebugViewModel({ ...capture, compilation: { ...capture.compilation,
+        dependencies: capture.compilation.dependencies.map((edge) => ({ ...edge, kind: 'ordering' as const })),
+        accesses: [...capture.compilation.accesses, { ...capture.compilation.accesses[0]!, id: 99 }],
+    } });
+    const scene = createGraphScene(snapshot, { groupsEnabled: false, expandedGroupPaths: new Set() });
+    assert.equal(scene.edges.filter((edge) => edge.relations.some((relation) => relation.role === 'declaration')).length, 2);
+    assert.equal(scene.edges.filter((edge) => edge.kind === 'ordering').length, 2);
+});
+
+test('outputs retain exact producer and initial-content relations, including root-only resources', () => {
+    const base = createLegacyDebugViewModel(createGroupedCapture());
+    const resource = { id: 'resource:initial', kind: 'buffer' as const, origin: 'imported' as const, initialContents: 'defined' as const, usageFlags: [] };
+    const roots = [
+        { key: 'mixed', reason: 'output' as const, resourceId: 'resource:1', resource: base.resources[0]!, range: { kind: 'texture' as const, regions: [{ baseMipLevel: 0, mipLevelCount: 1, baseArrayLayer: 0, arrayLayerCount: 3, aspect: 'all' }] }, resolution: { producerNodeIds: ['node:1', 'node:2'], usesInitialContents: true } },
+        { key: 'initial', reason: 'readback' as const, resourceId: resource.id, resource, range: { kind: 'buffer' as const, offset: 0, size: 16 }, resolution: { producerNodeIds: [], usesInitialContents: true } },
+        { key: 'legacy', reason: 'debug-capture' as const, resourceId: 'resource:1', resource: base.resources[0]! },
+    ];
+    const resources = [...base.resources.map((entry) => entry.id === 'resource:1' ? { ...entry, initialContents: 'defined' as const } : entry), resource];
+    const scene = createGraphScene({ ...base, resources, resourceById: new Map(resources.map((entry) => [entry.id, entry])), roots }, { groupsEnabled: false, expandedGroupPaths: new Set() });
+    assert.equal(scene.nodes.filter((node) => node.kind === 'root').length, 3);
+    assert.deepEqual(scene.edges.filter((edge) => edge.to === 'root:mixed').map((edge) => edge.from), ['pass:node:1', 'pass:node:2', 'resource:resource:1']);
+    assert.equal(scene.edges.filter((edge) => edge.to === 'root:initial').length, 1);
+    assert.equal(scene.edges.filter((edge) => edge.to === 'root:legacy').length, 0);
+    assert.equal(scene.interaction.selectionByElementId.get('root:mixed')?.kind, 'root');
+});
+
+test('resource-only groups remain visible and fold initial output without inferring relation roles', () => {
+    const base = createLegacyDebugViewModel(createGroupedCapture());
+    const resource = { ...base.resources[2]!, origin: 'imported' as const, initialContents: 'defined' as const };
+    const root = { key: 'only', reason: 'output' as const, resourceId: resource.id, resource, resolution: { producerNodeIds: [], usesInitialContents: true } };
+    const resources = base.resources.map((entry) => entry.id === resource.id ? resource : entry);
+    const scene = createGraphScene({ ...base, resources, resourceById: new Map(resources.map((entry) => [entry.id, entry])), roots: [root] }, { groupsEnabled: true, expandedGroupPaths: new Set() });
+    const edge = scene.edges.find((edge) => edge.to === 'root:only')!;
+    assert.ok(edge.from.startsWith('group:'));
+    assert.deepEqual(edge.relations.map((relation) => relation.role), ['output-initial']);
 });
 
 test('changes content keys for tooltip-only metadata without changing topology keys', () => {
     const capture = createGroupedCapture();
     const first = createGraphScene(createLegacyDebugViewModel(capture), {
-        mode: 'resources', groupsEnabled: true, expandedGroupPaths: new Set(),
+         groupsEnabled: false, expandedGroupPaths: new Set(),
     });
     const changed = createGraphScene(createLegacyDebugViewModel({
         ...capture,
@@ -221,10 +260,49 @@ test('changes content keys for tooltip-only metadata without changing topology k
                 : resource),
         },
     }), {
-        mode: 'resources', groupsEnabled: true, expandedGroupPaths: new Set(),
+         groupsEnabled: false, expandedGroupPaths: new Set(),
     });
     assert.equal(first.topologyKey, changed.topologyKey);
     assert.notEqual(first.contentKey, changed.contentKey);
+});
+
+test('indexes only resource entrances and edges by logical ID, independent of ranges and allocations', () => {
+    const capture = createGroupedCapture();
+    const base = createLegacyDebugViewModel({ ...capture, compilation: { ...capture.compilation,
+        resources: capture.compilation.resources.map((resource) => resource.kind === 'texture'
+            ? { ...resource, label: 'same-name', physicalAllocationId: 1 } : resource),
+        dependencies: [...capture.compilation.dependencies,
+            { fromNodeId: 2, toNodeId: 3, resourceId: 1, kind: 'ordering' }],
+    } });
+    const resource = base.resources[0]!;
+    const roots = [0, 1].map((mip) => ({
+        key: `mip:${mip}`, reason: 'output' as const, resourceId: resource.id, resource,
+        range: { kind: 'texture' as const, regions: [{ baseMipLevel: mip, mipLevelCount: 1, baseArrayLayer: 0, arrayLayerCount: 1, aspect: 'all' }] },
+        resolution: { producerNodeIds: ['node:1'], usesInitialContents: true },
+    }));
+    const snapshot = { ...base, roots };
+    for (const expandedGroupPaths of [new Set<string>(), new Set(base.debugGroups.map((group) => group.pathKey))]) {
+        const scene = createGraphScene(snapshot, { groupsEnabled: true, expandedGroupPaths });
+        for (const resource of base.resources) {
+            const expected = [
+                ...scene.nodes.filter((node) => node.kind === 'resource' && node.resourceId === resource.id).map((node) => node.id),
+                ...scene.edges.filter((edge) => edge.resourceId === resource.id).map((edge) => edge.id),
+            ];
+            assert.deepEqual(scene.interaction.resourceElementIdsByResourceId.get(resource.id) ?? [], expected);
+            assert.deepEqual(scene.interaction.primaryElementIdsBySelection.get(`resource:${resource.id}`) ?? [], expected);
+            assert.deepEqual(scene.interaction.hoverElementIdsBySelection.get(`resource:${resource.id}`) ?? [], expected);
+            for (const edge of scene.edges.filter((edge) => edge.resourceId === resource.id)) {
+                assert.deepEqual(scene.interaction.selectionByElementId.get(edge.id), { kind: 'resource', id: resource.id });
+                assert.equal(edge.title, 'same-name\n' + [...new Set(edge.relations.map((relation) => relation.role))].join(' · '));
+            }
+        }
+        const roles = scene.edges.filter((edge) => edge.resourceId === resource.id).flatMap((edge) => edge.relations.map((relation) => relation.role));
+        assert.deepEqual(new Set(roles), new Set(['declaration', 'value', 'ordering', 'output-producer', 'output-initial']));
+        for (const node of scene.nodes) {
+            const selection = scene.interaction.selectionByElementId.get(node.id)!;
+            if (node.kind !== 'resource') assert.deepEqual(scene.interaction.hoverElementIdsBySelection.get(selectionKey(selection)), [node.id]);
+        }
+    }
 });
 
 function createGroupedCapture(): LegacyFrameGraphCapture {

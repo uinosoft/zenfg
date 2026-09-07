@@ -207,7 +207,12 @@ export function migrateLegacyFrameGraphCapture(value: unknown): LegacyMigrationR
 		const node = optionalSafeInteger(root.nodeId, `${path}/nodeId`, errors);
 		const resource = optionalSafeInteger(root.resourceId, `${path}/resourceId`, errors);
 		if ((node === undefined) === (resource === undefined)) errors.push(issue('legacy-root', path, 'Legacy root must reference exactly one node or resource.'));
-		return reason === undefined || (node === undefined) === (resource === undefined) ? [] : [{ reason, nodeId: node === undefined ? undefined : nodeId(node), resourceId: resource === undefined ? undefined : resourceId(resource) }];
+		if (reason === undefined || (node === undefined) === (resource === undefined)) return [];
+		if ((reason === 'side-effect') !== (node !== undefined)) {
+			errors.push(issue('legacy-root', path, 'Only side-effect roots may reference nodes.'));
+			return [];
+		}
+		return [reason === 'side-effect' ? { reason, nodeId: nodeId(node!) } : { reason, resourceId: resourceId(resource!) }];
 	});
 	const mappedAllocations = allocations.flatMap((allocation, index) => {
 		const path = `/compilation/allocations/${index}`;
@@ -256,6 +261,7 @@ export function migrateLegacyFrameGraphCapture(value: unknown): LegacyMigrationR
 	const unavailableFacts: FrameGraphSnapshotUnavailableFact[] = [
 		'graph.textureViews',
 		'graph.nodes.recordingOrder',
+		...(mappedRoots.some((root) => root.reason !== 'side-effect') ? ['graph.roots.range' as const, 'graph.roots.resolution' as const] : []),
 	];
 	if (!groupsAvailable) unavailableFacts.unshift('graph.groups');
 	if (mappedAccesses.some((access) => access.access.startsWith('texture-') ? !access.textureRegion : !access.bufferRange)) {
@@ -295,7 +301,7 @@ export function migrateLegacyFrameGraphCapture(value: unknown): LegacyMigrationR
 			severity: 'warning',
 			code: 'legacy-v0-migrated',
 			path: '',
-			message: 'The unversioned debug capture was migrated to FrameGraph Snapshot 1.0.',
+			message: 'The unversioned debug capture was migrated to FrameGraph Snapshot 1.1.',
 		}],
 	};
 }

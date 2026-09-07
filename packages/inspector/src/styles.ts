@@ -606,18 +606,8 @@ button[aria-busy='true'] > .zenfg-inspector-control-icon {
 	border-bottom: 1px solid var(--fgd-border-subtle);
 	background: var(--fgd-surface);
 }
-.zenfg-inspector-graph-mode-controls,
 .zenfg-inspector-graph-action-controls { display: flex; align-items: center; min-width: 0; }
 .zenfg-inspector-graph-action-controls { gap: 4px; }
-.zenfg-inspector-graph-toolbar .zenfg-inspector-mode-button {
-	margin-right: -1px;
-	border-radius: 0;
-}
-.zenfg-inspector-graph-toolbar .zenfg-inspector-mode-button:first-child { border-radius: 5px 0 0 5px; }
-.zenfg-inspector-graph-toolbar .zenfg-inspector-mode-button:last-child {
-	margin-right: 0;
-	border-radius: 0 5px 5px 0;
-}
 .zenfg-inspector-graph-toolbar button.active,
 .zenfg-inspector-graph-toolbar button[aria-pressed='true'] {
 	z-index: 1;
@@ -650,7 +640,15 @@ button[aria-busy='true'] > .zenfg-inspector-control-icon {
 	background: color-mix(in srgb, var(--zenfg-inspector-legend-color) 20%, var(--fgd-canvas));
 }
 .zenfg-inspector-legend-swatch[data-shape='ellipse'] { border-radius: 50%; }
-.zenfg-inspector-legend-swatch[data-shape='group'] { border-style: double; background: transparent; }
+.zenfg-inspector-legend-swatch[data-shape='group'] { background: transparent; }
+.zenfg-inspector-legend-swatch[data-shape='cut-rectangle'],
+.zenfg-inspector-legend-swatch[data-shape='tag'] { width: 14px; height: 10px; border: 0; background: transparent; }
+.zenfg-inspector-legend-swatch > svg { display: block; width: 100%; height: 100%; overflow: visible; }
+.zenfg-inspector-legend-swatch > svg polygon {
+	fill: color-mix(in srgb, var(--zenfg-inspector-legend-color) 20%, var(--fgd-canvas));
+	stroke: var(--zenfg-inspector-legend-color);
+	stroke-width: 1.4;
+}
 .zenfg-inspector-legend-swatch[data-shape='line'] {
 	width: 16px;
 	height: 0;
@@ -743,6 +741,7 @@ button[aria-busy='true'] > .zenfg-inspector-control-icon {
 .zenfg-inspector-graph-tooltip {
 	position: absolute;
 	z-index: 3;
+	width: max-content;
 	max-width: min(380px, calc(100% - 16px));
 	padding: 8px 10px;
 	border: 1px solid var(--fgd-border-strong);
@@ -834,6 +833,8 @@ button[aria-busy='true'] > .zenfg-inspector-control-icon {
 	overflow-wrap: anywhere;
 	white-space: normal;
 }
+.zenfg-inspector-relation-entry { display: grid; justify-items: start; gap: 2px; }
+.zenfg-inspector-relation-entry > span { font: 11px/1.5 var(--fgd-font-mono); overflow-wrap: anywhere; }
 .zenfg-inspector-inspector .zenfg-inspector-raw-detail {
 	min-width: 100%;
 	margin: 0;

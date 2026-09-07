@@ -1,6 +1,6 @@
 /**
  * Converts a full `@zenfg/webgpu` compilation report, execution timing result,
- * and resource-pool snapshot into the portable ZenFG Snapshot 1.0 wire model.
+ * and resource-pool snapshot into the portable ZenFG Snapshot 1.1 wire model.
  *
  * Capture inputs from the same compiled frame: compile with `{ report: true }`,
  * execute with `{ gpuTiming: true }`, await that timing result, and read pool
@@ -88,7 +88,7 @@ const BUFFER_USAGE_FLAGS: readonly [number, FrameGraphSnapshotBufferUsageFlag][]
 ];
 
 /**
- * Creates an independent canonical Snapshot 1.0 value from one executed frame.
+ * Creates an independent canonical Snapshot 1.1 value from one executed frame.
  *
  * @remarks The conversion preserves retained and culled nodes, normalized
  * accesses and dependencies, execution segments, allocation planning, GPU
@@ -96,9 +96,9 @@ const BUFFER_USAGE_FLAGS: readonly [number, FrameGraphSnapshotBufferUsageFlag][]
  * deep JSON clone and does not retain references to the supplied reports.
  *
  * @throws {@link FrameGraphSnapshotValidationError} if the projected draft does
- * not satisfy Snapshot 1.0, or if an available timing kind disagrees with its
+ * not satisfy Snapshot 1.1, or if an available timing kind disagrees with its
  * compilation node. Also throws if a compilation resource contains WebGPU usage
- * bits that Snapshot 1.0 cannot represent.
+ * bits that Snapshot 1.1 cannot represent.
  *
  * @example
  * ```ts
@@ -229,11 +229,10 @@ export function createFrameGraphSnapshot(options: CreateFrameGraphSnapshotOption
 				resourceId: resourceId(dependency.resourceId),
 				kind: dependency.kind,
 			})),
-			roots: compilation.roots.map((root) => ({
-				reason: root.reason,
-				nodeId: root.nodeId === undefined ? undefined : nodeId(root.nodeId),
-				resourceId: root.resourceId === undefined ? undefined : resourceId(root.resourceId),
-			})),
+			roots: compilation.roots.map((root) => root.reason === 'side-effect'
+				? { reason: root.reason, nodeId: nodeId(root.nodeId) }
+				: { reason: root.reason, resourceId: resourceId(root.resourceId), range: root.range,
+					resolution: { ...root.resolution, producerNodeIds: root.resolution.producerNodeIds.map(nodeId) } }),
 			segments: compilation.executionSegments.map((segment) => ({
 				id: segmentId(segment.index),
 				order: segment.index,

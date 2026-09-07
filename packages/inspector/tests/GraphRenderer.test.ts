@@ -23,14 +23,14 @@ import {
 import type { GraphRenderRequest } from '../src/panelGraphRenderer.ts';
 import { createGraphScene, graphGroupElementId } from '../src/panelGraphScene.ts';
 import { resolveGraphScene } from '../src/panelGraphView.ts';
-import { createGraphLegend, GRAPH_VISUAL_THEME } from '../src/panelGraphVisuals.ts';
+import { createGraphLegend, GRAPH_VISUAL_THEME, GRAPH_GEOMETRY, nodeDimensions } from '../src/panelGraphVisuals.ts';
 import type { GraphViewState, Selection } from '../src/panelTypes.ts';
 
 test('converts nested compound groups and cross-hierarchy dependencies for ELK', async () => {
     const snapshot = createLegacyDebugViewModel(createNestedCapture());
     const [outer, inner] = snapshot.debugGroups;
     const scene = createGraphScene(snapshot, {
-        mode: 'passes',
+
         groupsEnabled: true,
         expandedGroupPaths: new Set([outer!.pathKey, inner!.pathKey]),
     });
@@ -44,7 +44,7 @@ test('converts nested compound groups and cross-hierarchy dependencies for ELK',
     const sceneEdge = scene.edges[0]!;
     assert.deepEqual(
         graph.edges?.map((edge) => [edge.sources[0], edge.targets[0]]),
-        [[`${sceneEdge.id}:source`, `${sceneEdge.id}:target`]],
+        scene.edges.map((edge) => [`${edge.id}:source`, `${edge.id}:target`]),
     );
     assert.ok(graph.children?.find((node) => node.id === 'pass:node:1')?.ports?.some((port) => port.id === `${sceneEdge.id}:source`));
     assert.ok(innerNode.children?.find((node) => node.id === 'pass:node:2')?.ports?.some((port) => port.id === `${sceneEdge.id}:target`));
@@ -63,14 +63,14 @@ test('converts nested compound groups and cross-hierarchy dependencies for ELK',
 
 test('keeps parallel resource dependencies as independent spaced ELK edges and ports', async () => {
     const scene = createGraphScene(createLegacyDebugViewModel(createParallelCapture()), {
-        mode: 'passes', groupsEnabled: false, expandedGroupPaths: new Set(),
+         groupsEnabled: false, expandedGroupPaths: new Set(),
     });
-    assert.equal(scene.edges.length, 2);
-    assert.deepEqual(new Set(scene.edges.map((edge) => `${edge.from}->${edge.to}`)), new Set(['pass:node:1->pass:node:2']));
+    assert.equal(scene.edges.filter((edge) => edge.underlyingDependencyCount > 0).length, 2);
+    assert.deepEqual(new Set(scene.edges.filter((edge) => edge.underlyingDependencyCount > 0).map((edge) => `${edge.from}->${edge.to}`)), new Set(['pass:node:1->pass:node:2']));
 
     const graph = createElkLayoutGraph(scene);
-    assert.equal(graph.edges?.length, 2);
-    assert.equal(graph.children?.find((node) => node.id === 'pass:node:1')?.ports?.length, 2);
+    assert.equal(graph.edges?.length, 4);
+    assert.equal(graph.children?.find((node) => node.id === 'pass:node:1')?.ports?.length, 4);
     assert.equal(graph.children?.find((node) => node.id === 'pass:node:2')?.ports?.length, 2);
     assert.equal(graph.layoutOptions?.['elk.layered.mergeEdges'], 'false');
     assert.equal(graph.layoutOptions?.['elk.layered.mergeHierarchyEdges'], 'false');
@@ -83,7 +83,7 @@ test('keeps parallel resource dependencies as independent spaced ELK edges and p
 
 test('accumulates compound offsets into ELK route coordinates', async () => {
     const scene = createGraphScene(createLegacyDebugViewModel(createNestedCapture()), {
-        mode: 'passes', groupsEnabled: false, expandedGroupPaths: new Set(),
+         groupsEnabled: false, expandedGroupPaths: new Set(),
     });
     const edgeId = scene.edges[0]!.id;
     const elk = {
@@ -123,7 +123,7 @@ test('resolves real ELK routes inside nested expanded groups from their containe
     const snapshot = createLegacyDebugViewModel(createNestedInternalCapture());
     const [outer, inner] = snapshot.debugGroups;
     const scene = createGraphScene(snapshot, {
-        mode: 'passes',
+
         groupsEnabled: true,
         expandedGroupPaths: new Set([outer!.pathKey, inner!.pathKey]),
     });
@@ -144,10 +144,10 @@ test('resolves real ELK routes inside nested expanded groups from their containe
 test('keys layout by topology and node geometry and applies the semantic zoom threshold', () => {
     const snapshot = createLegacyDebugViewModel(createNestedCapture());
     const passes = createGraphScene(snapshot, {
-        mode: 'passes', groupsEnabled: false, expandedGroupPaths: new Set(),
+         groupsEnabled: false, expandedGroupPaths: new Set(),
     });
     const resources = createGraphScene(snapshot, {
-        mode: 'resources', groupsEnabled: false, expandedGroupPaths: new Set(),
+        groupsEnabled: true, expandedGroupPaths: new Set(),
     });
 
     const resizedPasses = {
@@ -156,8 +156,8 @@ test('keys layout by topology and node geometry and applies the semantic zoom th
     };
     assert.notEqual(graphLayoutGeometryKey(passes), graphLayoutGeometryKey(resources));
     assert.notEqual(graphLayoutGeometryKey(passes), graphLayoutGeometryKey(resizedPasses));
-    assert.equal(graphEdgeDisplayLabel({ ...passes.edges[0]!, label: 'dependency' }), 'dependency');
-    assert.notEqual(resources.edges[0]!.label, '');
+    assert.equal(graphEdgeDisplayLabel(passes.edges[0]!), '');
+    assert.ok(resources.edges.every((edge) => !('label' in edge)));
     assert.equal(graphEdgeDisplayLabel(resources.edges[0]!), '');
     assert.equal(isOverviewGraphScale(0.5), true);
     assert.equal(isOverviewGraphScale(1), false);
@@ -165,7 +165,7 @@ test('keys layout by topology and node geometry and applies the semantic zoom th
 
 test('initializes Cytoscape with tuned wheel zoom sensitivity', async (context) => {
     const scene = createGraphScene(createLegacyDebugViewModel(createNestedCapture()), {
-        mode: 'passes', groupsEnabled: false, expandedGroupPaths: new Set(),
+         groupsEnabled: false, expandedGroupPaths: new Set(),
     });
     let coreOptions: CytoscapeOptions | undefined;
     const harness = createRendererHarness({
@@ -179,7 +179,7 @@ test('initializes Cytoscape with tuned wheel zoom sensitivity', async (context) 
     assert.equal(coreOptions?.wheelSensitivity, 1.3);
 });
 
-test('keeps node dimensions unchanged while highlighting semantic hover', () => {
+test('uses one strong hover style for direct and associated elements without changing node geometry', () => {
     const styles = createGraphStyles();
     const nodeHover = styles.find((entry) => entry.selector === 'node.semantic-hover');
     const edgeHover = styles.find((entry) => entry.selector === 'edge.semantic-hover');
@@ -188,11 +188,15 @@ test('keeps node dimensions unchanged while highlighting semantic hover', () => 
     assert.equal(Object.hasOwn(nodeHover.style, 'width'), false);
     assert.ok(edgeHover && 'style' in edgeHover);
     assert.equal(Object.hasOwn(edgeHover.style, 'width'), true);
+    assert.ok('width' in edgeHover.style && 'line-opacity' in edgeHover.style);
+    assert.equal(edgeHover.style.width, 2.5);
+    assert.equal(edgeHover.style['line-opacity'], 1);
+    assert.equal(Object.hasOwn(edgeHover.style, 'line-style'), false);
 });
 
 test('uses graphite semantic styles and keeps selected state above hover', () => {
     const styles = createGraphStyles();
-    const ordering = styles.find((entry) => entry.selector === 'edge[dependencyKind = "ordering"]');
+    const ordering = styles.find((entry) => entry.selector === 'edge[kind = "ordering"]');
     const external = styles.find((entry) => entry.selector === 'node[passKind = "external-submission"]');
     const hoverIndex = styles.findIndex((entry) => entry.selector === 'node.semantic-hover');
     const selectedIndex = styles.findIndex((entry) => entry.selector === 'node.semantic-selected');
@@ -202,22 +206,70 @@ test('uses graphite semantic styles and keeps selected state above hover', () =>
     assert.equal(orderingStyle['line-style'], 'dotted');
     assert.equal(orderingStyle['target-arrow-fill'], 'hollow');
     assert.ok(external && 'style' in external);
-    assert.equal((external.style as unknown as Record<string, unknown>)['border-style'], 'double');
+    assert.equal((external.style as unknown as Record<string, unknown>).shape, 'cut-rectangle');
+    assert.ok(styles.every((entry) => !('style' in entry) || !('border-style' in entry.style) || entry.style['border-style'] !== 'double'));
     assert.ok(selectedIndex > hoverIndex);
     assert.equal(styles.some((entry) => entry.selector === ':selected'), false);
+    assert.ok(styles.every((entry) => !('style' in entry) || !('underlay-opacity' in entry.style) || entry.style['underlay-opacity'] === 0));
     assert.equal(
         (styles[selectedIndex] as unknown as { readonly style: Record<string, unknown> }).style['border-color'],
         GRAPH_VISUAL_THEME.selected,
     );
 });
 
+test('uses native output and external shapes with safe labels and boundary ports', async (context) => {
+    const capture = createNestedCapture();
+    const base = createLegacyDebugViewModel({ ...capture, compilation: { ...capture.compilation,
+        nodes: capture.compilation.nodes.map((node) => node.id === 1 ? { ...node, kind: 'external-submission' } : node),
+        executionSegments: [{ index: 0, kind: 'external-submission', nodeIds: [1] }, { index: 1, kind: 'frame-graph', nodeIds: [2] }],
+    }, gpuTiming: { status: 'unavailable', frameIndex: 1, reason: 'unsupported' } });
+    const resource = base.resources[0]!;
+    const scene = createGraphScene({ ...base, roots: [{ key: 'shape-output', reason: 'output', resource, resourceId: resource.id,
+        range: { kind: 'texture', regions: [{ baseMipLevel: 0, mipLevelCount: 1, baseArrayLayer: 0, arrayLayerCount: 1, aspect: 'all' }] },
+        resolution: { producerNodeIds: ['node:2'], usesInitialContents: false },
+    }] }, { groupsEnabled: false, expandedGroupPaths: new Set() });
+    const output = scene.nodes.find((node) => node.kind === 'root')!;
+    const external = scene.nodes.find((node) => node.kind === 'pass' && node.passKind === 'external-submission')!;
+    const normal = { ...scene, nodes: scene.nodes.map((node) => node === external ? { ...node, passKind: 'render' as const } : node) };
+    assert.notEqual(graphLayoutGeometryKey(scene), graphLayoutGeometryKey(normal));
+    assert.equal(createGraphLegend(scene).find((entry) => entry.key === 'external')!.shape, 'cut-rectangle');
+    assert.equal(createGraphLegend(scene).find((entry) => entry.key === 'output')!.shape, 'tag');
+    const graph = createElkLayoutGraph(scene);
+    for (const node of [external, output]) {
+        const elkNode = graph.children!.find((entry) => entry.id === node.id)!;
+        const { width, height } = nodeDimensions(node);
+        assert.equal(elkNode.layoutOptions!['elk.portConstraints'], 'FIXED_POS');
+        assert.ok(elkNode.ports!.every((port) => (port.x === 0 || port.x === width) && port.y === height / 2));
+    }
+    const layout = await layoutGraphScene(new ELK(), scene);
+    for (const edge of scene.edges) {
+        for (const [nodeId, point] of [[edge.from, layout.routes.get(edge.id)!.startPoint], [edge.to, layout.routes.get(edge.id)!.endPoint]] as const) {
+            const node = [external, output].find((node) => node.id === nodeId);
+            if (!node) continue;
+            const center = layout.positions.get(nodeId)!;
+            assert.ok(Math.abs(point.y - center.y) <= 1);
+            assert.ok(Math.abs(Math.abs(point.x - center.x) - nodeDimensions(node).width / 2) <= 1);
+        }
+    }
+    const harness = createRendererHarness();
+    const renderer = new CytoscapeGraphRenderer(harness.host, harness.environment);
+    context.after(() => renderer.destroy());
+    renderer.render(graphRequest(scene, { selected: { kind: 'root', key: 'shape-output' } }));
+    await waitFor(() => harness.core?.getElementById(output.id).nonempty() === true);
+    assert.equal(harness.core!.getElementById(output.id).style('shape'), 'tag');
+    assert.equal(harness.core!.getElementById(external.id).style('shape'), 'cut-rectangle');
+    assert.ok(harness.core!.nodes().every((node) => node.style('border-style') === 'solid'));
+    assert.equal(harness.core!.getElementById(output.id).style('text-margin-x'), '-48px');
+    assert.ok(GRAPH_GEOMETRY.outputLabelWidth + 16 <= nodeDimensions(output).width * 5 / 8);
+});
+
 test('derives a stable compact legend from the rendered scene', () => {
     const resourceScene = createGraphScene(createLegacyDebugViewModel(createNestedCapture()), {
-        mode: 'resources', groupsEnabled: false, expandedGroupPaths: new Set(),
+        groupsEnabled: true, expandedGroupPaths: new Set(),
     });
     assert.deepEqual(
         createGraphLegend(resourceScene).map((entry) => entry.key),
-        ['render', 'texture', 'read', 'write'],
+        ['render', 'group', 'texture', 'flow'],
     );
 
     const orderingCapture = createNestedCapture();
@@ -230,7 +282,7 @@ test('derives a stable compact legend from the rendered scene', () => {
                 kind: 'ordering' as const,
             })),
         },
-    }), { mode: 'passes', groupsEnabled: false, expandedGroupPaths: new Set() });
+    }), {  groupsEnabled: false, expandedGroupPaths: new Set() });
     assert.ok(createGraphLegend(orderingScene).some((entry) => entry.key === 'ordering' && entry.hollowArrow));
 });
 
@@ -289,7 +341,7 @@ test('uses the available compound width for expanded group labels', () => {
 test('updates content in place while preserving positions, viewport, and ELK routes', async () => {
     const capture = createNestedCapture();
     const firstScene = createGraphScene(createLegacyDebugViewModel(capture), {
-        mode: 'passes', groupsEnabled: false, expandedGroupPaths: new Set(),
+         groupsEnabled: false, expandedGroupPaths: new Set(),
     });
     const changedScene = createGraphScene(createLegacyDebugViewModel({
         ...capture,
@@ -300,7 +352,7 @@ test('updates content in place while preserving positions, viewport, and ELK rou
                 : node),
         },
     }), {
-        mode: 'passes', groupsEnabled: false, expandedGroupPaths: new Set(),
+         groupsEnabled: false, expandedGroupPaths: new Set(),
     });
     assert.equal(firstScene.topologyKey, changedScene.topologyKey);
     assert.notEqual(firstScene.contentKey, changedScene.contentKey);
@@ -354,12 +406,66 @@ test('updates content in place while preserving positions, viewport, and ELK rou
 
     renderer.render(graphRequest(changedScene, { hovered: { kind: 'node', id: 'node:2' } }));
     assert.equal(core.getElementById('pass:node:2').hasClass('semantic-hover'), true);
+    let cleared = false;
+    renderer.render({ ...graphRequest(changedScene), onHover: (selection) => { cleared = selection === undefined; } });
+    harness.createdElements[0]!.dispatchEvent({ type: 'pointerleave' } as Event);
+    assert.equal(harness.createdElements[1]!.hidden, true);
+    assert.equal(cleared, true);
     renderer.destroy();
+});
+
+test('separates direct hover, resource associations, and single selection without moving the viewport', async (context) => {
+    const base = createLegacyDebugViewModel(createNestedCapture());
+    const resource = base.resources[0]!;
+    const snapshot = { ...base, roots: [{ key: 'output', reason: 'output' as const, resourceId: resource.id, resource,
+        resolution: { producerNodeIds: [base.nodes[0]!.id], usesInitialContents: true } }] };
+    const scene = createGraphScene(snapshot, { groupsEnabled: true, expandedGroupPaths: new Set() });
+    const harness = createRendererHarness();
+    const renderer = new CytoscapeGraphRenderer(harness.host, harness.environment);
+    context.after(() => renderer.destroy());
+    renderer.render(graphRequest(scene));
+    await waitFor(() => harness.core?.getElementById('root:output').nonempty() === true);
+    const core = harness.core!;
+    core.pan({ x: -2300, y: -1700 });
+    core.zoom(1.25);
+    const selected = scene.interaction.selectionByElementId.get(scene.edges[0]!.id)!;
+    const selectedIds = [...scene.interaction.resourceElementIdsByResourceId.get(scene.edges[0]!.resourceId)!].sort();
+    const ids = (selector: string) => core.elements(selector).map((element) => element.id()).sort();
+    for (const [id, hovered] of scene.interaction.selectionByElementId) {
+        renderer.render(graphRequest(scene, { selected, hovered }));
+        assert.deepEqual(ids('.semantic-hover'), hovered.kind === 'resource'
+            ? [...scene.interaction.resourceElementIdsByResourceId.get(hovered.id)!].sort() : [id]);
+        assert.deepEqual(ids('.semantic-selected'), selectedIds);
+        assert.equal(core.getElementById(scene.edges[0]!.id).style('width'), '3px');
+    }
+    renderer.render(graphRequest(scene, { selected: { kind: 'resource', id: resource.id } }));
+    assert.deepEqual(ids('.semantic-selected'), [...scene.interaction.resourceElementIdsByResourceId.get(resource.id)!].sort());
+    assert.deepEqual(ids('.semantic-hover'), []);
+    assert.deepEqual(core.pan(), { x: -2300, y: -1700 });
+    assert.equal(core.zoom(), 1.25);
+    const renderHover = (hovered: Selection | undefined) => renderer.render({
+        ...graphRequest(scene, { selected, hovered }), onHover: renderHover,
+    });
+    const hoverTarget = core.getElementById(scene.edges[0]!.id) as unknown as {
+        emit: (event: { type: string; renderedPosition: { x: number; y: number } }) => void;
+    };
+    renderHover(undefined);
+    hoverTarget.emit({ type: 'mouseover', renderedPosition: { x: 10, y: 10 } });
+    assert.equal(harness.createdElements[1]!.hidden, false);
+    assert.ok(ids('.semantic-hover').length > 1);
+    harness.createdElements[0]!.dispatchEvent({ type: 'pointerleave' } as Event);
+    assert.equal(harness.createdElements[1]!.hidden, true);
+    assert.deepEqual(ids('.semantic-hover'), []);
+    assert.deepEqual(ids('.semantic-selected'), selectedIds);
+    hoverTarget.emit({ type: 'mouseover', renderedPosition: { x: 10, y: 10 } });
+    renderHover(undefined); // A replacement capture may have identical scene content.
+    assert.equal(harness.createdElements[1]!.hidden, true);
+    assert.deepEqual(ids('.semantic-hover'), []);
 });
 
 test('renders bent ELK routes as rounded segments and falls back to straight edges', async (context) => {
     const scene = createGraphScene(createLegacyDebugViewModel(createNestedCapture()), {
-        mode: 'passes', groupsEnabled: false, expandedGroupPaths: new Set(),
+         groupsEnabled: false, expandedGroupPaths: new Set(),
     });
     const edgeId = scene.edges[0]!.id;
     const layouts: GraphLayoutResult[] = [
@@ -411,7 +517,7 @@ test('keeps selection and group double-click interaction on the read-only graph'
     const snapshot = createLegacyDebugViewModel(createNestedCapture());
     const group = snapshot.debugGroups[0]!;
     const scene = createGraphScene(snapshot, {
-        mode: 'passes', groupsEnabled: true, expandedGroupPaths: new Set(),
+         groupsEnabled: true, expandedGroupPaths: new Set(),
     });
     const selected: Selection[] = [];
     let toggledPath: string | undefined;
@@ -429,12 +535,12 @@ test('keeps selection and group double-click interaction on the read-only graph'
     groupNode.emit('tap');
     groupNode.emit('tap');
 
-    assert.deepEqual(selected, [
-        { kind: 'group', pathKey: group.pathKey },
-        { kind: 'group', pathKey: group.pathKey },
-    ]);
+    assert.deepEqual(selected, []);
     assert.equal(toggledPath, group.pathKey);
     assert.equal(groupNode.grabbable(), false);
+    groupNode.emit('tap');
+    await new Promise((resolve) => setTimeout(resolve, 400));
+    assert.deepEqual(selected, [{ kind: 'group', pathKey: group.pathKey }]);
     renderer.render(graphRequest(scene, {
         selected: { kind: 'group', pathKey: group.pathKey },
         hovered: { kind: 'group', pathKey: group.pathKey },
@@ -443,21 +549,30 @@ test('keeps selection and group double-click interaction on the read-only graph'
     assert.equal(groupNode.hasClass('semantic-hover'), true);
     assert.equal(groupNode.selected(), false);
     assert.equal(groupNode.style('border-color'), 'rgb(56,189,248)');
+    groupNode.emit('tap');
+    let staleSelection = false;
+    renderer.render({ ...graphRequest({ ...scene }), onSelect: () => { staleSelection = true; } });
+    await new Promise((resolve) => setTimeout(resolve, 400));
+    assert.equal(staleSelection, false);
+    groupNode.emit('tap');
+    renderer.destroy();
+    await new Promise((resolve) => setTimeout(resolve, 400));
+    assert.equal(staleSelection, false);
 });
 
 test('keeps target fit pending until the latest layout is applied', async () => {
     const snapshot = createLegacyDebugViewModel(createNestedCapture());
     const passes = createGraphScene(snapshot, {
-        mode: 'passes', groupsEnabled: false, expandedGroupPaths: new Set(),
+         groupsEnabled: false, expandedGroupPaths: new Set(),
     });
     const resources = createGraphScene(snapshot, {
-        mode: 'resources', groupsEnabled: false, expandedGroupPaths: new Set(),
+        groupsEnabled: true, expandedGroupPaths: new Set(),
     });
     const resourceLayout = deferred<GraphLayoutResult>();
     let resourceLayoutStarted = false;
     const harness = createRendererHarness({
         layoutScene: async (_elk, scene) => {
-            if (scene.mode === 'resources') {
+            if (scene.topologyKey === resources.topologyKey) {
                 resourceLayoutStarted = true;
                 return resourceLayout.promise;
             }
@@ -480,7 +595,7 @@ test('keeps target fit pending until the latest layout is applied', async () => 
     renderer.fit();
     assert.equal(fitCount, 1);
     resourceLayout.resolve(testLayout(resources, 100));
-    await waitFor(() => core.getElementById('resource:resource:1').nonempty() === true);
+    await waitFor(() => core.getElementById(resources.nodes.find((node) => node.kind === 'group')!.id).nonempty() === true);
     assert.equal(fitCount, 2);
     renderer.destroy();
 });
@@ -488,16 +603,16 @@ test('keeps target fit pending until the latest layout is applied', async () => 
 test('does not transfer a pending fit to a superseding scene that did not request it', async () => {
     const snapshot = createLegacyDebugViewModel(createNestedCapture());
     const passes = createGraphScene(snapshot, {
-        mode: 'passes', groupsEnabled: false, expandedGroupPaths: new Set(),
+         groupsEnabled: false, expandedGroupPaths: new Set(),
     });
     const resources = createGraphScene(snapshot, {
-        mode: 'resources', groupsEnabled: false, expandedGroupPaths: new Set(),
+        groupsEnabled: true, expandedGroupPaths: new Set(),
     });
     const resourceLayout = deferred<GraphLayoutResult>();
     let resourceLayoutStarted = false;
     const harness = createRendererHarness({
         layoutScene: async (_elk, scene) => {
-            if (scene.mode === 'resources') {
+            if (scene.topologyKey === resources.topologyKey) {
                 resourceLayoutStarted = true;
                 return resourceLayout.promise;
             }
@@ -529,7 +644,7 @@ test('does not transfer a pending fit to a superseding scene that did not reques
 
 test('keeps the Cytoscape core intact after layout failure and retries successfully', async () => {
     const scene = createGraphScene(createLegacyDebugViewModel(createNestedCapture()), {
-        mode: 'passes', groupsEnabled: false, expandedGroupPaths: new Set(),
+         groupsEnabled: false, expandedGroupPaths: new Set(),
     });
     let attempts = 0;
     const harness = createRendererHarness({
@@ -554,7 +669,7 @@ test('keeps the Cytoscape core intact after layout failure and retries successfu
 
 test('resizes with the host observer and disconnects it on destroy', async () => {
     const scene = createGraphScene(createLegacyDebugViewModel(createNestedCapture()), {
-        mode: 'passes', groupsEnabled: false, expandedGroupPaths: new Set(),
+         groupsEnabled: false, expandedGroupPaths: new Set(),
     });
     let onResize: (() => void) | undefined;
     let disconnectCount = 0;
@@ -583,7 +698,7 @@ test('resizes with the host observer and disconnects it on destroy', async () =>
 
 test('shows an empty state without loading the graph runtime', async () => {
     const scene = createGraphScene(createLegacyDebugViewModel(createNestedCapture()), {
-        mode: 'passes', groupsEnabled: false, expandedGroupPaths: new Set(),
+         groupsEnabled: false, expandedGroupPaths: new Set(),
     });
     let loadCount = 0;
     const harness = createRendererHarness({ onLoadRuntime: () => loadCount++ });
@@ -600,10 +715,10 @@ test('shows an empty state without loading the graph runtime', async () => {
 test('applies only the latest request while runtime loading and does not initialize after destroy', async () => {
     const snapshot = createLegacyDebugViewModel(createNestedCapture());
     const passes = createGraphScene(snapshot, {
-        mode: 'passes', groupsEnabled: false, expandedGroupPaths: new Set(),
+         groupsEnabled: false, expandedGroupPaths: new Set(),
     });
     const resources = createGraphScene(snapshot, {
-        mode: 'resources', groupsEnabled: false, expandedGroupPaths: new Set(),
+        groupsEnabled: true, expandedGroupPaths: new Set(),
     });
     const runtime = deferred<RendererRuntime>();
     const harness = createRendererHarness({ runtime: runtime.promise });
@@ -611,7 +726,7 @@ test('applies only the latest request while runtime loading and does not initial
     renderer.render(graphRequest(passes));
     renderer.render(graphRequest(resources));
     runtime.resolve(createHeadlessRuntime((core) => harness.setCore(core)));
-    await waitFor(() => harness.core?.getElementById('resource:resource:1').nonempty() === true);
+    await waitFor(() => harness.core?.getElementById(resources.nodes.find((node) => node.kind === 'group')!.id).nonempty() === true);
     assert.equal(harness.core!.getElementById(graphGroupElementId('unused')).empty(), true);
     assert.equal(harness.core!.nodes().length, resources.nodes.length);
     renderer.destroy();
@@ -634,10 +749,10 @@ test('applies only the latest request while runtime loading and does not initial
 test('discards stale layout results and rebuilds interaction for the latest scene', async () => {
     const snapshot = createLegacyDebugViewModel(createNestedCapture());
     const passes = createGraphScene(snapshot, {
-        mode: 'passes', groupsEnabled: false, expandedGroupPaths: new Set(),
+         groupsEnabled: false, expandedGroupPaths: new Set(),
     });
     const resources = createGraphScene(snapshot, {
-        mode: 'resources', groupsEnabled: false, expandedGroupPaths: new Set(),
+        groupsEnabled: true, expandedGroupPaths: new Set(),
     });
     const layouts: Array<{ scene: typeof passes; result: Deferred<GraphLayoutResult> }> = [];
     const harness = createRendererHarness({
@@ -658,14 +773,14 @@ test('discards stale layout results and rebuilds interaction for the latest scen
     layouts[1]!.result.resolve(testLayout(resources, 200));
     await waitFor(() => harness.core?.getElementById('resource:resource:1').hasClass('semantic-hover') === true);
     await nextTurn();
-    assert.equal(harness.core!.getElementById('resource:resource:1').nonempty(), true);
+    assert.equal(harness.core!.getElementById(resources.nodes.find((node) => node.kind === 'group')!.id).nonempty(), true);
     assert.equal(harness.core!.getElementById('pass:node:1').position('x'), 200);
     renderer.destroy();
 });
 
 test('coalesces interaction updates without restarting the same in-flight layout', async () => {
     const scene = createGraphScene(createLegacyDebugViewModel(createNestedCapture()), {
-        mode: 'passes', groupsEnabled: false, expandedGroupPaths: new Set(),
+         groupsEnabled: false, expandedGroupPaths: new Set(),
     });
     const pendingLayout = deferred<GraphLayoutResult>();
     let layoutCount = 0;
@@ -691,7 +806,7 @@ test('coalesces interaction updates without restarting the same in-flight layout
 test('does not let a superseded topology mutate the currently applied elements', async () => {
     const capture = createNestedCapture();
     const passes = createGraphScene(createLegacyDebugViewModel(capture), {
-        mode: 'passes', groupsEnabled: false, expandedGroupPaths: new Set(),
+         groupsEnabled: false, expandedGroupPaths: new Set(),
     });
     const changedPasses = createGraphScene(createLegacyDebugViewModel({
         ...capture,
@@ -702,16 +817,16 @@ test('does not let a superseded topology mutate the currently applied elements',
                 : node),
         },
     }), {
-        mode: 'passes', groupsEnabled: false, expandedGroupPaths: new Set(),
+         groupsEnabled: false, expandedGroupPaths: new Set(),
     });
     const resources = createGraphScene(createLegacyDebugViewModel(capture), {
-        mode: 'resources', groupsEnabled: false, expandedGroupPaths: new Set(),
+        groupsEnabled: true, expandedGroupPaths: new Set(),
     });
     const pendingResourceLayout = deferred<GraphLayoutResult>();
     let resourceLayoutStarted = false;
     const harness = createRendererHarness({
         layoutScene: async (_elk, scene) => {
-            if (scene.mode === 'resources') {
+            if (scene.topologyKey === resources.topologyKey) {
                 resourceLayoutStarted = true;
                 return pendingResourceLayout.promise;
             }
@@ -734,7 +849,7 @@ test('does not let a superseded topology mutate the currently applied elements',
     await waitFor(() => harness.core?.getElementById('pass:node:2').data('detailLabel')
         === changedPasses.nodes.find((node) => node.id === 'pass:node:2')?.label);
 
-    assert.equal(harness.core!.getElementById('resource:resource:1').empty(), true);
+    assert.equal(harness.core!.getElementById(resources.nodes.find((node) => node.kind === 'group')!.id).empty(), true);
     assert.deepEqual(
         harness.core!.nodes().map((node) => node.id()).sort(),
         changedPasses.nodes.map((node) => node.id).sort(),
@@ -742,13 +857,13 @@ test('does not let a superseded topology mutate the currently applied elements',
     renderer.destroy();
 });
 
-test('keeps nodes read-only and relayouts only for geometry, mode, or explicit requests', async () => {
+test('keeps nodes read-only and relayouts only for geometry, grouping, or explicit requests', async () => {
     const snapshot = createLegacyDebugViewModel(createNestedCapture());
     const passes = createGraphScene(snapshot, {
-        mode: 'passes', groupsEnabled: false, expandedGroupPaths: new Set(),
+         groupsEnabled: false, expandedGroupPaths: new Set(),
     });
     const resources = createGraphScene(snapshot, {
-        mode: 'resources', groupsEnabled: false, expandedGroupPaths: new Set(),
+        groupsEnabled: true, expandedGroupPaths: new Set(),
     });
     let layoutCount = 0;
     const harness = createRendererHarness({
@@ -784,11 +899,11 @@ test('keeps nodes read-only and relayouts only for geometry, mode, or explicit r
     assert.equal(layoutCount, 2);
 
     renderer.render(graphRequest(resources));
-    await waitFor(() => harness.core?.getElementById('resource:resource:1').nonempty() === true);
+    await waitFor(() => harness.core?.getElementById(resources.nodes.find((node) => node.kind === 'group')!.id).nonempty() === true);
     assert.equal(harness.core!.getElementById('pass:node:1').position('x'), 300);
 
     renderer.render(graphRequest(passes));
-    await waitFor(() => harness.core?.getElementById('resource:resource:1').empty() === true);
+    await waitFor(() => harness.core?.getElementById(resources.nodes.find((node) => node.kind === 'group')!.id).empty() === true);
     assert.equal(harness.core!.getElementById('pass:node:1').position('x'), 400);
 
     renderer.relayout();
@@ -802,7 +917,6 @@ test('caches graph scenes by snapshot and semantic graph options', () => {
     const graphView: GraphViewState = {
         host: createFakeElement(),
         toolbar: createFakeElement(),
-        graphMode: 'passes',
         groupsEnabled: true,
         expandedGroupPaths: new Set<string>(),
         fitOnNextRender: false,
@@ -815,7 +929,7 @@ test('caches graph scenes by snapshot and semantic graph options', () => {
     assert.notEqual(expanded, first);
     assert.equal(resolveGraphScene(graphView, snapshot), expanded);
 
-    graphView.graphMode = 'resources';
+    graphView.groupsEnabled = false;
     const resources = resolveGraphScene(graphView, snapshot);
     assert.notEqual(resources, expanded);
     assert.notEqual(resolveGraphScene(graphView, createLegacyDebugViewModel(createNestedCapture())), resources);
@@ -925,6 +1039,10 @@ function createFakeElement(children: unknown[] = []): HTMLElement {
         click: () => {
             for (const listener of listeners.get('click') ?? []) listener();
         },
+        dispatchEvent: (event: Event) => {
+            for (const listener of listeners.get(event.type) ?? []) listener();
+            return true;
+        },
     } as unknown as HTMLElement;
 }
 
@@ -949,7 +1067,7 @@ function testLayout(
     route?: GraphEdgeRoute,
 ): GraphLayoutResult {
     return {
-        positions: new Map(scene.nodes.map((node, index) => [node.id, { x: offset + index, y: offset + index }])),
+        positions: new Map([...scene.nodes].sort((a, b) => Number(b.kind === 'pass') - Number(a.kind === 'pass')).map((node, index) => [node.id, { x: offset + index, y: offset + index }])),
         routes: route && scene.edges[0] ? new Map([[scene.edges[0].id, route]]) : new Map(),
     };
 }

@@ -254,6 +254,11 @@ fn buffer_range() -> CompilationReport {
             .storage_buffer_read(ranged, BufferRange::new(4, 8))
             .unwrap();
         crossing.finish().unwrap();
+        for (offset, size) in [(0, 16), (0, 8), (8, 8), (0, 16)] {
+            frame
+                .mark_buffer_root(ranged, BufferRange::new(offset, size), RootReason::Output)
+                .unwrap();
+        }
     })
 }
 
@@ -307,6 +312,8 @@ fn texture_subresource() -> CompilationReport {
         read.set_side_effect(true);
         let _ = read.storage_texture_read(target).unwrap();
         read.finish().unwrap();
+        frame.mark_texture_root(target, RootReason::Output).unwrap();
+        frame.mark_texture_root(target, RootReason::Output).unwrap();
     })
 }
 

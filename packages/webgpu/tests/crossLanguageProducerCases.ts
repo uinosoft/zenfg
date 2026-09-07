@@ -164,6 +164,10 @@ function bufferRange(): FrameGraphCompilationReport {
 			sideEffect: true,
 			uses: [graph.use(ranged, BufferAccess.StorageRead, { range: { offset: 4, size: 8 } })],
 		});
+		graph.markOutput(ranged, { offset: 0, size: 16 });
+		graph.markOutput(ranged, { offset: 0, size: 8 });
+		graph.markOutput(ranged, { offset: 8, size: 8 });
+		graph.markOutput(ranged, { offset: 0, size: 16 });
 	});
 }
 
@@ -204,6 +208,8 @@ function textureSubresource(): FrameGraphCompilationReport {
 			sideEffect: true,
 			uses: [graph.use(target, TextureAccess.StorageRead)],
 		});
+		graph.markOutput(target);
+		graph.markOutput(graph.createTextureView(texture, { baseMipLevel: 1, mipLevelCount: 1, baseArrayLayer: 1, arrayLayerCount: 1 }));
 	});
 }
 

@@ -16,6 +16,8 @@ export const GRAPH_GEOMETRY = {
     groupPadding: 32,
     elkGroupPadding: { top: 46, right: 24, bottom: 24, left: 24 },
     edgeCornerRadius: 6,
+    outputWidth: 256,
+    outputLabelWidth: 144,
 } as const;
 
 const ENDPOINT_EDGE_DISTANCES = 'endpoints' as unknown as cytoscape.Css.Edge['edge-distances'];
@@ -25,7 +27,7 @@ export type GraphLegendEntry = {
     readonly key: string;
     readonly label: string;
     readonly color: string;
-    readonly shape: 'box' | 'ellipse' | 'group' | 'line';
+    readonly shape: 'box' | 'cut-rectangle' | 'tag' | 'ellipse' | 'group' | 'line';
     readonly lineStyle?: 'solid' | 'dotted' | 'dashed';
     readonly hollowArrow?: boolean;
 };
@@ -36,12 +38,12 @@ const NODE_LEGEND_ENTRIES = {
     copy: nodeLegend('copy', 'Copy', GRAPH_VISUAL_THEME.copy.stroke),
     'clear-buffer': nodeLegend('clear', 'Clear', GRAPH_VISUAL_THEME.clear.stroke),
     command: nodeLegend('command', 'Command', GRAPH_VISUAL_THEME.command.stroke),
-    'external-submission': nodeLegend('external', 'External', GRAPH_VISUAL_THEME.external.stroke),
+    'external-submission': { ...nodeLegend('external', 'External', GRAPH_VISUAL_THEME.external.stroke), shape: 'cut-rectangle' as const },
 } as const;
 
 export function createGraphLegend(scene: GraphScene): readonly GraphLegendEntry[] {
     const entries: GraphLegendEntry[] = [];
-    const passKinds = new Set(scene.nodes.flatMap((node) => node.kind === 'pass' || node.kind === 'culled-pass'
+    const passKinds = new Set(scene.nodes.flatMap((node) => node.kind === 'pass'
         ? [node.passKind]
         : []));
     for (const kind of ['render', 'compute', 'copy', 'clear-buffer', 'command', 'external-submission'] as const) {
@@ -56,30 +58,16 @@ export function createGraphLegend(scene: GraphScene): readonly GraphLegendEntry[
     if (scene.nodes.some((node) => node.kind === 'resource' && node.resourceKind === 'buffer')) {
         entries.push({ key: 'buffer', label: 'Buffer', color: GRAPH_VISUAL_THEME.buffer.stroke, shape: 'ellipse' });
     }
-    if (scene.nodes.some((node) => node.kind === 'culled-pass')) {
-        entries.push({
-            key: 'culled',
-            label: 'Culled',
-            color: GRAPH_VISUAL_THEME.culled.stroke,
-            shape: 'box',
-            lineStyle: 'dashed',
-        });
+    if (scene.edges.some((edge) => edge.kind === 'flow')) {
+        entries.push(edgeLegend('flow', 'Resource Flow', GRAPH_VISUAL_THEME.dependency.value, 'solid'));
     }
-    if (scene.edges.some((edge) => edge.kind === 'dependency' && edge.dependencyKind === 'value')) {
-        entries.push(edgeLegend('value', 'Value', GRAPH_VISUAL_THEME.dependency.value, 'solid'));
-    }
-    if (scene.edges.some((edge) => edge.kind === 'dependency' && edge.dependencyKind === 'ordering')) {
+    if (scene.edges.some((edge) => edge.kind === 'ordering')) {
         entries.push({
             ...edgeLegend('ordering', 'Order', GRAPH_VISUAL_THEME.dependency.ordering, 'dotted'),
             hollowArrow: true,
         });
     }
-    if (scene.edges.some((edge) => edge.kind === 'access' && edge.accessMode === 'read')) {
-        entries.push(edgeLegend('read', 'Read', GRAPH_VISUAL_THEME.access.read, 'solid'));
-    }
-    if (scene.edges.some((edge) => edge.kind === 'access' && edge.accessMode === 'write')) {
-        entries.push(edgeLegend('write', 'Write', GRAPH_VISUAL_THEME.access.write, 'solid'));
-    }
+    if (scene.nodes.some((node) => node.kind === 'root')) entries.push({ key: 'output', label: 'Output', color: GRAPH_VISUAL_THEME.text, shape: 'tag' });
     return entries;
 }
 
@@ -102,6 +90,7 @@ export function createGraphStyles(): cytoscape.StylesheetJson {
                 'background-color': theme.surfaceRaised,
                 'border-color': theme.group.stroke,
                 'border-width': 1.25,
+                'border-style': 'solid',
                 'text-valign': 'center',
                 'text-halign': 'center',
                 'overlay-opacity': 0,
@@ -118,22 +107,12 @@ export function createGraphStyles(): cytoscape.StylesheetJson {
             style: {
                 'background-color': theme.external.fill,
                 'border-color': theme.external.stroke,
-                'border-style': 'double',
-                'border-width': 3,
+                'shape': 'cut-rectangle',
+                'corner-radius': '10px',
             },
         },
         {
-            selector: 'node[kind = "culled-pass"]',
-            style: {
-                'background-color': theme.culled.fill,
-                'border-color': theme.culled.stroke,
-                'color': theme.muted,
-                'border-style': 'dashed',
-                'opacity': 0.72,
-            },
-        },
-        {
-            selector: 'node[kind = "resource"][resourceKind = "texture"]',
+            selector: 'node[resourceKind = "texture"]',
             style: {
                 'shape': 'ellipse',
                 'background-color': theme.texture.fill,
@@ -141,11 +120,20 @@ export function createGraphStyles(): cytoscape.StylesheetJson {
             },
         },
         {
-            selector: 'node[kind = "resource"][resourceKind = "buffer"]',
+            selector: 'node[resourceKind = "buffer"]',
             style: {
                 'shape': 'ellipse',
                 'background-color': theme.buffer.fill,
                 'border-color': theme.buffer.stroke,
+            },
+        },
+        {
+            selector: 'node[kind = "root"]',
+            style: {
+                'shape': 'tag',
+                'text-max-width': `${GRAPH_GEOMETRY.outputLabelWidth}px`,
+                // Native tag shoulders sit at 5/8 of its width. Center text in the rectangular body.
+                'text-margin-x': -GRAPH_GEOMETRY.outputWidth * 3 / 16,
             },
         },
         {
@@ -196,7 +184,7 @@ export function createGraphStyles(): cytoscape.StylesheetJson {
             },
         },
         {
-            selector: 'edge[dependencyKind = "ordering"]',
+            selector: 'edge[kind = "ordering"]',
             style: {
                 'line-color': theme.dependency.ordering,
                 'target-arrow-color': theme.dependency.ordering,
@@ -204,24 +192,6 @@ export function createGraphStyles(): cytoscape.StylesheetJson {
                 'target-arrow-fill': 'hollow',
                 'line-opacity': 0.72,
             },
-        },
-        {
-            selector: 'edge[accessMode = "read"]',
-            style: {
-                'line-color': theme.access.read,
-                'target-arrow-color': theme.access.read,
-            },
-        },
-        {
-            selector: 'edge[accessMode = "write"]',
-            style: {
-                'line-color': theme.access.write,
-                'target-arrow-color': theme.access.write,
-            },
-        },
-        {
-            selector: 'edge[dashed = 1]',
-            style: { 'line-style': 'dashed', 'line-opacity': 0.46, 'opacity': 0.58 },
         },
         {
             selector: 'edge.elk-route',
@@ -263,9 +233,6 @@ export function createGraphStyles(): cytoscape.StylesheetJson {
             style: {
                 'border-color': theme.selected,
                 'border-width': 3,
-                'underlay-color': theme.selected,
-                'underlay-padding': 5,
-                'underlay-opacity': 0.18,
                 'opacity': 1,
                 'z-index': 20,
             },
@@ -287,10 +254,10 @@ export function nodeDimensions(node: GraphSceneNode): { readonly width: number; 
     switch (node.kind) {
         case 'pass':
             return { width: 184, height: node.label.includes('\n') ? 62 : 48 };
-        case 'culled-pass':
-            return { width: 184, height: 64 };
+        case 'root':
+            return { width: GRAPH_GEOMETRY.outputWidth, height: Math.max(58, node.label.split('\n').length * 17 + 24) };
         case 'resource':
-            return { width: 166, height: node.label.includes('\n') ? 58 : 46 };
+            return { width: 184, height: Math.max(58, node.label.split('\n').length * 17 + 24) };
         case 'group':
             return node.collapsed ? { width: 224, height: 68 } : { width: 120, height: 80 };
     }
@@ -301,13 +268,13 @@ export function graphLayoutGeometryKey(scene: GraphScene): string {
         topology: scene.topologyKey,
         dimensions: scene.nodes.map((node) => {
             const dimensions = nodeDimensions(node);
-            return [node.id, dimensions.width, dimensions.height];
+            return [node.id, dimensions.width, dimensions.height, node.kind === 'pass' && node.passKind === 'external-submission'];
         }),
     });
 }
 
-export function graphEdgeDisplayLabel(edge: GraphSceneEdge): string {
-    return edge.kind === 'access' ? '' : edge.label ?? '';
+export function graphEdgeDisplayLabel(_edge: GraphSceneEdge): string {
+    return '';
 }
 
 export function expandedGroupLabelMaxWidth(outerWidth: number): number {

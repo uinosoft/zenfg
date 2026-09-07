@@ -2,7 +2,7 @@
   "format": "zenfg.frame-graph-snapshot",
   "version": {
     "major": 1,
-    "minor": 0
+    "minor": 1
   },
   "producer": {
     "name": "zenfg",
@@ -329,15 +329,44 @@
     "roots": [
       {
         "reason": "output",
-        "resourceId": "resource:0"
+        "resourceId": "resource:0",
+        "range": {
+          "kind": "texture",
+          "regions": [
+            {
+              "baseMipLevel": 0,
+              "mipLevelCount": 1,
+              "baseDepthSlice": 0,
+              "depthSliceCount": 2,
+              "aspect": "all"
+            }
+          ]
+        },
+        "resolution": {
+          "producerNodeIds": [
+            "node:0"
+          ],
+          "usesInitialContents": false
+        }
+      },
+      {
+        "reason": "output",
+        "resourceId": "resource:4",
+        "range": {
+          "kind": "buffer",
+          "offset": 0,
+          "size": 256
+        },
+        "resolution": {
+          "producerNodeIds": [
+            "node:1"
+          ],
+          "usesInitialContents": false
+        }
       },
       {
         "reason": "side-effect",
         "nodeId": "node:1"
-      },
-      {
-        "reason": "persistent-state",
-        "resourceId": "resource:4"
       }
     ],
     "segments": [

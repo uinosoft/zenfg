@@ -69,9 +69,11 @@ const UNAVAILABLE_FACTS: &[&str] = &[
     "graph.textureViews",
     "graph.nodes.recordingOrder",
     "graph.accesses.regions",
+    "graph.roots.range",
+    "graph.roots.resolution",
 ];
 
-/// Validates an arbitrary JSON value against Snapshot 1.0.
+/// Validates an arbitrary JSON value against Snapshot 1.1.
 ///
 /// The validator checks the wire shape as well as cross-record invariants such
 /// as unique IDs, references, resource/access compatibility, retained state,
@@ -397,7 +399,57 @@ fn validate_graph(value: Option<&Value>, issues: &mut Vec<SnapshotIssue>) -> boo
         "/graph/roots",
         issues,
         |root, path, issues| {
-            keys(root, path, &["reason"], &["nodeId", "resourceId"], issues);
+            keys(
+                root,
+                path,
+                &["reason"],
+                &["nodeId", "resourceId", "range", "resolution"],
+                issues,
+            );
+            let side_effect = root.get("reason").and_then(Value::as_str) == Some("side-effect");
+            if side_effect != root.contains_key("nodeId") {
+                issues.push(error(
+                    "invalid-root",
+                    path,
+                    "Only side-effect roots reference nodes.",
+                ));
+            }
+            if side_effect && (root.contains_key("range") || root.contains_key("resolution")) {
+                issues.push(error(
+                    "invalid-root",
+                    path,
+                    "Side effects cannot carry resource contents.",
+                ));
+            }
+            if let Some(range) = root.get("range") {
+                validate_root_range(range, &format!("{path}/range"), issues);
+            }
+            if root.contains_key("resolution") {
+                let p = format!("{path}/resolution");
+                if let Some(resolution) = record(root.get("resolution"), &p, issues) {
+                    keys(
+                        resolution,
+                        &p,
+                        &["producerNodeIds", "usesInitialContents"],
+                        &[],
+                        issues,
+                    );
+                    boolean(
+                        resolution.get("usesInitialContents"),
+                        &format!("{p}/usesInitialContents"),
+                        issues,
+                    );
+                    string_array(
+                        resolution.get("producerNodeIds"),
+                        &format!("{p}/producerNodeIds"),
+                        issues,
+                        true,
+                        None,
+                        Some("node"),
+                        false,
+                    );
+                }
+            }
             enum_value(
                 root.get("reason"),
                 ROOT_REASONS,
@@ -900,6 +952,183 @@ fn validate_access(access: &Map<String, Value>, path: &str, issues: &mut Vec<Sna
                 "invalid-access-view",
                 format!("{path}/textureViewId"),
                 "Buffer access cannot reference a texture view.",
+            ));
+        }
+    }
+}
+
+fn validate_root_range(value: &Value, path: &str, issues: &mut Vec<SnapshotIssue>) {
+    let Some(range) = record(Some(value), path, issues) else {
+        return;
+    };
+    match range.get("kind").and_then(Value::as_str) {
+        Some("buffer") => {
+            keys(range, path, &["kind", "offset", "size"], &[], issues);
+            safe_integer(range.get("offset"), &format!("{path}/offset"), issues);
+            positive_safe_integer(range.get("size"), &format!("{path}/size"), issues);
+        }
+        Some("texture") => {
+            keys(range, path, &["kind", "regions"], &[], issues);
+            match range.get("regions").and_then(Value::as_array) {
+                Some(regions) if !regions.is_empty() => {
+                    for (index, region) in regions.iter().enumerate() {
+                        validate_texture_region(region, &format!("{path}/regions/{index}"), issues);
+                    }
+                }
+                _ => issues.push(error(
+                    "invalid-root-range",
+                    format!("{path}/regions"),
+                    "Expected non-empty texture regions.",
+                )),
+            }
+        }
+        _ => issues.push(error(
+            "invalid-root-range",
+            format!("{path}/kind"),
+            "Expected buffer or texture.",
+        )),
+    }
+}
+
+fn validate_root_references(
+    root: &crate::SnapshotRoot,
+    index: usize,
+    nodes: &HashMap<&str, &crate::SnapshotNode>,
+    resources: &HashMap<&str, &crate::SnapshotResource>,
+    unavailable: &[SnapshotUnavailableFact],
+    issues: &mut Vec<SnapshotIssue>,
+) {
+    use crate::{SnapshotInitialContents, SnapshotResourceDescriptor, SnapshotResourceRange};
+    let path = format!("/graph/roots/{index}");
+    if let Some(id) = root.node_id() {
+        if nodes.contains_key(id)
+            && !matches!(
+                nodes.get(id).map(|n| &n.compile_state),
+                Some(SnapshotNodeCompileState::Retained { .. })
+            )
+        {
+            issues.push(error(
+                "invalid-root",
+                &path,
+                "Side effect must reference a retained node.",
+            ));
+        }
+        return;
+    }
+    let Some(root) = root.resource() else {
+        return;
+    };
+    if root.range.is_none() && !unavailable.contains(&SnapshotUnavailableFact::GraphRootRange) {
+        issues.push(error(
+            "missing-root-fact",
+            format!("{path}/range"),
+            "Root range requires explicit Legacy unavailability when absent.",
+        ));
+    }
+    if root.resolution.is_none()
+        && !unavailable.contains(&SnapshotUnavailableFact::GraphRootResolution)
+    {
+        issues.push(error(
+            "missing-root-fact",
+            format!("{path}/resolution"),
+            "Root resolution requires explicit Legacy unavailability when absent.",
+        ));
+    }
+    let resource = resources.get(root.resource_id.as_str()).copied();
+    if let (Some(range), Some(resource)) = (&root.range, resource) {
+        let kind = match range {
+            SnapshotResourceRange::Buffer { .. } => SnapshotResourceKind::Buffer,
+            SnapshotResourceRange::Texture { .. } => SnapshotResourceKind::Texture,
+        };
+        if kind != resource.kind {
+            issues.push(error(
+                "invalid-root-range",
+                format!("{path}/range"),
+                "Root range and resource kinds must match.",
+            ));
+        }
+        match (range, &resource.descriptor) {
+            (
+                SnapshotResourceRange::Buffer { offset, size },
+                Some(SnapshotResourceDescriptor::Buffer { size: total }),
+            ) => {
+                if offset.checked_add(*size).is_none_or(|end| end > *total) {
+                    issues.push(error(
+                        "invalid-root-range",
+                        format!("{path}/range"),
+                        "Root range exceeds buffer size.",
+                    ));
+                }
+            }
+            (
+                SnapshotResourceRange::Texture { regions },
+                Some(SnapshotResourceDescriptor::Texture {
+                    size,
+                    dimension,
+                    mip_level_count,
+                    ..
+                }),
+            ) => {
+                for region in regions {
+                    let end_mip = region.base_mip_level + region.mip_level_count;
+                    let depth = size
+                        .depth_or_array_layers
+                        .checked_shr(end_mip.saturating_sub(1).min(64) as u32)
+                        .unwrap_or(0)
+                        .max(1);
+                    let valid_slices = if dimension == "3d" {
+                        region
+                            .base_depth_slice
+                            .zip(region.depth_slice_count)
+                            .is_some_and(|(base, count)| base + count <= depth)
+                    } else {
+                        region
+                            .base_array_layer
+                            .zip(region.array_layer_count)
+                            .is_some_and(|(base, count)| base + count <= size.depth_or_array_layers)
+                    };
+                    if end_mip > *mip_level_count || !valid_slices {
+                        issues.push(error(
+                            "invalid-root-range",
+                            format!("{path}/range"),
+                            "Root texture region exceeds or mismatches the texture.",
+                        ));
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
+    if let Some(resolution) = &root.resolution {
+        let mut previous = None;
+        for id in &resolution.producer_node_ids {
+            match nodes.get(id.as_str()).map(|n| &n.compile_state) {
+                Some(SnapshotNodeCompileState::Retained { execution_order })
+                    if previous.is_none_or(|p| *execution_order > p) =>
+                {
+                    previous = Some(*execution_order)
+                }
+                _ => issues.push(error(
+                    "invalid-root-producer",
+                    format!("{path}/resolution/producerNodeIds"),
+                    "Producers must be unique retained nodes in execution order.",
+                )),
+            }
+        }
+        if !resolution.uses_initial_contents && resolution.producer_node_ids.is_empty() {
+            issues.push(error(
+                "invalid-root-resolution",
+                format!("{path}/resolution"),
+                "Non-empty output must have a producer or initial contents.",
+            ));
+        }
+        if resolution.uses_initial_contents
+            && resource.and_then(|r| r.initial_contents) != Some(SnapshotInitialContents::Defined)
+        {
+            issues.push(error(
+                "invalid-root-resolution",
+                format!("{path}/resolution"),
+                "Initial contribution requires defined initial contents.",
             ));
         }
     }
@@ -1567,7 +1796,7 @@ fn validate_references(snapshot: &FrameGraphSnapshotV1, issues: &mut Vec<Snapsho
         }
     }
     for (index, root) in snapshot.graph.roots.iter().enumerate() {
-        if let Some(node_id) = root.node_id.as_deref()
+        if let Some(node_id) = root.node_id()
             && !node_by_id.contains_key(node_id)
         {
             missing(
@@ -1577,7 +1806,7 @@ fn validate_references(snapshot: &FrameGraphSnapshotV1, issues: &mut Vec<Snapsho
                 issues,
             );
         }
-        if let Some(resource_id) = root.resource_id.as_deref()
+        if let Some(resource_id) = root.resource().map(|r| r.resource_id.as_str())
             && !resource_by_id.contains_key(resource_id)
         {
             missing(
@@ -1587,6 +1816,14 @@ fn validate_references(snapshot: &FrameGraphSnapshotV1, issues: &mut Vec<Snapsho
                 issues,
             );
         }
+        validate_root_references(
+            root,
+            index,
+            &node_by_id,
+            &resource_by_id,
+            unavailable,
+            issues,
+        );
     }
 
     let mut segmented_nodes = HashSet::new();
@@ -1827,6 +2064,32 @@ fn validate_migration_availability(
             issues.push(error("invalid-migration-availability", "/capture/migration/unavailableFacts", "Access regions may be marked unavailable only when at least one access region is missing."));
         }
     }
+    for (fact, field) in [
+        (SnapshotUnavailableFact::GraphRootRange, "range"),
+        (SnapshotUnavailableFact::GraphRootResolution, "resolution"),
+    ] {
+        if unavailable.contains(&fact)
+            && (!migrated
+                || !snapshot
+                    .graph
+                    .roots
+                    .iter()
+                    .filter_map(|root| root.resource())
+                    .any(|root| {
+                        if field == "range" {
+                            root.range.is_none()
+                        } else {
+                            root.resolution.is_none()
+                        }
+                    }))
+        {
+            issues.push(error(
+                "invalid-migration-availability",
+                "/capture/migration/unavailableFacts",
+                format!("Unavailable root {field} requires Legacy provenance and missing facts."),
+            ));
+        }
+    }
 }
 
 fn validate_unavailable(value: &Map<String, Value>, path: &str, issues: &mut Vec<SnapshotIssue>) {
@@ -1906,7 +2169,7 @@ fn keys(
             issues.push(error(
                 "unexpected-property",
                 format!("{path}/{}", pointer(key)),
-                format!("Property \"{key}\" is not part of Snapshot 1.0."),
+                format!("Property \"{key}\" is not part of Snapshot 1.1."),
             ));
         }
     }

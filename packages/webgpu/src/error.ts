@@ -3,6 +3,8 @@ export const FRAME_GRAPH_ERROR_CODES = {
 	ReadBeforeWrite: 'FG1001',
 	PreserveBeforeWrite: 'FG1002',
 	ReadAfterDiscard: 'FG1003',
+	RootReferencesUndefinedContents: 'FG1004',
+	InvalidBufferRange: 'FG1103',
 	UsageMismatch: 'FG1101',
 	InvalidResourceDescriptor: 'FG1102',
 	InvalidTextureView: 'FG1104',

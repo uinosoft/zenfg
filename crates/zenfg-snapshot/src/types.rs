@@ -11,7 +11,7 @@ pub struct SnapshotVersion {
     pub minor: u32,
 }
 
-/// Canonical, strongly typed ZenFG FrameGraph Snapshot 1.0 document.
+/// Canonical, strongly typed ZenFG FrameGraph Snapshot 1.1 document.
 ///
 /// This structure mirrors the portable JSON wire model. Prefer
 /// [`crate::parse_frame_graph_snapshot`] or [`crate::decode_frame_graph_snapshot`]
@@ -102,6 +102,10 @@ pub enum SnapshotUnavailableFact {
     GraphNodeRecordingOrder,
     #[serde(rename = "graph.accesses.regions")]
     GraphAccessRegions,
+    #[serde(rename = "graph.roots.range")]
+    GraphRootRange,
+    #[serde(rename = "graph.roots.resolution")]
+    GraphRootResolution,
 }
 
 /// Relational graph tables that make up the portable captured frame.
@@ -378,7 +382,7 @@ pub enum SnapshotWriteContents {
 
 /// Normalized mip, layer/depth-slice, and aspect region for a texture access.
 #[allow(missing_docs)]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SnapshotTextureRegion {
     pub base_mip_level: u64,
@@ -427,13 +431,85 @@ pub enum SnapshotDependencyKind {
 /// One observable resource/node root and its retention reason.
 #[allow(missing_docs)]
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[serde(tag = "reason")]
+pub enum SnapshotRoot {
+    #[serde(rename = "present")]
+    Present(SnapshotResourceRoot),
+    #[serde(rename = "output")]
+    Output(SnapshotResourceRoot),
+    #[serde(rename = "readback")]
+    Readback(SnapshotResourceRoot),
+    #[serde(rename = "side-effect")]
+    SideEffect {
+        #[serde(rename = "nodeId")]
+        node_id: String,
+    },
+    #[serde(rename = "debug-capture")]
+    DebugCapture(SnapshotResourceRoot),
+    #[serde(rename = "persistent-state")]
+    PersistentState(SnapshotResourceRoot),
+}
+
+impl SnapshotRoot {
+    /// Resource selection, absent for side effects.
+    pub fn resource(&self) -> Option<&SnapshotResourceRoot> {
+        match self {
+            Self::SideEffect { .. } => None,
+            Self::Present(root)
+            | Self::Output(root)
+            | Self::Readback(root)
+            | Self::DebugCapture(root)
+            | Self::PersistentState(root) => Some(root),
+        }
+    }
+    /// Selected node, only for side effects.
+    pub fn node_id(&self) -> Option<&str> {
+        match self {
+            Self::SideEffect { node_id } => Some(node_id),
+            _ => None,
+        }
+    }
+    /// Observable retention reason.
+    pub fn reason(&self) -> SnapshotRootReason {
+        match self {
+            Self::SideEffect { .. } => SnapshotRootReason::SideEffect,
+            Self::Present(_) => SnapshotRootReason::Present,
+            Self::Output(_) => SnapshotRootReason::Output,
+            Self::Readback(_) => SnapshotRootReason::Readback,
+            Self::DebugCapture(_) => SnapshotRootReason::DebugCapture,
+            Self::PersistentState(_) => SnapshotRootReason::PersistentState,
+        }
+    }
+}
+
+/// A final resource selection. Missing facts require Legacy provenance.
+#[allow(missing_docs)]
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct SnapshotRoot {
-    pub reason: SnapshotRootReason,
+pub struct SnapshotResourceRoot {
+    pub resource_id: String,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub node_id: Option<String>,
+    pub range: Option<SnapshotResourceRange>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub resource_id: Option<String>,
+    pub resolution: Option<SnapshotRootResolution>,
+}
+
+/// Resolved non-empty logical output range.
+#[allow(missing_docs)]
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "camelCase")]
+pub enum SnapshotResourceRange {
+    Buffer { offset: u64, size: u64 },
+    Texture { regions: Vec<SnapshotTextureRegion> },
+}
+
+/// Compiler-provided final content sources.
+#[allow(missing_docs)]
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SnapshotRootResolution {
+    pub producer_node_ids: Vec<String>,
+    pub uses_initial_contents: bool,
 }
 
 /// Portable reason that a node or resource remains observable after compilation.
@@ -452,7 +528,7 @@ pub enum SnapshotRootReason {
 /// Input wire shape recognized by a successful decode.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum SnapshotDecodeSource {
-    /// Canonical ZenFG Snapshot 1.0.
+    /// Canonical ZenFG Snapshot 1.1.
     V1,
     /// Historical unversioned debug-capture shape.
     LegacyV0,
@@ -463,7 +539,7 @@ pub enum SnapshotDecodeSource {
 /// Canonical snapshot plus provenance and non-fatal migration diagnostics.
 #[derive(Clone, Debug, PartialEq)]
 pub struct SnapshotDecodeResult {
-    /// Validated canonical ZenFG Snapshot 1.0 value.
+    /// Validated canonical ZenFG Snapshot 1.1 value.
     pub snapshot: FrameGraphSnapshotV1,
     /// Original input format recognized by the decoder.
     pub source: SnapshotDecodeSource,

@@ -206,7 +206,16 @@ pub struct RootReport {
     pub resource: ResourceId,
     pub reason: RootReason,
     pub range: ResourceRange,
-    pub producers: Vec<PassId>,
+    pub resolution: RootResolution,
+}
+
+/// Sources of the final contents in a root's selected range.
+#[allow(missing_docs)]
+#[derive(Clone, Debug, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct RootResolution {
+    pub producer_node_ids: Vec<PassId>,
+    pub uses_initial_contents: bool,
 }
 
 /// Inclusive retained execution-order interval of one logical resource.

@@ -34,20 +34,34 @@ export async function layoutGraphScene(elk: ELK, scene: GraphScene): Promise<Gra
     return { positions, routes };
 }
 
+function usesCenterPorts(node: GraphSceneNode): boolean {
+    return node.kind === 'resource' || node.kind === 'root'
+        || (node.kind === 'pass' && node.passKind === 'external-submission');
+}
+
 export function createElkLayoutGraph(scene: GraphScene): ElkNode {
     const childrenByParent = new Map<GraphSceneElementId | undefined, GraphSceneNode[]>();
     const portsByNode = new Map<GraphSceneElementId, ElkPort[]>();
+    const nodesById = new Map(scene.nodes.map((node) => [node.id, node]));
+    const boundaryPort = (id: string, source: boolean) => {
+        const node = nodesById.get(id)!;
+        if (!usesCenterPorts(node)) return {};
+        const dimensions = nodeDimensions(node);
+        return { x: source ? dimensions.width : 0, y: dimensions.height / 2 };
+    };
     const elkEdges = scene.edges.map((edge): ElkExtendedEdge => {
         const sourcePortId = `${edge.id}:source`;
         const targetPortId = `${edge.id}:target`;
         appendPort(portsByNode, edge.from, {
             id: sourcePortId,
+            ...boundaryPort(edge.from, true),
             width: 1,
             height: 1,
             layoutOptions: { 'elk.port.side': 'EAST' },
         });
         appendPort(portsByNode, edge.to, {
             id: targetPortId,
+            ...boundaryPort(edge.to, false),
             width: 1,
             height: 1,
             layoutOptions: { 'elk.port.side': 'WEST' },
@@ -86,7 +100,7 @@ export function createElkLayoutGraph(scene: GraphScene): ElkNode {
                 'elk.spacing.edgeEdge': '10',
                 'elk.layered.spacing.edgeEdgeBetweenLayers': '10',
             } : {
-                'elk.portConstraints': 'FIXED_SIDE',
+                'elk.portConstraints': usesCenterPorts(node) ? 'FIXED_POS' : 'FIXED_SIDE',
             },
         };
     };

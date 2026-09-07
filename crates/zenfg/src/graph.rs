@@ -648,10 +648,19 @@ impl<'frame> Frame<'frame> {
         let desc = resource.buffer().ok_or_else(|| FrameGraphError::Internal {
             message: "buffer handle resolved to a texture".into(),
         })?;
+        let selected = range.resolve(buffer.id, desc.size)?;
+        if selected.is_empty() {
+            return Err(FrameGraphError::InvalidBufferRange {
+                resource: buffer.id,
+                offset: selected.start,
+                end: selected.end,
+                resource_size: desc.size,
+            });
+        }
         self.roots.push(RootRecord {
             resource: buffer.id,
             reason,
-            range: NormalizedRange::Buffer(range.resolve(buffer.id, desc.size)?),
+            range: NormalizedRange::Buffer(selected),
         });
         Ok(())
     }

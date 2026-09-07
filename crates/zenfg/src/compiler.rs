@@ -929,9 +929,17 @@ fn analyze_roots(
                 message: format!("missing root state for resource {}", root.resource),
             })?;
         let mut producers = BTreeSet::new();
+        let mut uses_initial_contents = false;
         match (&root.range, state) {
             (NormalizedRange::Buffer(range), ResourceState::Buffer(state)) => {
-                collect_root_interval(state, range.clone(), None, root.resource, &mut producers)?;
+                collect_root_interval(
+                    state,
+                    range.clone(),
+                    None,
+                    root.resource,
+                    &mut producers,
+                    &mut uses_initial_contents,
+                )?;
             }
             (NormalizedRange::Texture(regions), ResourceState::Texture(states)) => {
                 for region in regions {
@@ -946,6 +954,7 @@ fn analyze_roots(
                         Some(region),
                         root.resource,
                         &mut producers,
+                        &mut uses_initial_contents,
                     )?;
                 }
             }
@@ -955,12 +964,18 @@ fn analyze_roots(
                 });
             }
         }
-        analysis.root_reports.push(RootReport {
+        let report = RootReport {
             resource: root.resource,
             reason: root.reason,
             range: root.range.report(),
-            producers: producers.into_iter().collect(),
-        });
+            resolution: crate::RootResolution {
+                producer_node_ids: producers.into_iter().collect(),
+                uses_initial_contents,
+            },
+        };
+        if !analysis.root_reports.contains(&report) {
+            analysis.root_reports.push(report);
+        }
     }
     Ok(())
 }
@@ -971,6 +986,7 @@ fn collect_root_interval(
     texture_region: Option<&TextureSubresourceRange>,
     resource: ResourceId,
     producers: &mut BTreeSet<PassId>,
+    uses_initial_contents: &mut bool,
 ) -> Result<(), FrameGraphError> {
     if range.is_empty() {
         return Ok(());
@@ -981,6 +997,8 @@ fn collect_root_interval(
             ContentState::Defined { producer, .. } => {
                 if let Some(producer) = producer {
                     producers.insert(producer);
+                } else {
+                    *uses_initial_contents = true;
                 }
             }
             ContentState::Undefined(_) => {
@@ -1016,7 +1034,7 @@ fn collect_retained(nodes: &[NodeRecord], analysis: &Analysis) -> BTreeSet<PassI
             analysis
                 .root_reports
                 .iter()
-                .flat_map(|root| root.producers.iter().copied()),
+                .flat_map(|root| root.resolution.producer_node_ids.iter().copied()),
         )
         .collect();
     while let Some(node) = stack.pop() {

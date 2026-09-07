@@ -56,14 +56,12 @@ export function resolveGraphScene(
     snapshot: FrameGraphDebugViewModel,
 ): GraphScene {
     const optionsKey = JSON.stringify([
-        graphView.graphMode,
         graphView.groupsEnabled,
         [...graphView.expandedGroupPaths].sort(),
     ]);
     const cached = graphSceneCache.get(graphView);
     if (cached?.snapshot === snapshot && cached.optionsKey === optionsKey) return cached.scene;
     const scene = createGraphScene(snapshot, {
-        mode: graphView.graphMode,
         groupsEnabled: graphView.groupsEnabled,
         expandedGroupPaths: graphView.expandedGroupPaths,
     });
@@ -100,6 +98,17 @@ function renderGraphLegend(host: HTMLElement | undefined, scene: GraphScene): vo
         if (entry.lineStyle) swatch.dataset.lineStyle = entry.lineStyle;
         if (entry.hollowArrow) swatch.dataset.hollowArrow = 'true';
         swatch.style.setProperty('--zenfg-inspector-legend-color', entry.color);
+        if (entry.shape === 'cut-rectangle' || entry.shape === 'tag') {
+            const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+            svg.setAttribute('viewBox', '0 0 20 14');
+            svg.setAttribute('aria-hidden', 'true');
+            const polygon = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+            polygon.setAttribute('points', entry.shape === 'tag'
+                ? '1,1 12,1 19,7 12,13 1,13'
+                : '4,1 16,1 19,4 19,10 16,13 4,13 1,10 1,4');
+            svg.appendChild(polygon);
+            swatch.appendChild(svg);
+        }
         const label = document.createElement('span');
         label.textContent = entry.label;
         item.append(swatch, label);

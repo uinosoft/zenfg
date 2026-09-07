@@ -78,7 +78,9 @@ export type FrameGraphSnapshotUnavailableFact =
 	| 'graph.groups'
 	| 'graph.textureViews'
 	| 'graph.nodes.recordingOrder'
-	| 'graph.accesses.regions';
+	| 'graph.accesses.regions'
+	| 'graph.roots.range'
+	| 'graph.roots.resolution';
 
 /** Migration provenance retained on a canonicalized legacy capture. */
 export type FrameGraphSnapshotMigration = {
@@ -251,11 +253,20 @@ export type FrameGraphSnapshotDependency = {
 };
 
 /** Retention marker that makes graph work externally observable. */
-export type FrameGraphSnapshotRoot = {
-	readonly reason: FrameGraphSnapshotRootReason;
-	readonly nodeId?: FrameGraphSnapshotEntityId;
-	readonly resourceId?: FrameGraphSnapshotEntityId;
+export type FrameGraphSnapshotResourceRange =
+	| { readonly kind: 'buffer'; readonly offset: number; readonly size: number }
+	| { readonly kind: 'texture'; readonly regions: readonly FrameGraphSnapshotTextureRegion[] };
+
+/** Compiler-resolved sources of the selected final contents. */
+export type FrameGraphSnapshotRootResolution = {
+	readonly producerNodeIds: readonly FrameGraphSnapshotEntityId[];
+	readonly usesInitialContents: boolean;
 };
+
+/** Missing range/resolution is permitted only with explicit Legacy provenance. */
+export type FrameGraphSnapshotRoot =
+	| { readonly reason: 'side-effect'; readonly nodeId: FrameGraphSnapshotEntityId; readonly resourceId?: never; readonly range?: never; readonly resolution?: never }
+	| { readonly reason: Exclude<FrameGraphSnapshotRootReason, 'side-effect'>; readonly resourceId: FrameGraphSnapshotEntityId; readonly nodeId?: never; readonly range?: FrameGraphSnapshotResourceRange; readonly resolution?: FrameGraphSnapshotRootResolution };
 
 /** Ordered FrameGraph-owned or caller-owned execution boundary. */
 export type FrameGraphSnapshotSegment = {
@@ -335,7 +346,7 @@ export type FrameGraphSnapshotDiagnostic = {
 	readonly resourceId?: FrameGraphSnapshotEntityId;
 };
 
-/** Canonical, portable ZenFG FrameGraph Snapshot 1.0 document. */
+/** Canonical, portable ZenFG FrameGraph Snapshot 1.1 document. */
 export type FrameGraphSnapshotV1 = {
 	readonly format: typeof FRAME_GRAPH_SNAPSHOT_FORMAT;
 	readonly version: typeof FRAME_GRAPH_SNAPSHOT_VERSION;

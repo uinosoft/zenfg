@@ -751,6 +751,7 @@ test('render pass descriptor forwards 3d color attachment depthSlice', () => {
 		dimension: '3d',
 	});
 	graph.render({
+		sideEffect: true,
 		colorAttachments: [{
 			target: volume,
 			depthSlice: 1,
@@ -758,7 +759,6 @@ test('render pass descriptor forwards 3d color attachment depthSlice', () => {
 			storeOp: 'store',
 		}],
 	});
-	graph.markOutput(volume);
 
 	executeCompiled(graph);
 

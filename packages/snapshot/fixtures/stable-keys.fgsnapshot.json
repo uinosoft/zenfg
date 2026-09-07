@@ -1,6 +1,6 @@
 {
   "format": "zenfg.frame-graph-snapshot",
-  "version": { "major": 1, "minor": 0 },
+  "version": { "major": 1, "minor": 1 },
   "producer": { "name": "stable-key-fixture", "language": "TypeScript" },
   "capture": { "frameIndex": 7 },
   "graph": {

@@ -1,5 +1,6 @@
 import type {
 	FrameGraphDebugAccess,
+	FrameGraphDebugRoot,
 	FrameGraphDebugResourceRef,
 	FrameGraphDebugViewModel,
 } from './debugCaptureModel.ts';
@@ -16,6 +17,28 @@ import {
 	type WorkbenchCallbacks,
 } from './panelWorkbenchHelpers.ts';
 
+type DetailRelation = readonly [label: string, selection: Selection, description?: string];
+
+function formatAccessFacts(access: FrameGraphDebugAccess): string {
+	return [
+		access.mode, access.access,
+		...(access.mode === 'write' ? [access.contents, `producesValue: ${access.producesValue}`] : []),
+		...(access.bufferRange ? [`bytes ${access.bufferRange.offset}–${access.bufferRange.size === undefined ? 'end' : access.bufferRange.offset + access.bufferRange.size}`] : []),
+		...(access.textureRegion ? [JSON.stringify(access.textureRegion)] : []),
+		...(access.textureViewId ? [`view ${access.textureViewId}`] : []),
+	].join(' · ');
+}
+
+function formatRootRange(root: FrameGraphDebugRoot): string {
+	if (!root.range) return 'Range unavailable';
+	if (root.range.kind === 'buffer') return `bytes ${root.range.offset}–${root.range.offset + root.range.size}`;
+	return root.range.regions.map((region) =>
+		`mip ${region.baseMipLevel}+${region.mipLevelCount} · ${region.baseDepthSlice === undefined
+			? `layers ${region.baseArrayLayer}+${region.arrayLayerCount}`
+			: `depth ${region.baseDepthSlice}+${region.depthSliceCount}`} · ${region.aspect}`,
+	).join('; ');
+}
+
 export class InspectorView {
 	readonly root = document.createElement('aside');
 	private readonly title = document.createElement('strong');
@@ -26,6 +49,7 @@ export class InspectorView {
 	private selected: Selection | undefined;
 	private activeTab: InspectorTab = 'summary';
 	private open = true;
+	private hoveredLink: HTMLButtonElement | undefined;
 
 	constructor(
 		private readonly callbacks: WorkbenchCallbacks,
@@ -76,6 +100,8 @@ export class InspectorView {
 	}
 
 	setSelection(selected: Selection | undefined, reveal = true): void {
+		if (selected?.kind === 'resource'
+			&& (this.selected?.kind !== 'resource' || this.selected.id !== selected.id)) this.activeTab = 'summary';
 		this.selected = selected;
 		if (selected && reveal) this.setOpen(true);
 		this.render();
@@ -83,6 +109,7 @@ export class InspectorView {
 
 	setOpen(open: boolean): void {
 		if (this.open === open) return;
+		if (!open) this.clearLinkHover();
 		this.open = open;
 		this.updateOpenState();
 		this.onOpenChange(open);
@@ -98,6 +125,7 @@ export class InspectorView {
 	}
 
 	private render(): void {
+		this.clearLinkHover();
 		for (const [tab, button] of this.tabs) {
 			const active = tab === this.activeTab;
 			button.classList.toggle('active', active);
@@ -140,7 +168,7 @@ export class InspectorView {
 				return resource ? labelResource(resource) : `Resource #${selection.id}`;
 			}
 			case 'allocation': return `Allocation #${selection.id}`;
-			case 'root': return `Retention root #${selection.index}`;
+			case 'root': return 'Output root';
 			case 'culled': return `Culled node #${selection.index}`;
 			case 'segment': return `Segment #${selection.index}`;
 		}
@@ -200,11 +228,16 @@ export class InspectorView {
 				]);
 			}
 			case 'root': {
-				const root = snapshot.roots[selection.index];
+				const root = snapshot.roots.find((root) => root.key === selection.key);
 				return this.summary(root ? [
 					['Reason', root.reason],
 					['Node', root.nodeId === undefined ? '-' : `#${root.nodeId}`],
-					['Resource', root.resource ? labelResource(root.resource) : '-'],
+					['Resource', root.resource ? this.viewResourceButton(snapshot, root.resource.id) : '-'],
+					...(root.reason === 'side-effect' ? [] : [
+						['Range', root.range ? JSON.stringify(root.range) : 'Unavailable in Legacy capture'],
+						['Initial contents', root.resolution ? String(root.resolution.usesInitialContents) : 'Unavailable in Legacy capture'],
+						['Producers', root.resolution ? root.resolution.producerNodeIds.join(', ') || 'None' : 'Unavailable in Legacy capture'],
+					] as [string, string][]),
 				] : []);
 			}
 			case 'culled': {
@@ -254,6 +287,10 @@ export class InspectorView {
 					host.append(
 						this.resourceRelations('Inputs', group.summary.inputResources),
 						this.resourceRelations('Outputs', group.summary.outputResources),
+						this.relationGroup('Output roots', group.summary.outputRoots.map((root) => [
+							`${root.resource ? labelResource(root.resource) : '-'} · ${root.reason} · ${root.range ? JSON.stringify(root.range) : 'Range unavailable'}`,
+							{ kind: 'root', key: root.key },
+						])),
 					);
 				}
 				break;
@@ -261,15 +298,20 @@ export class InspectorView {
 			case 'resource': {
 				const resource = snapshot.resourceById.get(selection.id);
 				const accesses = snapshot.accessesByResourceId.get(selection.id) ?? [];
-				const passRelations: Array<readonly [string, Selection]> = [];
+				const passRelations: DetailRelation[] = [];
 				for (const access of accesses) {
 					const nodeSelection = this.accessNodeSelection(snapshot, access.nodeId);
 					if (nodeSelection) passRelations.push([
-						`${access.mode} · ${this.accessNodeLabel(snapshot, access.nodeId)} · ${access.access}`,
+						this.accessNodeLabel(snapshot, access.nodeId),
 						nodeSelection,
+						formatAccessFacts(access),
 					]);
 				}
 				host.appendChild(this.relationGroup('Pass accesses', passRelations));
+				const roots = snapshot.roots.filter((root) => root.resource?.id === selection.id);
+				if (roots.length) host.appendChild(this.relationGroup('Output roots', roots.map((root) => [
+					`${root.reason} · ${formatRootRange(root)}`, { kind: 'root', key: root.key },
+				])));
 				if (resource?.physicalResourceId !== undefined) host.appendChild(this.relationGroup('Allocation', [
 					[`#${resource.physicalResourceId}`, { kind: 'allocation', id: resource.physicalResourceId }],
 				]));
@@ -283,13 +325,15 @@ export class InspectorView {
 				break;
 			}
 			case 'root': {
-				const root = snapshot.roots[selection.index];
+				const root = snapshot.roots.find((root) => root.key === selection.key);
 				const relations: Array<readonly [string, Selection]> = [];
 				if (root?.nodeId !== undefined && snapshot.nodeById.has(root.nodeId)) relations.push([
 					this.accessNodeLabel(snapshot, root.nodeId), { kind: 'node', id: root.nodeId },
 				]);
-				if (root?.resource) relations.push([labelResource(root.resource), { kind: 'resource', id: root.resource.id }]);
-				host.appendChild(this.relationGroup('Retained object', relations));
+				if (root?.resource) host.appendChild(this.relationGroup('Resource', [[labelResource(root.resource), { kind: 'resource', id: root.resource.id }]]));
+				if (root?.resource && root.resolution?.usesInitialContents) relations.push([`Initial contents · ${labelResource(root.resource)}`, { kind: 'resource', id: root.resource.id }]);
+				for (const id of root?.resolution?.producerNodeIds ?? []) relations.push([this.accessNodeLabel(snapshot, id), { kind: 'node', id }]);
+				host.appendChild(this.relationGroup('Output sources', relations));
 				break;
 			}
 			case 'culled': {
@@ -320,8 +364,9 @@ export class InspectorView {
 
 	private accessRelations(title: string, accesses: readonly FrameGraphDebugAccess[]): HTMLElement {
 		return this.relationGroup(title, accesses.map((access) => [
-			`${labelResource(access.resource)} · ${access.access}${access.mode === 'write' ? ` · ${access.contents}` : ''}`,
+			labelResource(access.resource),
 			{ kind: 'resource', id: access.resource.id },
+			formatAccessFacts(access),
 		]));
 	}
 
@@ -331,13 +376,24 @@ export class InspectorView {
 		]));
 	}
 
-	private relationGroup(title: string, relations: readonly (readonly [string, Selection])[]): HTMLElement {
+	private relationGroup(title: string, relations: readonly DetailRelation[]): HTMLElement {
 		const section = document.createElement('section');
 		const heading = document.createElement('h3');
 		heading.textContent = `${title} ${relations.length}`;
 		section.appendChild(heading);
-		for (const [label, selection] of relations) {
-			section.appendChild(createRelationButton(label, selection, this.callbacks.onSelect));
+		for (const [label, selection, description] of relations) {
+			const link = this.createDetailLink(label, selection);
+			if (description === undefined) {
+				section.appendChild(link);
+			} else {
+				const entry = document.createElement('div');
+				entry.className = 'zenfg-inspector-relation-entry';
+				const metadata = document.createElement('span');
+				metadata.className = 'zenfg-inspector-muted';
+				metadata.textContent = description;
+				entry.append(link, metadata);
+				section.appendChild(entry);
+			}
 		}
 		if (relations.length === 0) {
 			const empty = document.createElement('span');
@@ -348,15 +404,47 @@ export class InspectorView {
 		return section;
 	}
 
-	private summary(rows: readonly (readonly [string, string])[]): HTMLElement {
+	private selectRelated(selection: Selection): void {
+		this.clearLinkHover();
+		this.callbacks.onSelect(selection);
+	}
+
+	private viewResourceButton(snapshot: FrameGraphDebugViewModel, resourceId: string): HTMLButtonElement {
+		return this.createDetailLink(`View resource · ${resourceLabel(snapshot, resourceId)}`,
+			{ kind: 'resource', id: resourceId });
+	}
+
+	private createDetailLink(label: string, selection: Selection): HTMLButtonElement {
+		const link = createRelationButton(label, selection, (target) => this.selectRelated(target));
+		link.addEventListener('mouseenter', () => {
+			this.hoveredLink = link;
+			this.callbacks.onHover(selection);
+		});
+		link.addEventListener('mouseleave', () => {
+			if (this.hoveredLink === link) this.clearLinkHover();
+		});
+		return link;
+	}
+
+	private clearLinkHover(): void {
+		if (!this.hoveredLink) return;
+		this.hoveredLink = undefined;
+		this.callbacks.onHover(undefined);
+	}
+
+	private summary(rows: readonly (readonly [string, string | HTMLElement])[]): HTMLElement {
 		const summary = document.createElement('dl');
 		summary.className = 'zenfg-inspector-inspector-summary';
 		for (const [label, value] of rows) {
 			const term = document.createElement('dt');
 			term.textContent = label;
 			const description = document.createElement('dd');
-			description.textContent = value;
-			description.title = value;
+			if (typeof value === 'string') {
+				description.textContent = value;
+				description.title = value;
+			} else {
+				description.appendChild(value);
+			}
 			summary.append(term, description);
 		}
 		return summary;

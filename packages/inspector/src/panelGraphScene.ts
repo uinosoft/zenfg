@@ -4,11 +4,11 @@ import type {
     FrameGraphDebugGroup,
     FrameGraphDebugNode,
     FrameGraphDebugResource,
-    FrameGraphDebugResourceRef,
     FrameGraphDebugViewModel,
 } from './debugCaptureModel.ts';
 import { formatGpuDuration, labelNode, labelResource } from './panelDomHelpers.ts';
-import type { GraphViewMode, Selection } from './panelTypes.ts';
+import { declarationEntrances } from './debugCaptureModel.ts';
+import type { GraphFlowRelation, Selection } from './panelTypes.ts';
 
 export type GraphSceneElementId = string;
 
@@ -26,14 +26,6 @@ export type PassSceneNode = GraphSceneNodeBase & {
     readonly passKind: FrameGraphDebugNode['kind'];
     readonly executionSegmentIndex?: number;
     readonly gpuDurationMicros?: number;
-};
-
-export type CulledPassSceneNode = GraphSceneNodeBase & {
-    readonly kind: 'culled-pass';
-    readonly culledIndex: number;
-    readonly nodeId: string;
-    readonly passKind: FrameGraphDebugNode['kind'];
-    readonly reason: string;
 };
 
 export type GroupSceneNode = GraphSceneNodeBase & {
@@ -57,33 +49,28 @@ export type ResourceSceneNode = GraphSceneNodeBase & {
     readonly resourceKind: FrameGraphDebugResource['kind'];
 };
 
-export type GraphSceneNode = PassSceneNode | CulledPassSceneNode | GroupSceneNode | ResourceSceneNode;
+export type RootSceneNode = GraphSceneNodeBase & {
+    readonly kind: 'root';
+    readonly rootKey: string;
+    readonly resourceId: string;
+    readonly resourceKind: FrameGraphDebugResource['kind'];
+};
+export type GraphSceneNode = PassSceneNode | GroupSceneNode | ResourceSceneNode | RootSceneNode;
 
 type GraphSceneEdgeBase = {
     readonly id: GraphSceneElementId;
     readonly from: GraphSceneElementId;
     readonly to: GraphSceneElementId;
-    readonly label?: string;
     readonly title: string;
     readonly resourceId: string;
 };
 
-export type DependencySceneEdge = GraphSceneEdgeBase & {
-    readonly kind: 'dependency';
-    readonly dependencyKind: FrameGraphDebugEdge['kind'];
+export type GraphSceneEdge = GraphSceneEdgeBase & {
+    readonly kind: 'flow' | 'ordering';
+    readonly relations: readonly GraphFlowRelation[];
     readonly underlyingDependencies: readonly FrameGraphDebugEdge[];
     readonly underlyingDependencyCount: number;
 };
-
-export type AccessSceneEdge = GraphSceneEdgeBase & {
-    readonly kind: 'access';
-    readonly accessId: string;
-    readonly accessMode: FrameGraphDebugAccessEdge['mode'];
-    readonly access: FrameGraphDebugAccessEdge['access'];
-    readonly dashed: boolean;
-};
-
-export type GraphSceneEdge = DependencySceneEdge | AccessSceneEdge;
 
 export type GraphSemanticReferences = {
     readonly nodeIds: readonly string[];
@@ -96,12 +83,12 @@ export type GraphSemanticReferences = {
 export type GraphSceneInteractionIndex = {
     readonly selectionByElementId: ReadonlyMap<GraphSceneElementId, Selection>;
     readonly primaryElementIdsBySelection: ReadonlyMap<string, readonly GraphSceneElementId[]>;
-    readonly relatedElementIdsBySelection: ReadonlyMap<string, readonly GraphSceneElementId[]>;
+    readonly hoverElementIdsBySelection: ReadonlyMap<string, readonly GraphSceneElementId[]>;
+    readonly resourceElementIdsByResourceId: ReadonlyMap<string, readonly GraphSceneElementId[]>;
     readonly semanticReferencesByElementId: ReadonlyMap<GraphSceneElementId, GraphSemanticReferences>;
 };
 
 export type GraphScene = {
-    readonly mode: GraphViewMode;
     readonly nodes: readonly GraphSceneNode[];
     readonly edges: readonly GraphSceneEdge[];
     readonly topologyKey: string;
@@ -110,7 +97,6 @@ export type GraphScene = {
 };
 
 export type CreateGraphSceneOptions = {
-    readonly mode: GraphViewMode;
     readonly groupsEnabled: boolean;
     readonly expandedGroupPaths: ReadonlySet<string>;
 };
@@ -118,7 +104,8 @@ export type CreateGraphSceneOptions = {
 type MutableInteractionIndex = {
     readonly selectionByElementId: Map<GraphSceneElementId, Selection>;
     readonly primaryElementIdsBySelection: Map<string, GraphSceneElementId[]>;
-    readonly relatedElementIdsBySelection: Map<string, GraphSceneElementId[]>;
+    readonly hoverElementIdsBySelection: Map<string, GraphSceneElementId[]>;
+    readonly resourceElementIdsByResourceId: Map<string, GraphSceneElementId[]>;
     readonly semanticReferencesByElementId: Map<GraphSceneElementId, GraphSemanticReferences>;
 };
 
@@ -126,9 +113,7 @@ export function createGraphScene(
     snapshot: FrameGraphDebugViewModel,
     options: CreateGraphSceneOptions,
 ): GraphScene {
-    return options.mode === 'resources'
-        ? createResourceGraphScene(snapshot)
-        : createPassGraphScene(snapshot, options.groupsEnabled, options.expandedGroupPaths);
+    return createFrameFlowScene(snapshot, options.groupsEnabled, options.expandedGroupPaths);
 }
 
 export function graphGroupElementId(pathKey: string): GraphSceneElementId {
@@ -146,7 +131,7 @@ export function selectionKey(selection: Selection): string {
         case 'allocation':
             return `allocation:${selection.id}`;
         case 'root':
-            return `root:${selection.index}`;
+            return `root:${selection.key}`;
         case 'culled':
             return `culled:${selection.index}`;
         case 'segment':
@@ -154,7 +139,7 @@ export function selectionKey(selection: Selection): string {
     }
 }
 
-function createPassGraphScene(
+function createFrameFlowScene(
     snapshot: FrameGraphDebugViewModel,
     groupsEnabled: boolean,
     expandedGroupPaths: ReadonlySet<string>,
@@ -167,8 +152,20 @@ function createPassGraphScene(
     const hasVisibleAncestors = (group: FrameGraphDebugGroup) => group.ancestorIds
         .slice(0, -1)
         .every((id) => isExpanded(groupsById.get(id)!));
+    const retainedIds = new Set(snapshot.nodes.map((node) => node.id));
+    const usedResourceIds = new Set([
+        ...snapshot.accessEdges.filter((access) => retainedIds.has(access.nodeId)).map((access) => access.resource.id),
+        ...snapshot.roots.flatMap((root) => root.resource ? [root.resource.id] : []),
+    ]);
+    const resources = snapshot.resources.filter((resource) => usedResourceIds.has(resource.id));
+    const populatedGroupIds = new Set<string>();
+    for (const item of [...snapshot.nodes, ...resources]) {
+        for (const id of groupsById.get(item.debugGroupId ?? '')?.ancestorIds ?? []) populatedGroupIds.add(id);
+    }
+    const visibleResources = resources.filter((resource) => !useGroups || resource.debugGroupId === undefined
+        || groupsById.get(resource.debugGroupId)!.ancestorIds.every((id) => isExpanded(groupsById.get(id)!)));
     const includedGroups = useGroups
-        ? snapshot.debugGroups.filter((group) => group.summary.retainedNodeCount > 0 && hasVisibleAncestors(group))
+        ? snapshot.debugGroups.filter((group) => populatedGroupIds.has(group.id) && hasVisibleAncestors(group))
         : [];
     const includedGroupIds = new Set(includedGroups.map((group) => group.id));
     const representedNodeIdsByGroupId = new Map<string, string[]>();
@@ -197,6 +194,7 @@ function createPassGraphScene(
                 .map((child) => graphGroupElementId(child.pathKey)),
             ...(visiblePassesByGroupId.get(group.id) ?? [])
                 .map((node) => passElementId(node.id)),
+            ...visibleResources.filter((resource) => resource.debugGroupId === group.id).map((resource) => resourceElementId(resource.id)),
         ];
         const node: GroupSceneNode = {
             id,
@@ -267,7 +265,7 @@ function createPassGraphScene(
 
     for (const node of snapshot.nodes) {
         const representative = representativeByNodeId.get(node.id)!;
-        setSelectionElements(interaction, { kind: 'node', id: node.id }, [representative], [representative]);
+        setSelectionElements(interaction, { kind: 'node', id: node.id }, [representative]);
     }
     if (useGroups) {
         for (const group of snapshot.debugGroups) {
@@ -275,218 +273,116 @@ function createPassGraphScene(
             const collapsedAncestorId = group.ancestorIds.find((id) => !isExpanded(groupsById.get(id)!));
             if (collapsedAncestorId !== undefined) {
                 const representative = graphGroupElementId(groupsById.get(collapsedAncestorId)!.pathKey);
-                setSelectionElements(interaction, { kind: 'group', pathKey: group.pathKey }, [representative], [representative]);
+                setSelectionElements(interaction, { kind: 'group', pathKey: group.pathKey }, [representative]);
             }
         }
     }
 
-    const dependencyEdges = useGroups
-        ? createFoldedDependencyEdges(snapshot.edges, representativeByNodeId)
-        : snapshot.edges.map((edge, index) => createDependencySceneEdge(
-            edge,
-            passElementId(edge.fromNodeId),
-            passElementId(edge.toNodeId),
-            [edge],
-            index,
-        ));
-    for (const edge of dependencyEdges) {
-        const selection: Selection = { kind: 'resource', id: edge.resourceId };
-        interaction.selectionByElementId.set(edge.id, selection);
-        appendSelectionElement(interaction.primaryElementIdsBySelection, selection, edge.id);
-        appendSelectionElement(interaction.relatedElementIdsBySelection, selection, edge.id);
-        interaction.semanticReferencesByElementId.set(edge.id, {
-            nodeIds: unique(edge.underlyingDependencies.flatMap((dependency) => [dependency.fromNodeId, dependency.toNodeId])),
-            groupPathKeys: [],
-            resourceIds: [edge.resourceId],
-            accessIds: [],
-            dependencies: edge.underlyingDependencies,
-        });
+    const representativeByResourceId = new Map<string, string>();
+    for (const resource of resources) {
+        const collapsed = useGroups ? groupsById.get(resource.debugGroupId ?? '')?.ancestorIds.find((id) => !isExpanded(groupsById.get(id)!)) : undefined;
+        const representative = collapsed ? graphGroupElementId(groupsById.get(collapsed)!.pathKey) : resourceElementId(resource.id);
+        representativeByResourceId.set(resource.id, representative);
     }
-
-    return finalizeScene('passes', [...groupNodes, ...passNodes], dependencyEdges, interaction);
-}
-
-function createResourceGraphScene(snapshot: FrameGraphDebugViewModel): GraphScene {
-    const interaction = createMutableInteractionIndex();
-    const segmentByNodeId = executionSegmentByNodeId(snapshot);
-    const accessesByResourceId = indexAccessesByResourceId(snapshot.accessEdges);
-    const passNodes: PassSceneNode[] = snapshot.nodes.map((node) => {
-        const segment = segmentByNodeId.get(node.id);
-        const sceneNode: PassSceneNode = {
-            id: passElementId(node.id),
-            kind: 'pass',
-            nodeId: node.id,
-            passKind: node.kind,
-            executionSegmentIndex: segment?.index,
-            gpuDurationMicros: node.gpuDurationMicros,
-            label: formatGraphNodeLabel(`${segmentLabel(segment)} ${labelNode(node)}`),
-            overviewLabel: shortGraphLabel(labelNode(node)),
-            title: createNodeTitle(node, segment, snapshot),
-        };
-        registerElement(
-            interaction,
-            sceneNode.id,
-            { kind: 'node', id: node.id },
-            emptyReferences({ nodeIds: [node.id] }),
-        );
-        return sceneNode;
-    });
-    const culledNodes: CulledPassSceneNode[] = snapshot.culledNodes.map((culled, index) => {
-        const sceneNode: CulledPassSceneNode = {
-            id: culledPassElementId(index, culled.node.id),
-            kind: 'culled-pass',
-            culledIndex: index,
-            nodeId: culled.node.id,
-            passKind: culled.node.kind,
-            reason: culled.reason,
-            label: `${formatGraphNodeLabel(labelNode(culled.node))}\n(culled)`,
-            overviewLabel: `${shortGraphLabel(labelNode(culled.node))} (culled)`,
-            title: createCulledNodeTitle(culled),
-        };
-        registerElement(
-            interaction,
-            sceneNode.id,
-            { kind: 'culled', index },
-            emptyReferences({ nodeIds: [culled.node.id] }),
-        );
-        return sceneNode;
-    });
-    const resourceNodes: ResourceSceneNode[] = snapshot.resources.map((resource) => {
-        const sceneNode: ResourceSceneNode = {
-            id: resourceElementId(resource.id),
-            kind: 'resource',
-            resourceId: resource.id,
-            resourceKind: resource.kind,
-            label: formatGraphResourceLabel(labelResource(resource)),
+    const resourceNodes: ResourceSceneNode[] = visibleResources.map((resource) => {
+        const origin = resource.origin === 'transient' ? 'Created' : resource.origin === 'imported' ? 'Imported' : 'Surface';
+        const node: ResourceSceneNode = {
+            id: resourceElementId(resource.id), kind: 'resource', resourceId: resource.id, resourceKind: resource.kind,
+            label: formatGraphResourceLabel(labelResource(resource)) + '\n' + origin + ' · ' + resource.kind,
             overviewLabel: shortGraphLabel(labelResource(resource)),
-            title: createResourceTitle(resource, snapshot, accessesByResourceId.get(resource.id) ?? []),
+            title: createResourceTitle(resource, snapshot, snapshot.accessesByResourceId.get(resource.id) ?? [])
+                + '\nDeclaration entrance, not a complete initial-content provenance graph.',
+            parentId: useGroups && resource.debugGroupId ? graphGroupElementId(groupsById.get(resource.debugGroupId)!.pathKey) : undefined,
         };
-        registerElement(
-            interaction,
-            sceneNode.id,
-            { kind: 'resource', id: resource.id },
-            emptyReferences({ resourceIds: [resource.id] }),
-        );
-        return sceneNode;
+        registerElement(interaction, node.id, { kind: 'resource', id: resource.id }, emptyReferences({ resourceIds: [resource.id] }));
+        interaction.resourceElementIdsByResourceId.set(resource.id, [node.id]);
+        return node;
     });
-    const culledNodeIds = new Map(snapshot.culledNodes.map((culled, index) => [
-        culled.node.id,
-        culledPassElementId(index, culled.node.id),
-    ]));
-    const accessEdges: AccessSceneEdge[] = snapshot.accessEdges.map((access) => {
-        const passId = culledNodeIds.get(access.nodeId) ?? passElementId(access.nodeId);
-        const resourceId = resourceElementId(access.resource.id);
-        const edge: AccessSceneEdge = {
-            id: accessElementId(access.accessId, access.resource.id),
-            kind: 'access',
-            from: access.mode === 'write' ? passId : resourceId,
-            to: access.mode === 'write' ? resourceId : passId,
-            label: access.access,
-            title: createAccessTitle(access),
-            resourceId: access.resource.id,
-            accessId: access.accessId,
-            accessMode: access.mode,
-            access: access.access,
-            dashed: culledNodeIds.has(access.nodeId),
-        };
-        const selection: Selection = { kind: 'resource', id: access.resource.id };
-        interaction.selectionByElementId.set(edge.id, selection);
-        appendSelectionElement(interaction.relatedElementIdsBySelection, selection, edge.id);
-        interaction.semanticReferencesByElementId.set(edge.id, {
-            nodeIds: [access.nodeId],
-            groupPathKeys: [],
-            resourceIds: [access.resource.id],
-            accessIds: [access.accessId],
-            dependencies: [],
+    const rootNodes: RootSceneNode[] = [];
+    const aggregates = new Map<string, { from: string; to: string; resourceId: string; relations: GraphFlowRelation[] }>();
+    const addRelation = (from: string, to: string, resourceId: string, relation: GraphFlowRelation) => {
+        if (from === to) return;
+        const key = JSON.stringify([from, to, resourceId]);
+        const entry = aggregates.get(key) ?? { from, to, resourceId, relations: [] };
+        entry.relations.push(relation);
+        aggregates.set(key, entry);
+    };
+    for (const dependency of snapshot.edges) {
+        addRelation(representativeByNodeId.get(dependency.fromNodeId)!, representativeByNodeId.get(dependency.toNodeId)!, dependency.resource.id,
+            { role: dependency.kind, nodeIds: [dependency.fromNodeId, dependency.toNodeId], dependency });
+    }
+    for (const access of declarationEntrances(snapshot.nodes, snapshot.accessEdges, snapshot.edges)) {
+        addRelation(representativeByResourceId.get(access.resource.id)!, representativeByNodeId.get(access.nodeId)!, access.resource.id,
+            { role: 'declaration', nodeIds: [access.nodeId] });
+    }
+    const rootOccurrences = new Map<string, number>();
+    for (const root of snapshot.roots) {
+        if (!root.resource) {
+            if (root.nodeId) {
+                const representative = representativeByNodeId.get(root.nodeId)!;
+                setSelectionElements(interaction, { kind: 'root', key: root.key }, [representative]);
+            }
+            continue;
+        }
+        const occurrence = rootOccurrences.get(root.key) ?? 0;
+        rootOccurrences.set(root.key, occurrence + 1);
+        const id = 'root:' + root.key + (occurrence ? ':' + occurrence : '');
+        const resource = snapshot.resourceById.get(root.resource.id)!;
+        const rangeLabel = root.range?.kind === 'buffer' ? `bytes ${root.range.offset}–${root.range.offset + root.range.size}`
+            : root.range ? root.range.regions.map((r) => `mip ${r.baseMipLevel} · ${r.baseDepthSlice !== undefined ? 'D' + r.baseDepthSlice + '+' + r.depthSliceCount : 'L' + r.baseArrayLayer + '+' + r.arrayLayerCount} · ${r.aspect}`).join('; ') : 'Range unavailable';
+        const rangeSummary = root.range?.kind === 'texture' && root.range.regions.length > 1
+            ? `${root.range.regions.length} subresource regions` : rangeLabel;
+        rootNodes.push({
+            id, kind: 'root', rootKey: root.key, resourceId: resource.id, resourceKind: resource.kind,
+            label: formatGraphResourceLabel(labelResource(resource)) + '\n' + root.reason + '\n' + shortGraphLabel(rangeSummary),
+            overviewLabel: shortGraphLabel(labelResource(resource)) + '\n' + root.reason,
+            title: labelResource(resource) + '\n' + root.reason + '\n' + rangeLabel
+                + (root.resolution ? '\nProducers: ' + (root.resolution.producerNodeIds.join(', ') || 'none') + '\nInitial contents: ' + root.resolution.usesInitialContents : '\nOutput sources unavailable in Legacy capture.'),
         });
+        registerElement(interaction, id, { kind: 'root', key: root.key },
+            emptyReferences({ resourceIds: [resource.id], nodeIds: root.resolution?.producerNodeIds ?? [] }));
+        for (const nodeId of root.resolution?.producerNodeIds ?? []) {
+            addRelation(representativeByNodeId.get(nodeId)!, id, resource.id, { role: 'output-producer', nodeIds: [nodeId], rootKey: root.key });
+        }
+        if (root.resolution?.usesInitialContents) addRelation(representativeByResourceId.get(resource.id)!, id, resource.id,
+            { role: 'output-initial', nodeIds: [], rootKey: root.key });
+    }
+    const edges: GraphSceneEdge[] = [...aggregates.entries()].map(([key, entry]) => {
+        const underlyingDependencies = entry.relations.flatMap((relation) => relation.dependency ? [relation.dependency] : []);
+        const edge: GraphSceneEdge = {
+            id: 'flow:' + key, ...entry,
+            kind: entry.relations.every((relation) => relation.role === 'ordering') ? 'ordering' : 'flow',
+            title: labelResource(snapshot.resourceById.get(entry.resourceId)!) + '\n'
+                + unique(entry.relations.map((relation) => relation.role)).join(' · '),
+            underlyingDependencies, underlyingDependencyCount: underlyingDependencies.length,
+        };
+        const selection: Selection = { kind: 'resource', id: entry.resourceId };
+        registerElement(interaction, edge.id, selection, emptyReferences({
+            nodeIds: unique(entry.relations.flatMap((relation) => relation.nodeIds)), resourceIds: [entry.resourceId], dependencies: underlyingDependencies,
+        }));
+        const resourceElements = interaction.resourceElementIdsByResourceId.get(entry.resourceId) ?? [];
+        resourceElements.push(edge.id);
+        interaction.resourceElementIdsByResourceId.set(entry.resourceId, resourceElements);
         return edge;
     });
-
-    return finalizeScene('resources', [...passNodes, ...culledNodes, ...resourceNodes], accessEdges, interaction);
-}
-
-export function indexAccessesByResourceId(
-    accesses: readonly FrameGraphDebugAccessEdge[],
-): ReadonlyMap<string, readonly FrameGraphDebugAccessEdge[]> {
-    const result = new Map<string, FrameGraphDebugAccessEdge[]>();
-    for (const access of accesses) {
-        const resourceAccesses = result.get(access.resource.id);
-        if (resourceAccesses) {
-            resourceAccesses.push(access);
-        } else {
-            result.set(access.resource.id, [access]);
-        }
+    for (const [resourceId, elements] of interaction.resourceElementIdsByResourceId) {
+        const selection: Selection = { kind: 'resource', id: resourceId };
+        setSelectionElements(interaction, selection, elements);
+        interaction.hoverElementIdsBySelection.set(selectionKey(selection), [...elements]);
     }
-    return result;
-}
-
-function createFoldedDependencyEdges(
-    dependencies: readonly FrameGraphDebugEdge[],
-    representativeByNodeId: ReadonlyMap<string, GraphSceneElementId>,
-): DependencySceneEdge[] {
-    const dependenciesByKey = new Map<string, {
-        readonly from: GraphSceneElementId;
-        readonly to: GraphSceneElementId;
-        readonly resource: FrameGraphDebugResourceRef;
-        readonly dependencies: FrameGraphDebugEdge[];
-    }>();
-    for (const dependency of dependencies) {
-        const from = representativeByNodeId.get(dependency.fromNodeId)!;
-        const to = representativeByNodeId.get(dependency.toNodeId)!;
-        if (from === to) continue;
-        const key = JSON.stringify([from, to, dependency.resource.id]);
-        const existing = dependenciesByKey.get(key);
-        if (existing) {
-            existing.dependencies.push(dependency);
-        } else {
-            dependenciesByKey.set(key, { from, to, resource: dependency.resource, dependencies: [dependency] });
-        }
-    }
-    return [...dependenciesByKey.values()].map((entry, index) => createDependencySceneEdge(
-        entry.dependencies.find((dependency) => dependency.kind === 'value') ?? entry.dependencies[0]!,
-        entry.from,
-        entry.to,
-        entry.dependencies,
-        index,
-    ));
-}
-
-function createDependencySceneEdge(
-    dependency: FrameGraphDebugEdge,
-    from: GraphSceneElementId,
-    to: GraphSceneElementId,
-    underlyingDependencies: readonly FrameGraphDebugEdge[],
-    occurrence: number,
-): DependencySceneEdge {
-    const dependencyKind = underlyingDependencies.some((edge) => edge.kind === 'value') ? 'value' : 'ordering';
-    return {
-        id: `dependency:${JSON.stringify([from, to, dependency.resource.id, occurrence])}`,
-        kind: 'dependency',
-        from,
-        to,
-        title: `${labelResource(dependency.resource)}${underlyingDependencies.length > 1
-            ? `\n${underlyingDependencies.length} folded dependencies`
-            : ''}`,
-        resourceId: dependency.resource.id,
-        dependencyKind,
-        underlyingDependencies,
-        underlyingDependencyCount: underlyingDependencies.length,
-    };
+    return finalizeScene([...groupNodes, ...passNodes, ...resourceNodes, ...rootNodes], edges, interaction);
 }
 
 function finalizeScene(
-    mode: GraphViewMode,
     nodes: readonly GraphSceneNode[],
     edges: readonly GraphSceneEdge[],
     interaction: MutableInteractionIndex,
 ): GraphScene {
     const topologyKey = JSON.stringify({
-        mode,
         nodes: nodes.map((node) => [node.id, node.kind, node.parentId, node.kind === 'group' ? node.collapsed : undefined]),
         edges: edges.map((edge) => [edge.id, edge.kind, edge.from, edge.to]),
     });
     const contentKey = JSON.stringify({
-        mode,
         nodes: nodes.map((node) => [
             node.id,
             node.kind,
@@ -494,8 +390,8 @@ function finalizeScene(
             node.label,
             node.overviewLabel,
             node.title,
-            node.kind === 'pass' || node.kind === 'culled-pass' ? node.passKind : undefined,
-            node.kind === 'resource' ? node.resourceKind : undefined,
+            node.kind === 'pass' ? node.passKind : undefined,
+            (node.kind === 'resource' || node.kind === 'root') ? node.resourceKind : undefined,
             node.kind === 'group' ? node.collapsed : undefined,
             node.kind === 'group' ? node.depthBand : undefined,
             node.kind === 'group' ? node.culledNodeCount > 0 : undefined,
@@ -505,15 +401,11 @@ function finalizeScene(
             edge.kind,
             edge.from,
             edge.to,
-            edge.label,
             edge.title,
-            edge.kind === 'dependency' ? edge.dependencyKind : undefined,
-            edge.kind === 'access' ? edge.accessMode : undefined,
-            edge.kind === 'access' ? edge.dashed : undefined,
+            edge.relations,
         ]),
     });
     return {
-        mode,
         nodes,
         edges,
         topologyKey,
@@ -526,7 +418,8 @@ function createMutableInteractionIndex(): MutableInteractionIndex {
     return {
         selectionByElementId: new Map(),
         primaryElementIdsBySelection: new Map(),
-        relatedElementIdsBySelection: new Map(),
+        hoverElementIdsBySelection: new Map(),
+        resourceElementIdsByResourceId: new Map(),
         semanticReferencesByElementId: new Map(),
     };
 }
@@ -538,7 +431,8 @@ function registerElement(
     references: GraphSemanticReferences,
 ): void {
     interaction.selectionByElementId.set(elementId, selection);
-    setSelectionElements(interaction, selection, [elementId], [elementId]);
+    setSelectionElements(interaction, selection, [elementId]);
+    interaction.hoverElementIdsBySelection.set(selectionKey(selection), [elementId]);
     interaction.semanticReferencesByElementId.set(elementId, references);
 }
 
@@ -546,21 +440,8 @@ function setSelectionElements(
     interaction: MutableInteractionIndex,
     selection: Selection,
     primary: readonly GraphSceneElementId[],
-    related: readonly GraphSceneElementId[],
 ): void {
     interaction.primaryElementIdsBySelection.set(selectionKey(selection), [...primary]);
-    interaction.relatedElementIdsBySelection.set(selectionKey(selection), [...related]);
-}
-
-function appendSelectionElement(
-    map: Map<string, GraphSceneElementId[]>,
-    selection: Selection,
-    elementId: GraphSceneElementId,
-): void {
-    const key = selectionKey(selection);
-    const elementIds = map.get(key) ?? [];
-    if (!elementIds.includes(elementId)) elementIds.push(elementId);
-    map.set(key, elementIds);
 }
 
 function emptyReferences(overrides: Partial<GraphSemanticReferences>): GraphSemanticReferences {
@@ -578,16 +459,8 @@ function passElementId(nodeId: string): GraphSceneElementId {
     return `pass:${nodeId}`;
 }
 
-function culledPassElementId(index: number, nodeId: string): GraphSceneElementId {
-    return `culled-pass:${index}:${nodeId}`;
-}
-
 function resourceElementId(resourceId: string): GraphSceneElementId {
     return `resource:${resourceId}`;
-}
-
-function accessElementId(accessId: string, resourceId: string): GraphSceneElementId {
-    return `access:${accessId}:${resourceId}`;
 }
 
 function formatGraphNodeLabel(label: string): string {
@@ -715,16 +588,6 @@ function createGroupTitle(group: FrameGraphDebugGroup): string {
     ].join('\n');
 }
 
-function createCulledNodeTitle(culled: FrameGraphDebugViewModel['culledNodes'][number]): string {
-    return [
-        `${labelNode(culled.node)} (culled)`,
-        `kind: ${culled.node.kind}`,
-        `reason: ${culled.reason}`,
-        `reads: ${culled.node.reads.map((access) => labelResource(access.resource)).join(', ') || '-'}`,
-        `writes: ${culled.node.writes.map((access) => labelResource(access.resource)).join(', ') || '-'}`,
-    ].join('\n');
-}
-
 function createResourceTitle(
     resource: FrameGraphDebugResource,
     snapshot: FrameGraphDebugViewModel,
@@ -740,19 +603,6 @@ function createResourceTitle(
         `reads: ${accesses.filter((access) => access.mode === 'read').length}`,
         `writes: ${accesses.filter((access) => access.mode === 'write').length}`,
     ].join('\n');
-}
-
-function createAccessTitle(access: FrameGraphDebugAccessEdge): string {
-    return [
-        `#${access.accessId} ${access.mode}`,
-        labelResource(access.resource),
-        `access: ${access.access}`,
-        access.mode === 'write' ? `contents: ${access.contents}` : undefined,
-        access.mode === 'write' ? `result: ${access.producesValue ? 'produced' : 'discarded'}` : undefined,
-        access.textureViewId === undefined ? undefined : `texture view: #${access.textureViewId}`,
-        access.textureRegion ? `texture: mip ${access.textureRegion.baseMipLevel}+${access.textureRegion.mipLevelCount}, layer ${access.textureRegion.baseArrayLayer ?? 0}+${access.textureRegion.arrayLayerCount ?? 1}, depth ${access.textureRegion.baseDepthSlice ?? 0}+${access.textureRegion.depthSliceCount ?? 1}, ${access.textureRegion.aspect}` : undefined,
-        access.bufferRange ? `buffer: ${access.bufferRange.offset}+${access.bufferRange.size ?? 'end'}` : undefined,
-    ].filter(Boolean).join('\n');
 }
 
 function debugGroupPathForId(groupId: string | undefined, snapshot: FrameGraphDebugViewModel): string {

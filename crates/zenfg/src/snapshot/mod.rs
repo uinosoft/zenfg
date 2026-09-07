@@ -1,4 +1,4 @@
-//! Snapshot 1.0 export plus the portable [`zenfg_snapshot`] wire API.
+//! Snapshot 1.1 export plus the portable [`zenfg_snapshot`] wire API.
 //!
 //! Enable the `snapshot` Cargo feature, compile with a full report, then call
 //! [`create_frame_graph_snapshot`]. Encoding, arbitrary JSON validation, and

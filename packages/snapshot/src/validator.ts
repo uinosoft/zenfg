@@ -67,6 +67,8 @@ const UNAVAILABLE_FACTS = [
 	'graph.textureViews',
 	'graph.nodes.recordingOrder',
 	'graph.accesses.regions',
+	'graph.roots.range',
+	'graph.roots.resolution',
 ] as const;
 const READ_ACCESS_KINDS = new Set<FrameGraphSnapshotAccessKind>([
 	'texture-sampled',
@@ -503,12 +505,34 @@ function validateGraph(value: unknown, issues: Issues): UnknownRecord | undefine
 		enumValue(dependency.kind, ['value', 'ordering'], `${path}/kind`, issues);
 	});
 	forEachRecord(graph.roots, '/graph/roots', issues, (root, path) => {
-		keys(root, path, ['reason'], ['nodeId', 'resourceId'], issues);
+		keys(root, path, ['reason'], ['nodeId', 'resourceId', 'range', 'resolution'], issues);
 		enumValue(root.reason, ROOT_REASONS, `${path}/reason`, issues);
 		optionalEntityId(root.nodeId, `${path}/nodeId`, issues, 'node');
 		optionalEntityId(root.resourceId, `${path}/resourceId`, issues, 'resource');
 		if ((root.nodeId === undefined) === (root.resourceId === undefined)) {
 			issues.push(issue('invalid-root', path, 'A root must reference exactly one node or resource.'));
+		}
+		if ((root.reason === 'side-effect') !== (root.nodeId !== undefined)) issues.push(issue('invalid-root', path, 'Only side-effect roots reference nodes.'));
+		if (root.reason === 'side-effect' && (root.range !== undefined || root.resolution !== undefined)) issues.push(issue('invalid-root', path, 'Side effects cannot carry resource contents.'));
+		if (root.range !== undefined) {
+			const range = record(root.range, `${path}/range`, issues);
+			if (range?.kind === 'buffer') {
+				keys(range, `${path}/range`, ['kind', 'offset', 'size'], [], issues);
+				safeInteger(range.offset, `${path}/range/offset`, issues);
+				positiveSafeInteger(range.size, `${path}/range/size`, issues);
+			} else if (range?.kind === 'texture') {
+				keys(range, `${path}/range`, ['kind', 'regions'], [], issues);
+				if (!Array.isArray(range.regions) || !range.regions.length) issues.push(issue('invalid-root-range', `${path}/range/regions`, 'Expected non-empty texture regions.'));
+				else range.regions.forEach((region, index) => validateTextureRegion(region, `${path}/range/regions/${index}`, issues));
+			} else issues.push(issue('invalid-root-range', `${path}/range/kind`, 'Expected buffer or texture.'));
+		}
+		if (root.resolution !== undefined) {
+			const resolution = record(root.resolution, `${path}/resolution`, issues);
+			if (resolution) {
+				keys(resolution, `${path}/resolution`, ['producerNodeIds', 'usesInitialContents'], [], issues);
+				stringArray(resolution.producerNodeIds, `${path}/resolution/producerNodeIds`, issues, true, undefined, 'node');
+				boolean(resolution.usesInitialContents, `${path}/resolution/usesInitialContents`, issues);
+			}
 		}
 	});
 	forEachRecord(graph.segments, '/graph/segments', issues, (segment, path) => {
@@ -845,8 +869,44 @@ function validateReferences(snapshot: FrameGraphSnapshot, issues: Issues): void 
 	}
 	for (let index = 0; index < snapshot.graph.roots.length; index++) {
 		const root = snapshot.graph.roots[index];
+		const path = `/graph/roots/${index}`;
 		if (root.nodeId && !nodeById.has(root.nodeId)) missing(`/graph/roots/${index}/nodeId`, 'node', root.nodeId, issues);
 		if (root.resourceId && !resourceById.has(root.resourceId)) missing(`/graph/roots/${index}/resourceId`, 'resource', root.resourceId, issues);
+		if (root.reason === 'side-effect') {
+			if (nodeById.has(root.nodeId) && nodeById.get(root.nodeId)?.compileState.status !== 'retained') issues.push(issue('invalid-root', path, 'Side effect must reference a retained node.'));
+			continue;
+		}
+		for (const fact of ['range', 'resolution'] as const) {
+			if (root[fact] === undefined && !unavailable.has(`graph.roots.${fact}`)) issues.push(issue('missing-root-fact', `${path}/${fact}`, `Root ${fact} requires explicit Legacy unavailability when absent.`));
+		}
+		const resource = resourceById.get(root.resourceId);
+		if (root.range && resource) {
+			if (root.range.kind !== resource.kind) issues.push(issue('invalid-root-range', `${path}/range`, 'Root range and resource kinds must match.'));
+			if (root.range.kind === 'buffer' && resource.kind === 'buffer' && resource.descriptor && root.range.offset + root.range.size > resource.descriptor.size) issues.push(issue('invalid-root-range', `${path}/range`, 'Root range exceeds buffer size.'));
+			if (root.range.kind === 'texture' && resource.kind === 'texture' && resource.descriptor) {
+				for (const region of root.range.regions) {
+					const desc = resource.descriptor;
+					const endMip = region.baseMipLevel + region.mipLevelCount;
+					const depth = Math.max(1, Math.floor(desc.size.depthOrArrayLayers / 2 ** (endMip - 1)));
+					if (endMip > desc.mipLevelCount || (desc.dimension === '3d'
+						? region.baseDepthSlice === undefined || region.baseDepthSlice + (region.depthSliceCount ?? 0) > depth
+						: region.baseArrayLayer === undefined || region.baseArrayLayer + (region.arrayLayerCount ?? 0) > desc.size.depthOrArrayLayers)) issues.push(issue('invalid-root-range', `${path}/range`, 'Root texture region exceeds or mismatches the texture.'));
+				}
+			}
+		}
+		if (root.resolution) {
+			let previous = -1;
+			for (const id of root.resolution.producerNodeIds) {
+				const state = nodeById.get(id)?.compileState;
+				if (state?.status !== 'retained' || state.executionOrder <= previous) issues.push(issue('invalid-root-producer', `${path}/resolution/producerNodeIds`, 'Producers must be unique retained nodes in execution order.'));
+				if (state?.status === 'retained') previous = state.executionOrder;
+			}
+			if (!root.resolution.usesInitialContents && root.resolution.producerNodeIds.length === 0) issues.push(issue('invalid-root-resolution', `${path}/resolution`, 'Non-empty output must have a producer or initial contents.'));
+			if (root.resolution.usesInitialContents && resource?.initialContents !== 'defined') issues.push(issue('invalid-root-resolution', `${path}/resolution`, 'Initial contribution requires defined initial contents.'));
+		}
+	}
+	for (const fact of ['range', 'resolution'] as const) {
+		if (unavailable.has(`graph.roots.${fact}`) && (!snapshot.capture.migration || !snapshot.graph.roots.some((root) => root.reason !== 'side-effect' && root[fact] === undefined))) issues.push(issue('invalid-migration-availability', '/capture/migration/unavailableFacts', `Unavailable root ${fact} requires Legacy provenance and missing facts.`));
 	}
 	for (let index = 0; index < snapshot.diagnostics.length; index++) {
 		const diagnostic = snapshot.diagnostics[index];
@@ -984,7 +1044,7 @@ function keys(value: UnknownRecord, path: string, required: readonly string[], o
 		if (!(key in value)) issues.push(issue('missing-property', `${path}/${pointer(key)}`, `Required property "${key}" is missing.`));
 	}
 	for (const key of Object.keys(value)) {
-		if (!allowed.has(key)) issues.push(issue('unexpected-property', `${path}/${pointer(key)}`, `Property "${key}" is not part of Snapshot 1.0.`));
+		if (!allowed.has(key)) issues.push(issue('unexpected-property', `${path}/${pointer(key)}`, `Property "${key}" is not part of Snapshot 1.1.`));
 	}
 }
 

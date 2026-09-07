@@ -114,6 +114,8 @@ import {
 } from './copyValidation.ts';
 import {
 	compileFrameGraph,
+	normalizeTextureRootRange,
+	type ResourceRootDeclaration,
 	resolveBufferRange,
 	resolveTextureAccessRange,
 	textureRegionsOverlap,
@@ -355,7 +357,7 @@ class FrameGraphRecorderImpl implements FrameGraphRecorder {
 	private importedBuffers = new WeakMap<GPUBuffer, BufferHandle>();
 	private readonly textureViews = new Map<number, InternalTextureView>();
 	private readonly nodes: InternalNode[] = [];
-	private readonly rootResources = new Map<number, Set<GraphRootReason>>();
+	private readonly rootResources = new Map<string, ResourceRootDeclaration>();
 	private readonly debugGroups: FrameGraphCompilationReport['debugGroups'][number][] = [];
 	private readonly debugGroupStack: number[] = [];
 	private readonly nodeDebugGroupIds = new Map<number, number>();
@@ -1159,10 +1161,11 @@ class FrameGraphRecorderImpl implements FrameGraphRecorder {
 	 *
 	 * @beta
 	 */
-	markOutput(resource: ResourceHandle): void {
+	markOutput(resource: ResourceHandle | TextureViewHandle): void;
+	markOutput(buffer: BufferHandle, range: BufferRange): void;
+	markOutput(resource: ResourceHandle | TextureViewHandle, range?: BufferRange): void {
 		this.assertCanMutate('markOutput');
-		this.assertKnownResource(resource);
-		this.addRootResource(resource, 'output');
+		this.addRootResource(resource, 'output', range);
 		this.invalidate();
 	}
 
@@ -1174,13 +1177,15 @@ class FrameGraphRecorderImpl implements FrameGraphRecorder {
 	 *
 	 * @beta
 	 */
-	markPersistentState(resource: ResourceHandle): void {
+	markPersistentState(resource: ResourceHandle | TextureViewHandle): void;
+	markPersistentState(buffer: BufferHandle, range: BufferRange): void;
+	markPersistentState(resource: ResourceHandle | TextureViewHandle, range?: BufferRange): void {
 		this.assertCanMutate('markPersistentState');
-		const internal = this.resourceFor(resource);
+		const internal = this.resourceFor(resource.kind === 'texture-view' ? this.textureViewFor(resource).texture : resource);
 		if (internal.origin !== 'imported') {
 			throw new Error('Persistent state can only be marked on an imported resource.');
 		}
-		this.addRootResource(resource, 'persistent-state');
+		this.addRootResource(resource, 'persistent-state', range);
 		this.invalidate();
 	}
 
@@ -1201,11 +1206,11 @@ class FrameGraphRecorderImpl implements FrameGraphRecorder {
 	 *
 	 * @beta
 	 */
-	markReadback(resource: BufferHandle): void {
+	markReadback(resource: BufferHandle, range?: BufferRange): void {
 		this.assertCanMutate('markReadback');
 		const internal = this.resourceFor(resource);
 		this.validateReadbackBuffer(internal);
-		this.addRootResource(resource, 'readback');
+		this.addRootResource(resource, 'readback', range);
 		this.invalidate();
 	}
 
@@ -1222,10 +1227,11 @@ class FrameGraphRecorderImpl implements FrameGraphRecorder {
 	 *
 	 * @beta
 	 */
-	markDebugCapture(resource: ResourceHandle): void {
+	markDebugCapture(resource: ResourceHandle | TextureViewHandle): void;
+	markDebugCapture(buffer: BufferHandle, range: BufferRange): void;
+	markDebugCapture(resource: ResourceHandle | TextureViewHandle, range?: BufferRange): void {
 		this.assertCanMutate('markDebugCapture');
-		this.assertKnownResource(resource);
-		this.addRootResource(resource, 'debug-capture');
+		this.addRootResource(resource, 'debug-capture', range);
 		this.invalidate();
 	}
 
@@ -2786,8 +2792,8 @@ class FrameGraphRecorderImpl implements FrameGraphRecorder {
 		handle: TextureHandle,
 		descriptor: GPUTextureViewDescriptor,
 		region: InternalTextureRegion,
-		access: TextureAccess,
-		node: InternalNode,
+		access?: TextureAccess,
+		node?: InternalNode,
 	): void {
 		const desc = this.resourceFor(handle).desc as TextureDesc;
 		const format = descriptor.format ?? desc.format;
@@ -2835,7 +2841,7 @@ class FrameGraphRecorderImpl implements FrameGraphRecorder {
 					|| (dimension === 'cube-array' && region.arrayLayerCount % 6 === 0)
 				);
 		if (!validDimension) {
-			throw new Error(`Node "${node.label ?? node.id}" uses texture "${handle.label ?? handle.id}" with incompatible view dimension "${dimension}".`);
+			throw new Error(`${node ? `Node "${node.label ?? node.id}" uses texture` : 'Texture root'} "${handle.label ?? handle.id}" has incompatible view dimension "${dimension}".`);
 		}
 		if ((dimension === 'cube' || dimension === 'cube-array') && textureSizeTuple(desc.size)[0] !== textureSizeTuple(desc.size)[1]) {
 			throw new Error(`Cube texture view "${handle.label ?? handle.id}" requires equal width and height.`);
@@ -2966,13 +2972,28 @@ class FrameGraphRecorderImpl implements FrameGraphRecorder {
 		}
 	}
 
-	private addRootResource(resource: ResourceHandle, reason: GraphRootReason): void {
-		let reasons = this.rootResources.get(resource.id);
-		if (!reasons) {
-			reasons = new Set();
-			this.rootResources.set(resource.id, reasons);
+	private addRootResource(target: ResourceHandle | TextureViewHandle, reason: Exclude<GraphRootReason, 'side-effect'>, bufferRange?: BufferRange): void {
+		const view = target.kind === 'texture-view' ? this.textureViewFor(target) : undefined;
+		const handle = view?.texture ?? target as ResourceHandle;
+		const resource = this.resourceFor(handle);
+		let range: ResourceRootDeclaration['range'];
+		if (handle.kind === 'buffer') {
+			const resolved = resolveBufferRange((value) => this.resourceFor(value), handle, bufferRange);
+			const size = (resource.desc as BufferDesc).size;
+			if (!Number.isSafeInteger(resolved.offset) || !Number.isSafeInteger(resolved.size) || resolved.offset < 0 || resolved.size <= 0 || resolved.offset + resolved.size > size) {
+				throw new FrameGraphError(FRAME_GRAPH_ERROR_CODES.InvalidBufferRange, 'Root buffer range must be non-empty and within the resource.', { phase: 'record', resourceId: handle.id, context: { range: resolved } });
+			}
+			range = { kind: 'buffer', ...resolved };
+		} else {
+			if (bufferRange !== undefined) throw new TypeError('Buffer ranges cannot select texture roots.');
+			if (view) {
+				this.validateTextureRegion(view.texture, view.region);
+				this.validateTextureViewDescriptor(view.texture, view.desc, view.region);
+			}
+			range = normalizeTextureRootRange(resource.desc as TextureDesc, view?.region);
 		}
-		reasons.add(reason);
+		const root = { resourceId: handle.id, reason, range };
+		this.rootResources.set(JSON.stringify(root), root);
 	}
 
 	private recordResourceDebugGroup(resourceId: number): void {

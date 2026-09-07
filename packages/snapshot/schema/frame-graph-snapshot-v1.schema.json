@@ -14,7 +14,7 @@
       "required": ["major", "minor"],
       "properties": {
         "major": { "const": 1 },
-        "minor": { "const": 0 }
+        "minor": { "const": 1 }
       }
     },
     "producer": { "$ref": "#/$defs/producer" },
@@ -38,6 +38,142 @@
     }
   },
   "allOf": [
+    {
+      "if": {
+        "allOf": [
+          {
+            "$ref": "#/$defs/migrationContains"
+          },
+          {
+            "properties": {
+              "capture": {
+                "properties": {
+                  "migration": {
+                    "properties": {
+                      "unavailableFacts": {
+                        "contains": {
+                          "const": "graph.roots.range"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        ]
+      },
+      "then": {
+        "properties": {
+          "graph": {
+            "properties": {
+              "roots": {
+                "contains": {
+                  "required": [
+                    "resourceId"
+                  ],
+                  "not": {
+                    "required": [
+                      "range"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "graph": {
+            "properties": {
+              "roots": {
+                "items": {
+                  "if": {
+                    "required": [
+                      "resourceId"
+                    ]
+                  },
+                  "then": {
+                    "required": [
+                      "range"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "allOf": [
+          {
+            "$ref": "#/$defs/migrationContains"
+          },
+          {
+            "properties": {
+              "capture": {
+                "properties": {
+                  "migration": {
+                    "properties": {
+                      "unavailableFacts": {
+                        "contains": {
+                          "const": "graph.roots.resolution"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        ]
+      },
+      "then": {
+        "properties": {
+          "graph": {
+            "properties": {
+              "roots": {
+                "contains": {
+                  "required": [
+                    "resourceId"
+                  ],
+                  "not": {
+                    "required": [
+                      "resolution"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "graph": {
+            "properties": {
+              "roots": {
+                "items": {
+                  "if": {
+                    "required": [
+                      "resourceId"
+                    ]
+                  },
+                  "then": {
+                    "required": [
+                      "resolution"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     {
       "if": { "$ref": "#/$defs/recordingOrderUnavailable" },
       "then": {
@@ -624,7 +760,7 @@
           "type": "array",
           "uniqueItems": true,
           "items": {
-            "enum": ["graph.groups", "graph.textureViews", "graph.nodes.recordingOrder", "graph.accesses.regions"]
+            "enum": ["graph.groups", "graph.textureViews", "graph.nodes.recordingOrder", "graph.accesses.regions", "graph.roots.range", "graph.roots.resolution"]
           }
         }
       }
@@ -955,12 +1091,144 @@
     "root": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["reason"],
-      "oneOf": [{ "required": ["nodeId"] }, { "required": ["resourceId"] }],
+      "required": [
+        "reason"
+      ],
       "properties": {
-        "reason": { "enum": ["present", "output", "readback", "side-effect", "debug-capture", "persistent-state"] },
-        "nodeId": { "$ref": "#/$defs/nodeId" },
-        "resourceId": { "$ref": "#/$defs/resourceId" }
+        "reason": {
+          "enum": [
+            "present",
+            "output",
+            "readback",
+            "side-effect",
+            "debug-capture",
+            "persistent-state"
+          ]
+        },
+        "nodeId": {
+          "$ref": "#/$defs/nodeId"
+        },
+        "resourceId": {
+          "$ref": "#/$defs/resourceId"
+        },
+        "range": {
+          "$ref": "#/$defs/resourceRange"
+        },
+        "resolution": {
+          "$ref": "#/$defs/rootResolution"
+        }
+      },
+      "oneOf": [
+        {
+          "properties": {
+            "reason": {
+              "const": "side-effect"
+            }
+          },
+          "required": [
+            "nodeId"
+          ],
+          "not": {
+            "anyOf": [
+              {
+                "required": [
+                  "resourceId"
+                ]
+              },
+              {
+                "required": [
+                  "range"
+                ]
+              },
+              {
+                "required": [
+                  "resolution"
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "properties": {
+            "reason": {
+              "not": {
+                "const": "side-effect"
+              }
+            }
+          },
+          "required": [
+            "resourceId"
+          ],
+          "not": {
+            "required": [
+              "nodeId"
+            ]
+          }
+        }
+      ]
+    },
+    "resourceRange": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "offset",
+            "size"
+          ],
+          "properties": {
+            "kind": {
+              "const": "buffer"
+            },
+            "offset": {
+              "$ref": "#/$defs/safeInteger"
+            },
+            "size": {
+              "$ref": "#/$defs/positiveSafeInteger"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "regions"
+          ],
+          "properties": {
+            "kind": {
+              "const": "texture"
+            },
+            "regions": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "$ref": "#/$defs/textureRegion"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "rootResolution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "producerNodeIds",
+        "usesInitialContents"
+      ],
+      "properties": {
+        "producerNodeIds": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/nodeId"
+          }
+        },
+        "usesInitialContents": {
+          "type": "boolean"
+        }
       }
     },
     "segment": {

@@ -78,8 +78,6 @@ export class FrameGraphInspector {
 	private readonly body = document.createElement('div');
 	private readonly content = document.createElement('div');
 	private readonly dropOverlay = document.createElement('div');
-	private readonly passesGraphModeButton: HTMLButtonElement;
-	private readonly resourcesGraphModeButton: HTMLButtonElement;
 	private readonly groupsButton: HTMLButtonElement;
 	private readonly collapseGroupsButton: HTMLButtonElement;
 	private readonly graphView: GraphViewState;
@@ -161,7 +159,6 @@ export class FrameGraphInspector {
 			toolbar: document.createElement('div'),
 			legend: graphLegend,
 			layoutElementBudget: normalizeLimit(options.maxGraphElements, DEFAULT_MAX_GRAPH_ELEMENTS, 'maxGraphElements'),
-			graphMode: 'passes',
 			groupsEnabled: true,
 			expandedGroupPaths: new Set(),
 			fitOnNextRender: true,
@@ -171,18 +168,9 @@ export class FrameGraphInspector {
 		this.graphView.toolbar.setAttribute('role', 'toolbar');
 		this.graphView.toolbar.setAttribute('aria-label', 'Frame graph view controls');
 
-		this.passesGraphModeButton = createToolbarButton('Pass dependency', 'Show pass dependency graph', () => this.setGraphMode('passes'));
-		this.resourcesGraphModeButton = createToolbarButton('Resource access', 'Show resource access graph', () => this.setGraphMode('resources'));
 		this.groupsButton = createToolbarButton('Groups', 'Toggle diagnostic group projection', () => this.toggleGroups());
 		this.collapseGroupsButton = createToolbarButton('Collapse All', 'Collapse every diagnostic group', () => this.collapseAllGroups());
-		this.passesGraphModeButton.classList.add('zenfg-inspector-mode-button');
-		this.resourcesGraphModeButton.classList.add('zenfg-inspector-mode-button');
 
-		const modeControls = document.createElement('div');
-		modeControls.className = 'zenfg-inspector-graph-mode-controls';
-		modeControls.setAttribute('role', 'group');
-		modeControls.setAttribute('aria-label', 'Graph mode');
-		modeControls.append(this.passesGraphModeButton, this.resourcesGraphModeButton);
 		const actionControls = document.createElement('div');
 		actionControls.className = 'zenfg-inspector-graph-action-controls';
 		actionControls.append(
@@ -190,7 +178,7 @@ export class FrameGraphInspector {
 			this.collapseGroupsButton,
 			createGraphIconButton('fit', 'Fit graph to view', () => fitGraph(this.graphView)),
 		);
-		this.graphView.toolbar.append(modeControls, graphLegend, actionControls);
+		this.graphView.toolbar.append(graphLegend, actionControls);
 
 		const callbacks: WorkbenchCallbacks = {
 			onSelect: (selection) => this.handleSelect(selection),
@@ -216,7 +204,7 @@ export class FrameGraphInspector {
 		this.dom.addEventListener('dragend', this.handleDragEnd);
 		this.dom.addEventListener('drop', this.handleDrop);
 		this.updateCaptureActions();
-		this.updateGraphModeButtonState();
+		this.updateGraphControls();
 		this.showEmptyState();
 		queueMicrotask(() => this.maybeAutoCapture());
 	}
@@ -282,7 +270,7 @@ export class FrameGraphInspector {
 	}
 
 	/**
-	 * Validates and synchronously displays a programmatic Snapshot 1.0 value.
+	 * Validates and synchronously displays a programmatic Snapshot 1.1 value.
 	 *
 	 * @throws {@link FrameGraphSnapshotValidationError} if `snapshot` is invalid.
 	 */
@@ -424,7 +412,7 @@ export class FrameGraphInspector {
 		}
 		this.workbench.setSnapshot(viewModel, this.selected);
 		this.updateCaptureActions();
-		this.updateGraphModeButtonState();
+		this.updateGraphControls();
 	}
 
 	/**
@@ -482,49 +470,39 @@ export class FrameGraphInspector {
 		this.workbench.setHovered(selection);
 	}
 
-	private setGraphMode(mode: GraphViewState['graphMode']): void {
-		if (this.graphView.graphMode === mode) return;
-		this.graphView.graphMode = mode;
-		this.graphView.fitOnNextRender = true;
-		this.updateGraphModeButtonState();
-		this.workbench.refreshGraphStructure();
-	}
-
-	private updateGraphModeButtonState(): void {
-		const passesActive = this.graphView.graphMode === 'passes';
+	private updateGraphControls(): void {
 		const hasGroups = (this.viewModel?.debugGroups.length ?? 0) > 0;
-		this.passesGraphModeButton.classList.toggle('active', passesActive);
-		this.resourcesGraphModeButton.classList.toggle('active', !passesActive);
-		this.passesGraphModeButton.setAttribute('aria-pressed', passesActive ? 'true' : 'false');
-		this.resourcesGraphModeButton.setAttribute('aria-pressed', passesActive ? 'false' : 'true');
-		this.groupsButton.disabled = !passesActive || !hasGroups;
-		this.groupsButton.classList.toggle('active', passesActive && hasGroups && this.graphView.groupsEnabled);
-		this.groupsButton.setAttribute('aria-pressed', passesActive && hasGroups && this.graphView.groupsEnabled ? 'true' : 'false');
+		this.groupsButton.disabled = !hasGroups;
+		this.groupsButton.classList.toggle('active', hasGroups && this.graphView.groupsEnabled);
+		this.groupsButton.setAttribute('aria-pressed', hasGroups && this.graphView.groupsEnabled ? 'true' : 'false');
 		const hasExpanded = this.viewModel?.debugGroups.some((group) => this.graphView.expandedGroupPaths.has(group.pathKey)) ?? false;
-		this.collapseGroupsButton.disabled = !passesActive || !hasGroups || !this.graphView.groupsEnabled || !hasExpanded;
+		this.collapseGroupsButton.disabled = !hasGroups || !this.graphView.groupsEnabled || !hasExpanded;
 	}
 
 	private toggleGroups(): void {
-		if (this.graphView.graphMode !== 'passes' || !this.viewModel?.debugGroups.length) return;
+		if (!this.viewModel?.debugGroups.length) return;
+		this.handleHover(undefined);
 		this.graphView.groupsEnabled = !this.graphView.groupsEnabled;
 		this.graphView.fitOnNextRender = true;
-		this.updateGraphModeButtonState();
+		this.updateGraphControls();
 		this.workbench.refreshGraphStructure();
 	}
 
 	private toggleGroup(pathKey: string): void {
+		this.handleHover(undefined);
 		if (this.graphView.expandedGroupPaths.has(pathKey)) this.graphView.expandedGroupPaths.delete(pathKey);
 		else this.graphView.expandedGroupPaths.add(pathKey);
 		this.graphView.anchorElementIdOnNextRender = graphGroupElementId(pathKey);
-		this.updateGraphModeButtonState();
+		this.updateGraphControls();
 		this.workbench.refreshGraphStructure();
 	}
 
 	private collapseAllGroups(): void {
 		if (this.graphView.expandedGroupPaths.size === 0) return;
+		this.handleHover(undefined);
 		this.graphView.expandedGroupPaths.clear();
 		this.graphView.fitOnNextRender = true;
-		this.updateGraphModeButtonState();
+		this.updateGraphControls();
 		this.workbench.refreshGraphStructure();
 	}
 

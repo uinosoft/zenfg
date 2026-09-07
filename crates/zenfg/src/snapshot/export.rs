@@ -19,9 +19,10 @@ use super::{
     SnapshotInitialContents, SnapshotLifetime, SnapshotMemory, SnapshotNode,
     SnapshotNodeCompileState, SnapshotNodeKind, SnapshotPoolReport, SnapshotProducer,
     SnapshotResource, SnapshotResourceDescriptor, SnapshotResourceKind, SnapshotResourceOrigin,
-    SnapshotRoot, SnapshotRootReason, SnapshotRuntime, SnapshotSegment, SnapshotSegmentKind,
-    SnapshotTextureRegion, SnapshotTextureSize, SnapshotTextureView, SnapshotTimings,
-    SnapshotUsageFlag, SnapshotWriteContents,
+    SnapshotResourceRange, SnapshotResourceRoot, SnapshotRoot, SnapshotRootResolution,
+    SnapshotRuntime, SnapshotSegment, SnapshotSegmentKind, SnapshotTextureRegion,
+    SnapshotTextureSize, SnapshotTextureView, SnapshotTimings, SnapshotUsageFlag,
+    SnapshotWriteContents,
 };
 use zenfg_snapshot::validate_typed_frame_graph_snapshot;
 
@@ -55,12 +56,12 @@ impl<'a> CreateFrameGraphSnapshotOptions<'a> {
     }
 }
 
-/// Converts a full native compilation report into the Snapshot 1.0 wire model.
+/// Converts a full native compilation report into the Snapshot 1.1 wire model.
 ///
 /// The returned value is entirely in memory; file naming and persistence remain
 /// caller-owned. The report must come from [`CompileOptions::full_report`](crate::CompileOptions::full_report).
 /// Optional timing data must carry the same frame index as `options`. A successful
-/// result has passed the complete Snapshot 1.0 typed validation pipeline.
+/// result has passed the complete Snapshot 1.1 typed validation pipeline.
 pub fn create_frame_graph_snapshot(
     report: &CompilationReport,
     options: CreateFrameGraphSnapshotOptions<'_>,
@@ -662,24 +663,62 @@ impl<'a> ExportContext<'a> {
             if !self.resources.contains_key(&root.resource) {
                 return invalid(format!("root has an unknown resource {}", root.resource));
             }
-            roots.insert(SnapshotRoot {
-                reason: match root.reason {
-                    RootReason::Present => SnapshotRootReason::Present,
-                    RootReason::Output => SnapshotRootReason::Output,
-                    RootReason::Readback => SnapshotRootReason::Readback,
-                    RootReason::DebugCapture => SnapshotRootReason::DebugCapture,
-                    RootReason::PersistentState => SnapshotRootReason::PersistentState,
+            let range = match &root.range {
+                ResourceRange::Buffer(range) => SnapshotResourceRange::Buffer {
+                    offset: safe_integer("root.range.offset", range.offset)?,
+                    size: safe_integer(
+                        "root.range.size",
+                        range
+                            .size
+                            .ok_or_else(|| SnapshotExportError::InvalidReport {
+                                message: "root buffer size must be resolved".into(),
+                            })?,
+                    )?,
                 },
-                node_id: None,
-                resource_id: Some(resource_id(root.resource.get())),
+                ResourceRange::Texture(regions) => {
+                    let resource = self.resources[&root.resource];
+                    let is_3d = matches!(&resource.descriptor, ResourceDescriptor::Texture(desc) if desc.dimension == wgpu::TextureDimension::D3);
+                    SnapshotResourceRange::Texture {
+                        regions: regions
+                            .iter()
+                            .map(|region| SnapshotTextureRegion {
+                                base_mip_level: region.base_mip_level.into(),
+                                mip_level_count: region.mip_level_count.into(),
+                                base_array_layer: (!is_3d).then_some(region.base_slice.into()),
+                                array_layer_count: (!is_3d).then_some(region.slice_count.into()),
+                                base_depth_slice: is_3d.then_some(region.base_slice.into()),
+                                depth_slice_count: is_3d.then_some(region.slice_count.into()),
+                                aspect: texture_aspect(region.aspect).into(),
+                            })
+                            .collect(),
+                    }
+                }
+            };
+            let value = SnapshotResourceRoot {
+                resource_id: resource_id(root.resource.get()),
+                range: Some(range),
+                resolution: Some(SnapshotRootResolution {
+                    producer_node_ids: root
+                        .resolution
+                        .producer_node_ids
+                        .iter()
+                        .map(|id| node_id(id.get()))
+                        .collect(),
+                    uses_initial_contents: root.resolution.uses_initial_contents,
+                }),
+            };
+            roots.insert(match root.reason {
+                RootReason::Present => SnapshotRoot::Present(value),
+                RootReason::Output => SnapshotRoot::Output(value),
+                RootReason::Readback => SnapshotRoot::Readback(value),
+                RootReason::DebugCapture => SnapshotRoot::DebugCapture(value),
+                RootReason::PersistentState => SnapshotRoot::PersistentState(value),
             });
         }
         for node in &self.full.nodes {
             if node.side_effect {
-                roots.insert(SnapshotRoot {
-                    reason: SnapshotRootReason::SideEffect,
-                    node_id: Some(node_id(node.id.get())),
-                    resource_id: None,
+                roots.insert(SnapshotRoot::SideEffect {
+                    node_id: node_id(node.id.get()),
                 });
             }
         }

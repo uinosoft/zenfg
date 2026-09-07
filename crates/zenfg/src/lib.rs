@@ -41,7 +41,7 @@ pub use report::{
     CulledNodeReason, CulledNodeReport, DebugGroupReport, DependencyReport, Diagnostic,
     DiagnosticSeverity, ExecutionSegmentKind, ExecutionSegmentReport, FullCompilationReport,
     NodeReport, ResourceDescriptor, ResourceLifetime, ResourceReport, ResourceUsage, RootReport,
-    ValueKind, ValueReport, ViewReport,
+    RootResolution, ValueKind, ValueReport, ViewReport,
 };
 pub use resource::{
     Buffer, BufferDesc, BufferRange, BufferTextureCopyLocation, ClearBufferOp, ImportBufferOptions,

@@ -26,7 +26,7 @@ export function resolveSelectedDetail(
 		case 'group':
 			return snapshot.groupByPathKey.get(selected.pathKey);
 		case 'root':
-			return snapshot.roots[selected.index];
+			return snapshot.roots.find((root) => root.key === selected.key);
 		case 'culled': {
 			const culled = snapshot.culledNodes[selected.index];
 			return culled ? {
@@ -54,7 +54,7 @@ export function selectionExists(snapshot: FrameGraphDebugViewModel, selected: Se
 		case 'resource':
 			return snapshot.resourceById.has(selected.id);
 		case 'root':
-			return isValidIndex(selected.index, snapshot.roots.length);
+			return snapshot.roots.filter((root) => root.key === selected.key).length === 1;
 		case 'culled':
 			return isValidIndex(selected.index, snapshot.culledNodes.length);
 		case 'allocation':

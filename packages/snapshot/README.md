@@ -7,7 +7,7 @@
 
 `@zenfg/snapshot` owns the portable, versioned diagnostic contract used to move
 one compiled FrameGraph frame between producers and viewers. It provides the
-Snapshot 1.0 wire types, codec, validator, JSON Schema, fixtures, migration, and
+Snapshot 1.1 wire types, codec, validator, JSON Schema, fixtures, migration, and
 conformance corpus without depending on DOM, WebGPU, or a FrameGraph runtime.
 
 Snapshot files contain graph structure and diagnostics, not GPU commands or
@@ -23,7 +23,7 @@ npm install @zenfg/snapshot@0.1.0-beta.2
 ## Quick start
 
 Use `parseFrameGraphSnapshot()` for untrusted JSON text. Supported legacy
-formats are migrated to a detached canonical Snapshot 1.0 value:
+formats are migrated to a detached canonical Snapshot 1.1 value:
 
 ```ts
 import {
@@ -65,7 +65,7 @@ are documented by the TSDoc preserved in the packaged source and declarations.
 ## Consumer and producer boundaries
 
 - Consumers should use `parseFrameGraphSnapshot()` for text or
-  `decodeFrameGraphSnapshot()` for unknown values. Both accept canonical 1.0 and
+  `decodeFrameGraphSnapshot()` for unknown values. Both accept canonical 1.1 and
   supported historical formats, perform migration, and return a discriminated
   result.
 - Producers assembling an in-memory draft should use
@@ -114,7 +114,7 @@ JavaScript safe integers.
 
 ## Further reading
 
-- [Snapshot 1.0 specification](./SPEC.md)
+- [Snapshot 1.1 specification](./SPEC.md)
 - [ZenFG Core concepts](https://github.com/uinosoft/zenfg/blob/main/docs/core-concepts.md)
 - [`@zenfg/webgpu` Snapshot producer](https://github.com/uinosoft/zenfg/blob/main/packages/webgpu/README.md#diagnostics-and-snapshot)
 - [`zenfg-snapshot`](https://github.com/uinosoft/zenfg/blob/main/crates/zenfg-snapshot/README.md)

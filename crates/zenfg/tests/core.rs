@@ -11,6 +11,91 @@ fn full_options() -> CompileOptions {
 }
 
 #[test]
+fn ranged_roots_resolve_initial_contents_multiple_producers_and_duplicates() {
+    let mut graph = FrameGraph::new();
+    let mut frame = graph.begin_frame();
+    let buffer = frame
+        .import_buffer(
+            BufferDesc::new("history", 32),
+            ImportBufferOptions::new(InitialContents::Defined),
+        )
+        .unwrap();
+    let mut producers = Vec::new();
+    for offset in [0, 8] {
+        let mut pass = frame.command_pass("write");
+        pass.set_side_effect(false);
+        let _ = pass
+            .storage_buffer_write(
+                buffer,
+                BufferRange::new(offset, 8),
+                WriteContents::Overwrite,
+            )
+            .unwrap();
+        producers.push(pass.finish().unwrap());
+    }
+    for range in [
+        BufferRange::whole(),
+        BufferRange::new(0, 32),
+        BufferRange::new(0, 16),
+        BufferRange::new(16, 16),
+    ] {
+        frame
+            .mark_buffer_root(buffer, range, RootReason::Output)
+            .unwrap();
+    }
+    let compiled = frame.compile(full_options()).unwrap();
+    let roots = &compiled.report().unwrap().full.as_ref().unwrap().roots;
+    assert_eq!(roots.len(), 3);
+    assert_eq!(roots[0].resolution.producer_node_ids, producers);
+    assert!(roots[0].resolution.uses_initial_contents);
+    assert_eq!(roots[1].resolution.producer_node_ids, producers);
+    assert!(!roots[1].resolution.uses_initial_contents);
+    assert!(roots[2].resolution.producer_node_ids.is_empty());
+    assert!(roots[2].resolution.uses_initial_contents);
+}
+
+#[test]
+fn root_ranges_reject_empty_but_empty_accesses_remain_valid() {
+    let mut graph = FrameGraph::new();
+    let mut frame = graph.begin_frame();
+    let buffer = frame.create_buffer(BufferDesc::new("data", 16)).unwrap();
+    for range in [
+        BufferRange::new(0, 0),
+        BufferRange::new(16, 0),
+        BufferRange::new(8, 9),
+    ] {
+        assert_eq!(
+            frame
+                .mark_buffer_root(buffer, range, RootReason::Output)
+                .unwrap_err()
+                .code(),
+            "FG1103"
+        );
+    }
+    let mut pass = frame.command_pass("empty-read");
+    let _ = pass
+        .storage_buffer_read(buffer, BufferRange::new(0, 0))
+        .unwrap();
+    pass.finish().unwrap();
+    frame.compile(full_options()).unwrap();
+}
+
+#[test]
+fn root_coverage_is_checked_without_reports() {
+    for options in [CompileOptions::default(), full_options()] {
+        let mut graph = FrameGraph::new();
+        let mut frame = graph.begin_frame();
+        let buffer = frame
+            .create_buffer(BufferDesc::new("undefined", 16))
+            .unwrap();
+        frame
+            .mark_buffer_root(buffer, BufferRange::whole(), RootReason::Output)
+            .unwrap();
+        assert_eq!(frame.compile(options).unwrap_err().code(), "FG1004");
+    }
+}
+
+#[test]
 fn recording_descriptor_queries_return_snapshotted_and_normalized_metadata() {
     let mut graph = FrameGraph::new();
     let mut frame = graph.begin_frame();

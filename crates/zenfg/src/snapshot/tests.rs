@@ -33,7 +33,7 @@ fn golden_snapshot_covers_v1_wire_mapping() {
 
     assert_eq!(snapshot.format, "zenfg.frame-graph-snapshot");
     assert_eq!(snapshot.version.major, 1);
-    assert_eq!(snapshot.version.minor, 0);
+    assert_eq!(snapshot.version.minor, 1);
     assert_eq!(
         snapshot.graph.groups[1].parent_id.as_deref(),
         Some("group:0")
@@ -75,11 +75,11 @@ fn golden_snapshot_covers_v1_wire_mapping() {
     );
     assert_eq!(snapshot.graph.dependencies.len(), 1);
     assert!(snapshot.graph.roots.iter().any(|root| {
-        root.reason == SnapshotRootReason::SideEffect && root.node_id.as_deref() == Some("node:1")
+        root.reason() == SnapshotRootReason::SideEffect && root.node_id() == Some("node:1")
     }));
     assert!(snapshot.graph.roots.iter().any(|root| {
-        root.reason == SnapshotRootReason::PersistentState
-            && root.resource_id.as_deref() == Some("resource:4")
+        root.reason() == SnapshotRootReason::Output
+            && root.resource().map(|root| root.resource_id.as_str()) == Some("resource:4")
     }));
     assert_eq!(
         snapshot.graph.segments[1].kind.to_string_for_test(),
@@ -799,14 +799,20 @@ fn fixture_report() -> (CompilationReport, GpuTimingReport, ResourcePoolStats) {
             RootReport {
                 resource: texture_0,
                 reason: RootReason::Output,
-                range: ResourceRange::Texture(vec![texture_range(0, 4)]),
-                producers: vec![node_0],
+                range: ResourceRange::Texture(vec![texture_range(0, 2)]),
+                resolution: crate::RootResolution {
+                    producer_node_ids: vec![node_0],
+                    uses_initial_contents: false,
+                },
             },
             RootReport {
                 resource: buffer_4,
-                reason: RootReason::PersistentState,
-                range: ResourceRange::Buffer(BufferRange::whole()),
-                producers: vec![node_1],
+                reason: RootReason::Output,
+                range: ResourceRange::Buffer(BufferRange::new(0, 256)),
+                resolution: crate::RootResolution {
+                    producer_node_ids: vec![node_1],
+                    uses_initial_contents: false,
+                },
             },
         ],
         allocations: vec![

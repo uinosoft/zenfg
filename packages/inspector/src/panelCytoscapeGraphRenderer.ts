@@ -64,7 +64,7 @@ export class CytoscapeGraphRenderer implements GraphRenderer {
     private anchorTargetContentKey: string | undefined;
     private failedSceneContentKey: string | undefined;
     private overview = false;
-    private lastTap: { readonly id: string; readonly at: number } | undefined;
+    private pendingGroupTap: { readonly id: string; readonly timer: ReturnType<typeof setTimeout> } | undefined;
 
     constructor(
         private readonly host: HTMLElement,
@@ -75,6 +75,8 @@ export class CytoscapeGraphRenderer implements GraphRenderer {
         this.tooltip = environment.createElement('div');
         this.tooltip.className = 'zenfg-inspector-graph-tooltip';
         this.tooltip.hidden = true;
+        // Cytoscape's node mouseout is not guaranteed when leaving its canvas directly.
+        this.canvasHost.addEventListener('pointerleave', () => this.clearHover());
         this.status = environment.createElement('div');
         this.status.className = 'zenfg-inspector-graph-status';
         this.status.hidden = true;
@@ -93,6 +95,14 @@ export class CytoscapeGraphRenderer implements GraphRenderer {
 
     render(request: GraphRenderRequest): void {
         if (this.destroyed) return;
+        if (this.latestRequest?.scene !== request.scene
+            || (this.latestRequest?.selected && selectionKey(this.latestRequest.selected)) !== (request.selected && selectionKey(request.selected))) {
+            this.cancelGroupTap();
+        }
+        if ((!request.hovered && !this.tooltip.hidden) || this.latestRequest?.scene.contentKey !== request.scene.contentKey) {
+            this.hideTooltip();
+            this.core?.elements().removeClass('semantic-hover');
+        }
         this.latestRequest = request;
         if (request.fit) {
             this.fitTargetContentKey = request.scene.contentKey;
@@ -144,6 +154,7 @@ export class CytoscapeGraphRenderer implements GraphRenderer {
 
     relayout(): void {
         if (!this.latestRequest || this.destroyed) return;
+        this.cancelGroupTap();
         this.failedSceneContentKey = undefined;
         this.forceRelayout = true;
         this.fitTargetContentKey = this.latestRequest.scene.contentKey;
@@ -157,6 +168,7 @@ export class CytoscapeGraphRenderer implements GraphRenderer {
     destroy(): void {
         if (this.destroyed) return;
         this.destroyed = true;
+        this.cancelGroupTap();
         this.requestVersion++;
         this.resizeSubscription?.disconnect();
         this.hideTooltip();
@@ -319,19 +331,24 @@ export class CytoscapeGraphRenderer implements GraphRenderer {
             if (!request) return;
             const id = event.target.id() as GraphSceneElementId;
             const selection = request.scene.interaction.selectionByElementId.get(id);
-            if (selection) request.onSelect(selection);
-            const now = performance.now();
-            if (this.lastTap?.id === id && now - this.lastTap.at <= 350 && selection?.kind === 'group') {
+            const doubleTap = this.pendingGroupTap?.id === id;
+            this.cancelGroupTap();
+            if (selection?.kind !== 'group') {
+                if (selection) request.onSelect(selection);
+            } else if (doubleTap) {
                 request.onToggleGroup(selection.pathKey);
-                this.lastTap = undefined;
             } else {
-                this.lastTap = { id, at: now };
+                // Defer group selection so expansion does not replace the inspected resource.
+                this.pendingGroupTap = { id, timer: setTimeout(() => {
+                    this.pendingGroupTap = undefined;
+                    this.interactiveRequest()?.onSelect(selection);
+                }, 350) };
             }
         };
         core.on('tap', 'node', selectElement);
         core.on('tap', 'edge', selectElement);
         core.on('tap', (event) => {
-            if (event.target === core) this.lastTap = undefined;
+            if (event.target === core) this.cancelGroupTap();
         });
         const hoverElement = (event: cytoscape.EventObject) => {
             const request = this.interactiveRequest();
@@ -351,10 +368,7 @@ export class CytoscapeGraphRenderer implements GraphRenderer {
         const moveTooltip = (event: cytoscape.EventObject) => this.positionTooltip(event.renderedPosition);
         core.on('mousemove', 'node', moveTooltip);
         core.on('mousemove', 'edge', moveTooltip);
-        const clearHover = () => {
-            this.hideTooltip();
-            this.latestRequest?.onHover(undefined);
-        };
+        const clearHover = () => this.clearHover();
         core.on('mouseout', 'node', clearHover);
         core.on('mouseout', 'edge', clearHover);
         core.on('zoom', () => this.updateSemanticZoom());
@@ -371,7 +385,7 @@ export class CytoscapeGraphRenderer implements GraphRenderer {
         core.batch(() => {
             core.elements().removeClass('semantic-selected semantic-hover');
             if (request.hovered) {
-                for (const id of request.scene.interaction.relatedElementIdsBySelection.get(selectionKey(request.hovered)) ?? []) {
+                for (const id of request.scene.interaction.hoverElementIdsBySelection.get(selectionKey(request.hovered)) ?? []) {
                     core.getElementById(id).addClass('semantic-hover');
                 }
             }
@@ -434,7 +448,16 @@ export class CytoscapeGraphRenderer implements GraphRenderer {
     private hideTooltip(): void {
         this.tooltip.hidden = true;
         this.tooltip.textContent = '';
-        this.lastTap = undefined;
+    }
+
+    private cancelGroupTap(): void {
+        if (this.pendingGroupTap) clearTimeout(this.pendingGroupTap.timer);
+        this.pendingGroupTap = undefined;
+    }
+
+    private clearHover(): void {
+        this.hideTooltip();
+        this.latestRequest?.onHover(undefined);
     }
 
     private showStatus(kind: 'loading' | 'layout' | 'empty' | 'error', message: string, retry = false): void {
@@ -544,8 +567,8 @@ function nodeRenderableData(node: GraphSceneNode): Record<string, unknown> {
         : 160;
     return {
         kind: node.kind,
-        passKind: node.kind === 'pass' || node.kind === 'culled-pass' ? node.passKind : undefined,
-        resourceKind: node.kind === 'resource' ? node.resourceKind : undefined,
+        passKind: node.kind === 'pass' ? node.passKind : undefined,
+        resourceKind: (node.kind === 'resource' || node.kind === 'root') ? node.resourceKind : undefined,
         collapsed: node.kind === 'group' && node.collapsed ? 1 : 0,
         hasCulled: node.kind === 'group' && node.culledNodeCount > 0 ? 1 : 0,
         depthBand: node.kind === 'group' ? node.depthBand : undefined,
@@ -575,9 +598,6 @@ function edgeRenderableData(edge: GraphSceneEdge): Record<string, unknown> {
     const detailLabel = graphEdgeDisplayLabel(edge);
     return {
         kind: edge.kind,
-        dependencyKind: edge.kind === 'dependency' ? edge.dependencyKind : undefined,
-        accessMode: edge.kind === 'access' ? edge.accessMode : undefined,
-        dashed: edge.kind === 'access' && edge.dashed ? 1 : 0,
         detailLabel,
         displayLabel: detailLabel,
         tooltip: edge.title,

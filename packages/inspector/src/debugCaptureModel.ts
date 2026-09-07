@@ -6,7 +6,7 @@ import type {
 	FrameGraphSnapshotNodeKind,
 	FrameGraphSnapshotResourceKind,
 	FrameGraphSnapshotResourceOrigin,
-	FrameGraphSnapshotRootReason,
+	FrameGraphSnapshotRoot,
 	FrameGraphSnapshotSegment,
 	FrameGraphSnapshotTextureRegion,
 	FrameGraphSnapshotWriteContents,
@@ -65,6 +65,7 @@ export type FrameGraphDebugNode = {
 
 export type FrameGraphDebugResource = FrameGraphDebugResourceRef & {
 	readonly origin: FrameGraphSnapshotResourceOrigin;
+	readonly initialContents?: 'defined' | 'undefined';
 	readonly debugGroupId?: string;
 	readonly usageFlags: readonly string[];
     readonly lifetime?: { readonly firstUse: number; readonly lastUse: number };
@@ -80,11 +81,18 @@ export type FrameGraphDebugEdge = {
     readonly kind: 'value' | 'ordering';
 };
 
-export type FrameGraphDebugRoot = {
-	readonly reason: FrameGraphSnapshotRootReason;
-	readonly nodeId?: string;
+export type FrameGraphDebugRoot = FrameGraphSnapshotRoot & {
+	readonly key: string;
     readonly resource?: FrameGraphDebugResourceRef;
 };
+
+/** Semantic identity within one recording, independent of root array order. */
+export function rootKey(root: FrameGraphSnapshotRoot): string {
+	return root.reason === 'side-effect' ? JSON.stringify([root.reason, root.nodeId])
+		: JSON.stringify([root.reason, root.resourceId, root.range?.kind === 'buffer'
+			? ['buffer', root.range.offset, root.range.size]
+			: root.range?.regions.map((r) => [r.baseMipLevel, r.mipLevelCount, r.aspect, r.baseArrayLayer, r.arrayLayerCount, r.baseDepthSlice, r.depthSliceCount]) ?? null]);
+}
 
 export type FrameGraphDebugCulledNode = {
     readonly node: Omit<FrameGraphDebugNode, 'order'>;
@@ -105,6 +113,7 @@ export type FrameGraphDebugGroupSummary = {
 	readonly nodeKindCounts: Readonly<Partial<Record<FrameGraphSnapshotNodeKind, number>>>;
 	readonly inputResources: readonly FrameGraphDebugResourceRef[];
 	readonly outputResources: readonly FrameGraphDebugResourceRef[];
+	readonly outputRoots: readonly FrameGraphDebugRoot[];
 	readonly registeredTransientResourceCount: number;
 	readonly accessedTransientResourceCount: number;
 	readonly physicalAllocationCount: number;
@@ -277,6 +286,7 @@ export function createDebugViewModel(
 		kind: resource.kind,
 		label: resource.label,
 		origin: resource.origin,
+		initialContents: resource.initialContents,
 		debugGroupId: resource.groupId,
 		usageFlags: resource.usageFlags,
 		lifetime: resource.lifetime,
@@ -289,8 +299,8 @@ export function createDebugViewModel(
 		resource: resourceRef(dependency.resourceId),
 	}));
 	const roots: FrameGraphDebugRoot[] = compilation.roots.map((root) => ({
-		reason: root.reason,
-		nodeId: root.nodeId,
+		...root,
+		key: rootKey(root),
 		resource: root.resourceId === undefined ? undefined : resourceRef(root.resourceId),
 	}));
 	const culledNodes: FrameGraphDebugCulledNode[] = compilation.nodes
@@ -492,6 +502,23 @@ function validateDebugGroupReferences(
 	}
 }
 
+/** Declaration boundaries are topological, not per-range initial-value provenance. */
+export function declarationEntrances(
+	nodes: readonly FrameGraphDebugNode[],
+	accesses: readonly FrameGraphDebugAccessEdge[],
+	edges: readonly FrameGraphDebugEdge[],
+): readonly FrameGraphDebugAccessEdge[] {
+	const retained = new Set(nodes.map((node) => node.id));
+	const incoming = new Set(edges.map((edge) => JSON.stringify([edge.resource.id, edge.toNodeId])));
+	const seen = new Set<string>();
+	return accesses.filter((access) => {
+		const key = JSON.stringify([access.resource.id, access.nodeId]);
+		if (!retained.has(access.nodeId) || incoming.has(key) || seen.has(key)) return false;
+		seen.add(key);
+		return true;
+	});
+}
+
 function buildDebugGroupSummaries(input: {
 	readonly groups: readonly NormalizedDebugGroup[];
 	readonly nodes: readonly FrameGraphDebugNode[];
@@ -504,6 +531,7 @@ function buildDebugGroupSummaries(input: {
 }): FrameGraphDebugGroup[] {
 	const groupsById = new Map(input.groups.map((group) => [group.id, group]));
 	const resourcesById = new Map(input.resources.map((resource) => [resource.id, resource]));
+	const entrances = declarationEntrances(input.nodes, input.accessEdges, input.edges);
 	const isInGroup = (candidateId: string | undefined, groupId: string) => (
 		candidateId !== undefined && groupsById.get(candidateId)?.ancestorIds.includes(groupId) === true
 	);
@@ -526,23 +554,19 @@ function buildDebugGroupSummaries(input: {
 			if (!fromInside && toInside) inputIds.add(edge.resource.id);
 			if (fromInside && !toInside) outputIds.add(edge.resource.id);
 		}
-		for (const access of input.accessEdges) {
-			if (!retainedIds.has(access.nodeId)) continue;
-			const resource = resourcesById.get(access.resource.id);
-			const hasRetainedValueProducer = input.edges.some((edge) => (
-				edge.toNodeId === access.nodeId
-				&& edge.resource.id === access.resource.id
-				&& edge.kind === 'value'
-			));
-			if (access.mode === 'read' && resource && resource.origin !== 'transient' && !hasRetainedValueProducer) {
-				inputIds.add(resource.id);
-			}
+		for (const access of entrances) {
+			const fromInside = isInGroup(resourcesById.get(access.resource.id)?.debugGroupId, group.id);
+			const toInside = retainedIds.has(access.nodeId);
+			if (!fromInside && toInside) inputIds.add(access.resource.id);
+			if (fromInside && !toInside) outputIds.add(access.resource.id);
 		}
+		const outputRoots: FrameGraphDebugRoot[] = [];
 		for (const root of input.roots) {
 			if (!root.resource) continue;
-			if (input.accessEdges.some((access) => retainedIds.has(access.nodeId)
-				&& access.resource.id === root.resource!.id && access.mode === 'write')) {
+			if (root.resolution?.producerNodeIds.some((id) => retainedIds.has(id))
+				|| root.resolution?.usesInitialContents && isInGroup(resourcesById.get(root.resource.id)?.debugGroupId, group.id)) {
 				outputIds.add(root.resource.id);
+				outputRoots.push(root);
 			}
 		}
 
@@ -569,6 +593,7 @@ function buildDebugGroupSummaries(input: {
 				nodeKindCounts,
 				inputResources: [...inputIds].map((id) => resourcesById.get(id)!).filter(Boolean),
 				outputResources: [...outputIds].map((id) => resourcesById.get(id)!).filter(Boolean),
+				outputRoots,
 				registeredTransientResourceCount: registeredTransient.length,
 				accessedTransientResourceCount: accessedTransientIds.size,
 				physicalAllocationCount: allocationIds.size,

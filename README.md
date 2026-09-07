@@ -43,8 +43,8 @@ for the complete ownership, content, dependency, lifetime, and execution model.
 | --- | --- |
 | [`@zenfg/webgpu`](packages/webgpu/README.md) | TypeScript/WebGPU FrameGraph runtime |
 | [`zenfg`](crates/zenfg/README.md) | Rust/wgpu FrameGraph runtime |
-| [`@zenfg/snapshot`](packages/snapshot/README.md) | Normative Snapshot 1.0 types, codec, validator, Schema, and conformance corpus |
-| [`zenfg-snapshot`](crates/zenfg-snapshot/README.md) | Rust Snapshot 1.0 wire model, codec, validation, and migration |
+| [`@zenfg/snapshot`](packages/snapshot/README.md) | Normative Snapshot 1.1 types, codec, validator, Schema, and conformance corpus |
+| [`zenfg-snapshot`](crates/zenfg-snapshot/README.md) | Rust Snapshot 1.1 wire model, codec, validation, and migration |
 | [`@zenfg/inspector`](packages/inspector/README.md) | Renderer-independent DOM Inspector for Snapshot data |
 
 ## Start here

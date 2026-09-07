@@ -6,8 +6,8 @@ export const snapshotExportExample: PlaygroundExampleDefinition = {
 	id: 'snapshot-export',
 	title: 'Snapshot Export',
 	group: '@zenfg/webgpu basics',
-	summary: 'WebGPU · Diagnostics · Snapshot 1.0',
-	readyMessage: 'Ready · Snapshot 1.0 captured',
+	summary: 'WebGPU · Diagnostics · Snapshot 1.1',
+	readyMessage: 'Ready · Snapshot 1.1 captured',
 	footerHint: 'Inspector parses the JSON produced by the package recipe',
 	sourceFiles: [
 		{
