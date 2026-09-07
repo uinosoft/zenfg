@@ -22,7 +22,7 @@ export function renderGraphView(
     onToggleGroup: (pathKey: string) => void,
 ): void {
     const scene = resolveGraphScene(graphView, snapshot);
-    renderGraphLegend(graphView.legend, scene);
+    renderGraphLegend(graphView.legend, snapshot);
 	const elementCount = scene.nodes.length + scene.edges.length;
 	const layoutElementBudget = graphView.layoutElementBudget ?? Number.MAX_SAFE_INTEGER;
 	if (elementCount > layoutElementBudget) {
@@ -83,13 +83,26 @@ export function destroyGraph(graphView: GraphViewState): void {
     graphSceneCache.delete(graphView);
 }
 
-function renderGraphLegend(host: HTMLElement | undefined, scene: GraphScene): void {
+function renderGraphLegend(host: HTMLElement | undefined, snapshot: FrameGraphDebugViewModel): void {
     if (!host) return;
-    const entries = createGraphLegend(scene);
-    const key = entries.map((entry) => entry.key).join('|');
+    const entries = createGraphLegend(snapshot);
+    const key = JSON.stringify(entries);
     if (host.dataset.legendKey === key) return;
     host.dataset.legendKey = key;
-    host.replaceChildren(...entries.map((entry) => {
+    host.replaceChildren();
+    let group: HTMLElement | undefined;
+    for (const entry of entries) {
+        if (group?.getAttribute('aria-label') !== entry.group) {
+            group = document.createElement('span');
+            group.className = 'zenfg-inspector-legend-group';
+            group.setAttribute('role', 'group');
+            group.setAttribute('aria-label', entry.group);
+            const heading = document.createElement('span');
+            heading.className = 'zenfg-inspector-legend-heading';
+            heading.textContent = entry.group;
+            group.appendChild(heading);
+            host.appendChild(group);
+        }
         const item = document.createElement('span');
         item.className = 'zenfg-inspector-legend-item';
         const swatch = document.createElement('span');
@@ -112,6 +125,6 @@ function renderGraphLegend(host: HTMLElement | undefined, scene: GraphScene): vo
         const label = document.createElement('span');
         label.textContent = entry.label;
         item.append(swatch, label);
-        return item;
-    }));
+        group!.appendChild(item);
+    }
 }

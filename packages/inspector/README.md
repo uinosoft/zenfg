@@ -81,8 +81,25 @@ details, not in the graph. Collapsed groups aggregate relationships without
 discarding their underlying semantics.
 All nodes use single-line borders. Ordinary passes are rounded rectangles,
 external submissions are cut-corner rectangles, resource entrances are ellipses,
-and output roots are right-pointing tags. Output colours retain the resource type;
-hover and selection change the border emphasis, not the shape.
+and output roots are right-pointing tags. Declarations and outputs each have a
+role colour independent of Buffer/Texture; pass categories have distinct colours.
+Resources and Memory retain their resource-type colours. Hover and selection
+change border emphasis, not shape, text colour, or fill.
+
+Entrances show source/type first and the resource name second; outputs show their
+purpose first and name second. Names are truncated to one line, with full names
+available on hover and in details. Output ranges appear only to distinguish
+different ranges of the same resource and purpose. Exact ranges and final sources
+remain in hover/details. Semantic zoom hides auxiliary types and range summaries.
+The grouped legend describes the whole snapshot's Frame Flow, including collapsed
+objects, and remains stable while groups expand/collapse. Culled-only categories
+and unused resources do not add legend entries.
+
+Category fills are opaque 18% sRGB tints over the canvas; node text stays light
+and targets at least 7:1 contrast. Supporting text targets 4.5:1, and identifying
+borders/symbols target 3:1 against their adjacent backgrounds. Automated checks
+cover the default theme and interaction states; custom CSS colour overrides must
+preserve these contrast relationships.
 
 Solid edges represent declarations, values, and output sources; dashed edges
 represent ordering-only relationships. Edges never carry labels. Hover provides

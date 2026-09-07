@@ -13,6 +13,38 @@ import {
     type GroupSceneNode,
 } from '../src/panelGraphScene.ts';
 
+test('resource labels prioritize roles, truncate names and show ranges only for ambiguous root families', () => {
+    const base = createLegacyDebugViewModel(createGroupedCapture());
+    const longName = 'Very.long.resource.name.that.must.not.wrap';
+    const resource = { ...base.resources[0]!, label: longName };
+    const roots = [0, 1].map((mip) => ({ key: `mip-${mip}`, reason: 'output' as const, resourceId: resource.id, resource,
+        range: { kind: 'texture' as const, regions: [{ baseMipLevel: mip, mipLevelCount: 1, baseArrayLayer: 0, arrayLayerCount: 1, aspect: 'all' }] },
+        resolution: { producerNodeIds: ['node:1'], usesInitialContents: false },
+    }));
+    for (const expandedGroupPaths of [new Set<string>(), new Set(base.debugGroups.map((group) => group.pathKey))]) {
+        const snapshot = { ...base, resources: [resource, ...base.resources.slice(1)], resourceById: new Map(base.resourceById).set(resource.id, resource), roots };
+        const scene = createGraphScene(snapshot, { groupsEnabled: true, expandedGroupPaths });
+        const entrance = scene.nodes.find((node) => node.kind === 'resource' && node.resourceId === resource.id)!;
+        assert.equal(entrance.label, 'Imported · Texture\nVery.long.resourc…');
+        assert.ok(entrance.title.includes(longName));
+        const outputs = scene.nodes.filter((node) => node.kind === 'root');
+        assert.equal(outputs.length, 2);
+        assert.notEqual(outputs[0]!.label, outputs[1]!.label);
+        assert.ok(outputs.every((node) => node.label.startsWith('Output\n') && node.label.split('\n').length === 3));
+        assert.ok(outputs.every((node) => node.overviewLabel.split('\n').length === 2));
+        const single = createGraphScene({ ...snapshot, roots: roots.slice(0, 1) }, { groupsEnabled: true, expandedGroupPaths });
+        assert.equal(single.nodes.find((node) => node.kind === 'root')!.label.split('\n').length, 2);
+        const legacy = createGraphScene({ ...snapshot, roots: [{ ...roots[0]!, range: undefined, resolution: undefined }] }, { groupsEnabled: false, expandedGroupPaths });
+        assert.match(legacy.nodes.find((node) => node.kind === 'root')!.title, /Range unavailable/);
+        const wide = { ...resource, label: '资源名称非常长而且不能自动换行😀' };
+        const wideScene = createGraphScene({ ...snapshot, resources: [wide, ...base.resources.slice(1)] },
+            { groupsEnabled: false, expandedGroupPaths });
+        const wideEntrance = wideScene.nodes.find((node) => node.kind === 'resource' && node.resourceId === resource.id)!;
+        assert.equal(wideEntrance.label.split('\n').length, 2);
+        assert.ok([...wideEntrance.label.split('\n')[1]!].length <= 9);
+    }
+});
+
 test('creates the exact retained pass DAG when diagnostic groups are disabled', () => {
     const snapshot = createLegacyDebugViewModel(createGroupedCapture());
     const scene = createGraphScene(snapshot, {
@@ -27,6 +59,26 @@ test('creates the exact retained pass DAG when diagnostic groups are disabled', 
         ['pass:node:2', 'pass:node:3'],
     ]);
     assert.equal(scene.nodes.some((node) => node.kind === 'group'), false);
+});
+
+test('all resource origins and output reasons use role-first two-line labels', () => {
+    const base = createLegacyDebugViewModel(createGroupedCapture());
+    for (const [origin, label] of [['transient', 'Created'], ['imported', 'Imported'], ['surface', 'Surface']] as const) {
+        for (const kind of ['buffer', 'texture'] as const) {
+            const resource = { ...base.resources[0]!, origin, kind };
+            const roots = (['output', 'present', 'readback', 'debug-capture', 'persistent-state'] as const).map((reason) => ({
+                key: reason, reason, resourceId: resource.id, resource,
+            }));
+            const scene = createGraphScene({ ...base, resources: [resource, ...base.resources.slice(1)], resourceById: new Map(base.resourceById).set(resource.id, resource), roots },
+                { groupsEnabled: false, expandedGroupPaths: new Set() });
+            const entrance = scene.nodes.find((node) => node.kind === 'resource')!;
+            assert.equal(entrance.label.split('\n')[0], `${label} · ${kind === 'buffer' ? 'Buffer' : 'Texture'}`);
+            assert.equal(entrance.overviewLabel.split('\n')[0], label);
+            assert.deepEqual(scene.nodes.filter((node) => node.kind === 'root').map((node) => node.label.split('\n')[0]),
+                ['Output', 'Present', 'Readback', 'Debug Capture', 'Persistent State']);
+            assert.ok(scene.nodes.filter((node) => node.kind === 'root').every((node) => node.label.split('\n').length === 2));
+        }
+    }
 });
 
 test('projects collapsed groups while keeping compound hierarchy in the scene', () => {
@@ -183,7 +235,7 @@ test('creates declaration entrances only for retained topology boundaries', () =
     assert.ok(scene.nodes.every((node) => node.kind !== ('culled-pass' as string)));
     assert.ok(scene.edges.every((edge) => !('label' in edge)));
     assert.ok(scene.nodes.find((node) => node.id === 'resource:resource:1')?.label.includes('Imported'));
-    assert.ok(scene.nodes.find((node) => node.id === 'resource:resource:1')?.label.includes('\nImported'));
+    assert.ok(scene.nodes.find((node) => node.id === 'resource:resource:1')?.label.startsWith('Imported · Texture\n'));
     assert.deepEqual(scene.interaction.hoverElementIdsBySelection.get('node:node:1'), ['pass:node:1']);
     const declaration = scene.edges.find((edge) => edge.relations[0]?.role === 'declaration')!;
     const selected = scene.interaction.selectionByElementId.get(declaration.id)!;

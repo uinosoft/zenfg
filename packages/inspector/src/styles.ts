@@ -597,7 +597,7 @@ button[aria-busy='true'] > .zenfg-inspector-control-icon {
 .zenfg-inspector-graph-view { display: flex; flex-direction: column; }
 .zenfg-inspector-graph-toolbar {
 	display: grid;
-	grid-template-columns: auto minmax(0, 1fr) auto;
+	grid-template-columns: minmax(0, 1fr) auto;
 	align-items: center;
 	gap: 10px;
 	min-width: 0;
@@ -630,6 +630,9 @@ button[aria-busy='true'] > .zenfg-inspector-control-icon {
 	white-space: nowrap;
 }
 .zenfg-inspector-legend-item { display: inline-flex; align-items: center; gap: 4px; flex: 0 0 auto; }
+.zenfg-inspector-legend-group { display: inline-flex; align-items: center; gap: 10px; flex: 0 0 auto; }
+.zenfg-inspector-legend-group + .zenfg-inspector-legend-group { border-left: 1px solid var(--fgd-border-subtle); padding-left: 10px; }
+.zenfg-inspector-legend-heading { color: var(--fgd-text-secondary); font-weight: 600; }
 .zenfg-inspector-legend-swatch {
 	position: relative;
 	display: inline-block;

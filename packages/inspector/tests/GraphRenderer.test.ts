@@ -25,6 +25,60 @@ import { createGraphScene, graphGroupElementId } from '../src/panelGraphScene.ts
 import { resolveGraphScene } from '../src/panelGraphView.ts';
 import { createGraphLegend, GRAPH_VISUAL_THEME, GRAPH_GEOMETRY, nodeDimensions } from '../src/panelGraphVisuals.ts';
 import type { GraphViewState, Selection } from '../src/panelTypes.ts';
+import { FRAME_GRAPH_DEBUG_VISUAL_THEME } from '../src/panelVisualTheme.ts';
+
+test('all graph categories preserve opaque high-contrast text and fills across interaction states', () => {
+    const theme = GRAPH_VISUAL_THEME;
+    const categories = [
+        ['render', 'pass', 'render'], ['compute', 'pass', 'compute'], ['copy', 'pass', 'copy'],
+        ['clear', 'pass', 'clear-buffer'], ['command', 'pass', 'command'], ['external', 'pass', 'external-submission'],
+        ['declaration', 'resource', ''], ['output', 'root', ''],
+    ] as const;
+    const core = cytoscape({ headless: true, styleEnabled: true, style: createGraphStyles(),
+        elements: categories.map(([id, kind, passKind]) => ({ data: { id, kind, passKind, width: 184, height: 58, displayLabel: 'Readable text' } })),
+    });
+    const rgb = (value: string): number[] => value.startsWith('#')
+        ? value.slice(1).match(/../g)!.map((part) => parseInt(part, 16))
+        : value.match(/[\d.]+/g)!.slice(0, 3).map(Number);
+    const blend = (front: string, back: string, alpha: number) => rgb(front).map((v, i) => Math.round(v * alpha + rgb(back)[i]! * (1 - alpha)));
+    const luminance = (value: number[]) => value.map((v) => v / 255)
+        .map((v) => v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4)
+        .reduce((sum, v, i) => sum + v * [0.2126, 0.7152, 0.0722][i]!, 0);
+    const contrast = (a: number[], b: number[]) => (Math.max(luminance(a), luminance(b)) + 0.05) / (Math.min(luminance(a), luminance(b)) + 0.05);
+    try {
+        for (const state of ['', 'semantic-hover', 'semantic-selected', 'semantic-hover semantic-selected']) {
+            core.nodes().removeClass('semantic-hover semantic-selected').addClass(state);
+            for (const [id] of categories) {
+                const node = core.getElementById(id);
+                const fill = rgb(node.style('background-color'));
+                assert.deepEqual(fill, blend(theme[id].stroke, theme.canvas, 0.18));
+                assert.deepEqual(rgb(node.style('color')), rgb(theme.text));
+                assert.equal(node.style('text-opacity'), '1');
+                assert.equal(node.style('background-opacity'), '1');
+                assert.equal(node.style('opacity'), '1');
+                assert.ok(contrast(rgb(node.style('color')), fill) >= 7, `${id} ${state} text`);
+                for (const background of [fill, rgb(theme.canvas), rgb(theme.group.fill), rgb(theme.group.alternateFill)]) {
+                    assert.ok(contrast(rgb(node.style('border-color')), background) >= 3, `${id} ${state} border`);
+                }
+                // Legend symbols use a 20% tint; surrounding toolbar uses the surface token.
+                assert.ok(contrast(rgb(theme[id].stroke), blend(theme[id].stroke, theme.canvas, 0.2)) >= 3);
+                assert.ok(contrast(rgb(theme[id].stroke), rgb(FRAME_GRAPH_DEBUG_VISUAL_THEME.surface)) >= 3);
+            }
+        }
+        for (const background of ['surface', 'surfaceRaised', 'surfaceHover', 'panel'] as const) {
+            for (const text of ['text', 'textSecondary', 'muted'] as const) {
+                assert.ok(contrast(rgb(FRAME_GRAPH_DEBUG_VISUAL_THEME[text]), rgb(FRAME_GRAPH_DEBUG_VISUAL_THEME[background])) >= 4.5);
+            }
+        }
+        for (const background of [theme.canvas, theme.group.fill, theme.group.alternateFill]) {
+            assert.ok(contrast(blend(theme.dependency.ordering, background, 0.72), rgb(background)) >= 3);
+            assert.ok(contrast(blend(theme.dependency.value, background, 0.82), rgb(background)) >= 3);
+            assert.ok(contrast(rgb(theme.group.stroke), rgb(background)) >= 3);
+        }
+        assert.equal(theme.texture.stroke, '#f472b6');
+        assert.equal(theme.buffer.stroke, '#2dd4bf');
+    } finally { core.destroy(); }
+});
 
 test('converts nested compound groups and cross-hierarchy dependencies for ELK', async () => {
     const snapshot = createLegacyDebugViewModel(createNestedCapture());
@@ -232,8 +286,7 @@ test('uses native output and external shapes with safe labels and boundary ports
     const external = scene.nodes.find((node) => node.kind === 'pass' && node.passKind === 'external-submission')!;
     const normal = { ...scene, nodes: scene.nodes.map((node) => node === external ? { ...node, passKind: 'render' as const } : node) };
     assert.notEqual(graphLayoutGeometryKey(scene), graphLayoutGeometryKey(normal));
-    assert.equal(createGraphLegend(scene).find((entry) => entry.key === 'external')!.shape, 'cut-rectangle');
-    assert.equal(createGraphLegend(scene).find((entry) => entry.key === 'output')!.shape, 'tag');
+    assert.equal(createGraphLegend(base).find((entry) => entry.key === 'external')!.shape, 'cut-rectangle');
     const graph = createElkLayoutGraph(scene);
     for (const node of [external, output]) {
         const elkNode = graph.children!.find((entry) => entry.id === node.id)!;
@@ -263,17 +316,15 @@ test('uses native output and external shapes with safe labels and boundary ports
     assert.ok(GRAPH_GEOMETRY.outputLabelWidth + 16 <= nodeDimensions(output).width * 5 / 8);
 });
 
-test('derives a stable compact legend from the rendered scene', () => {
-    const resourceScene = createGraphScene(createLegacyDebugViewModel(createNestedCapture()), {
-        groupsEnabled: true, expandedGroupPaths: new Set(),
-    });
+test('derives a stable compact legend from the snapshot rather than its projection', () => {
+    const snapshot = createLegacyDebugViewModel(createNestedCapture());
     assert.deepEqual(
-        createGraphLegend(resourceScene).map((entry) => entry.key),
-        ['render', 'group', 'texture', 'flow'],
+        createGraphLegend(snapshot).map((entry) => entry.key),
+        ['render', 'declaration', 'group', 'flow'],
     );
 
     const orderingCapture = createNestedCapture();
-    const orderingScene = createGraphScene(createLegacyDebugViewModel({
+    const orderingSnapshot = createLegacyDebugViewModel({
         ...orderingCapture,
         compilation: {
             ...orderingCapture.compilation,
@@ -282,8 +333,8 @@ test('derives a stable compact legend from the rendered scene', () => {
                 kind: 'ordering' as const,
             })),
         },
-    }), {  groupsEnabled: false, expandedGroupPaths: new Set() });
-    assert.ok(createGraphLegend(orderingScene).some((entry) => entry.key === 'ordering' && entry.hollowArrow));
+    });
+    assert.ok(createGraphLegend(orderingSnapshot).some((entry) => entry.key === 'ordering' && entry.hollowArrow));
 });
 
 test('uses only straight and rounded ELK route styles without taxi routing', () => {

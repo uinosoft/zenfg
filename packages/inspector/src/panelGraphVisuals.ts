@@ -2,6 +2,7 @@ import type cytoscape from 'cytoscape';
 
 import type { GraphScene, GraphSceneEdge, GraphSceneNode } from './panelGraphScene.ts';
 import { GRAPH_VISUAL_THEME } from './panelVisualTheme.ts';
+import { declarationEntrances, type FrameGraphDebugViewModel } from './debugCaptureModel.ts';
 
 export { GRAPH_VISUAL_THEME } from './panelVisualTheme.ts';
 
@@ -24,6 +25,7 @@ const ENDPOINT_EDGE_DISTANCES = 'endpoints' as unknown as cytoscape.Css.Edge['ed
 const EDGE_SEGMENT_RADII = `${GRAPH_GEOMETRY.edgeCornerRadius}px` as unknown as cytoscape.Css.Edge['segment-radii'];
 
 export type GraphLegendEntry = {
+    readonly group: 'Execution' | 'Resources' | 'Relationships';
     readonly key: string;
     readonly label: string;
     readonly color: string;
@@ -41,33 +43,34 @@ const NODE_LEGEND_ENTRIES = {
     'external-submission': { ...nodeLegend('external', 'External', GRAPH_VISUAL_THEME.external.stroke), shape: 'cut-rectangle' as const },
 } as const;
 
-export function createGraphLegend(scene: GraphScene): readonly GraphLegendEntry[] {
+export function createGraphLegend(snapshot: FrameGraphDebugViewModel): readonly GraphLegendEntry[] {
     const entries: GraphLegendEntry[] = [];
-    const passKinds = new Set(scene.nodes.flatMap((node) => node.kind === 'pass'
-        ? [node.passKind]
-        : []));
+    const passKinds = new Set(snapshot.nodes.map((node) => node.kind));
     for (const kind of ['render', 'compute', 'copy', 'clear-buffer', 'command', 'external-submission'] as const) {
         if (passKinds.has(kind)) entries.push(NODE_LEGEND_ENTRIES[kind]);
     }
-    if (scene.nodes.some((node) => node.kind === 'group')) {
-        entries.push({ key: 'group', label: 'Group', color: GRAPH_VISUAL_THEME.group.stroke, shape: 'group' });
+    const retained = new Set(snapshot.nodes.map((node) => node.id));
+    const used = new Set([
+        ...snapshot.accessEdges.filter((access) => retained.has(access.nodeId)).map((access) => access.resource.id),
+        ...snapshot.roots.flatMap((root) => root.resource ? [root.resource.id] : []),
+    ]);
+    const resources = snapshot.resources.filter((resource) => used.has(resource.id));
+    if (resources.length) entries.push({ group: 'Resources', key: 'declaration', label: 'Declaration', color: GRAPH_VISUAL_THEME.declaration.stroke, shape: 'ellipse' });
+    if (snapshot.roots.some((root) => root.resource)) entries.push({ group: 'Resources', key: 'output', label: 'Output', color: GRAPH_VISUAL_THEME.output.stroke, shape: 'tag' });
+    if ([...snapshot.nodes, ...resources].some((item) => item.debugGroupId !== undefined)) {
+        entries.push({ group: 'Relationships', key: 'group', label: 'Group', color: GRAPH_VISUAL_THEME.group.stroke, shape: 'group' });
     }
-    if (scene.nodes.some((node) => node.kind === 'resource' && node.resourceKind === 'texture')) {
-        entries.push({ key: 'texture', label: 'Texture', color: GRAPH_VISUAL_THEME.texture.stroke, shape: 'ellipse' });
-    }
-    if (scene.nodes.some((node) => node.kind === 'resource' && node.resourceKind === 'buffer')) {
-        entries.push({ key: 'buffer', label: 'Buffer', color: GRAPH_VISUAL_THEME.buffer.stroke, shape: 'ellipse' });
-    }
-    if (scene.edges.some((edge) => edge.kind === 'flow')) {
+    if (snapshot.edges.some((edge) => edge.kind === 'value')
+        || declarationEntrances(snapshot.nodes, snapshot.accessEdges, snapshot.edges).length
+        || snapshot.roots.some((root) => root.resource && root.resolution && (root.resolution.usesInitialContents || root.resolution.producerNodeIds.length))) {
         entries.push(edgeLegend('flow', 'Resource Flow', GRAPH_VISUAL_THEME.dependency.value, 'solid'));
     }
-    if (scene.edges.some((edge) => edge.kind === 'ordering')) {
+    if (snapshot.edges.some((edge) => edge.kind === 'ordering')) {
         entries.push({
             ...edgeLegend('ordering', 'Order', GRAPH_VISUAL_THEME.dependency.ordering, 'dotted'),
             hollowArrow: true,
         });
     }
-    if (scene.nodes.some((node) => node.kind === 'root')) entries.push({ key: 'output', label: 'Output', color: GRAPH_VISUAL_THEME.text, shape: 'tag' });
     return entries;
 }
 
@@ -112,25 +115,19 @@ export function createGraphStyles(): cytoscape.StylesheetJson {
             },
         },
         {
-            selector: 'node[resourceKind = "texture"]',
+            selector: 'node[kind = "resource"]',
             style: {
                 'shape': 'ellipse',
-                'background-color': theme.texture.fill,
-                'border-color': theme.texture.stroke,
-            },
-        },
-        {
-            selector: 'node[resourceKind = "buffer"]',
-            style: {
-                'shape': 'ellipse',
-                'background-color': theme.buffer.fill,
-                'border-color': theme.buffer.stroke,
+                'background-color': theme.declaration.fill,
+                'border-color': theme.declaration.stroke,
             },
         },
         {
             selector: 'node[kind = "root"]',
             style: {
                 'shape': 'tag',
+                'background-color': theme.output.fill,
+                'border-color': theme.output.stroke,
                 'text-max-width': `${GRAPH_GEOMETRY.outputLabelWidth}px`,
                 // Native tag shoulders sit at 5/8 of its width. Center text in the rectangular body.
                 'text-margin-x': -GRAPH_GEOMETRY.outputWidth * 3 / 16,
@@ -286,7 +283,7 @@ export function isOverviewGraphScale(zoom: number): boolean {
 }
 
 function nodeLegend(key: string, label: string, color: string): GraphLegendEntry {
-    return { key, label, color, shape: 'box' };
+    return { group: 'Execution', key, label, color, shape: 'box' };
 }
 
 function edgeLegend(
@@ -295,7 +292,7 @@ function edgeLegend(
     color: string,
     lineStyle: NonNullable<GraphLegendEntry['lineStyle']>,
 ): GraphLegendEntry {
-    return { key, label, color, shape: 'line', lineStyle };
+    return { group: 'Relationships', key, label, color, shape: 'line', lineStyle };
 }
 
 function passStyle(

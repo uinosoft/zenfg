@@ -823,7 +823,12 @@ test('resource navigation replaces selection in Summary without switching views 
         }
     }
     const groups = createLegacyDebugViewModel(capture).debugGroups;
+    const legend = panel.dom.querySelector('.zenfg-inspector-graph-legend')!;
+    const legendBefore = legend.innerHTML;
+    assert.deepEqual(Array.from(legend.querySelectorAll('[role="group"]'), (group) => group.getAttribute('aria-label')),
+        ['Execution', 'Resources', 'Relationships']);
     for (const group of groups.slice(0, 2)) request!.onToggleGroup(group.pathKey);
+    assert.equal(legend.innerHTML, legendBefore);
     assert.deepEqual(request!.scene.interaction.primaryElementIdsBySelection.get(selectionKey), [
         'resource:resource:2', ...request!.scene.edges.filter((edge) => edge.resourceId === selectedResource.id).map((edge) => edge.id),
     ]);
@@ -832,6 +837,7 @@ test('resource navigation replaces selection in Summary without switching views 
     assert.deepEqual(request!.selected, selectedResource);
     assert.equal(panel.dom.querySelector('.zenfg-inspector-inspector-content')!.textContent, summary);
     request!.onToggleGroup(groups[0]!.pathKey);
+    assert.equal(legend.innerHTML, legendBefore);
     assert.equal(request!.hovered, undefined);
     request!.onHover(selectedResource);
     panel.setSnapshot(snapshot);

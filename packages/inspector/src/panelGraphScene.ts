@@ -288,8 +288,8 @@ function createFrameFlowScene(
         const origin = resource.origin === 'transient' ? 'Created' : resource.origin === 'imported' ? 'Imported' : 'Surface';
         const node: ResourceSceneNode = {
             id: resourceElementId(resource.id), kind: 'resource', resourceId: resource.id, resourceKind: resource.kind,
-            label: formatGraphResourceLabel(labelResource(resource)) + '\n' + origin + ' · ' + resource.kind,
-            overviewLabel: shortGraphLabel(labelResource(resource)),
+            label: origin + ' · ' + (resource.kind === 'buffer' ? 'Buffer' : 'Texture') + '\n' + formatGraphResourceLabel(labelResource(resource)),
+            overviewLabel: origin + '\n' + formatGraphResourceLabel(shortGraphLabel(labelResource(resource))),
             title: createResourceTitle(resource, snapshot, snapshot.accessesByResourceId.get(resource.id) ?? [])
                 + '\nDeclaration entrance, not a complete initial-content provenance graph.',
             parentId: useGroups && resource.debugGroupId ? graphGroupElementId(groupsById.get(resource.debugGroupId)!.pathKey) : undefined,
@@ -316,6 +316,14 @@ function createFrameFlowScene(
             { role: 'declaration', nodeIds: [access.nodeId] });
     }
     const rootOccurrences = new Map<string, number>();
+    const rangesByRootFamily = new Map<string, Set<string>>();
+    for (const root of snapshot.roots) {
+        if (!root.resource) continue;
+        const family = JSON.stringify([root.resource.id, root.reason]);
+        const ranges = rangesByRootFamily.get(family) ?? new Set<string>();
+        ranges.add(root.key);
+        rangesByRootFamily.set(family, ranges);
+    }
     for (const root of snapshot.roots) {
         if (!root.resource) {
             if (root.nodeId) {
@@ -329,13 +337,17 @@ function createFrameFlowScene(
         const id = 'root:' + root.key + (occurrence ? ':' + occurrence : '');
         const resource = snapshot.resourceById.get(root.resource.id)!;
         const rangeLabel = root.range?.kind === 'buffer' ? `bytes ${root.range.offset}–${root.range.offset + root.range.size}`
-            : root.range ? root.range.regions.map((r) => `mip ${r.baseMipLevel} · ${r.baseDepthSlice !== undefined ? 'D' + r.baseDepthSlice + '+' + r.depthSliceCount : 'L' + r.baseArrayLayer + '+' + r.arrayLayerCount} · ${r.aspect}`).join('; ') : 'Range unavailable';
-        const rangeSummary = root.range?.kind === 'texture' && root.range.regions.length > 1
-            ? `${root.range.regions.length} subresource regions` : rangeLabel;
+            : root.range ? root.range.regions.map((r) => `mip ${r.baseMipLevel}+${r.mipLevelCount} · ${r.baseDepthSlice !== undefined ? 'D' + r.baseDepthSlice + '+' + r.depthSliceCount : 'L' + r.baseArrayLayer + '+' + r.arrayLayerCount} · ${r.aspect}`).join('; ') : 'Range unavailable';
+        const rangeSummary = root.range?.kind === 'texture'
+            ? root.range.regions.map((r) => `m${r.baseMipLevel}+${r.mipLevelCount} ${r.baseDepthSlice !== undefined ? 'D' + r.baseDepthSlice + '+' + r.depthSliceCount : 'L' + r.baseArrayLayer + '+' + r.arrayLayerCount} ${r.aspect === 'depth-only' ? 'depth' : r.aspect === 'stencil-only' ? 'stencil' : 'all'}`).join('; ')
+            : rangeLabel;
+        const reasonLabel = root.reason.split('-').map((word) => word[0]!.toUpperCase() + word.slice(1)).join(' ');
+        const disambiguate = rangesByRootFamily.get(JSON.stringify([resource.id, root.reason]))!.size > 1;
         rootNodes.push({
             id, kind: 'root', rootKey: root.key, resourceId: resource.id, resourceKind: resource.kind,
-            label: formatGraphResourceLabel(labelResource(resource)) + '\n' + root.reason + '\n' + shortGraphLabel(rangeSummary),
-            overviewLabel: shortGraphLabel(labelResource(resource)) + '\n' + root.reason,
+            label: reasonLabel + '\n' + formatGraphResourceLabel(labelResource(resource))
+                + (disambiguate ? '\n' + formatGraphResourceLabel(rangeSummary) : ''),
+            overviewLabel: reasonLabel + '\n' + formatGraphResourceLabel(shortGraphLabel(labelResource(resource))),
             title: labelResource(resource) + '\n' + root.reason + '\n' + rangeLabel
                 + (root.resolution ? '\nProducers: ' + (root.resolution.producerNodeIds.join(', ') || 'none') + '\nInitial contents: ' + root.resolution.usesInitialContents : '\nOutput sources unavailable in Legacy capture.'),
         });
@@ -468,7 +480,19 @@ function formatGraphNodeLabel(label: string): string {
 }
 
 function formatGraphResourceLabel(label: string): string {
-    return formatGraphLabel(label, 18, 3);
+    const singleLine = label.replace(/\s+/g, ' ').trim();
+    // Reserve conservative monospace cells for CJK/emoji fallback glyphs as well.
+    const glyphs = [...singleLine];
+    const cells = (glyph: string) => /\p{Mark}/u.test(glyph) ? 0 : glyph.codePointAt(0)! > 255 ? 2 : 1;
+    if (glyphs.reduce((sum, glyph) => sum + cells(glyph), 0) <= 18) return singleLine;
+    let result = '';
+    let width = 0;
+    for (const glyph of glyphs) {
+        if (width + cells(glyph) > 17) break;
+        result += glyph;
+        width += cells(glyph);
+    }
+    return result + '…';
 }
 
 function formatGraphLabel(label: string, maxLineLength: number, maxLines: number): string {

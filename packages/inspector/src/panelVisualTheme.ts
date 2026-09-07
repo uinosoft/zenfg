@@ -16,22 +16,33 @@ export const FRAME_GRAPH_DEBUG_VISUAL_THEME = {
 	fontMono: 'ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace',
 } as const;
 
+function category(stroke: string) {
+	const canvas = FRAME_GRAPH_DEBUG_VISUAL_THEME.canvas;
+	const fill = '#' + [1, 3, 5].map((offset) => Math.round(
+		parseInt(stroke.slice(offset, offset + 2), 16) * 0.18
+		+ parseInt(canvas.slice(offset, offset + 2), 16) * 0.82,
+	).toString(16).padStart(2, '0')).join('');
+	return { stroke, fill };
+}
+
 export const GRAPH_VISUAL_THEME = {
 	canvas: FRAME_GRAPH_DEBUG_VISUAL_THEME.canvas,
 	surface: FRAME_GRAPH_DEBUG_VISUAL_THEME.surface,
 	surfaceRaised: FRAME_GRAPH_DEBUG_VISUAL_THEME.surfaceRaised,
 	text: FRAME_GRAPH_DEBUG_VISUAL_THEME.text,
 	muted: FRAME_GRAPH_DEBUG_VISUAL_THEME.muted,
-	render: { stroke: '#34d399', fill: '#12342b' },
-	compute: { stroke: '#60a5fa', fill: '#162c46' },
-	copy: { stroke: '#fbbf24', fill: '#3a2d12' },
-	clear: { stroke: '#94a3b8', fill: '#25303a' },
-	command: { stroke: '#c084fc', fill: '#322044' },
-	external: { stroke: '#fb923c', fill: '#402318' },
+	render: category('#57C785'),
+	compute: category('#9AA5FF'),
+	copy: category('#F2CD60'),
+	clear: category('#C4CF89'),
+	command: category('#CF91E8'),
+	external: category('#F29A67'),
+	declaration: category('#B9AB94'),
+	output: category('#EC91AE'),
 	texture: { stroke: '#f472b6', fill: '#3c1f32' },
 	buffer: { stroke: '#2dd4bf', fill: '#123632' },
 	group: { stroke: '#64748b', fill: '#141c29', alternateFill: '#172033' },
-	dependency: { value: '#94a3b8', ordering: '#64748b' },
+	dependency: { value: '#94a3b8', ordering: '#8593a6' },
 	access: { read: '#2dd4bf', write: '#f59e0b' },
 	selected: FRAME_GRAPH_DEBUG_VISUAL_THEME.accent,
 	hover: '#cbd5e1',
