@@ -1,6 +1,6 @@
 import { spawnSync } from 'node:child_process';
 import { build } from 'esbuild';
-import { mkdirSync, readdirSync, rmSync, statSync } from 'node:fs';
+import { mkdirSync, readdirSync, readFileSync, rmSync, statSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import typegpuPlugin from 'unplugin-typegpu/esbuild';
 
@@ -17,6 +17,7 @@ const defaultTestRoots = [
 	resolve(rootDir, 'examples', 'interactive-background', 'tests'),
 	resolve(rootDir, 'examples', 'typegpu-slime-mold', 'tests'),
 	resolve(rootDir, 'examples', 'typegpu-monocular-light-injection', 'tests'),
+	resolve(rootDir, 'examples', 'particles4all-framegraph', 'tests'),
 ];
 const requestedTestRoots = process.argv.slice(2).map((path) => resolve(rootDir, path));
 const testRoots = requestedTestRoots.length > 0 ? requestedTestRoots : defaultTestRoots;
@@ -110,8 +111,13 @@ await build({
         name: 'vite-url-test-stub',
         setup(buildContext) {
             buildContext.onResolve({ filter: /\?(?:raw|url)$/ }, (args) => ({
-                path: args.path,
-                namespace: 'vite-url-test-stub',
+                path: args.path.endsWith('.ini?raw')
+                    ? resolve(args.resolveDir, args.path.slice(0, -4)) : args.path,
+                namespace: args.path.endsWith('.ini?raw') ? 'ini-test-source' : 'vite-url-test-stub',
+            }));
+            buildContext.onLoad({ filter: /.*/, namespace: 'ini-test-source' }, (args) => ({
+                contents: `export default ${JSON.stringify(readFileSync(args.path, 'utf8'))};`,
+                loader: 'js',
             }));
             buildContext.onLoad({ filter: /.*/, namespace: 'vite-url-test-stub' }, () => ({
                 contents: 'export default "test-asset-url";',

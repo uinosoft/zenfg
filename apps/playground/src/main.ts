@@ -3,7 +3,7 @@ import { installAppPageLifecycle } from '../../shared/pageLifecycle.ts';
 import { findPublicExample, publicExamples } from './catalog/catalog.ts';
 import { createExamplePicker } from './examplePicker.ts';
 import { parsePlaygroundRoute, routeSearch, toggledPanel } from './routing.ts';
-import { disposeHighlighter, highlightTypeScript } from './syntaxHighlighter.ts';
+import { disposeHighlighter, highlightSource } from './syntaxHighlighter.ts';
 import type { PlaygroundExampleDefinition, PlaygroundPanel, PlaygroundRuntime, PlaygroundSourceFile } from './types.ts';
 
 const playground = requireElement<HTMLElement>('[data-playground]');
@@ -211,7 +211,7 @@ async function selectSource(file: PlaygroundSourceFile, button: HTMLButtonElemen
 	sourceContent.innerHTML = '<p class="panel-message">Loading source and syntax highlighter…</p>';
 	try {
 		const source = await file.loadSource();
-		const html = await highlightTypeScript(source);
+		const html = await highlightSource(source, file.language);
 		if (revision !== sourceRevision) return;
 		currentSource = source;
 		sourceContent.innerHTML = html;

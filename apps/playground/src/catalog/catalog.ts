@@ -1,6 +1,7 @@
 import { interactiveBackgroundExample } from './interactiveBackground.ts';
 import { typeGpuSlimeMoldExample } from './typeGpuSlimeMold.ts';
 import { typeGpuMonocularLightInjectionExample } from './typeGpuMonocularLightInjection.ts';
+import { particles4AllExample } from './particles4All.ts';
 import { computeOutputExample } from './webgpu/computeOutput.ts';
 import { externalSubmissionExample } from './webgpu/externalSubmission.ts';
 import { gpuTimingExample } from './webgpu/gpuTiming.ts';
@@ -15,6 +16,7 @@ export const publicExamples = [
 	interactiveBackgroundExample,
 	typeGpuSlimeMoldExample,
 	typeGpuMonocularLightInjectionExample,
+	particles4AllExample,
 	minimalFrameExample,
 	transientToPresentExample,
 	importedResourceExample,

@@ -38,6 +38,7 @@ test('the production catalog is explicit, grouped, and keeps canonical sources f
 			['interactive-background', 'Showcases'],
 			['typegpu-slime-mold', 'Showcases'],
 			['typegpu-monocular-light-injection', 'Showcases'],
+			['particles4all-framegraph', 'Showcases'],
 			['minimal-frame', '@zenfg/webgpu basics'],
 			['transient-to-present', '@zenfg/webgpu basics'],
 			['imported-resource', '@zenfg/webgpu basics'],
@@ -65,7 +66,7 @@ test('the production catalog is explicit, grouped, and keeps canonical sources f
 		assert.ok(example.readyMessage.length > 0);
 		assert.ok(example.footerHint.length > 0);
 		assert.equal(new Set(example.sourceFiles.map((file) => file.id)).size, example.sourceFiles.length);
-		assert.ok(example.sourceFiles.every((file) => file.language === 'typescript'));
+		assert.ok(example.sourceFiles.every((file) => file.language === (file.path.endsWith('.js') ? 'javascript' : 'typescript')));
 		if (example.hasControls) assert.equal(example.group, 'Showcases');
 	}
 	assert.deepEqual(

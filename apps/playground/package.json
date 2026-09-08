@@ -10,6 +10,7 @@
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
+    "@zenfg-example/particles4all-framegraph": "0.0.0",
     "@shikijs/langs": "^4.4.3",
     "@shikijs/themes": "^4.4.3",
     "@zenfg-example/interactive-background": "0.0.0",

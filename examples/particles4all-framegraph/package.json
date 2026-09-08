@@ -1,0 +1,15 @@
+{
+  "name": "@zenfg-example/particles4all-framegraph",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": { ".": "./src/index.ts" },
+  "scripts": {
+    "test": "node ../../scripts/run-tests.mjs examples/particles4all-framegraph/tests",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "@zenfg/snapshot": "0.1.0-beta.3",
+    "@zenfg/webgpu": "0.1.0-beta.3"
+  }
+}

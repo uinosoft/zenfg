@@ -17,6 +17,16 @@ grouped as repository showcases or `@zenfg/webgpu` basics. Catalog adapters own
 Playground metadata, source display, WebGPU hosting, and Inspector wiring;
 example implementations must not import Playground code.
 
+The Particles4All showcase lives in `examples/particles4all-framegraph` and is
+available at `?example=particles4all-framegraph`. It retains upstream fluid and
+rigid-body simulation, Particles / Surface mesh / Ray march / SSFR rendering,
+presets, INI import, and panorama upload. Its host submits native ZenFG work
+directly to the canvas with the upstream depth convention. Scene controls are
+expanded, advanced simulation and rendering controls are folded, and live
+statistics appear below the pane. The bundled HDR loads in the background;
+panorama or configuration failures are recoverable and appear in the controls.
+JavaScript shader source tabs display the vendored files actually used at runtime.
+
 The Monocular Light Injection showcase lives in
 `examples/typegpu-monocular-light-injection`. It lazy-loads TypeGPU inference,
 offers optional camera/image input and model controls, and reports download and

@@ -9,7 +9,7 @@ export type PlaygroundSourceFile = {
 	readonly label: string;
 	readonly path: string;
 	readonly role: PlaygroundSourceRole;
-	readonly language: 'typescript';
+	readonly language: 'typescript' | 'javascript';
 	readonly loadSource: () => Promise<string>;
 };
 
