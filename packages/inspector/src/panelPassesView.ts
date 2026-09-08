@@ -9,6 +9,7 @@ import {
 	createSelectionCell,
 	createTableScroller,
 	createViewToolbar,
+	formatMeasuredGpuWork,
 	groupPath,
 	registerSelectable,
 	type WorkbenchCallbacks,
@@ -161,7 +162,7 @@ export class PassesView {
 				createSelectionCell(labelNode(node), selection, this.callbacks),
 				createCell(groupPath(snapshot, node.debugGroupId), { column: 'code' }),
 				createKindCell(node.kind),
-				createCell(node.kind === 'external-submission' ? 'opaque' : formatGpuDuration(node), { column: 'numeric' }),
+				createCell(node.kind === 'external-submission' ? 'opaque' : node.gpuDurationMicros !== undefined ? formatGpuDuration(node) : node.kind === 'render' || node.kind === 'compute' ? 'Not collected' : 'Not applicable', { column: 'numeric' }),
 				createCell(String(node.reads.length), { column: 'numeric' }),
 				createCell(String(node.writes.length), { column: 'numeric' }),
 			);
@@ -194,7 +195,7 @@ export class PassesView {
 				labelCell,
 				createCell(String(summary.retainedNodeCount), { column: 'numeric' }),
 				createCell(String(summary.culledNodeCount), { column: 'numeric' }),
-				createCell(summary.timedNodeCount === 0 ? '-' : (summary.gpuWorkDurationMicros / 1000).toFixed(3), { column: 'numeric' }),
+				createCell(formatMeasuredGpuWork(summary.gpuWorkDurationMicros, summary.timedNodeCount, summary.timingEligibleNodeCount), { column: 'numeric' }),
 				createCell(String(summary.inputResources.length), { column: 'numeric' }),
 				createCell(String(summary.outputResources.length), { column: 'numeric' }),
 			);

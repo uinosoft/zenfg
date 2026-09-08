@@ -9,6 +9,7 @@ import type {
 import { formatGpuDuration, labelNode, labelResource } from './panelDomHelpers.ts';
 import { declarationEntrances } from './debugCaptureModel.ts';
 import type { GraphFlowRelation, Selection } from './panelTypes.ts';
+import { formatMeasuredGpuWork } from './panelWorkbenchHelpers.ts';
 
 export type GraphSceneElementId = string;
 
@@ -133,7 +134,7 @@ export function selectionKey(selection: Selection): string {
         case 'root':
             return `root:${selection.key}`;
         case 'culled':
-            return `culled:${selection.index}`;
+            return `culled:${selection.id}`;
         case 'segment':
             return `segment:${selection.index}`;
     }
@@ -203,7 +204,7 @@ function createFrameFlowScene(
             groupPathKey: group.pathKey,
             label: createGroupLabel(group, collapsed),
             overviewLabel: `${collapsed ? '▸' : '▾'} ${group.label}`,
-            title: createGroupTitle(group),
+            title: createGroupTitle(group, snapshot),
             parentId: group.parentId !== undefined && includedGroupIds.has(group.parentId)
                 ? graphGroupElementId(groupsById.get(group.parentId)!.pathKey)
                 : undefined,
@@ -601,10 +602,8 @@ function shortGraphLabel(label: string): string {
 
 function createGroupLabel(group: FrameGraphDebugGroup, collapsed: boolean): string {
     const summary = group.summary;
-    const gpu = summary.timingEligibleNodeCount === 0
-        ? 'no timed passes'
-        : `Σ ${(summary.gpuWorkDurationMicros / 1000).toFixed(3)} ms ${summary.timedNodeCount}/${summary.timingEligibleNodeCount}`;
-    return `${collapsed ? '▸' : '▾'} ${group.label} · ${summary.retainedNodeCount} retained · ${summary.culledNodeCount} culled · ${gpu}`;
+    const gpu = formatMeasuredGpuWork(summary.gpuWorkDurationMicros, summary.timedNodeCount, summary.timingEligibleNodeCount);
+    return `${collapsed ? '▸' : '▾'} ${group.label} · ${summary.retainedNodeCount} retained · ${summary.culledNodeCount} culled · Measured pass sum: ${gpu}`;
 }
 
 function createNodeTitle(
@@ -612,18 +611,21 @@ function createNodeTitle(
     segment: FrameGraphDebugViewModel['executionSegments'][number] | undefined,
     snapshot: FrameGraphDebugViewModel,
 ): string {
+    const gpu = node.kind === 'external-submission' ? 'Opaque'
+        : node.kind !== 'render' && node.kind !== 'compute' ? 'Not applicable'
+            : node.gpuDurationMicros === undefined ? 'Not collected' : `${formatGpuDuration(node)} ms`;
     return [
         labelNode(node),
         `kind: ${node.kind}`,
         `group: ${debugGroupPathForId(node.debugGroupId, snapshot)}`,
         `segment: ${segment ? `${segment.index}:${segment.kind}` : '-'}`,
-        `gpu: ${node.kind === 'external-submission' ? 'opaque' : `${formatGpuDuration(node)} ms`}`,
+        `gpu: ${gpu}`,
         `reads: ${node.reads.map((access) => labelResource(access.resource)).join(', ') || '-'}`,
         `writes: ${node.writes.map((access) => labelResource(access.resource)).join(', ') || '-'}`,
     ].join('\n');
 }
 
-function createGroupTitle(group: FrameGraphDebugGroup): string {
+function createGroupTitle(group: FrameGraphDebugGroup, snapshot: FrameGraphDebugViewModel): string {
     const summary = group.summary;
     return [
         group.path.join(' / '),
@@ -632,10 +634,10 @@ function createGroupTitle(group: FrameGraphDebugGroup): string {
         `inputs: ${summary.inputResources.map(labelResource).join(', ') || '-'}`,
         `outputs: ${summary.outputResources.map(labelResource).join(', ') || '-'}`,
         `transient registered/accessed: ${summary.registeredTransientResourceCount}/${summary.accessedTransientResourceCount}`,
-        `physical allocations: ${summary.physicalAllocationCount}`,
+        `physical allocations: ${snapshot.protocol.memory.allocationReport.status === 'available' ? summary.physicalAllocationCount : 'Not collected'}`,
         `segments: ${summary.executionSegmentCount}`,
         `opaque: ${summary.externalSubmissionCount}`,
-        `Σ GPU work: ${(summary.gpuWorkDurationMicros / 1000).toFixed(3)} ms (${summary.timedNodeCount}/${summary.timingEligibleNodeCount})`,
+        `Measured pass sum: ${formatMeasuredGpuWork(summary.gpuWorkDurationMicros, summary.timedNodeCount, summary.timingEligibleNodeCount)}`,
     ].join('\n');
 }
 

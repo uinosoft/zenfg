@@ -146,7 +146,14 @@ export type FrameGraphDebugMetrics = {
 	readonly physicalEstimatedBytes?: number;
 	readonly aliasReuseBytes?: number;
 	readonly aliasedAllocationCount: number;
+	readonly estimatedCoverage: {
+		readonly transient: EstimateCoverage;
+		readonly logical: EstimateCoverage;
+		readonly physical: EstimateCoverage;
+	};
 };
+
+export type EstimateCoverage = { readonly known: number; readonly total: number };
 
 export type FrameGraphDebugSnapshotSource = {
 	readonly kind: 'live' | 'file' | 'programmatic';
@@ -169,6 +176,10 @@ export type FrameGraphDebugViewModel = {
 	readonly executionSegments: readonly FrameGraphDebugExecutionSegment[];
 	readonly textureViewById: ReadonlyMap<string, FrameGraphSnapshot['graph']['textureViews'][number]>;
 	readonly nodeById: ReadonlyMap<string, FrameGraphDebugNode>;
+	readonly canonicalNodeById: ReadonlyMap<string, FrameGraphSnapshot['graph']['nodes'][number]>;
+	readonly culledById: ReadonlyMap<string, FrameGraphDebugCulledNode>;
+	readonly diagnosticsByNodeId: ReadonlyMap<string, readonly FrameGraphSnapshot['diagnostics'][number][]>;
+	readonly diagnosticsByResourceId: ReadonlyMap<string, readonly FrameGraphSnapshot['diagnostics'][number][]>;
 	readonly resourceById: ReadonlyMap<string, FrameGraphDebugResource>;
 	readonly groupById: ReadonlyMap<string, FrameGraphDebugGroup>;
 	readonly groupByPathKey: ReadonlyMap<string, FrameGraphDebugGroup>;
@@ -345,6 +356,18 @@ export function createDebugViewModel(
 		executionSegments,
 	});
 	const nodeById = new Map(nodes.map((node) => [node.id, node]));
+	const canonicalNodeById = new Map(compilation.nodes.map((node) => [node.id, node]));
+	const culledById = new Map(culledNodes.map((entry) => [entry.node.id, entry]));
+	const diagnosticsByNodeId = new Map<string, FrameGraphSnapshot['diagnostics'][number][]>();
+	const diagnosticsByResourceId = new Map<string, FrameGraphSnapshot['diagnostics'][number][]>();
+	for (const diagnostic of snapshot.diagnostics) {
+		for (const [id, index] of [[diagnostic.nodeId, diagnosticsByNodeId], [diagnostic.resourceId, diagnosticsByResourceId]] as const) {
+			if (id === undefined) continue;
+			const entries = index.get(id) ?? [];
+			entries.push(diagnostic);
+			index.set(id, entries);
+		}
+	}
 	const resourceById = new Map(resources.map((resource) => [resource.id, resource]));
 	const groupById = new Map(debugGroups.map((group) => [group.id, group]));
 	const groupByPathKey = new Map(debugGroups.map((group) => [group.pathKey, group]));
@@ -362,11 +385,13 @@ export function createDebugViewModel(
 	), undefined);
 	const transientResources = resources.filter((resource) => resource.origin === 'transient');
 	const transientEstimatedByteSize = sumKnown(transientResources.map((resource) => resource.estimatedByteSize));
-	const physicalEstimatedBytes = sumKnown(physicalAllocations.map((allocation) => allocation.estimatedByteSize));
+	const allocationAvailable = snapshot.memory.allocationReport.status === 'available';
+	const physicalSizes = physicalAllocations.map((allocation) => allocation.estimatedByteSize);
+	const physicalEstimatedBytes = allocationAvailable ? sumKnown(physicalSizes) : undefined;
 	const logicalAllocationSizes = transientResources
 		.filter((resource) => resource.physicalResourceId !== undefined)
 		.map((resource) => allocationById.get(resource.physicalResourceId!)?.estimatedByteSize);
-	const logicalCapacityBytes = sumKnown(logicalAllocationSizes);
+	const logicalCapacityBytes = allocationAvailable ? sumKnown(logicalAllocationSizes) : undefined;
 	const metrics: FrameGraphDebugMetrics = {
 		timingEligibleNodeCount: timingEligibleNodes.length,
 		timedNodeCount: timedNodes.length,
@@ -378,6 +403,11 @@ export function createDebugViewModel(
 			? undefined
 			: Math.max(0, logicalCapacityBytes - physicalEstimatedBytes),
 		aliasedAllocationCount: physicalAllocations.filter((allocation) => allocation.resourceIds.length > 1).length,
+		estimatedCoverage: {
+			transient: estimateCoverage(transientResources.map((resource) => resource.estimatedByteSize)),
+			logical: estimateCoverage(logicalAllocationSizes),
+			physical: estimateCoverage(physicalSizes),
+		},
 	};
 
 	return {
@@ -395,6 +425,10 @@ export function createDebugViewModel(
 		executionSegments,
 		textureViewById,
 		nodeById,
+		canonicalNodeById,
+		culledById,
+		diagnosticsByNodeId,
+		diagnosticsByResourceId,
 		resourceById,
 		groupById,
 		groupByPathKey,
@@ -423,6 +457,10 @@ export function createDebugViewModel(
 		resourcePool,
 		availability,
 	};
+}
+
+function estimateCoverage(values: readonly (number | undefined)[]): EstimateCoverage {
+	return { known: values.filter((value) => value !== undefined).length, total: values.length };
 }
 
 function sumKnown(values: readonly (number | undefined)[]): number | undefined {

@@ -11,6 +11,8 @@ import type { InspectorTab, Selection } from './panelTypes.ts';
 import {
 	createRelationButton,
 	formatEstimatedBytes,
+	formatMeasuredGpuWork,
+	formatTimingCoverage,
 	formatResourceDescriptor,
 	groupPath,
 	resourceLabel,
@@ -169,7 +171,7 @@ export class InspectorView {
 			}
 			case 'allocation': return `Allocation #${selection.id}`;
 			case 'root': return 'Output root';
-			case 'culled': return `Culled node #${selection.index}`;
+			case 'culled': return `${snapshot.culledById.get(selection.id)?.node.label ?? selection.id} (culled)`;
 			case 'segment': return `Segment #${selection.index}`;
 		}
 	}
@@ -185,7 +187,7 @@ export class InspectorView {
 					['Order', String(node.order)],
 					['Group', groupPath(snapshot, node.debugGroupId)],
 					['Segment', segment ? `#${segment.index} ${segment.kind}` : '-'],
-					['GPU', node.kind === 'external-submission' ? 'Opaque' : node.gpuDurationMicros === undefined ? 'Not timed' : `${(node.gpuDurationMicros / 1000).toFixed(3)} ms`],
+					['GPU', node.kind === 'external-submission' ? 'Opaque · external work is not measured' : node.kind !== 'render' && node.kind !== 'compute' ? 'Not applicable' : node.gpuDurationMicros === undefined ? 'Not collected' : `${(node.gpuDurationMicros / 1000).toFixed(3)} ms`],
 					['Accesses', `${node.reads.length} reads · ${node.writes.length} writes`],
 					['Side effect', node.sideEffect ? 'yes' : 'no'],
 				]);
@@ -197,9 +199,9 @@ export class InspectorView {
 					['Path', group.path.join(' / ')],
 					['Retained', String(group.summary.retainedNodeCount)],
 					['Culled', String(group.summary.culledNodeCount)],
-					['GPU coverage', `${group.summary.timedNodeCount}/${group.summary.timingEligibleNodeCount}`],
-					['GPU work', `${(group.summary.gpuWorkDurationMicros / 1000).toFixed(3)} ms`],
-					['Allocations', String(group.summary.physicalAllocationCount)],
+					['GPU coverage', formatTimingCoverage(group.summary.timedNodeCount, group.summary.timingEligibleNodeCount)],
+					['Measured pass sum', formatMeasuredGpuWork(group.summary.gpuWorkDurationMicros, group.summary.timedNodeCount, group.summary.timingEligibleNodeCount)],
+					['Allocations', snapshot.protocol.memory.allocationReport.status === 'available' ? String(group.summary.physicalAllocationCount) : 'Unknown · allocation report unavailable'],
 					['Segments', String(group.summary.executionSegmentCount)],
 				]);
 			}
@@ -241,7 +243,7 @@ export class InspectorView {
 				] : []);
 			}
 			case 'culled': {
-				const culled = snapshot.culledNodes[selection.index];
+				const culled = snapshot.culledById.get(selection.id);
 				return this.summary(culled ? [
 					['Node', labelNode(culled.node)],
 					['Kind', culled.node.kind],
@@ -337,7 +339,7 @@ export class InspectorView {
 				break;
 			}
 			case 'culled': {
-				const culled = snapshot.culledNodes[selection.index];
+				const culled = snapshot.culledById.get(selection.id);
 				if (culled) host.append(
 					this.accessRelations('Reads', culled.node.reads),
 					this.accessRelations('Writes', culled.node.writes),
@@ -460,6 +462,6 @@ export class InspectorView {
 	private accessNodeSelection(snapshot: FrameGraphDebugViewModel, nodeId: string): Selection | undefined {
 		if (snapshot.nodeById.has(nodeId)) return { kind: 'node', id: nodeId };
 		const index = snapshot.culledNodes.findIndex((candidate) => candidate.node.id === nodeId);
-		return index < 0 ? undefined : { kind: 'culled', index };
+		return index < 0 ? undefined : { kind: 'culled', id: nodeId };
 	}
 }

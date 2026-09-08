@@ -17,7 +17,7 @@ import {
 	fitGraph,
 } from './panelGraphView.ts';
 import { graphGroupElementId } from './panelGraphScene.ts';
-import { selectionExists } from './panelSelection.ts';
+import { resolveNodeSelection, selectionExists } from './panelSelection.ts';
 import type { GraphViewState, Selection } from './panelTypes.ts';
 import { ensureFrameGraphInspectorStyles } from './styles.ts';
 import { sameSelection, type WorkbenchCallbacks } from './panelWorkbenchHelpers.ts';
@@ -405,6 +405,7 @@ export class FrameGraphInspector {
 		this.initialAutoCaptureAttempted = true;
 		this.statusMessage = undefined;
 		this.statusTone = 'neutral';
+		if (this.selected?.kind === 'node' || this.selected?.kind === 'culled') this.selected = resolveNodeSelection(viewModel, this.selected.id);
 		if (!this.selected || !selectionExists(viewModel, this.selected)) {
 			this.selected = viewModel.nodes[0]
 				? { kind: 'node', id: viewModel.nodes[0].id }

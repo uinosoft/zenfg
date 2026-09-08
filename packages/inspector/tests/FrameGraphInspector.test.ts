@@ -710,7 +710,9 @@ test('builds timing, access, segment, and memory indexes while preserving legacy
 test('renders persistent workbench tabs and Inspector Summary, Relations, and Raw panes', () => {
 	const testWindow = installDom();
 	const panel = new FrameGraphInspector();
-	panel.setSnapshot(toSnapshot(createGroupedCapture()));
+	const capture = createGroupedCapture();
+	capture.compilation.resources[1]!.lifetime = { firstUse: 1, lastUse: 2 };
+	panel.setSnapshot(toSnapshot(capture));
 
 	const tabs = panel.dom.querySelector('.zenfg-inspector-workbench-tabs');
 	assert.ok(tabs);

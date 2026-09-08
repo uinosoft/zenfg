@@ -13,7 +13,7 @@ export type Selection =
     | { kind: 'group'; pathKey: string }
     | { kind: 'resource'; id: string }
     | { kind: 'root'; key: string }
-    | { kind: 'culled'; index: number }
+    | { kind: 'culled'; id: string }
     | { kind: 'allocation'; id: string }
     | { kind: 'segment'; index: number };
 

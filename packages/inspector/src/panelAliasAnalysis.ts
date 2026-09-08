@@ -22,6 +22,7 @@ export type AliasAnalysis = {
     readonly resources: ReadonlyMap<string, AliasAnalysisResource>;
     readonly minUse: number;
     readonly maxUse: number;
+    readonly hasLifetimes: boolean;
 };
 
 export function analyzeSnapshotAliases(snapshot: FrameGraphDebugViewModel): AliasAnalysis {
@@ -43,13 +44,14 @@ export function analyzeSnapshotAliases(snapshot: FrameGraphDebugViewModel): Alia
     let minUse = Number.POSITIVE_INFINITY;
     let maxUse = Number.NEGATIVE_INFINITY;
     for (const resource of snapshot.resources) {
-        if (!resource.lifetime) {
+        if (resource.origin !== 'transient' || !resource.lifetime) {
             continue;
         }
         minUse = Math.min(minUse, resource.lifetime.firstUse);
         maxUse = Math.max(maxUse, resource.lifetime.lastUse);
     }
-    if (!Number.isFinite(minUse) || !Number.isFinite(maxUse)) {
+    const hasLifetimes = Number.isFinite(minUse) && Number.isFinite(maxUse);
+    if (!hasLifetimes) {
         minUse = 0;
         maxUse = 0;
     }
@@ -65,16 +67,18 @@ export function analyzeSnapshotAliases(snapshot: FrameGraphDebugViewModel): Alia
             resource,
             allocation,
             aliasStatus,
-            nonAliasReasons: resolveNonAliasReasons(resource, allocation, allocationGroups),
+            nonAliasReasons: describeAliasStatus(aliasStatus),
         });
     }
 
-    return {
+    const analysis = {
         allocations: allocationGroups,
         resources: resourceAnalysis,
         minUse,
         maxUse,
+        hasLifetimes,
     };
+    return analysis;
 }
 
 function resolveAliasStatus(
@@ -94,71 +98,14 @@ function resolveAliasStatus(
     return allocationResources.length > 1 ? 'aliased' : 'single';
 }
 
-function resolveNonAliasReasons(
-    resource: FrameGraphDebugResource,
-    allocation: FrameGraphDebugPhysicalAllocation | undefined,
-    allocations: readonly AliasAnalysisAllocation[],
-): readonly string[] {
-    if (resource.origin !== 'transient') {
-        return ['Imported or swapchain resources do not participate in transient aliasing.'];
+function describeAliasStatus(status: AliasAnalysisResource['aliasStatus']): readonly string[] {
+    switch (status) {
+        case 'not-transient': return ['Imported and surface resources do not participate in transient aliasing.'];
+        case 'no-lifetime': return ['No lifetime is available for this resource in the retained graph.'];
+        case 'not-allocated': return ['No physical allocation is associated with this transient resource.'];
+        case 'aliased': return ['Shares a physical allocation with other logical resources.'];
+        // The snapshot states allocation membership; it cannot explain allocator
+        // decisions by comparing every pair of logical resources.
+        case 'single': return ['This physical allocation contains one logical resource.'];
     }
-    if (!resource.lifetime) {
-        return ['No lifetime is available for this resource in the retained graph.'];
-    }
-    if (!allocation) {
-        return ['No physical allocation is associated with this transient resource.'];
-    }
-
-    const reasons = new Set<string>();
-    for (const group of allocations) {
-        if (group.allocation.id === allocation.id) {
-            continue;
-        }
-        for (const other of group.resources) {
-            if (other.id === resource.id || other.origin !== 'transient') {
-                continue;
-            }
-            if (other.kind !== resource.kind) {
-                reasons.add(`Different kind from ${labelDebugResource(other)}.`);
-                continue;
-            }
-            if (group.allocation.compatibilityClassId !== allocation.compatibilityClassId) {
-                reasons.add(`Different compatibility class from ${labelDebugResource(other)}.`);
-                continue;
-            }
-            if (!other.lifetime) {
-                reasons.add(`Missing lifetime for ${labelDebugResource(other)}.`);
-                continue;
-            }
-            if (lifetimesOverlap(resource.lifetime, other.lifetime)) {
-                reasons.add(`Lifetime overlaps ${labelDebugResource(other)} (${other.lifetime.firstUse}-${other.lifetime.lastUse}).`);
-            }
-        }
-    }
-
-    if (reasons.size === 0) {
-        return allocationResourcesFor(allocations, allocation.id).length > 1
-            ? ['Aliases with resources in the same physical allocation.']
-            : ['No compatible non-overlapping transient resource was found in this snapshot.'];
-    }
-
-    return Array.from(reasons).slice(0, 6);
-}
-
-function allocationResourcesFor(
-    allocations: readonly AliasAnalysisAllocation[],
-    allocationId: string,
-): readonly FrameGraphDebugResource[] {
-    return allocations.find((group) => group.allocation.id === allocationId)?.resources ?? [];
-}
-
-function lifetimesOverlap(
-    a: NonNullable<FrameGraphDebugResource['lifetime']>,
-    b: NonNullable<FrameGraphDebugResource['lifetime']>,
-): boolean {
-    return a.firstUse <= b.lastUse && b.firstUse <= a.lastUse;
-}
-
-function labelDebugResource(resource: FrameGraphDebugResource): string {
-    return resource.label ?? `${resource.kind}-${resource.id}`;
 }

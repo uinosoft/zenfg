@@ -3,13 +3,15 @@ import type {
 	FrameGraphDebugViewModel,
 } from './debugCaptureModel.ts';
 import { createCell, formatBytes, labelResource } from './panelDomHelpers.ts';
-import type { Selection } from './panelTypes.ts';
+import type { Selection, WorkbenchTab } from './panelTypes.ts';
 
 export type WorkbenchCallbacks = {
 	readonly onSelect: (selection: Selection) => void;
 	readonly onHover: (selection: Selection | undefined) => void;
 	readonly onGroupToggle: (pathKey: string) => void;
 	readonly isGroupExpanded: (pathKey: string) => boolean;
+	readonly onReveal?: (selection: Selection, tab: WorkbenchTab) => void;
+	readonly onNavigate?: (tab: WorkbenchTab, filter?: 'culled') => void;
 };
 export type WorkbenchTableColumn = {
 	readonly label: string;
@@ -23,7 +25,7 @@ export function selectionKey(selection: Selection): string {
 		case 'group': return `group:${selection.pathKey}`;
 		case 'resource': return `resource:${selection.id}`;
 		case 'root': return `root:${selection.key}`;
-		case 'culled': return `culled:${selection.index}`;
+		case 'culled': return `culled:${selection.id}`;
 		case 'allocation': return `allocation:${selection.id}`;
 		case 'segment': return `segment:${selection.index}`;
 	}
@@ -213,4 +215,60 @@ export function createEmptyTableRow(columnCount: number, text: string): HTMLTabl
 export function resourceLabel(snapshot: FrameGraphDebugViewModel, resourceId: string): string {
 	const resource = snapshot.resourceById.get(resourceId);
 	return resource ? labelResource(resource) : `resource-${resourceId}`;
+}
+
+/** All tablists use a single tab stop and automatic keyboard activation. */
+export function enableTabKeyboard(tabList: HTMLElement): void {
+	const buttons = () => Array.from(tabList.querySelectorAll<HTMLButtonElement>('[role="tab"]'));
+	const sync = () => {
+		for (const button of buttons()) button.tabIndex = button.getAttribute('aria-selected') === 'true' && !button.disabled ? 0 : -1;
+	};
+	tabList.addEventListener('click', sync);
+	tabList.addEventListener('keydown', (event) => {
+		if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+		const available = buttons().filter((button) => !button.disabled && !button.hidden);
+		if (!available.length) return;
+		const index = Math.max(0, available.indexOf(document.activeElement as HTMLButtonElement));
+		const next = event.key === 'Home' ? 0 : event.key === 'End' ? available.length - 1
+			: (index + (event.key === 'ArrowRight' ? 1 : -1) + available.length) % available.length;
+		event.preventDefault();
+		event.stopPropagation();
+		available[next]!.click();
+		available[next]!.focus();
+		sync();
+	});
+	sync();
+}
+
+export function formatTimingCoverage(timed: number, eligible: number): string {
+	if (eligible === 0) return 'Not applicable · no eligible passes';
+	if (timed === 0) return `Not collected · 0/${eligible}`;
+	return `${timed === eligible ? 'Complete' : 'Partial'} · ${timed}/${eligible} timed`;
+}
+
+export function formatMeasuredGpuWork(micros: number, timed: number, eligible: number): string {
+	if (eligible === 0) return 'Not applicable';
+	if (timed === 0) return 'Not collected';
+	return `${(micros / 1000).toFixed(3)} ms · ${formatTimingCoverage(timed, eligible)}`;
+}
+
+export function formatEstimateCoverage(bytes: number | undefined, coverage: { known: number; total: number }): string {
+	return bytes === undefined ? `Unknown · ${coverage.known}/${coverage.total} sizes known` : formatBytes(bytes);
+}
+
+export async function writeClipboardText(text: string): Promise<void> {
+	if (navigator.clipboard?.writeText) return navigator.clipboard.writeText(text);
+	const input = document.createElement('textarea');
+	input.value = text;
+	input.readOnly = true;
+	input.style.cssText = 'position:fixed;left:-9999px;top:0';
+	document.body.append(input);
+	const previous = document.activeElement as HTMLElement | null;
+	input.select();
+	try {
+		if (!document.execCommand('copy')) throw new Error('Clipboard is unavailable.');
+	} finally {
+		input.remove();
+		previous?.focus();
+	}
 }

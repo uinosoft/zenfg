@@ -58,7 +58,7 @@ export class ResourcesView {
 				['all', 'All origins'],
 				['transient', 'Transient'],
 				['imported', 'Imported'],
-				['swapchain', 'Swapchain'],
+				['surface', 'Surface'],
 			], (value) => {
 				this.origin = value;
 				this.renderRows();

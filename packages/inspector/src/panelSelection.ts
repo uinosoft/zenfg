@@ -1,4 +1,4 @@
-import type { FrameGraphDebugViewModel } from './debugCaptureModel.ts';
+import { rootKey, type FrameGraphDebugViewModel } from './debugCaptureModel.ts';
 import type { Selection } from './panelTypes.ts';
 
 export function resolveSelectedDetail(
@@ -28,7 +28,7 @@ export function resolveSelectedDetail(
 		case 'root':
 			return snapshot.roots.find((root) => root.key === selected.key);
 		case 'culled': {
-			const culled = snapshot.culledNodes[selected.index];
+			const culled = snapshot.culledById.get(selected.id);
 			return culled ? {
 				...culled,
 				node: {
@@ -56,7 +56,7 @@ export function selectionExists(snapshot: FrameGraphDebugViewModel, selected: Se
 		case 'root':
 			return snapshot.roots.filter((root) => root.key === selected.key).length === 1;
 		case 'culled':
-			return isValidIndex(selected.index, snapshot.culledNodes.length);
+			return snapshot.culledById.has(selected.id);
 		case 'allocation':
 			return snapshot.allocationById.has(selected.id);
 		case 'segment':
@@ -94,6 +94,38 @@ function debugGroupPath(snapshot: FrameGraphDebugViewModel, groupId: string | un
 	return snapshot.groupById.get(groupId)?.path.join(' / ') ?? `#${groupId}`;
 }
 
-function isValidIndex(index: number, length: number): boolean {
-	return Number.isInteger(index) && index >= 0 && index < length;
+/** Resolve identity again after a capture, including retained/culled transitions. */
+export function resolveNodeSelection(snapshot: FrameGraphDebugViewModel, id: string): Selection | undefined {
+	if (snapshot.nodeById.has(id)) return { kind: 'node', id };
+	if (snapshot.culledById.has(id)) return { kind: 'culled', id };
+	return undefined;
+}
+
+export type SelectedCanonicalDetail = { readonly path: string; readonly value: unknown };
+
+/** Raw shows the canonical source object, never the presentation model. */
+export function resolveSelectedCanonicalDetail(
+	snapshot: FrameGraphDebugViewModel,
+	selected: Selection | undefined,
+): SelectedCanonicalDetail | undefined {
+	if (!selected) return undefined;
+	const protocol = snapshot.protocol;
+	function at<T>(values: readonly T[], path: string, predicate: (value: T) => boolean): SelectedCanonicalDetail | undefined {
+		const index = values.findIndex(predicate);
+		return index < 0 ? undefined : { path: `${path}[${index}]`, value: values[index] };
+	}
+	switch (selected.kind) {
+		case 'node':
+		case 'culled': return at(protocol.graph.nodes, '$.graph.nodes', (node) => node.id === selected.id);
+		case 'resource': return at(protocol.graph.resources, '$.graph.resources', (resource) => resource.id === selected.id);
+		case 'group': {
+			const id = snapshot.groupByPathKey.get(selected.pathKey)?.id;
+			return at(protocol.graph.groups, '$.graph.groups', (group) => group.id === id);
+		}
+		case 'root': return at(protocol.graph.roots, '$.graph.roots', (root) => rootKey(root) === selected.key);
+		case 'allocation': return protocol.memory.allocationReport.status === 'available'
+			? at(protocol.memory.allocationReport.allocations, '$.memory.allocationReport.allocations', (allocation) => allocation.id === selected.id)
+			: undefined;
+		case 'segment': return at(protocol.graph.segments, '$.graph.segments', (segment) => segment.order === selected.index);
+	}
 }

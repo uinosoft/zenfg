@@ -13,7 +13,7 @@ import { PassesView } from './panelPassesView.ts';
 import { ResourcesView } from './panelResourcesView.ts';
 import { renderGraphView, resizeGraph } from './panelGraphView.ts';
 import type { GraphViewState, Selection, WorkbenchTab } from './panelTypes.ts';
-import { formatEstimatedBytes, type WorkbenchCallbacks } from './panelWorkbenchHelpers.ts';
+import { formatEstimateCoverage, formatTimingCoverage, type WorkbenchCallbacks } from './panelWorkbenchHelpers.ts';
 
 export type FrameGraphDebugWorkbenchActions = {
 	onCapture(): void;
@@ -235,6 +235,9 @@ export class FrameGraphDebugWorkbench {
 		this.resources.setSnapshot(snapshot);
 		this.memory.setSnapshot(snapshot);
 		this.diagnostics.setSnapshot(snapshot);
+		const counts = snapshot.protocol.diagnostics.reduce((counts, entry) => { if (entry.severity !== 'info') counts[entry.severity]++; return counts; }, { error: 0, warning: 0 });
+		this.tabButtons.get('diagnostics')!.title = `${counts.error} errors, ${counts.warning} warnings`;
+		this.tabButtons.get('diagnostics')!.dataset.diagnosticCount = counts.error + counts.warning ? `${counts.error}/${counts.warning}` : '';
 		this.inspector.setSnapshot(snapshot);
 		this.passes.setSelection(selected);
 		this.resources.setSelection(selected);
@@ -375,9 +378,7 @@ export class FrameGraphDebugWorkbench {
 		const frameGraphSegments = snapshot.executionSegments.filter((segment) => segment.kind === 'frame-graph').length;
 		const opaqueIntervals = snapshot.executionSegments.length - frameGraphSegments;
 		const metrics = snapshot.metrics;
-		const coverage = metrics.timingEligibleNodeCount === 0
-			? 'No eligible passes'
-			: `${metrics.timedNodeCount}/${metrics.timingEligibleNodeCount} timed`;
+		const coverage = formatTimingCoverage(metrics.timedNodeCount, metrics.timingEligibleNodeCount);
 		const slowest = metrics.slowestNode
 			? `${labelNode(metrics.slowestNode)} · ${(metrics.slowestNode.gpuDurationMicros! / 1000).toFixed(3)} ms`
 			: 'Unknown';
@@ -416,10 +417,10 @@ export class FrameGraphDebugWorkbench {
 				['Recording order', snapshot.availability.recordingOrder ? 'Available' : 'Unknown'],
 			]),
 			this.createSummaryGroup('Resources', [
-				['Logical / physical', `${snapshot.resources.length} / ${snapshot.physicalAllocations.length}`],
+				['Logical / physical', `${snapshot.resources.length} / ${protocol.memory.allocationReport.status === 'available' ? snapshot.physicalAllocations.length : 'Unavailable'}`],
 				['Texture views', snapshot.availability.textureViews ? String(snapshot.textureViewById.size) : 'Unknown'],
 				['Access regions', snapshot.availability.accessRegions ? 'Available' : 'Unknown'],
-				['Transient estimate', formatEstimatedBytes(metrics.transientEstimatedByteSize)],
+				['Transient estimate', formatEstimateCoverage(metrics.transientEstimatedByteSize, metrics.estimatedCoverage.transient)],
 			]),
 			this.createSummaryGroup('Pool', [
 				['Retained', poolRetained],

@@ -126,9 +126,8 @@ export function formatGpuFrameDuration(snapshot: FrameGraphDebugViewModel): stri
 
 export function formatPoolHitRate(snapshot: FrameGraphDebugViewModel): string {
     const pool = snapshot.resourcePool;
-    if (!pool || pool.status !== 'available' || pool.acquireCount === 0) {
-        return '-';
-    }
+    if (!pool || pool.status !== 'available') return 'Unavailable';
+    if (pool.acquireCount === 0) return 'Not applicable · no acquisitions';
     return `${((pool.reuseCount / pool.acquireCount) * 100).toFixed(0)}%`;
 }
 
@@ -143,9 +142,9 @@ export function formatBytes(bytes: number): string {
 }
 
 export function labelNode(node: Pick<FrameGraphDebugNode, 'id' | 'label'>): string {
-    return node.label ?? `node-${node.id}`;
+    return node.label ?? node.id;
 }
 
 export function labelResource(resource: { readonly id: string; readonly kind: string; readonly label?: string }): string {
-    return resource.label ?? `${resource.kind}-${resource.id}`;
+    return resource.label ?? resource.id;
 }

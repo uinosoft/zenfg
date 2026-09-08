@@ -1,33 +1,52 @@
 import type { FrameGraphDebugViewModel } from './debugCaptureModel.ts';
 import { createCell, labelNode, labelResource } from './panelDomHelpers.ts';
-import type { Selection } from './panelTypes.ts';
+import { resolveNodeSelection } from './panelSelection.ts';
+import type { Selection, WorkbenchTab } from './panelTypes.ts';
 import {
-	createEmptyTableRow,
-	createKindCell,
-	createRelationButton,
-	createSelectionCell,
-	createTableScroller,
-	registerSelectable,
-	type WorkbenchCallbacks,
-	updateSelectedRows,
+	createEmptyTableRow, createKindCell, createSelectionCell, createTableScroller,
+	createFilterSelect, createRelationButton, createSearchInput, createViewToolbar,
+	registerSelectable, selectionKey, type WorkbenchCallbacks, updateSelectedRows,
 } from './panelWorkbenchHelpers.ts';
+
+const severityOrder = { error: 0, warning: 1, info: 2 } as const;
 
 export class DiagnosticsView {
 	readonly root = document.createElement('section');
 	private readonly scroller = document.createElement('div');
 	private readonly content = document.createElement('div');
 	private readonly rows = new Map<string, HTMLElement[]>();
+	private readonly openSections = new Set<string>();
+	private readonly count = document.createElement('span');
+	private readonly searchInput: HTMLInputElement;
+	private readonly severitySelect: HTMLSelectElement;
 	private snapshot: FrameGraphDebugViewModel | undefined;
 	private selected: Selection | undefined;
+	private severity = 'all';
+	private search = '';
 
 	constructor(private readonly callbacks: WorkbenchCallbacks, idPrefix: string) {
 		this.root.className = 'zenfg-inspector-view zenfg-inspector-diagnostics-view';
 		this.root.id = `${idPrefix}-view-diagnostics`;
 		this.root.setAttribute('role', 'tabpanel');
+		const toolbar = createViewToolbar('Diagnostic filters');
+		this.searchInput = createSearchInput('Search diagnostic code or message', '', (value) => {
+			this.search = value.trim().toLocaleLowerCase();
+			this.render();
+		});
+		this.severitySelect = createFilterSelect('Diagnostic severity', this.severity, [
+			['all', 'All severities'], ['error', 'Error'], ['warning', 'Warning'], ['info', 'Info'],
+		], (value) => { this.severity = value; this.render(); });
+		const clear = document.createElement('button');
+		clear.type = 'button';
+		clear.textContent = 'Clear filters';
+		clear.addEventListener('click', () => { this.clearFilters(); this.render(); });
+		this.count.className = 'zenfg-inspector-result-count';
+		this.count.setAttribute('role', 'status');
+		toolbar.append(this.searchInput, this.severitySelect, clear, this.count);
 		this.scroller.className = 'zenfg-inspector-diagnostics-scroller';
-		this.content.className = 'zenfg-inspector-diagnostics-grid';
+		this.content.className = 'zenfg-inspector-diagnostics-sections';
 		this.scroller.appendChild(this.content);
-		this.root.appendChild(this.scroller);
+		this.root.append(toolbar, this.scroller);
 	}
 
 	setSnapshot(snapshot: FrameGraphDebugViewModel): void {
@@ -40,23 +59,101 @@ export class DiagnosticsView {
 		updateSelectedRows(this.rows, selected);
 	}
 
+	reveal(selection: Selection): void {
+		this.clearFilters();
+		if (selection.kind === 'root') this.openSections.add('roots');
+		if (selection.kind === 'culled') this.openSections.add('culled');
+		if (selection.kind === 'segment') {
+			this.openSections.add('segments');
+			this.openSections.add(`segment:${selection.index}`);
+		}
+		this.render();
+		this.rows.get(selectionKey(selection))?.[0]?.scrollIntoView?.({ block: 'nearest' });
+	}
+
+	private clearFilters(): void {
+		this.search = '';
+		this.severity = 'all';
+		this.searchInput.value = '';
+		this.severitySelect.value = 'all';
+	}
+
 	private render(): void {
 		const snapshot = this.snapshot;
 		if (!snapshot) return;
 		this.rows.clear();
 		this.content.replaceChildren(
-			this.createRoots(snapshot),
-			this.createCulled(snapshot),
-			this.createSegments(snapshot),
-			this.createTiming(snapshot),
+			this.createMessages(snapshot), this.createRoots(snapshot), this.createCulled(snapshot), this.createSegments(snapshot),
 		);
 		updateSelectedRows(this.rows, this.selected);
 	}
 
-	private createSection(title: string, description?: string): HTMLElement {
+	private createMessages(snapshot: FrameGraphDebugViewModel): HTMLElement {
 		const section = document.createElement('section');
-		section.className = 'zenfg-inspector-diagnostic-card';
+		section.className = 'zenfg-inspector-diagnostic-messages';
 		const heading = document.createElement('h2');
+		heading.textContent = 'Diagnostics';
+		const summary = document.createElement('p');
+		const all = snapshot.protocol.diagnostics;
+		const errors = all.filter((entry) => entry.severity === 'error').length;
+		const warnings = all.filter((entry) => entry.severity === 'warning').length;
+		const infos = all.length - errors - warnings;
+		summary.textContent = `${errors} errors · ${warnings} warnings · ${infos} info`;
+		section.append(heading, summary);
+		// Sort a copy. Stable sort preserves capture order within each severity, including repeated codes.
+		const messages = all.filter((entry) => (this.severity === 'all' || entry.severity === this.severity)
+			&& (!this.search || `${entry.code} ${entry.message}`.toLocaleLowerCase().includes(this.search)))
+			.sort((a, b) => severityOrder[a.severity] - severityOrder[b.severity]);
+		this.count.textContent = `${messages.length} / ${all.length} diagnostics`;
+		for (const diagnostic of messages) {
+			const article = document.createElement('article');
+			article.className = 'zenfg-inspector-diagnostic-message';
+			article.dataset.severity = diagnostic.severity;
+			const title = document.createElement('h3');
+			const severity = document.createElement('span');
+			severity.className = 'zenfg-inspector-diagnostic-severity';
+			severity.textContent = diagnostic.severity;
+			const code = document.createElement('code');
+			code.textContent = diagnostic.code;
+			title.append(severity, code);
+			const message = document.createElement('p');
+			message.textContent = diagnostic.message;
+			article.append(title, message);
+			if (diagnostic.nodeId !== undefined) {
+				const selection = resolveNodeSelection(snapshot, diagnostic.nodeId);
+				const node = snapshot.canonicalNodeById.get(diagnostic.nodeId);
+				if (selection && node) article.appendChild(this.createObjectLink(labelNode(node), selection, 'passes'));
+			}
+			if (diagnostic.resourceId !== undefined) {
+				const resource = snapshot.resourceById.get(diagnostic.resourceId);
+				if (resource) article.appendChild(this.createObjectLink(labelResource(resource), { kind: 'resource', id: resource.id }, 'resources'));
+			}
+			section.appendChild(article);
+		}
+		if (messages.length === 0) {
+			const empty = document.createElement('p');
+			empty.className = 'zenfg-inspector-muted';
+			empty.textContent = all.length === 0 ? 'No diagnostic messages in this snapshot.' : 'No diagnostics match the current filters.';
+			section.appendChild(empty);
+		}
+		return section;
+	}
+
+	private createObjectLink(label: string, selection: Selection, _tab: WorkbenchTab): HTMLElement {
+		const links = document.createElement('span');
+		links.className = 'zenfg-inspector-diagnostic-links';
+		const select = createRelationButton(label, selection, this.callbacks.onSelect);
+		registerSelectable(this.rows, select, selection, this.callbacks);
+		links.appendChild(select);
+		return links;
+	}
+
+	private createSection(key: string, title: string, description?: string): HTMLDetailsElement {
+		const section = document.createElement('details');
+		section.className = 'zenfg-inspector-diagnostic-section';
+		section.dataset.section = key;
+		section.open = this.openSections.has(key);
+		const heading = document.createElement('summary');
 		heading.textContent = title;
 		section.appendChild(heading);
 		if (description) {
@@ -64,33 +161,35 @@ export class DiagnosticsView {
 			text.textContent = description;
 			section.appendChild(text);
 		}
+		section.addEventListener('toggle', () => {
+			if (section.open) this.openSections.add(key);
+			else this.openSections.delete(key);
+		});
 		return section;
 	}
 
 	private createRoots(snapshot: FrameGraphDebugViewModel): HTMLElement {
-		const section = this.createSection('Retention roots', 'Roots explain why graph work survived dead-node elimination.');
+		const section = this.createSection('roots', `Retention roots (${snapshot.roots.length})`, 'Roots explain why graph work survived dead-node elimination.');
 		const list = document.createElement('div');
 		list.className = 'zenfg-inspector-diagnostic-list';
-		snapshot.roots.forEach((root) => {
+		for (const root of snapshot.roots) {
 			const selection: Selection = { kind: 'root', key: root.key };
-			const button = createRelationButton(
-				`${root.reason} · ${root.resource ? labelResource(root.resource) : root.nodeId === undefined ? '-' : `node-${root.nodeId}`}`,
-				selection,
-				this.callbacks.onSelect,
-			);
+			const node = root.nodeId === undefined ? undefined : snapshot.canonicalNodeById.get(root.nodeId);
+			const label = root.resource ? labelResource(root.resource) : node ? labelNode(node) : root.nodeId ?? 'Unknown';
+			const button = createRelationButton(`${root.reason} · ${label}`, selection, this.callbacks.onSelect);
 			registerSelectable(this.rows, button, selection, this.callbacks);
 			list.appendChild(button);
-		});
+		}
 		if (snapshot.roots.length === 0) list.textContent = 'No retention roots.';
 		section.appendChild(list);
 		return section;
 	}
 
 	private createCulled(snapshot: FrameGraphDebugViewModel): HTMLElement {
-		const section = this.createSection('Culled nodes', 'Recorded nodes that were not reachable from a retention root.');
+		const section = this.createSection('culled', `Culled nodes (${snapshot.culledNodes.length})`, 'Recorded nodes that were not reachable from a retention root.');
 		const table = createTableScroller([{ label: 'Node' }, { label: 'Kind', column: 'kind' }, { label: 'Reason' }]);
-		for (const [index, entry] of snapshot.culledNodes.entries()) {
-			const selection: Selection = { kind: 'culled', index };
+		for (const entry of snapshot.culledNodes) {
+			const selection: Selection = { kind: 'culled', id: entry.node.id };
 			const row = document.createElement('tr');
 			registerSelectable(this.rows, row, selection, this.callbacks);
 			row.append(
@@ -106,55 +205,29 @@ export class DiagnosticsView {
 	}
 
 	private createSegments(snapshot: FrameGraphDebugViewModel): HTMLElement {
-		const section = this.createSection(
-			'Execution segments',
-			'An opaque interval is a graph boundary around external work; it is not a count or timing of third-party GPU submissions.',
-		);
-		const table = createTableScroller([{ label: '#', column: 'numeric' }, { label: 'Kind', column: 'kind' }, { label: 'Nodes' }]);
+		const section = this.createSection('segments', `Execution segments (${snapshot.executionSegments.length})`,
+			'An opaque interval marks external work. Its GPU submissions and duration are not measured here.');
 		for (const segment of snapshot.executionSegments) {
 			const selection: Selection = { kind: 'segment', index: segment.index };
-			const row = document.createElement('tr');
-			registerSelectable(this.rows, row, selection, this.callbacks);
-			const labels = segment.nodeIds.map((id) => snapshot.nodeById.get(id))
-				.filter((node) => node !== undefined)
-				.map((node) => labelNode(node));
-			row.append(
-				createSelectionCell(String(segment.index), selection, this.callbacks, 'numeric'),
-				createKindCell(segment.kind, segment.kind === 'frame-graph' ? 'FrameGraph command segment' : 'Opaque interval'),
-				createCell(labels.join(', ') || '-'),
-			);
-			table.body.appendChild(row);
+			const members = this.createSection(`segment:${segment.index}`, `${segment.index} · ${segment.kind === 'frame-graph' ? 'FrameGraph command segment' : 'Opaque interval'} · ${segment.nodeIds.length} passes`);
+			const button = createRelationButton('Inspect segment', selection, this.callbacks.onSelect);
+			registerSelectable(this.rows, button, selection, this.callbacks);
+			members.appendChild(button);
+			const list = document.createElement('div');
+			list.className = 'zenfg-inspector-diagnostic-list';
+			for (const id of segment.nodeIds) {
+				const node = snapshot.canonicalNodeById.get(id);
+				const nodeSelection = resolveNodeSelection(snapshot, id);
+				if (node && nodeSelection) list.appendChild(this.createObjectLink(labelNode(node), nodeSelection, 'passes'));
+			}
+			members.appendChild(list);
+			section.appendChild(members);
 		}
-		if (snapshot.executionSegments.length === 0) table.body.appendChild(createEmptyTableRow(3, 'No execution segments.'));
-		section.appendChild(table.scroller);
-		return section;
-	}
-
-	private createTiming(snapshot: FrameGraphDebugViewModel): HTMLElement {
-		const metrics = snapshot.metrics;
-		const coverage = metrics.timingEligibleNodeCount === 0
-			? 'No eligible render or compute passes'
-			: `${metrics.timedNodeCount}/${metrics.timingEligibleNodeCount} eligible passes timed (${((metrics.timedNodeCount / metrics.timingEligibleNodeCount) * 100).toFixed(0)}%)`;
-		const section = this.createSection('GPU timing coverage', coverage);
-		if (snapshot.profiling.status === 'unavailable') {
-			const status = document.createElement('p');
-			status.textContent = `Timing unavailable: ${snapshot.profiling.reason}.`;
-			section.appendChild(status);
+		if (snapshot.executionSegments.length === 0) {
+			const empty = document.createElement('p');
+			empty.textContent = 'No execution segments.';
+			section.appendChild(empty);
 		}
-		const table = createTableScroller([{ label: 'Pass' }, { label: 'Status', column: 'kind' }, { label: 'GPU (ms)', column: 'numeric' }]);
-		for (const node of snapshot.nodes.filter((candidate) => candidate.kind === 'render' || candidate.kind === 'compute')) {
-			const selection: Selection = { kind: 'node', id: node.id };
-			const row = document.createElement('tr');
-			registerSelectable(this.rows, row, selection, this.callbacks);
-			row.append(
-				createSelectionCell(labelNode(node), selection, this.callbacks),
-				createKindCell(node.gpuDurationMicros === undefined ? 'not-timed' : 'timed', node.gpuDurationMicros === undefined ? 'Not timed' : 'Timed'),
-				createCell(node.gpuDurationMicros === undefined ? '-' : (node.gpuDurationMicros / 1000).toFixed(3), { column: 'numeric' }),
-			);
-			table.body.appendChild(row);
-		}
-		if (table.body.childElementCount === 0) table.body.appendChild(createEmptyTableRow(3, 'No timing-eligible passes.'));
-		section.appendChild(table.scroller);
 		return section;
 	}
 }
