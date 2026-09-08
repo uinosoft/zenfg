@@ -49,6 +49,43 @@ const particleRoot = (report: FrameGraphCompilationReport) => report.roots.find(
     && /\.pos[AB]$/.test(report.resources.find(resource => resource.id === root.resourceId)?.label ?? '')
 ));
 
+function groupPath(report: FrameGraphCompilationReport, id: number | undefined): string {
+    const group = report.debugGroups.find(group => group.id === id);
+    return group ? [groupPath(report, group.parentId), group.label].filter(Boolean).join('/') : '';
+}
+
+for (const displayMode of ['particles', 'surface-mesh', 'ray-march', 'ssfr'] as const) {
+    test(`${displayMode}: resources register with the stage that owns their diagnostics`, () => {
+        const fixture = createFixture({ displayMode });
+        try {
+            fixture.workload.applyImportedSettings(fixture.workload.getSettings(), {
+                ...tinyScene, bodies: ['sphere:0.5'], bodySize: 0.12,
+            });
+            const { report, pending } = fixture.record();
+            for (const resource of report.resources) {
+                const label = resource.label ?? '';
+                const actual = groupPath(report, resource.debugGroupId);
+                if (label === 'test.backbuffer') {
+                    assert.equal(actual, '', 'the host owns the presentation target');
+                    continue;
+                }
+                const expected = /stats-reduction|stats-readback|pose-readback/.test(label) ? 'Particles4All/Diagnostics'
+                    : /\.simulation\.|pour-upload/.test(label) ? 'Particles4All/Simulation'
+                    : /\.sim\./.test(label) ? 'Particles4All'
+                    : 'Particles4All/Render';
+                assert.equal(actual, expected, label);
+            }
+            assert.equal(new Set(report.resources.map(resource => resource.label)).size, report.resources.length,
+                'stage recording must not duplicate shared imports');
+            assert.ok(!report.debugGroups.some(group => group.label === 'Rigid Projection'));
+            for (const node of report.nodes.filter(node => /\.initialization\.|\.substep-/.test(node.label ?? ''))) {
+                assert.ok(groupPath(report, node.debugGroupId).startsWith('Particles4All/Simulation/'), node.label);
+            }
+            pending.discard();
+        } finally { fixture.dispose(); }
+    });
+}
+
 for (const mode of ['particles', 'surface-mesh', 'ray-march', 'ssfr'] as const) {
     test(`${mode}: first, stable, and paused frames compile and execute through one submission`, async () => {
         const fixture = createFixture({ displayMode: mode });

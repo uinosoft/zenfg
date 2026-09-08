@@ -42,6 +42,14 @@ nodes under diagnostic groups. Render branches add surface reconstruction,
 anisotropy, SSFR splats and filtering, or ray compositing as needed. All commands
 are encoded into graph-provided passes; there is no private simulation submission.
 
+Resource registration occurs inside the corresponding diagnostic scope:
+shared persistent imports belong to Particles4All, solver scratch and pour
+uploads to Simulation, statistics and pose readbacks to Diagnostics, and branch
+intermediates and triangle readbacks to Render. Initialization and drag preparation
+are part of Simulation. The host's backbuffer remains outside the workload scope.
+Collapsing a group therefore also collapses its resource declarations. Groups
+do not restrict execution, retention, or transient reuse across stages.
+
 Resource declarations follow the
 [resource granularity guidance](../../docs/core-concepts.md#choosing-resource-declaration-granularity):
 

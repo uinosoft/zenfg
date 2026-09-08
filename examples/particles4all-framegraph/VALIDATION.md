@@ -67,6 +67,15 @@ timing and zero diagnostics, and switching to Minimal Frame and back refreshed
 the capture correctly. The JavaScript shader source tab rendered with syntax
 highlighting.
 
+## Diagnostic attribution regression
+
+The resource-attribution refactor was compared with the previous implementation
+for all four display modes, each on first, stable, and paused frames (12 cases).
+Normalized node/access/dependency/root/resource reports, physical sharing groups,
+and encoded pass/dispatch/draw/clear/copy sequences matched. Resource and group
+IDs were normalized by stable labels; diagnostic metadata was excluded from
+the comparison. This isolates grouping from later access-range corrections.
+
 ## Remaining hardware coverage
 
 Intel/AMD adapters, Apple/Metal, mobile devices, other browser engines, and a

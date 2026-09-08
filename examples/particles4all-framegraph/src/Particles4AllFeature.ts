@@ -61,9 +61,7 @@ type NativeObjects = {
 };
 
 type ImportedResources = {
-    readonly buffers: ReadonlyMap<GPUBuffer, BufferHandle>;
-    readonly statsReadbacks: readonly (BufferHandle | undefined)[];
-    readonly poseReadbacks: readonly (BufferHandle | undefined)[];
+    readonly buffers: Map<GPUBuffer, BufferHandle>;
     readonly pourUpload?: BufferHandle;
 };
 
@@ -107,7 +105,6 @@ type SimulationTransientResources = {
     readonly bodyCovariance: BufferHandle;
     readonly bodyIndices: BufferHandle;
     readonly bodyIndexCount: BufferHandle;
-    readonly statsReduction: BufferHandle;
 };
 
 type SimulationFramePlan = {
@@ -174,6 +171,9 @@ type RecordedSimulationCommit = {
     readonly statsFrame: number;
     readonly poseFrame: number;
 };
+
+type RecordedDiagnosticsCommit = Pick<RecordedSimulationCommit,
+    'statsReadbackArmed' | 'poseReadbackArmed' | 'statsReadbackSlot' | 'poseReadbackSlot' | 'statsFrame' | 'poseFrame'>;
 
 type RecordedMeshCommit = {
     readonly frame: number;
@@ -508,12 +508,7 @@ export class Particles4All {
 
     recordFrameGraph(graph: FrameGraphRecording, frameOptions: Particles4AllFrameGraphOptions): PendingParticles4AllFrame {
         this.assertIdle('recordFrameGraph');
-        const depth = this.settings.displayMode === 'particles' || this.settings.displayMode === 'surface-mesh'
-            ? graph.createTexture({
-            label: 'particles4all.render.depth', format: 'depth24plus',
-            size: [this.width, this.height],
-        }) : undefined;
-        const options: RenderOptions = { ...frameOptions, depth };
+        const options: RenderOptions = frameOptions;
         const native = this.requireNative('recordFrameGraph');
         validateTargets(graph, options.color, this.outputFormat, this.width, this.height);
         if (!Number.isFinite(options.deltaTime) || options.deltaTime < 0) throw new Error('Particles4All deltaTime must be finite and non-negative.');
@@ -540,13 +535,9 @@ export class Particles4All {
             renderFrame.parity = native.sim.parity
                 ^ (native.sim.primePending ? 1 : 0)
                 ^ (framePlan.substeps & 1);
-            let surfaceResources: SurfaceTransientResources | null = null;
             if (renderFrame.meshOn) native.mesh.prepareSurfaceFrame(native.sim, nativeRenderOptions.meshIso);
-            if (renderFrame.meshOn) surfaceResources = this.createSurfaceTransientResources(graph, native.mesh);
             let ssfrFrame: any = null;
-            let ssfrResources: SsfrTransientResources | null = null;
             let rayFrame: any = null;
-            let rayResources: RayTransientResources | null = null;
             if (renderFrame.ssfrOn) {
                 native.mesh.anisoLimitToField = false;
                 const originalParity = native.sim.parity;
@@ -570,7 +561,6 @@ export class Particles4All {
                     );
                     ssfrFrame.anisoCount = anisoCount;
                     ssfrFrame.parity = renderFrame.parity;
-                    ssfrResources = this.createSsfrTransientResources(graph, native.ssfr, pourSchedule.finalCount);
                 } finally {
                     native.sim.parity = originalParity;
                 }
@@ -581,7 +571,6 @@ export class Particles4All {
                 const useSurface = nativeRenderOptions.raySurface === 1;
                 if (useSurface) {
                     native.mesh.resizeSurface(this.width, this.height);
-                    rayResources = this.createRayTransientResources(graph);
                 }
                 rayFrame = native.ray.prepareFrame(
                     native.mesh,
@@ -597,32 +586,41 @@ export class Particles4All {
                     native.solids.gen || 0,
                 );
             }
-            const solidPacked = native.solids.count > 0
-                ? graph.createBuffer({
-                    label: 'particles4all.solids.packed',
-                    size: native.solids.count * 6 * 16,
-                })
-                : null;
-            const simulationResources = this.createSimulationTransientResources(graph, native.sim);
-            const imported = this.importResources(graph, native, pourSchedule.uploadBuffer);
             graph.withDebugGroup('Particles4All', () => {
-                this.pendingSimulationCommit = this.recordSimulation(
-                    graph, native, imported, simulationResources, framePlan, pourSchedule, frameUniforms,
-                );
-                graph.withDebugGroup('Render', () => this.recordRender(
-                    graph,
-                    native,
-                    imported,
-                    options,
-                    nativeRenderOptions,
-                    renderFrame,
-                    ssfrFrame,
-                    ssfrResources,
-                    solidPacked,
-                    rayFrame,
-                    rayResources,
-                    surfaceResources,
+                const imported = this.importResources(graph, native);
+                const simulation = graph.withDebugGroup('Simulation', () => {
+                    const resources = this.createSimulationTransientResources(graph, native.sim);
+                    const simulationImports = { ...imported, pourUpload: pourSchedule.uploadBuffer
+                        ? this.importBuffer(graph, imported, pourSchedule.uploadBuffer, 'particles4all.pour-upload')
+                        : undefined };
+                    return this.recordSimulation(
+                        graph, native, simulationImports, resources, framePlan, pourSchedule, frameUniforms,
+                    );
+                });
+                const readbacks = graph.withDebugGroup('Diagnostics', () => this.recordDiagnostics(
+                    graph, native, imported, simulation.parity, pourSchedule.finalCount,
+                    frameUniforms[framePlan.substeps] ?? frameUniforms[0] ?? native.sim.uni,
                 ));
+                this.pendingSimulationCommit = { ...simulation, ...readbacks };
+                graph.withDebugGroup('Render', () => {
+                    const depth = this.settings.displayMode === 'particles' || this.settings.displayMode === 'surface-mesh'
+                        ? graph.createTexture({ label: 'particles4all.render.depth', format: 'depth24plus',
+                            size: [this.width, this.height] }) : undefined;
+                    const surfaceResources = renderFrame.meshOn ? this.createSurfaceTransientResources(graph, native.mesh) : null;
+                    const ssfrResources = renderFrame.ssfrOn ? this.createSsfrTransientResources(graph, native.ssfr, pourSchedule.finalCount) : null;
+                    const rayResources = renderFrame.rayOn && nativeRenderOptions.raySurface === 1
+                        ? this.createRayTransientResources(graph) : null;
+                    const solidPacked = native.solids.count > 0
+                        ? graph.createBuffer({ label: 'particles4all.solids.packed', size: native.solids.count * 6 * 16 }) : null;
+                    if (renderFrame.meshOn && (!renderFrame.rayOn || nativeRenderOptions.raySurface === 1)) {
+                        const slot = native.mesh.frame % native.mesh.triRing.length;
+                        if (native.mesh.triState[slot] === 0) this.importBuffer(
+                            graph, imported, native.mesh.triRing[slot], 'particles4all.triangle-readback.' + slot,
+                        );
+                    }
+                    this.recordRender(graph, native, imported, { ...options, depth }, nativeRenderOptions,
+                        renderFrame, ssfrFrame, ssfrResources, solidPacked, rayFrame, rayResources, surfaceResources);
+                });
             });
             this.pendingFrameRecorded = true;
             // planFrame computes against temporary CPU timing state; publish it only on commit.
@@ -743,7 +741,7 @@ export class Particles4All {
         frameUniforms: readonly GPUBuffer[] = Array.from(
             { length: framePlan.substeps + 1 }, () => native.sim.uni,
         ),
-    ): RecordedSimulationCommit {
+    ): Omit<RecordedSimulationCommit, keyof RecordedDiagnosticsCommit> {
         const sim = native.sim;
         let activeParticleCount = pourSchedule.startCount;
         const handles: Record<string, BufferHandle> = {
@@ -760,7 +758,6 @@ export class Particles4All {
             bodyCov: transient.bodyCovariance,
             bodyIdx: transient.bodyIndices,
             bodyIdxCount: transient.bodyIndexCount,
-            statsOut: transient.statsReduction,
         };
         for (const [name, buffer] of Object.entries(sim.buf) as Array<[string, GPUBuffer]>) {
             const importedHandle = imported.buffers.get(buffer);
@@ -923,268 +920,218 @@ export class Particles4All {
             });
         }
 
-        graph.withDebugGroup('Simulation', () => {
-            for (let substep = 0; substep < framePlan.substeps; substep++) {
-                const substepActiveCount = pourSchedule.activeCounts[substep] ?? activeParticleCount;
-                activeParticleCount = substepActiveCount;
-                const substepUniform = frameUniforms[substep] ?? initialUniform;
-                uni = [substepUniform];
-                graph.withDebugGroup(`Substep ${substep + 1}`, () => {
-                    const predictParity = parity;
-                    const predictSuffix = suffix(predictParity);
-                    const predictReads = [`pos${predictSuffix}`, `vel${predictSuffix}`];
-                    const predictWrites: WriteSpec[] = [[`pred${predictSuffix}`, 'overwrite']];
-                    const predictUniforms = [substepUniform] as GPUBuffer[];
-                    if (sim.heldBody >= 1 && sim.nBodyParts > 0) {
-                        predictReads.push(`body${predictSuffix}`, 'bodyIdx', 'bodyCentre');
-                        predictWrites.push([`vel${predictSuffix}`, 'preserve']);
-                        predictUniforms.push(sim.dragUni);
-                    }
-                    recordCompute(`particles4all.substep-${substep + 1}.predict`,
-                        predictReads, predictWrites, predictUniforms,
-                        (pass, buffers) => sim.encodePredict(
+        for (let substep = 0; substep < framePlan.substeps; substep++) {
+            const substepActiveCount = pourSchedule.activeCounts[substep] ?? activeParticleCount;
+            activeParticleCount = substepActiveCount;
+            const substepUniform = frameUniforms[substep] ?? initialUniform;
+            uni = [substepUniform];
+            graph.withDebugGroup(`Substep ${substep + 1}`, () => {
+                const predictParity = parity;
+                const predictSuffix = suffix(predictParity);
+                const predictReads = [`pos${predictSuffix}`, `vel${predictSuffix}`];
+                const predictWrites: WriteSpec[] = [[`pred${predictSuffix}`, 'overwrite']];
+                const predictUniforms = [substepUniform] as GPUBuffer[];
+                if (sim.heldBody >= 1 && sim.nBodyParts > 0) {
+                    predictReads.push(`body${predictSuffix}`, 'bodyIdx', 'bodyCentre');
+                    predictWrites.push([`vel${predictSuffix}`, 'preserve']);
+                    predictUniforms.push(sim.dragUni);
+                }
+                recordCompute(`particles4all.substep-${substep + 1}.predict`,
+                    predictReads, predictWrites, predictUniforms,
+                    (pass, buffers) => sim.encodePredict(
+                        pass, predictParity, buffers, substepActiveCount, substepUniform,
+                    ));
+                graph.withDebugGroup('Grid', () => {
+                    graph.clearBuffer({
+                        label: `particles4all.substep-${substep + 1}.grid-clear`,
+                        operations: [
+                            { target: handle('cellCount') },
+                            { target: handle('blockSum') },
+                            { target: handle('cursor') },
+                        ],
+                    });
+                    recordCompute(`particles4all.substep-${substep + 1}.grid-count`,
+                        [`pred${predictSuffix}`], [['cellCount', 'preserve']], uni,
+                        (pass, buffers) => sim.encodeGridCount(
                             pass, predictParity, buffers, substepActiveCount, substepUniform,
                         ));
-                    graph.withDebugGroup('Grid', () => {
-                        graph.clearBuffer({
-                            label: `particles4all.substep-${substep + 1}.grid-clear`,
-                            operations: [
-                                { target: handle('cellCount') },
-                                { target: handle('blockSum') },
-                                { target: handle('cursor') },
-                            ],
+                    recordCompute(`particles4all.substep-${substep + 1}.grid-prefix-scan`,
+                        ['cellCount', 'blockSum', 'cellStart'],
+                        [['blockSum', 'preserve'], ['cellStart', 'preserve']], uni,
+                        (pass, buffers) => sim.encodeGridScan(pass, buffers, substepUniform));
+                    const outputSuffix = suffix(predictParity ^ 1);
+                    recordCompute(`particles4all.substep-${substep + 1}.grid-scatter`, [
+                        `pred${predictSuffix}`, 'cellStart',
+                        `pos${predictSuffix}`, `vel${predictSuffix}`,
+                        `body${predictSuffix}`, `rest${predictSuffix}`,
+                    ], [
+                        ['cursor', 'preserve'], ['slot', 'overwrite'],
+                        [`pos${outputSuffix}`, 'overwrite'], [`vel${outputSuffix}`, 'overwrite'],
+                        [`pred${outputSuffix}`, 'overwrite'], [`body${outputSuffix}`, 'overwrite'],
+                        [`rest${outputSuffix}`, 'overwrite'],
+                    ], uni, (pass, buffers) => sim.encodeGridScatter(
+                        pass, predictParity, buffers, substepActiveCount, substepUniform,
+                    ));
+                });
+                parity ^= 1;
+                predParity = parity;
+                if (sim.nBodyParts > 0) {
+                    const rigidParity = parity;
+                    const rigidPredParity = predParity;
+                    const rigidSuffix = suffix(rigidParity);
+                    const rigidPredSuffix = suffix(rigidPredParity);
+                    recordCompute(`particles4all.substep-${substep + 1}.rigid-preparation`, [
+                        `body${rigidSuffix}`, `pred${rigidPredSuffix}`, 'bodyRef', 'bodyCentre',
+                    ], [
+                        ['bodyAccum', 'overwrite'], ['bodyCov', 'overwrite'],
+                        ['bodyIdxCount', 'overwrite'], ['bodyIdx', 'overwrite'],
+                        ['bodyCentre', 'preserve'], ['bodyRef', 'preserve'],
+                    ], uni, (pass, buffers) => sim.encodeRigidPreparation(
+                        pass, rigidParity, rigidPredParity, buffers, substepActiveCount, substepUniform,
+                    ));
+                }
+                graph.withDebugGroup('Constraints', () => {
+                    for (let iteration = 0; iteration < this.settings.iterations; iteration++) {
+                        graph.withDebugGroup(`Iteration ${iteration + 1}`, () => {
+                            const iterationParity = parity;
+                            const lambdaPredParity = predParity;
+                            const lambdaSuffix = suffix(lambdaPredParity);
+                            recordCompute(
+                                `particles4all.substep-${substep + 1}.iteration-${iteration + 1}.lambda`,
+                                [`pred${lambdaSuffix}`, 'cellStart', 'bpos', 'bpsi', 'bcellStart'],
+                                [['lambda', 'overwrite'], ['density', 'overwrite']], uni,
+                                (pass, buffers) => sim.encodeLambda(
+                                    pass, iterationParity, lambdaPredParity, buffers,
+                                    substepActiveCount, substepUniform,
+                                ),
+                            );
+                            const deltaOutputSuffix = suffix(lambdaPredParity ^ 1);
+                            recordCompute(
+                                `particles4all.substep-${substep + 1}.iteration-${iteration + 1}.delta`,
+                                [`pred${lambdaSuffix}`, 'lambda', 'cellStart', 'bpos', 'bpsi', 'bcellStart'],
+                                [[`pred${deltaOutputSuffix}`, 'overwrite']], uni,
+                                (pass, buffers) => sim.encodeDelta(
+                                    pass, iterationParity, lambdaPredParity, buffers,
+                                    substepActiveCount, substepUniform,
+                                ),
+                            );
+                            predParity ^= 1;
+                            if (sim.nBodyParts > 0) {
+                                const projectionPredParity = predParity;
+                                const projectionSuffix = suffix(projectionPredParity);
+                                const bodySuffix = suffix(iterationParity);
+                                recordCompute(
+                                    `particles4all.substep-${substep + 1}.iteration-${iteration + 1}.rigid-projection`,
+                                    [
+                                        `pred${projectionSuffix}`, `body${bodySuffix}`, `rest${bodySuffix}`,
+                                        'bodyIdx', 'bodyRef', 'bodyInfo', 'bodyCentre', 'bodyRot',
+                                    ], [
+                                        ['bodyAccum', 'overwrite'], ['bodyCov', 'overwrite'],
+                                        ['bodyIdxCount', 'overwrite'], ['bodyCentre', 'preserve'],
+                                        ['bodyRef', 'preserve'], ['bodyRot', 'preserve'], [`pred${projectionSuffix}`, 'preserve'],
+                                    ], uni, (pass, buffers) => sim.encodeRigidProjection(
+                                        pass, iterationParity, projectionPredParity, buffers,
+                                        substepActiveCount, substepUniform,
+                                    ),
+                                );
+                            }
                         });
-                        recordCompute(`particles4all.substep-${substep + 1}.grid-count`,
-                            [`pred${predictSuffix}`], [['cellCount', 'preserve']], uni,
-                            (pass, buffers) => sim.encodeGridCount(
-                                pass, predictParity, buffers, substepActiveCount, substepUniform,
-                            ));
-                        recordCompute(`particles4all.substep-${substep + 1}.grid-prefix-scan`,
-                            ['cellCount', 'blockSum', 'cellStart'],
-                            [['blockSum', 'preserve'], ['cellStart', 'preserve']], uni,
-                            (pass, buffers) => sim.encodeGridScan(pass, buffers, substepUniform));
-                        const outputSuffix = suffix(predictParity ^ 1);
-                        recordCompute(`particles4all.substep-${substep + 1}.grid-scatter`, [
-                            `pred${predictSuffix}`, 'cellStart',
-                            `pos${predictSuffix}`, `vel${predictSuffix}`,
-                            `body${predictSuffix}`, `rest${predictSuffix}`,
-                        ], [
-                            ['cursor', 'preserve'], ['slot', 'overwrite'],
-                            [`pos${outputSuffix}`, 'overwrite'], [`vel${outputSuffix}`, 'overwrite'],
-                            [`pred${outputSuffix}`, 'overwrite'], [`body${outputSuffix}`, 'overwrite'],
-                            [`rest${outputSuffix}`, 'overwrite'],
-                        ], uni, (pass, buffers) => sim.encodeGridScatter(
-                            pass, predictParity, buffers, substepActiveCount, substepUniform,
-                        ));
-                    });
-                    parity ^= 1;
-                    predParity = parity;
-                    if (sim.nBodyParts > 0) {
-                        const rigidParity = parity;
-                        const rigidPredParity = predParity;
-                        const rigidSuffix = suffix(rigidParity);
-                        const rigidPredSuffix = suffix(rigidPredParity);
-                        recordCompute(`particles4all.substep-${substep + 1}.rigid-preparation`, [
-                            `body${rigidSuffix}`, `pred${rigidPredSuffix}`, 'bodyRef', 'bodyCentre',
-                        ], [
-                            ['bodyAccum', 'overwrite'], ['bodyCov', 'overwrite'],
-                            ['bodyIdxCount', 'overwrite'], ['bodyIdx', 'overwrite'],
-                            ['bodyCentre', 'preserve'], ['bodyRef', 'preserve'],
-                        ], uni, (pass, buffers) => sim.encodeRigidPreparation(
-                            pass, rigidParity, rigidPredParity, buffers, substepActiveCount, substepUniform,
-                        ));
-                    }
-                    graph.withDebugGroup('Constraints', () => {
-                        for (let iteration = 0; iteration < this.settings.iterations; iteration++) {
-                            graph.withDebugGroup(`Iteration ${iteration + 1}`, () => {
-                                const iterationParity = parity;
-                                const lambdaPredParity = predParity;
-                                const lambdaSuffix = suffix(lambdaPredParity);
-                                recordCompute(
-                                    `particles4all.substep-${substep + 1}.iteration-${iteration + 1}.lambda`,
-                                    [`pred${lambdaSuffix}`, 'cellStart', 'bpos', 'bpsi', 'bcellStart'],
-                                    [['lambda', 'overwrite'], ['density', 'overwrite']], uni,
-                                    (pass, buffers) => sim.encodeLambda(
-                                        pass, iterationParity, lambdaPredParity, buffers,
-                                        substepActiveCount, substepUniform,
-                                    ),
-                                );
-                                const deltaOutputSuffix = suffix(lambdaPredParity ^ 1);
-                                recordCompute(
-                                    `particles4all.substep-${substep + 1}.iteration-${iteration + 1}.delta`,
-                                    [`pred${lambdaSuffix}`, 'lambda', 'cellStart', 'bpos', 'bpsi', 'bcellStart'],
-                                    [[`pred${deltaOutputSuffix}`, 'overwrite']], uni,
-                                    (pass, buffers) => sim.encodeDelta(
-                                        pass, iterationParity, lambdaPredParity, buffers,
-                                        substepActiveCount, substepUniform,
-                                    ),
-                                );
-                                predParity ^= 1;
-                                if (sim.nBodyParts > 0) {
-                                    const projectionPredParity = predParity;
-                                    const projectionSuffix = suffix(projectionPredParity);
-                                    const bodySuffix = suffix(iterationParity);
-                                    graph.withDebugGroup('Rigid Projection', () => recordCompute(
-                                        `particles4all.substep-${substep + 1}.iteration-${iteration + 1}.rigid-projection`,
-                                        [
-                                            `pred${projectionSuffix}`, `body${bodySuffix}`, `rest${bodySuffix}`,
-                                            'bodyIdx', 'bodyRef', 'bodyInfo', 'bodyCentre', 'bodyRot',
-                                        ], [
-                                            ['bodyAccum', 'overwrite'], ['bodyCov', 'overwrite'],
-                                            ['bodyIdxCount', 'overwrite'], ['bodyCentre', 'preserve'],
-                                            ['bodyRef', 'preserve'], ['bodyRot', 'preserve'], [`pred${projectionSuffix}`, 'preserve'],
-                                        ], uni, (pass, buffers) => sim.encodeRigidProjection(
-                                            pass, iterationParity, projectionPredParity, buffers,
-                                            substepActiveCount, substepUniform,
-                                        ),
-                                    ));
-                                }
-                            });
-                        }
-                    });
-                    graph.withDebugGroup('Finalize', () => {
-                        if (predParity !== parity) {
-                            const source = handle(predParity === 0 ? 'predA' : 'predB');
-                            const destination = handle(parity === 0 ? 'predA' : 'predB');
-                            graph.copy({
-                                label: `particles4all.substep-${substep + 1}.prediction-sync`,
-                                operations: [{
-                                    type: 'buffer-to-buffer', source, destination, size: substepActiveCount * 16,
-                                }],
-                            });
-                            predParity = parity;
-                        }
-                        const finalParity = parity;
-                        const finalSuffix = suffix(finalParity);
-                        recordCompute(`particles4all.substep-${substep + 1}.velocity`,
-                            [`pos${finalSuffix}`, `vel${finalSuffix}`, `pred${finalSuffix}`],
-                            [[`vel${finalSuffix}`, 'preserve']], uni,
-                            (pass, buffers) => sim.encodeVelocity(
-                                pass, finalParity, buffers, substepActiveCount, substepUniform,
-                            ));
-                        recordCompute(`particles4all.substep-${substep + 1}.xsph`,
-                            [`pred${finalSuffix}`, `vel${finalSuffix}`, 'density', 'cellStart'],
-                            [['corr', 'overwrite']], uni,
-                            (pass, buffers) => sim.encodeXsph(
-                                pass, finalParity, buffers, substepActiveCount, substepUniform,
-                            ));
-                        if (sim.params.surfaceTensionK > 0) {
-                            graph.withDebugGroup('Surface Tension', () => {
-                                recordCompute(`particles4all.substep-${substep + 1}.normals`,
-                                    [`pred${finalSuffix}`, 'density', 'cellStart'],
-                                    [['normal', 'overwrite']], uni,
-                                    (pass, buffers) => sim.encodeNormals(
-                                        pass, finalParity, buffers, substepActiveCount, substepUniform,
-                                    ));
-                                recordCompute(`particles4all.substep-${substep + 1}.tension`,
-                                    [`pred${finalSuffix}`, 'density', 'normal', 'corr', 'cellStart'],
-                                    [['corr', 'preserve']], uni,
-                                    (pass, buffers) => sim.encodeTension(
-                                        pass, finalParity, buffers, substepActiveCount, substepUniform,
-                                    ));
-                            });
-                        }
-                        recordCompute(`particles4all.substep-${substep + 1}.commit`,
-                            [`pos${finalSuffix}`, `vel${finalSuffix}`, `pred${finalSuffix}`, 'corr'],
-                            [[`pos${finalSuffix}`, 'preserve'], [`vel${finalSuffix}`, 'preserve']], uni,
-                            (pass, buffers) => sim.encodeCommit(
-                                pass, finalParity, buffers, substepActiveCount, substepUniform,
-                            ));
-                    });
-                    const batch = pourSchedule.batches[substep];
-                    if (batch) {
-                        const upload = imported.pourUpload;
-                        if (!upload) throw new Error('Particles4All pour upload buffer is not graph-visible.');
-                        const destinationOffset4 = batch.startParticle * 16;
-                        const destinationOffset1 = batch.startParticle * 4;
-                        const liveSuffix = suffix(parity);
-                        graph.withDebugGroup('Pour', () => graph.copy({
-                            label: `particles4all.substep-${substep + 1}.pour-injection`,
-                            operations: [
-                                {
-                                    type: 'buffer-to-buffer', source: upload, sourceOffset: batch.positionOffset,
-                                    destination: handle(`pos${liveSuffix}`), destinationOffset: destinationOffset4,
-                                    size: batch.count * 16,
-                                },
-                                {
-                                    type: 'buffer-to-buffer', source: upload, sourceOffset: batch.velocityOffset,
-                                    destination: handle(`vel${liveSuffix}`), destinationOffset: destinationOffset4,
-                                    size: batch.count * 16,
-                                },
-                                {
-                                    type: 'buffer-to-buffer', source: upload, sourceOffset: batch.densityOffset,
-                                    destination: handle('density'), destinationOffset: destinationOffset1,
-                                    size: batch.count * 4,
-                                },
-                                ...(['A', 'B'] as const).flatMap((bufferSuffix) => [
-                                    {
-                                        type: 'buffer-to-buffer' as const, source: upload,
-                                        sourceOffset: batch.zeroOffset, destination: handle(`body${bufferSuffix}`),
-                                        destinationOffset: destinationOffset4, size: batch.count * 16,
-                                    },
-                                    {
-                                        type: 'buffer-to-buffer' as const, source: upload,
-                                        sourceOffset: batch.zeroOffset, destination: handle(`rest${bufferSuffix}`),
-                                        destinationOffset: destinationOffset4, size: batch.count * 16,
-                                    },
-                                ]),
-                            ],
-                        }));
-                        activeParticleCount += batch.count;
                     }
                 });
-            }
-        });
+                graph.withDebugGroup('Finalize', () => {
+                    if (predParity !== parity) {
+                        const source = handle(predParity === 0 ? 'predA' : 'predB');
+                        const destination = handle(parity === 0 ? 'predA' : 'predB');
+                        graph.copy({
+                            label: `particles4all.substep-${substep + 1}.prediction-sync`,
+                            operations: [{
+                                type: 'buffer-to-buffer', source, destination, size: substepActiveCount * 16,
+                            }],
+                        });
+                        predParity = parity;
+                    }
+                    const finalParity = parity;
+                    const finalSuffix = suffix(finalParity);
+                    recordCompute(`particles4all.substep-${substep + 1}.velocity`,
+                        [`pos${finalSuffix}`, `vel${finalSuffix}`, `pred${finalSuffix}`],
+                        [[`vel${finalSuffix}`, 'preserve']], uni,
+                        (pass, buffers) => sim.encodeVelocity(
+                            pass, finalParity, buffers, substepActiveCount, substepUniform,
+                        ));
+                    recordCompute(`particles4all.substep-${substep + 1}.xsph`,
+                        [`pred${finalSuffix}`, `vel${finalSuffix}`, 'density', 'cellStart'],
+                        [['corr', 'overwrite']], uni,
+                        (pass, buffers) => sim.encodeXsph(
+                            pass, finalParity, buffers, substepActiveCount, substepUniform,
+                        ));
+                    if (sim.params.surfaceTensionK > 0) {
+                        graph.withDebugGroup('Surface Tension', () => {
+                            recordCompute(`particles4all.substep-${substep + 1}.normals`,
+                                [`pred${finalSuffix}`, 'density', 'cellStart'],
+                                [['normal', 'overwrite']], uni,
+                                (pass, buffers) => sim.encodeNormals(
+                                    pass, finalParity, buffers, substepActiveCount, substepUniform,
+                                ));
+                            recordCompute(`particles4all.substep-${substep + 1}.tension`,
+                                [`pred${finalSuffix}`, 'density', 'normal', 'corr', 'cellStart'],
+                                [['corr', 'preserve']], uni,
+                                (pass, buffers) => sim.encodeTension(
+                                    pass, finalParity, buffers, substepActiveCount, substepUniform,
+                                ));
+                        });
+                    }
+                    recordCompute(`particles4all.substep-${substep + 1}.commit`,
+                        [`pos${finalSuffix}`, `vel${finalSuffix}`, `pred${finalSuffix}`, 'corr'],
+                        [[`pos${finalSuffix}`, 'preserve'], [`vel${finalSuffix}`, 'preserve']], uni,
+                        (pass, buffers) => sim.encodeCommit(
+                            pass, finalParity, buffers, substepActiveCount, substepUniform,
+                        ));
+                });
+                const batch = pourSchedule.batches[substep];
+                if (batch) {
+                    const upload = imported.pourUpload;
+                    if (!upload) throw new Error('Particles4All pour upload buffer is not graph-visible.');
+                    const destinationOffset4 = batch.startParticle * 16;
+                    const destinationOffset1 = batch.startParticle * 4;
+                    const liveSuffix = suffix(parity);
+                    graph.withDebugGroup('Pour', () => graph.copy({
+                        label: `particles4all.substep-${substep + 1}.pour-injection`,
+                        operations: [
+                            {
+                                type: 'buffer-to-buffer', source: upload, sourceOffset: batch.positionOffset,
+                                destination: handle(`pos${liveSuffix}`), destinationOffset: destinationOffset4,
+                                size: batch.count * 16,
+                            },
+                            {
+                                type: 'buffer-to-buffer', source: upload, sourceOffset: batch.velocityOffset,
+                                destination: handle(`vel${liveSuffix}`), destinationOffset: destinationOffset4,
+                                size: batch.count * 16,
+                            },
+                            {
+                                type: 'buffer-to-buffer', source: upload, sourceOffset: batch.densityOffset,
+                                destination: handle('density'), destinationOffset: destinationOffset1,
+                                size: batch.count * 4,
+                            },
+                            ...(['A', 'B'] as const).flatMap((bufferSuffix) => [
+                                {
+                                    type: 'buffer-to-buffer' as const, source: upload,
+                                    sourceOffset: batch.zeroOffset, destination: handle(`body${bufferSuffix}`),
+                                    destinationOffset: destinationOffset4, size: batch.count * 16,
+                                },
+                                {
+                                    type: 'buffer-to-buffer' as const, source: upload,
+                                    sourceOffset: batch.zeroOffset, destination: handle(`rest${bufferSuffix}`),
+                                    destinationOffset: destinationOffset4, size: batch.count * 16,
+                                },
+                            ]),
+                        ],
+                    }));
+                    activeParticleCount += batch.count;
+                }
+            });
+        }
 
         activeParticleCount = pourSchedule.finalCount;
-        const diagnosticUniform = frameUniforms[framePlan.substeps] ?? initialUniform;
-        uni = [diagnosticUniform];
-        const statsReadbackSlot = sim.statsFrame % Math.max(1, imported.statsReadbacks.length);
-        const poseReadbackSlot = sim.poseFrame % Math.max(1, imported.poseReadbacks.length);
-        const statsReadback = imported.statsReadbacks[statsReadbackSlot];
-        const poseReadback = imported.poseReadbacks[poseReadbackSlot];
-        const statsReadbackArmed = Boolean(statsReadback) && sim.statsState[statsReadbackSlot] === 0;
-        const poseReadbackArmed = sim.nBodies > 0
-            && Boolean(poseReadback)
-            && sim.poseState[poseReadbackSlot] === 0;
-        graph.withDebugGroup('Diagnostics', () => {
-            graph.clearBuffer({
-                label: 'particles4all.diagnostics.stats-clear',
-                operations: [{ target: transient.statsReduction }],
-            });
-            const diagnosticParity = parity;
-            recordCompute('particles4all.diagnostics.stats-reduction',
-                ['density', `vel${suffix(diagnosticParity)}`], [['statsOut', 'preserve']], uni,
-                (pass, buffers) => sim.encodeStats(
-                    pass, diagnosticParity, buffers, activeParticleCount, diagnosticUniform,
-                ));
-            const operations: Array<any> = [];
-            if (statsReadbackArmed && statsReadback) {
-                operations.push({
-                    type: 'buffer-to-buffer', source: transient.statsReduction,
-                    destination: statsReadback, size: 32,
-                });
-                graph.markReadback(statsReadback);
-            }
-            if (poseReadbackArmed && poseReadback) {
-                operations.push(
-                    {
-                        type: 'buffer-to-buffer', source: handle('bodyCentre'),
-                        destination: poseReadback, size: sim.nBodies * 16,
-                    },
-                    {
-                        type: 'buffer-to-buffer', source: handle('bodyRot'),
-                        destination: poseReadback,
-                        destinationOffset: sim.nBodies * 16, size: sim.nBodies * 48,
-                    },
-                );
-                graph.markReadback(poseReadback);
-            }
-            if (operations.length > 0) graph.copy({
-                label: 'particles4all.diagnostics.readback-copies', operations,
-            });
-        });
-
         for (const name of [
             `pos${suffix(parity)}`, `vel${suffix(parity)}`, `body${suffix(parity)}`,
             `rest${suffix(parity)}`, 'bodyCentre', 'bodyRef', 'bodyRot', 'density', 'cellStart',
@@ -1202,8 +1149,68 @@ export class Particles4All {
             primePending: false,
             pendingImpulse: false,
             pendingResizeBindGroup: null,
-            statsReadbackArmed,
-            poseReadbackArmed,
+        };
+    }
+
+    private recordDiagnostics(
+        graph: FrameGraphRecording, native: NativeObjects, imported: ImportedResources,
+        parity: number, activeParticleCount: number, uniform: GPUBuffer,
+    ): RecordedDiagnosticsCommit {
+        const sim = native.sim;
+        const handle = (name: string) => imported.buffers.get(sim.buf[name])!;
+        const statsReduction = graph.createBuffer({ label: 'particles4all.simulation.stats-reduction', size: 32 });
+        const statsReadbacks = sim.statsRing.map((buffer: GPUBuffer, index: number) =>
+            sim.statsState[index] === 0 ? this.importBuffer(graph, imported, buffer, 'particles4all.stats-readback.' + index) : undefined);
+        const poseReadbacks = sim.poseRing.map((buffer: GPUBuffer, index: number) =>
+            sim.nBodies > 0 && sim.poseState[index] === 0 ? this.importBuffer(graph, imported, buffer, 'particles4all.pose-readback.' + index) : undefined);
+        const statsReadbackSlot = sim.statsFrame % Math.max(1, statsReadbacks.length);
+        const poseReadbackSlot = sim.poseFrame % Math.max(1, poseReadbacks.length);
+        const statsReadback = statsReadbacks[statsReadbackSlot];
+        const poseReadback = poseReadbacks[poseReadbackSlot];
+        const statsReadbackArmed = Boolean(statsReadback) && sim.statsState[statsReadbackSlot] === 0;
+        const poseReadbackArmed = sim.nBodies > 0
+            && Boolean(poseReadback)
+            && sim.poseState[poseReadbackSlot] === 0;
+        graph.clearBuffer({
+            label: 'particles4all.diagnostics.stats-clear',
+            operations: [{ target: statsReduction }],
+        });
+        const density = graph.use(handle('density'), BufferAccess.StorageRead, { range: { offset: 0, size: Math.max(4, activeParticleCount * 4) } });
+        const velocityName = 'vel' + (parity === 0 ? 'A' : 'B');
+        const velocity = graph.use(handle(velocityName), BufferAccess.StorageRead, { range: { offset: 0, size: Math.max(16, activeParticleCount * 16) } });
+        const output = graph.use(statsReduction, BufferAccess.StorageWrite, { range: { offset: 0, size: 32 }, contents: 'preserve' });
+        graph.compute({ label: 'particles4all.diagnostics.stats-reduction', sideEffect: false,
+            uses: [density, velocity, output], encode: ({ pass, unwrap }) => sim.encodeStats(
+                pass, parity, { density: unwrap(density), [velocityName]: unwrap(velocity), statsOut: unwrap(output) }, activeParticleCount, uniform,
+            ) });
+        const operations: Array<any> = [];
+        if (statsReadbackArmed && statsReadback) {
+            operations.push({
+                type: 'buffer-to-buffer', source: statsReduction,
+                destination: statsReadback, size: 32,
+            });
+            graph.markReadback(statsReadback);
+        }
+        if (poseReadbackArmed && poseReadback) {
+            operations.push(
+                {
+                    type: 'buffer-to-buffer', source: handle('bodyCentre'),
+                    destination: poseReadback, size: sim.nBodies * 16,
+                },
+                {
+                    type: 'buffer-to-buffer', source: handle('bodyRot'),
+                    destination: poseReadback,
+                    destinationOffset: sim.nBodies * 16, size: sim.nBodies * 48,
+                },
+            );
+            graph.markReadback(poseReadback);
+        }
+        if (operations.length > 0) graph.copy({
+            label: 'particles4all.diagnostics.readback-copies', operations,
+        });
+
+        return {
+            statsReadbackArmed, poseReadbackArmed,
             statsReadbackSlot: statsReadbackArmed ? statsReadbackSlot : -1,
             poseReadbackSlot: poseReadbackArmed ? poseReadbackSlot : -1,
             statsFrame: sim.statsFrame + (statsReadbackArmed ? 1 : 0),
@@ -1864,7 +1871,6 @@ export class Particles4All {
             bodyCovariance: create('body-covariance', bodyCount * 36),
             bodyIndices: create('body-indices', Math.max(1, sim.nBodyParts) * 4),
             bodyIndexCount: create('body-index-count', 16),
-            statsReduction: create('stats-reduction', 32),
         };
     }
 
@@ -1911,29 +1917,21 @@ export class Particles4All {
         };
     }
 
-    private importResources(graph: FrameGraphRecording, native: NativeObjects, pourUpload: GPUBuffer | null = null): ImportedResources {
-        const buffers = new Map<GPUBuffer, BufferHandle>();
-        const importBuffer = (buffer: GPUBuffer, label: string): BufferHandle => {
-            const existing = buffers.get(buffer);
-            if (existing) return existing;
-            const handle = graph.importBuffer(buffer, { label });
-            buffers.set(buffer, handle);
-            return handle;
-        };
+    private importResources(graph: FrameGraphRecording, native: NativeObjects): ImportedResources {
+        const imported: ImportedResources = { buffers: new Map() };
         for (const name of ['posA', 'posB', 'velA', 'velB', 'bodyA', 'bodyB', 'restA', 'restB',
             'density', 'cellStart', 'bodyCentre', 'bodyRef', 'bodyRot']) {
-            importBuffer(native.sim.buf[name], 'particles4all.sim.' + name);
+            this.importBuffer(graph, imported, native.sim.buf[name], 'particles4all.sim.' + name);
         }
-        const statsReadbacks = native.sim.statsRing.map((buffer: GPUBuffer, index: number) =>
-            native.sim.statsState[index] === 0 ? importBuffer(buffer, 'particles4all.stats-readback.' + index) : undefined);
-        const poseReadbacks = native.sim.poseRing.map((buffer: GPUBuffer, index: number) =>
-            native.sim.nBodies > 0 && native.sim.poseState[index] === 0 ? importBuffer(buffer, 'particles4all.pose-readback.' + index) : undefined);
-        if (this.settings.displayMode === 'surface-mesh' || (this.settings.displayMode === 'ray-march' && this.settings.raySurface === 'mesh')) {
-            const slot = native.mesh.frame % native.mesh.triRing.length;
-            if (native.mesh.triState[slot] === 0) importBuffer(native.mesh.triRing[slot], 'particles4all.triangle-readback.' + slot);
-        }
-        return { buffers, statsReadbacks, poseReadbacks,
-            pourUpload: pourUpload ? importBuffer(pourUpload, 'particles4all.pour-upload') : undefined };
+        return imported;
+    }
+
+    private importBuffer(graph: FrameGraphRecording, imported: ImportedResources, buffer: GPUBuffer, label: string): BufferHandle {
+        const existing = imported.buffers.get(buffer);
+        if (existing) return existing;
+        const handle = graph.importBuffer(buffer, { label });
+        imported.buffers.set(buffer, handle);
+        return handle;
     }
 
     private applyRuntimeSettings(native: NativeObjects): void {
