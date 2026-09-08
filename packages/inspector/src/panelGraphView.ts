@@ -43,12 +43,15 @@ export function renderGraphView(
         hovered,
         fit: graphView.fitOnNextRender,
         anchorElementId: graphView.anchorElementIdOnNextRender,
+        reveal: graphView.revealOnNextRender,
+        captureRevision: graphView.captureRevision,
         onSelect,
         onHover,
         onToggleGroup,
     });
     graphView.fitOnNextRender = false;
     graphView.anchorElementIdOnNextRender = undefined;
+    graphView.revealOnNextRender = undefined;
 }
 
 export function resolveGraphScene(

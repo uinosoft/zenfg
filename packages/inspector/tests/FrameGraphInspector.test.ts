@@ -400,7 +400,7 @@ test('imports V1 and Legacy JSON atomically without removing the live provider',
 		{ type: 'application/json' },
 	) as unknown as File);
 	assert.equal(panel.getSnapshot()?.capture.frameIndex, 2);
-	assert.match(panel.dom.querySelector('.zenfg-inspector-capture-summary')?.textContent ?? '', /Legacy V0 → V1/);
+	assert.match(panel.dom.querySelector('.zenfg-inspector-capture-summary')?.textContent ?? '', /legacy-v0 → canonical v1\.1/);
 	assert.match(panel.dom.querySelector('.zenfg-inspector-command-status')?.textContent ?? '', /migrated/);
 	assert.match(panel.dom.querySelector('.zenfg-inspector-capture-summary')?.textContent ?? '', /Texture viewsUnknown/);
 	assert.match(panel.dom.querySelector('.zenfg-inspector-capture-summary')?.textContent ?? '', /Recording orderUnknown/);
@@ -412,7 +412,7 @@ test('imports V1 and Legacy JSON atomically without removing the live provider',
 		'canonical.fgsnapshot.json',
 		{ type: 'application/json' },
 	) as unknown as File);
-	assert.match(panel.dom.querySelector('.zenfg-inspector-capture-summary')?.textContent ?? '', /Legacy V0 → V1/);
+	assert.match(panel.dom.querySelector('.zenfg-inspector-capture-summary')?.textContent ?? '', /legacy-v0 → canonical v1\.1/);
 	assert.match(panel.dom.querySelector('.zenfg-inspector-command-status')?.textContent ?? '', /migration provenance/);
 
 	await panel.captureSnapshot();

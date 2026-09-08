@@ -1,3 +1,4 @@
+import { GraphSearch } from './panelGraphSearch.ts';
 import type { FrameGraphDebugViewModel } from './debugCaptureModel.ts';
 import {
 	formatBytes,
@@ -13,7 +14,7 @@ import { PassesView } from './panelPassesView.ts';
 import { ResourcesView } from './panelResourcesView.ts';
 import { renderGraphView, resizeGraph } from './panelGraphView.ts';
 import type { GraphViewState, Selection, WorkbenchTab } from './panelTypes.ts';
-import { formatEstimateCoverage, formatTimingCoverage, type WorkbenchCallbacks } from './panelWorkbenchHelpers.ts';
+import { formatEstimatedBytes, formatEstimateCoverage, formatTimingCoverage, type WorkbenchCallbacks } from './panelWorkbenchHelpers.ts';
 
 export type FrameGraphDebugWorkbenchActions = {
 	onCapture(): void;
@@ -57,6 +58,9 @@ export class FrameGraphDebugWorkbench {
 	private readonly memory: MemoryView;
 	private readonly diagnostics: DiagnosticsView;
 	private readonly inspector: InspectorView;
+	private readonly graphSearch: GraphSearch;
+	private readonly captureDetails = document.createElement('details');
+	private destroyed = false;
 	private readonly inspectorOpenButton = document.createElement('button');
 	private readonly captureButton = document.createElement('button');
 	private readonly importButton = document.createElement('button');
@@ -113,6 +117,8 @@ export class FrameGraphDebugWorkbench {
 		this.memory = new MemoryView(callbacks, options.idPrefix);
 		this.diagnostics = new DiagnosticsView(callbacks, options.idPrefix);
 		this.inspector = new InspectorView(callbacks, (open) => this.handleInspectorOpenChange(open), options.idPrefix);
+		this.graphSearch = new GraphSearch((selection) => callbacks.onReveal?.(selection, 'graph'));
+		this.graphView.toolbar.prepend(this.graphSearch.root);
 
 		this.views.set('overview', this.overviewRoot);
 		this.views.set('graph', this.graphRoot);
@@ -231,6 +237,7 @@ export class FrameGraphDebugWorkbench {
 		this.selected = selected;
 		this.hovered = undefined;
 		this.renderSummary(snapshot);
+		this.graphSearch.setSnapshot(snapshot);
 		this.passes.setSnapshot(snapshot);
 		this.resources.setSnapshot(snapshot);
 		this.memory.setSnapshot(snapshot);
@@ -324,11 +331,14 @@ export class FrameGraphDebugWorkbench {
 	}
 
 	setActiveTab(tab: WorkbenchTab): void {
-		if (this.activeTab === tab) return;
+		if (this.destroyed || this.activeTab === tab) return;
+		if (this.activeTab === 'graph') { this.graphView.revealOnNextRender = undefined; this.graphView.renderer?.cancelReveal?.(); }
 		this.activeTab = tab;
 		this.updateActiveTab();
+		this.updateWorkspaceState();
 		if (tab === 'graph') {
 			window.requestAnimationFrame(() => {
+				if (this.destroyed || this.activeTab !== 'graph') return;
 				resizeGraph(this.graphView);
 				this.renderGraph();
 			});
@@ -344,6 +354,7 @@ export class FrameGraphDebugWorkbench {
 	resizeGraph(fit = false): void {
 		if (fit) this.graphView.fitOnNextRender = true;
 		window.requestAnimationFrame(() => {
+			if (this.destroyed) return;
 			resizeGraph(this.graphView);
 			if (this.activeTab === 'graph') this.renderGraph();
 		});
@@ -395,41 +406,52 @@ export class FrameGraphDebugWorkbench {
 		const poolRetained = snapshot.resourcePool.status === 'available'
 			? `${snapshot.resourcePool.estimatedRetainedBytes === undefined ? 'Unknown' : formatBytes(snapshot.resourcePool.estimatedRetainedBytes)} · ${snapshot.resourcePool.retainedCount} allocations`
 			: 'Unavailable';
+		const counts = this.diagnosticCounts(snapshot);
 		this.summary.replaceChildren(
-			this.createSummaryGroup('Capture', [
-				['Source', snapshot.source.label],
-				['Schema', `${protocol.format} v${protocol.version.major}.${protocol.version.minor}`],
-				['Producer', producer],
-				['Runtime', runtimeLabel],
-				['Frame', String(snapshot.frameIndex)],
-				...(snapshot.source.migratedFromLegacy ? [['Migration', 'Legacy V0 → V1'] as const] : []),
-				['Timing', snapshot.profiling.status === 'available' ? 'Available' : snapshot.profiling.reason],
-			]),
+			this.createSummaryGroup('Diagnostics', [
+				['Errors', String(counts.error)], ['Warnings', String(counts.warning)], ['Information', String(counts.info)],
+			], () => this.setActiveTab('diagnostics')),
 			this.createSummaryGroup('GPU', [
-				['GPU Span', snapshot.profiling.status === 'available' ? `${formatGpuFrameDuration(snapshot)} ms` : 'Unknown'],
+				['GPU span', snapshot.profiling.status === 'available' ? `${formatGpuFrameDuration(snapshot)} ms` : 'Not collected'],
 				['Coverage', coverage],
 				['Slowest', slowest],
-			]),
+			], () => metrics.slowestNode ? this.callbacks.onReveal?.({ kind: 'node', id: metrics.slowestNode.id }, 'passes') : this.setActiveTab('passes')),
 			this.createSummaryGroup('Work', [
 				['Nodes', `${snapshot.nodes.length} retained · ${snapshot.culledNodes.length} culled`],
 				['Segments', `${frameGraphSegments} FG · ${opaqueIntervals} opaque`],
 				['Groups', snapshot.availability.groups ? String(snapshot.debugGroups.length) : 'Unknown'],
 				['Recording order', snapshot.availability.recordingOrder ? 'Available' : 'Unknown'],
-			]),
+			], () => this.setActiveTab('passes')),
 			this.createSummaryGroup('Resources', [
 				['Logical / physical', `${snapshot.resources.length} / ${protocol.memory.allocationReport.status === 'available' ? snapshot.physicalAllocations.length : 'Unavailable'}`],
 				['Texture views', snapshot.availability.textureViews ? String(snapshot.textureViewById.size) : 'Unknown'],
 				['Access regions', snapshot.availability.accessRegions ? 'Available' : 'Unknown'],
 				['Transient estimate', formatEstimateCoverage(metrics.transientEstimatedByteSize, metrics.estimatedCoverage.transient)],
-			]),
+			], () => this.setActiveTab('resources')),
+			this.createSummaryGroup('Memory estimates', [
+				['Physical allocations', protocol.memory.allocationReport.status === 'available' ? formatEstimateCoverage(metrics.physicalEstimatedBytes, metrics.estimatedCoverage.physical) : 'Unavailable'],
+				['Alias reuse', protocol.memory.allocationReport.status === 'available' ? formatEstimatedBytes(metrics.aliasReuseBytes) : 'Unavailable'],
+			], () => this.setActiveTab('memory')),
 			this.createSummaryGroup('Pool', [
 				['Retained', poolRetained],
 				['Reuse', formatPoolHitRate(snapshot)],
-			]),
+			], () => this.setActiveTab('memory')),
 		);
+		const title = document.createElement('summary');
+		title.textContent = 'Capture information';
+		this.captureDetails.className = 'zenfg-inspector-capture-details';
+		this.captureDetails.replaceChildren(title, this.createSummaryGroup('Capture', [
+			['Source', snapshot.source.label], ['Frame', String(snapshot.frameIndex)],
+			['Captured at', protocol.capture.capturedAt ?? 'Unknown'],
+			['Schema', `${protocol.format} v${protocol.version.major}.${protocol.version.minor}`],
+			['Producer', producer], ['Runtime', runtimeLabel],
+			...(protocol.capture.migration ? [['Migration', `${protocol.capture.migration.sourceFormat} → canonical v1.1`] as const] : []),
+			['Timing', snapshot.profiling.status === 'available' ? coverage : snapshot.profiling.reason],
+		]));
+		this.summary.append(this.captureDetails);
 	}
 
-	private createSummaryGroup(title: string, rows: readonly (readonly [string, string])[]): HTMLElement {
+	private createSummaryGroup(title: string, rows: readonly (readonly [string, string])[], onNavigate?: () => void): HTMLElement {
 		const group = document.createElement('section');
 		const heading = document.createElement('h2');
 		heading.textContent = title;
@@ -444,6 +466,14 @@ export class FrameGraphDebugWorkbench {
 			row.append(term, description);
 			group.appendChild(row);
 		}
+		if (onNavigate) {
+			const action = document.createElement('button');
+			action.type = 'button';
+			action.className = 'zenfg-inspector-relation-button';
+			action.textContent = `Explore ${title.toLowerCase()}`;
+			action.addEventListener('click', onNavigate);
+			group.append(action);
+		}
 		return group;
 	}
 
@@ -457,11 +487,43 @@ export class FrameGraphDebugWorkbench {
 		if (this.activeTab === 'graph') this.resizeGraph(false);
 	}
 
+	private diagnosticCounts(snapshot: FrameGraphDebugViewModel): Record<'error' | 'warning' | 'info', number> {
+		const counts = { error: 0, warning: 0, info: 0 };
+		for (const entry of snapshot.protocol.diagnostics) counts[entry.severity]++;
+		return counts;
+	}
+
 	private updateWorkspaceState(): void {
-		const inspectorOpen = this.hasSnapshot && this.inspector.isOpen;
+		const inspectorOpen = this.hasSnapshot && this.inspector.isOpen && this.activeTab !== 'overview';
 		this.workspace.classList.toggle('has-capture', this.hasSnapshot);
 		this.workspace.classList.toggle('inspector-open', inspectorOpen);
-		this.inspector.root.classList.toggle('unavailable', !this.hasSnapshot);
-		this.inspectorOpenButton.hidden = !this.hasSnapshot || inspectorOpen;
+		this.inspector.root.classList.toggle('unavailable', !inspectorOpen);
+		this.inspectorOpenButton.hidden = !this.hasSnapshot || inspectorOpen || this.activeTab === 'overview';
 	}
+	reveal(selection: Selection, tab: WorkbenchTab): void {
+		this.setActiveTab(tab);
+		if (tab === 'passes') this.passes.reveal(selection);
+		else if (tab === 'resources') this.resources.reveal(selection);
+		else if (tab === 'memory') this.memory.reveal(selection);
+		else if (tab === 'diagnostics') this.diagnostics.reveal(selection);
+		if (tab === 'graph') this.renderGraph();
+	}
+
+	navigate(tab: WorkbenchTab, filter?: 'culled'): void {
+		this.setActiveTab(tab);
+		if (tab === 'passes' && filter === 'culled') this.passes.showCulled();
+	}
+
+	showNavigationIssue(message: string, selection: Selection): void {
+		const tab = selection.kind === 'resource' ? 'resources' : selection.kind === 'allocation' ? 'memory'
+			: selection.kind === 'root' || selection.kind === 'segment' ? 'diagnostics' : 'passes';
+		const action = document.createElement('button');
+		action.type = 'button'; action.textContent = `Show in ${tab}`;
+		action.addEventListener('click', () => this.callbacks.onReveal?.(selection, tab));
+		this.commandStatus.hidden = false; this.commandStatus.title = message;
+		this.commandStatus.replaceChildren(document.createTextNode(message + ' '), action);
+	}
+
+	destroy(): void { this.destroyed = true; }
+
 }

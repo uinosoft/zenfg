@@ -64,6 +64,7 @@ export class CytoscapeGraphRenderer implements GraphRenderer {
     private anchorTargetContentKey: string | undefined;
     private failedSceneContentKey: string | undefined;
     private overview = false;
+    private pendingReveal: { readonly request: NonNullable<GraphRenderRequest['reveal']>; readonly contentKey: string; readonly captureRevision: number | undefined } | undefined;
     private pendingGroupTap: { readonly id: string; readonly timer: ReturnType<typeof setTimeout> } | undefined;
 
     constructor(
@@ -104,6 +105,13 @@ export class CytoscapeGraphRenderer implements GraphRenderer {
             this.core?.elements().removeClass('semantic-hover');
         }
         this.latestRequest = request;
+        if (request.reveal) {
+            this.pendingReveal = { request: request.reveal, contentKey: request.scene.contentKey, captureRevision: request.captureRevision };
+        } else if (this.pendingReveal && (this.pendingReveal.captureRevision !== request.captureRevision
+            || this.pendingReveal.contentKey !== request.scene.contentKey
+            || !request.selected || selectionKey(request.selected) !== selectionKey(this.pendingReveal.request.selection))) {
+            this.pendingReveal = undefined;
+        }
         if (request.fit) {
             this.fitTargetContentKey = request.scene.contentKey;
         } else if (this.fitTargetContentKey !== request.scene.contentKey) {
@@ -132,6 +140,7 @@ export class CytoscapeGraphRenderer implements GraphRenderer {
             this.syncInteraction(request);
             this.consumeFitIfCurrentTarget();
             this.consumeAnchorIfCurrentTarget();
+            this.consumeReveal();
             this.processedVersion = version;
             return;
         }
@@ -140,6 +149,12 @@ export class CytoscapeGraphRenderer implements GraphRenderer {
 
     resize(): void {
         this.core?.resize();
+    }
+
+    cancelReveal(): void {
+        this.pendingReveal = undefined;
+        this.cancelGroupTap();
+        this.clearHover();
     }
 
     fit(): void {
@@ -227,6 +242,7 @@ export class CytoscapeGraphRenderer implements GraphRenderer {
                     this.syncInteraction(request);
                     this.consumeFitIfCurrentTarget();
                     this.consumeAnchorIfCurrentTarget();
+                    this.consumeReveal();
                     this.hideStatus();
                     this.processedVersion = version;
                     continue;
@@ -276,6 +292,7 @@ export class CytoscapeGraphRenderer implements GraphRenderer {
                     restoreViewport(core, previousViewport);
                 }
                 this.consumeAnchorIfCurrentTarget();
+                this.consumeReveal();
                 this.updateSemanticZoom(true);
                 this.hideStatus();
                 this.processedVersion = version;
@@ -414,6 +431,23 @@ export class CytoscapeGraphRenderer implements GraphRenderer {
         if (!targetContentKey || this.anchorTargetContentKey !== targetContentKey) return;
         this.anchorElementId = undefined;
         this.anchorTargetContentKey = undefined;
+    }
+
+    private consumeReveal(): void {
+        const pending = this.pendingReveal;
+        const request = this.latestRequest;
+        if (!pending || !request || !this.core || this.targetNeedsApply()) return;
+        this.pendingReveal = undefined;
+        if (pending.captureRevision !== request.captureRevision || pending.contentKey !== request.scene.contentKey) return;
+        const ids = request.scene.interaction.primaryElementIdsBySelection.get(selectionKey(pending.request.selection)) ?? [];
+        const targets = this.core.collection();
+        for (const id of ids) targets.merge(this.core.getElementById(id));
+        if (!targets.length) return;
+        this.core.resize();
+        this.core.fit(targets, 64);
+        if (this.core.zoom() > 1.2) this.core.zoom(1.2);
+        this.core.center(targets);
+        this.updateSemanticZoom();
     }
 
     private targetNeedsApply(): boolean {

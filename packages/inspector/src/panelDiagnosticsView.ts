@@ -1,9 +1,8 @@
 import type { FrameGraphDebugViewModel } from './debugCaptureModel.ts';
-import { createCell, labelNode, labelResource } from './panelDomHelpers.ts';
+import { labelNode, labelResource } from './panelDomHelpers.ts';
 import { resolveNodeSelection } from './panelSelection.ts';
 import type { Selection, WorkbenchTab } from './panelTypes.ts';
 import {
-	createEmptyTableRow, createKindCell, createSelectionCell, createTableScroller,
 	createFilterSelect, createRelationButton, createSearchInput, createViewToolbar,
 	registerSelectable, selectionKey, type WorkbenchCallbacks, updateSelectedRows,
 } from './panelWorkbenchHelpers.ts';
@@ -139,12 +138,18 @@ export class DiagnosticsView {
 		return section;
 	}
 
-	private createObjectLink(label: string, selection: Selection, _tab: WorkbenchTab): HTMLElement {
+	private createObjectLink(label: string, selection: Selection, tab: WorkbenchTab): HTMLElement {
 		const links = document.createElement('span');
 		links.className = 'zenfg-inspector-diagnostic-links';
 		const select = createRelationButton(label, selection, this.callbacks.onSelect);
 		registerSelectable(this.rows, select, selection, this.callbacks);
-		links.appendChild(select);
+		const reveal = document.createElement('button');
+		reveal.type = 'button';
+		reveal.className = 'zenfg-inspector-relation-button zenfg-inspector-diagnostic-reveal';
+		reveal.textContent = `Show in ${tab === 'passes' ? 'Passes' : 'Resources'}`;
+		reveal.setAttribute('aria-label', `${reveal.textContent}: ${label}`);
+		reveal.addEventListener('click', () => this.callbacks.onReveal?.(selection, tab));
+		links.append(select, reveal);
 		return links;
 	}
 
@@ -186,21 +191,24 @@ export class DiagnosticsView {
 	}
 
 	private createCulled(snapshot: FrameGraphDebugViewModel): HTMLElement {
-		const section = this.createSection('culled', `Culled nodes (${snapshot.culledNodes.length})`, 'Recorded nodes that were not reachable from a retention root.');
-		const table = createTableScroller([{ label: 'Node' }, { label: 'Kind', column: 'kind' }, { label: 'Reason' }]);
-		for (const entry of snapshot.culledNodes) {
-			const selection: Selection = { kind: 'culled', id: entry.node.id };
-			const row = document.createElement('tr');
-			registerSelectable(this.rows, row, selection, this.callbacks);
-			row.append(
-				createSelectionCell(labelNode(entry.node), selection, this.callbacks),
-				createKindCell(entry.node.kind),
-				createCell(entry.reason),
-			);
-			table.body.appendChild(row);
+		const section = this.createSection('culled', `Culled passes (${snapshot.culledNodes.length})`, 'Recorded passes removed during compilation. Inspect their reasons and accesses in Passes.');
+		const reasons = new Map<string, number>();
+		for (const entry of snapshot.culledNodes) reasons.set(entry.reason, (reasons.get(entry.reason) ?? 0) + 1);
+		const list = document.createElement('ul');
+		for (const [reason, count] of reasons) {
+			const item = document.createElement('li');
+			item.textContent = `${reason}: ${count}`;
+			list.appendChild(item);
 		}
-		if (snapshot.culledNodes.length === 0) table.body.appendChild(createEmptyTableRow(3, 'No culled nodes.'));
-		section.appendChild(table.scroller);
+		section.appendChild(list);
+		if (snapshot.culledNodes.length > 0) {
+			const button = document.createElement('button');
+			button.type = 'button';
+			button.className = 'zenfg-inspector-relation-button';
+			button.textContent = 'Show culled passes';
+			button.addEventListener('click', () => this.callbacks.onNavigate?.('passes', 'culled'));
+			section.appendChild(button);
+		}
 		return section;
 	}
 

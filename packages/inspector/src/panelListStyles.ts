@@ -29,6 +29,41 @@ export const PANEL_LIST_CSS = `
 .zenfg-inspector-view-toolbar button:hover { background: var(--fgd-surface-hover); }
 .zenfg-inspector-view-toolbar input,
 .zenfg-inspector-view-toolbar select { font-size: 12px; }
+.zenfg-inspector-passes-view .zenfg-inspector-workbench-table,
+.zenfg-inspector-resources-view .zenfg-inspector-workbench-table {
+	min-width: 580px;
+	border-collapse: separate;
+	border-spacing: 0;
+	font: 12px/1.5 var(--fgd-font-ui);
+}
+.zenfg-inspector-passes-view .zenfg-inspector-workbench-table [data-column='numeric'],
+.zenfg-inspector-resources-view .zenfg-inspector-workbench-table [data-column='numeric'] {
+	font-family: var(--fgd-font-mono);
+}
+.zenfg-inspector-passes-view .zenfg-inspector-workbench-table th:first-child,
+.zenfg-inspector-resources-view .zenfg-inspector-workbench-table th:first-child,
+.zenfg-inspector-passes-view .zenfg-inspector-workbench-table td:first-child,
+.zenfg-inspector-resources-view .zenfg-inspector-workbench-table td:first-child {
+	position: sticky;
+	left: 0;
+	max-width: 290px;
+	background: var(--fgd-canvas);
+	z-index: 1;
+}
+.zenfg-inspector-passes-view .zenfg-inspector-workbench-table th:first-child,
+.zenfg-inspector-resources-view .zenfg-inspector-workbench-table th:first-child {
+	z-index: 3;
+	background: var(--fgd-panel);
+}
+.zenfg-inspector-passes-view .zenfg-inspector-workbench-table tr.selected td:first-child,
+.zenfg-inspector-resources-view .zenfg-inspector-workbench-table tr.selected td:first-child {
+	background: color-mix(in srgb, var(--fgd-accent) 12%, var(--fgd-canvas));
+}
+.zenfg-inspector-passes-view .zenfg-inspector-workbench-table tbody tr:hover td:first-child,
+.zenfg-inspector-resources-view .zenfg-inspector-workbench-table tbody tr:hover td:first-child {
+	background: var(--fgd-surface-hover);
+}
+.zenfg-inspector-passes-view .zenfg-inspector-group-toggle { margin-right: 5px; }
 .zenfg-inspector-diagnostics-view { display: flex; flex-direction: column; }
 .zenfg-inspector-diagnostics-view .zenfg-inspector-diagnostics-scroller {
 	flex: 1 1 auto;
@@ -104,5 +139,16 @@ export const PANEL_LIST_CSS = `
 .zenfg-inspector-diagnostic-links .selected { background: var(--fgd-accent-soft); }
 .zenfg-inspector-diagnostic-section summary:focus-visible,
 .zenfg-inspector-view-toolbar button:focus-visible { outline: 2px solid var(--fgd-accent); outline-offset: 2px; }
-.zenfg-inspector-workbench-tabs button[data-diagnostic-count]::after { content: attr(data-diagnostic-count); margin-left: 5px; color: var(--fgd-warning); font-family: var(--fgd-font-mono); }
+@container zenfg-inspector-main (max-width: 640px) {
+	.zenfg-inspector-passes-view .zenfg-inspector-workbench-table,
+	.zenfg-inspector-resources-view .zenfg-inspector-workbench-table { min-width: 420px; }
+	.zenfg-inspector-passes-view [id$='pass-list-panel'] tr > :nth-child(3),
+	.zenfg-inspector-passes-view [id$='pass-list-panel'] tr > :nth-child(6),
+	.zenfg-inspector-passes-view [id$='group-list-panel'] tr > :nth-child(5),
+	.zenfg-inspector-passes-view [id$='group-list-panel'] tr > :nth-child(6),
+	.zenfg-inspector-resources-view tr > :nth-child(4),
+	.zenfg-inspector-resources-view tr > :nth-child(5) { display: none; }
+	.zenfg-inspector-passes-view .zenfg-inspector-workbench-table td:first-child,
+	.zenfg-inspector-resources-view .zenfg-inspector-workbench-table td:first-child { max-width: 190px; }
+}
 `;

@@ -15,10 +15,11 @@ import { createPanelIcon } from './panelIcons.ts';
 import {
 	destroyGraph,
 	fitGraph,
+	resolveGraphScene,
 } from './panelGraphView.ts';
-import { graphGroupElementId } from './panelGraphScene.ts';
+import { graphGroupElementId, selectionKey } from './panelGraphScene.ts';
 import { resolveNodeSelection, selectionExists } from './panelSelection.ts';
-import type { GraphViewState, Selection } from './panelTypes.ts';
+import type { GraphViewState, Selection, WorkbenchTab } from './panelTypes.ts';
 import { ensureFrameGraphInspectorStyles } from './styles.ts';
 import { sameSelection, type WorkbenchCallbacks } from './panelWorkbenchHelpers.ts';
 import { FrameGraphDebugWorkbench } from './panelWorkbenchView.ts';
@@ -99,6 +100,7 @@ export class FrameGraphInspector {
 	private copyFeedbackTimeout: number | undefined;
 	private readonly maxImportBytes: number;
 	private dragDepth = 0;
+	private revealRevision = 0;
 	private readonly handleDragEnter = (event: DragEvent): void => {
 		if (!isFileDrag(event)) return;
 		event.preventDefault();
@@ -178,13 +180,20 @@ export class FrameGraphInspector {
 			this.collapseGroupsButton,
 			createGraphIconButton('fit', 'Fit graph to view', () => fitGraph(this.graphView)),
 		);
-		this.graphView.toolbar.append(graphLegend, actionControls);
+		const legend = document.createElement('details');
+		legend.className = 'zenfg-inspector-legend-details';
+		const legendTitle = document.createElement('summary');
+		legendTitle.textContent = 'Legend';
+		legend.append(legendTitle, graphLegend);
+		this.graphView.toolbar.append(actionControls, legend);
 
 		const callbacks: WorkbenchCallbacks = {
 			onSelect: (selection) => this.handleSelect(selection),
 			onHover: (selection) => this.handleHover(selection),
 			onGroupToggle: (pathKey) => this.toggleGroup(pathKey),
 			isGroupExpanded: (pathKey) => this.graphView.expandedGroupPaths.has(pathKey),
+			onReveal: (selection, tab) => this.handleReveal(selection, tab),
+			onNavigate: (tab, filter) => this.workbench.navigate(tab, filter),
 		};
 		this.workbench = new FrameGraphDebugWorkbench(this.graphView, callbacks, {
 			onCapture: () => { void this.captureSnapshot(); },
@@ -401,6 +410,9 @@ export class FrameGraphInspector {
 		this.protocolSnapshot = snapshot;
 		this.viewModel = viewModel;
 		this.graphView.fitOnNextRender = true;
+		this.graphView.captureRevision = (this.graphView.captureRevision ?? 0) + 1;
+		this.graphView.revealOnNextRender = undefined;
+		this.graphView.renderer?.cancelReveal?.();
 		this.hovered = undefined;
 		this.initialAutoCaptureAttempted = true;
 		this.statusMessage = undefined;
@@ -432,6 +444,7 @@ export class FrameGraphInspector {
 		this.dom.removeEventListener('dragend', this.handleDragEnd);
 		this.dom.removeEventListener('drop', this.handleDrop);
 		destroyGraph(this.graphView);
+		this.workbench.destroy();
 		this.dom.remove();
 	}
 
@@ -465,6 +478,39 @@ export class FrameGraphInspector {
 		this.workbench.setSelection(selection);
 	}
 
+	private handleReveal(selection: Selection, tab: WorkbenchTab): void {
+		const snapshot = this.viewModel;
+		if (!snapshot || !selectionExists(snapshot, selection)) return;
+		if (tab === 'graph') {
+			const expanded = new Set(this.graphView.expandedGroupPaths);
+			const groupsEnabled = this.graphView.groupsEnabled;
+			if (selection.kind === 'group') this.graphView.groupsEnabled = true;
+			let groupId: string | undefined;
+			if (selection.kind === 'node') groupId = snapshot.nodeById.get(selection.id)?.debugGroupId;
+			else if (selection.kind === 'resource') groupId = snapshot.resourceById.get(selection.id)?.debugGroupId;
+			else if (selection.kind === 'group') groupId = snapshot.groupByPathKey.get(selection.pathKey)?.parentId;
+			if (this.graphView.groupsEnabled && groupId) {
+				for (const id of snapshot.groupById.get(groupId)?.ancestorIds ?? []) {
+					const group = snapshot.groupById.get(id);
+					if (group) this.graphView.expandedGroupPaths.add(group.pathKey);
+				}
+			}
+			const scene = resolveGraphScene(this.graphView, snapshot);
+			const availableIds = new Set([...scene.nodes, ...scene.edges].map((entry) => entry.id));
+			if (!(scene.interaction.primaryElementIdsBySelection.get(selectionKey(selection))?.some((id) => availableIds.has(id)))) {
+				this.graphView.groupsEnabled = groupsEnabled;
+				this.graphView.expandedGroupPaths.clear();
+				for (const path of expanded) this.graphView.expandedGroupPaths.add(path);
+				this.workbench.showNavigationIssue(selection.kind === 'culled' ? 'Culled passes are not part of Frame Flow.' : 'This object has no representation in Frame Flow.', selection);
+				return;
+			}
+			this.graphView.revealOnNextRender = { selection, revision: ++this.revealRevision };
+			this.updateGraphControls();
+		}
+		this.handleSelect(selection);
+		this.workbench.reveal(selection, tab);
+	}
+
 	private handleHover(selection: Selection | undefined): void {
 		if (!this.viewModel || sameSelection(this.hovered, selection)) return;
 		this.hovered = selection;
@@ -474,6 +520,8 @@ export class FrameGraphInspector {
 	private updateGraphControls(): void {
 		const hasGroups = (this.viewModel?.debugGroups.length ?? 0) > 0;
 		this.groupsButton.disabled = !hasGroups;
+		this.groupsButton.hidden = !hasGroups;
+		this.collapseGroupsButton.hidden = !hasGroups;
 		this.groupsButton.classList.toggle('active', hasGroups && this.graphView.groupsEnabled);
 		this.groupsButton.setAttribute('aria-pressed', hasGroups && this.graphView.groupsEnabled ? 'true' : 'false');
 		const hasExpanded = this.viewModel?.debugGroups.some((group) => this.graphView.expandedGroupPaths.has(group.pathKey)) ?? false;

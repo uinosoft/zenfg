@@ -1,3 +1,4 @@
+import { PANEL_WORKBENCH_CSS } from './panelWorkbenchStyles.ts';
 import { PANEL_LIST_CSS } from './panelListStyles.ts';
 import { PANEL_MEMORY_CSS } from './panelMemoryStyles.ts';
 import { FRAME_GRAPH_DEBUG_VISUAL_THEME, GRAPH_VISUAL_THEME } from './panelVisualTheme.ts';
@@ -1081,6 +1082,6 @@ export function ensureFrameGraphInspectorStyles(): void {
 
 	const style = document.createElement('style');
 	style.id = STYLE_ELEMENT_ID;
-	style.textContent = FRAME_GRAPH_DEBUG_PANEL_CSS + PANEL_LIST_CSS + PANEL_MEMORY_CSS;
+	style.textContent = FRAME_GRAPH_DEBUG_PANEL_CSS + PANEL_WORKBENCH_CSS + PANEL_LIST_CSS + PANEL_MEMORY_CSS;
 	document.head.appendChild(style);
 }

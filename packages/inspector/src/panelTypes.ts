@@ -31,4 +31,6 @@ export type GraphViewState = {
     renderer?: GraphRenderer;
     fitOnNextRender: boolean;
     anchorElementIdOnNextRender?: string;
+    revealOnNextRender?: { readonly selection: Selection; readonly revision: number };
+    captureRevision?: number;
 };

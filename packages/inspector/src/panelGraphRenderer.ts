@@ -7,6 +7,8 @@ export type GraphRenderRequest = {
     readonly hovered: Selection | undefined;
     readonly fit: boolean;
     readonly anchorElementId?: GraphSceneElementId;
+    readonly reveal?: { readonly selection: Selection; readonly revision: number };
+    readonly captureRevision?: number;
     readonly onSelect: (selection: Selection) => void;
     readonly onHover: (selection: Selection | undefined) => void;
     readonly onToggleGroup: (pathKey: string) => void;
@@ -17,5 +19,6 @@ export interface GraphRenderer {
     resize(): void;
     fit(): void;
     relayout(): void;
+    cancelReveal?(): void;
     destroy(): void;
 }

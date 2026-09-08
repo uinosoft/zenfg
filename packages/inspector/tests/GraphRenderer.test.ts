@@ -21,7 +21,7 @@ import {
     type GraphEdgeRoute,
 } from '../src/panelCytoscapeGraphRenderer.ts';
 import type { GraphRenderRequest } from '../src/panelGraphRenderer.ts';
-import { createGraphScene, graphGroupElementId } from '../src/panelGraphScene.ts';
+import { createGraphScene, graphGroupElementId, selectionKey } from '../src/panelGraphScene.ts';
 import { resolveGraphScene } from '../src/panelGraphView.ts';
 import { createGraphLegend, GRAPH_VISUAL_THEME, GRAPH_GEOMETRY, nodeDimensions } from '../src/panelGraphVisuals.ts';
 import type { GraphViewState, Selection } from '../src/panelTypes.ts';
@@ -611,6 +611,41 @@ test('keeps selection and group double-click interaction on the read-only graph'
     assert.equal(staleSelection, false);
 });
 
+test('cancelReveal cancels a delayed group selection and clears hover before the graph is left', async (context) => {
+    const snapshot = createLegacyDebugViewModel(createNestedCapture());
+    const group = snapshot.debugGroups[0]!;
+    const scene = createGraphScene(snapshot, { groupsEnabled: true, expandedGroupPaths: new Set() });
+    const selected: Selection[] = [];
+    const toggled: string[] = [];
+    let hovered: Selection | undefined;
+    const harness = createRendererHarness();
+    const renderer = new CytoscapeGraphRenderer(harness.host, harness.environment);
+    context.after(() => renderer.destroy());
+    renderer.render({ ...graphRequest(scene),
+        onSelect: (selection) => selected.push(selection),
+        onHover: (selection) => { hovered = selection; },
+        onToggleGroup: (path) => toggled.push(path),
+    });
+    const groupId = graphGroupElementId(group.pathKey);
+    await waitFor(() => harness.core?.getElementById(groupId).nonempty() === true);
+    const node = harness.core!.getElementById(groupId);
+    (node as unknown as { emit: (event: { type: string; renderedPosition: { x: number; y: number } }) => void })
+        .emit({ type: 'mouseover', renderedPosition: { x: 10, y: 20 } });
+    assert.deepEqual(hovered, { kind: 'group', pathKey: group.pathKey });
+    assert.equal(harness.createdElements[1]!.hidden, false);
+    node.emit('tap');
+    assert.deepEqual(selected, [], 'a single group tap is delayed to distinguish double taps');
+    renderer.cancelReveal();
+    await new Promise((resolve) => setTimeout(resolve, 400));
+    assert.deepEqual(selected, [], 'leaving Graph or changing capture must cancel the queued selection');
+    assert.equal(hovered, undefined);
+    assert.equal(harness.createdElements[1]!.hidden, true);
+    node.emit('tap');
+    await new Promise((resolve) => setTimeout(resolve, 400));
+    assert.deepEqual(toggled, [], 'the canceled tap cannot combine with a later tap');
+    assert.deepEqual(selected, [{ kind: 'group', pathKey: group.pathKey }], 'new interactions still work after cancellation');
+});
+
 test('keeps target fit pending until the latest layout is applied', async () => {
     const snapshot = createLegacyDebugViewModel(createNestedCapture());
     const passes = createGraphScene(snapshot, {
@@ -691,6 +726,110 @@ test('does not transfer a pending fit to a superseding scene that did not reques
     assert.equal(fitCount, 0);
     assert.equal(core.getElementById('pass:node:1').nonempty(), true);
     renderer.destroy();
+});
+
+test('explicit reveal fits the selection-to-scene mapping while ordinary selection preserves the viewport', async (context) => {
+    const snapshot = createLegacyDebugViewModel(createNestedCapture());
+    const scene = createGraphScene(snapshot, {
+        groupsEnabled: true, expandedGroupPaths: new Set(snapshot.debugGroups.map((group) => group.pathKey)),
+    });
+    const harness = createRendererHarness();
+    const renderer = new CytoscapeGraphRenderer(harness.host, harness.environment);
+    context.after(() => renderer.destroy());
+    renderer.render({ ...graphRequest(scene), captureRevision: 1 });
+    await waitFor(() => harness.core?.getElementById('pass:node:2').nonempty() === true);
+    await nextTurn();
+    const core = harness.core!;
+    const fits = recordTargetFits(core);
+    const selections: Selection[] = [
+        { kind: 'node', id: 'node:2' },
+        { kind: 'resource', id: 'resource:1' },
+        { kind: 'group', pathKey: snapshot.debugGroups[1]!.pathKey },
+        { kind: 'root', key: snapshot.roots[0]!.key },
+    ];
+    for (const [index, selected] of selections.entries()) {
+        const previousViewport = { pan: { ...core.pan() }, zoom: core.zoom() };
+        renderer.render({ ...graphRequest(scene, { selected }), captureRevision: 1 });
+        await nextTurn();
+        assert.equal(fits.length, index, 'ordinary selection does not request a fit');
+        assert.deepEqual({ pan: core.pan(), zoom: core.zoom() }, previousViewport);
+
+        renderer.render({ ...graphRequest(scene, { selected }), captureRevision: 1, reveal: { selection: selected, revision: index + 1 } });
+        await waitFor(() => fits.length === index + 1);
+        const key = selectionKey(selected);
+        assert.deepEqual([...fits[index]!.ids].sort(), [...scene.interaction.primaryElementIdsBySelection.get(key)!].sort());
+        assert.ok(core.zoom() <= 1.2, 'reveal caps zoom for small targets');
+    }
+});
+
+test('only the latest reveal is applied after its layout becomes current', async (context) => {
+    const snapshot = createLegacyDebugViewModel(createNestedCapture());
+    const firstScene = createGraphScene(snapshot, { groupsEnabled: false, expandedGroupPaths: new Set() });
+    const latestScene = createGraphScene(snapshot, { groupsEnabled: true, expandedGroupPaths: new Set() });
+    const layouts: Array<{ scene: typeof firstScene; result: Deferred<GraphLayoutResult> }> = [];
+    const harness = createRendererHarness({ layoutScene: async (_elk, scene) => {
+        const result = deferred<GraphLayoutResult>();
+        layouts.push({ scene, result });
+        return result.promise;
+    } });
+    const renderer = new CytoscapeGraphRenderer(harness.host, harness.environment);
+    context.after(() => renderer.destroy());
+    const firstSelection: Selection = { kind: 'node', id: 'node:2' };
+    renderer.render({ ...graphRequest(firstScene, { selected: firstSelection }), captureRevision: 1, reveal: { selection: firstSelection, revision: 1 } });
+    await waitFor(() => layouts.length === 1);
+    const fits = recordTargetFits(harness.core!);
+    const latestSelection: Selection = { kind: 'group', pathKey: snapshot.debugGroups[0]!.pathKey };
+    renderer.render({ ...graphRequest(latestScene, { selected: latestSelection }), captureRevision: 1, reveal: { selection: latestSelection, revision: 2 } });
+    assert.equal(fits.length, 0);
+    layouts[0]!.result.resolve(testLayout(firstScene, 10));
+    await waitFor(() => layouts.length === 2);
+    assert.equal(fits.length, 0, 'a superseded layout must never fit');
+    assert.equal(harness.core!.nodes().length, 0, 'the stale scene is not applied');
+    const latestLayout = testLayout(latestScene, 200);
+    layouts[1]!.result.resolve(latestLayout);
+    await waitFor(() => fits.length === 1);
+    const target = graphGroupElementId(latestSelection.pathKey);
+    assert.deepEqual(fits[0]!.ids, [target]);
+    assert.deepEqual(fits[0]!.positions, [latestLayout.positions.get(target)]);
+    assert.deepEqual(harness.core!.nodes().map((node) => node.id()).sort(), latestScene.nodes.map((node) => node.id).sort());
+});
+
+test('a newer capture cancels pending reveal even when content key and selected object are unchanged', async (context) => {
+    const scene = createGraphScene(createLegacyDebugViewModel(createNestedCapture()), { groupsEnabled: false, expandedGroupPaths: new Set() });
+    const layout = deferred<GraphLayoutResult>();
+    let started = false;
+    const harness = createRendererHarness({ layoutScene: async () => { started = true; return layout.promise; } });
+    const renderer = new CytoscapeGraphRenderer(harness.host, harness.environment);
+    context.after(() => renderer.destroy());
+    const selected: Selection = { kind: 'node', id: 'node:2' };
+    renderer.render({ ...graphRequest(scene, { selected }), captureRevision: 1, reveal: { selection: selected, revision: 1 } });
+    await waitFor(() => started);
+    const fits = recordTargetFits(harness.core!);
+    renderer.render({ ...graphRequest(scene, { selected }), captureRevision: 2 });
+    layout.resolve(testLayout(scene, 50));
+    await waitFor(() => harness.core!.getElementById('pass:node:2').nonempty());
+    await nextTurn();
+    assert.equal(fits.length, 0);
+    assert.equal(harness.core!.getElementById('pass:node:2').hasClass('semantic-selected'), true);
+});
+
+test('cancelReveal prevents an in-flight layout from fitting after navigation is canceled', async (context) => {
+    const scene = createGraphScene(createLegacyDebugViewModel(createNestedCapture()), { groupsEnabled: false, expandedGroupPaths: new Set() });
+    const layout = deferred<GraphLayoutResult>();
+    let started = false;
+    const harness = createRendererHarness({ layoutScene: async () => { started = true; return layout.promise; } });
+    const renderer = new CytoscapeGraphRenderer(harness.host, harness.environment);
+    context.after(() => renderer.destroy());
+    const selected: Selection = { kind: 'node', id: 'node:2' };
+    renderer.render({ ...graphRequest(scene, { selected }), captureRevision: 1, reveal: { selection: selected, revision: 1 } });
+    await waitFor(() => started);
+    const core = harness.core!;
+    const fits = recordTargetFits(core);
+    renderer.cancelReveal();
+    layout.resolve(testLayout(scene, 50));
+    await waitFor(() => core.getElementById('pass:node:2').nonempty());
+    await nextTurn();
+    assert.equal(fits.length, 0);
 });
 
 test('keeps the Cytoscape core intact after layout failure and retries successfully', async () => {
@@ -1110,6 +1249,17 @@ function graphRequest(
         onHover: () => undefined,
         onToggleGroup: () => undefined,
     };
+}
+
+function recordTargetFits(core: Core): Array<{ ids: string[]; positions: Array<{ x: number; y: number }> }> {
+    const fits: Array<{ ids: string[]; positions: Array<{ x: number; y: number }> }> = [];
+    const originalFit = core.fit.bind(core);
+    core.fit = ((...args: unknown[]) => {
+        const targets = args[0] as cytoscape.CollectionReturnValue | undefined;
+        fits.push({ ids: targets?.map((element) => element.id()) ?? [], positions: targets?.nodes().map((element) => ({ ...element.position() })) ?? [] });
+        return originalFit(...args as [cytoscape.CollectionArgument | undefined, number | undefined]);
+    }) as typeof core.fit;
+    return fits;
 }
 
 function testLayout(
