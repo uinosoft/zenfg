@@ -319,6 +319,122 @@ test('surface fields exclude capacity padding and variable-length vertices prese
     } finally { fixture.dispose(); }
 });
 
+for (const [boxWidth, cells] of [[0.19, 1], [0.71, 343]] as const) {
+    test(`scan overwrites only its effective prefix for ${cells} cells, without prior scan values`, () => {
+        const fixture = createFixture({ substeps: 2, displayMode: 'ssfr' });
+        try {
+            fixture.workload.applyImportedSettings(fixture.workload.getSettings(), {
+                ...tinyScene, box: [boxWidth, boxWidth, boxWidth],
+            });
+            const start = () => {
+                const { recording, color } = fixture.start();
+                const importBuffer = recording.importBuffer.bind(recording);
+                let grid: ReturnType<FrameGraphRecording['importBuffer']> | undefined;
+                recording.importBuffer = (buffer, options) => {
+                    const isGrid = options?.label === 'particles4all.sim.cellStart';
+                    const handle = importBuffer(buffer, isGrid ? { ...options, initialContents: 'undefined' } : options);
+                    if (isGrid) grid = handle;
+                    return handle;
+                };
+                const pending = fixture.workload.recordFrameGraph(recording, { color, deltaTime: 1 / 60 });
+                return { recording, pending, grid: grid! };
+            };
+            const frame = start();
+            const compiled = frame.recording.compile({ report: true });
+            const report = compiled.compilationReport;
+            const cellStart = report.resources.find(resource => resource.label === 'particles4all.sim.cellStart')!;
+            const blockSum = report.resources.find(resource => resource.label === 'particles4all.simulation.scan-block')!;
+            const scans = new Set(report.nodes.filter(node => node.label?.endsWith('grid-prefix-scan')).map(node => node.id));
+            assert.equal(scans.size, 3, 'initialization and two actual substeps');
+            for (const [resource, size] of [[cellStart, (cells + 1) * 4], [blockSum, (Math.ceil(cells / 256) + 1) * 4]] as const) {
+                const accesses = report.accesses.filter(access => access.resourceId === resource.id);
+                assert.ok(accesses.length > 0);
+                assert.ok(accesses.every(access => access.bufferRange?.size === size), resource.label);
+                for (const access of accesses.filter(access => scans.has(access.nodeId))) {
+                    assert.equal(access.mode, 'write');
+                    assert.ok(access.mode === 'write' && access.contents === 'overwrite');
+                }
+            }
+            assert.ok(!report.dependencies.some(edge => edge.resourceId === cellStart.id && scans.has(edge.toNodeId) && edge.kind === 'value'));
+            assert.ok(report.dependencies.some(edge => edge.resourceId === cellStart.id && scans.has(edge.toNodeId) && edge.kind === 'ordering'),
+                'reusing the grid still requires preceding readers to finish');
+            const root = report.roots.find(root => root.resourceId === cellStart.id)!;
+            assert.deepEqual(root.range, { kind: 'buffer', offset: 0, size: (cells + 1) * 4 });
+            frame.pending.discard();
+
+            const padded = start();
+            const padding = padded.recording.use(padded.grid, BufferAccess.StorageRead, {
+                range: { offset: (cells + 1) * 4, size: 4 },
+            });
+            padded.recording.compute({ label: 'read-unwritten-padding', uses: [padding], sideEffect: true });
+            assert.throws(() => padded.recording.compile(), /undefined|FG1004|defined/i,
+                'unused allocation capacity must remain undefined');
+            padded.pending.discard();
+        } finally { fixture.dispose(); }
+    });
+}
+
+test('preserving storage writes subsume duplicate reads while conditional rigid updates remain preserving', () => {
+    const fixture = createFixture();
+    try {
+        fixture.workload.applyImportedSettings(fixture.workload.getSettings(), {
+            ...tinyScene, bodies: ['sphere:0.5'], bodySize: 0.12,
+        });
+        const frame = fixture.record();
+        for (const access of frame.report.accesses.filter(access => access.mode === 'write' && access.contents === 'preserve')) {
+            assert.ok(!frame.report.accesses.some(other => other.nodeId === access.nodeId && other.resourceId === access.resourceId
+                && other.access === BufferAccess.StorageRead && JSON.stringify(other.bufferRange) === JSON.stringify(access.bufferRange)));
+        }
+        const centre = frame.report.resources.find(resource => resource.label === 'particles4all.sim.bodyCentre')!;
+        assert.ok(frame.report.accesses.some(access => access.resourceId === centre.id && access.mode === 'write' && access.contents === 'preserve'));
+        frame.pending.discard();
+    } finally { fixture.dispose(); }
+});
+
+for (const displayMode of ['particles', 'surface-mesh', 'ray-march', 'ssfr'] as const) {
+    test(`${displayMode}: render consumers read active particle ranges after pouring`, () => {
+        const fixture = createFixture({ displayMode, pourSpeed: 10, pourWidth: 0.13 });
+        try {
+            fixture.workload.togglePour();
+            const frame = fixture.record(1 / 30);
+            assert.ok(labels(frame.report).some(label => label.endsWith('.pour-injection')));
+            const upload = frame.report.resources.find(resource => resource.label === 'particles4all.pour-upload')!;
+            assert.equal(groupPath(frame.report, upload.debugGroupId), 'Particles4All/Simulation');
+            const root = particleRoot(frame.report)!;
+            assert.equal(root.range.kind, 'buffer');
+            if (root.range.kind !== 'buffer') throw new Error('Expected particle buffer root');
+            const particleBytes = root.range.size;
+            const resources = new Map(frame.report.resources.map(resource => [resource.id, resource]));
+            const renderNodes = new Set(frame.report.nodes.filter(node => groupPath(frame.report, node.debugGroupId).startsWith('Particles4All/Render')).map(node => node.id));
+            let checked = 0;
+            for (const access of frame.report.accesses.filter(access => renderNodes.has(access.nodeId))) {
+                const resource = resources.get(access.resourceId)!;
+                if (!/\.sim\.(pos|vel|body|rest)[AB]$/.test(resource.label ?? '') && !/\.sim\.density$/.test(resource.label ?? '')) continue;
+                assert.equal(access.bufferRange?.size, resource.label?.endsWith('.density') ? particleBytes / 4 : particleBytes);
+                checked++;
+            }
+            assert.ok(checked > 0);
+            frame.submit();
+        } finally { fixture.dispose(); }
+    });
+}
+
+test('SSFR reuses solver allocation across diagnostic group boundaries', () => {
+    const fixture = createFixture();
+    try {
+        fixture.workload.applyPreset('small');
+        const frame = fixture.record();
+        const anisotropy = frame.report.resources.find(resource => resource.label === 'particles4all.ssfr.anisotropy')!;
+        assert.ok(anisotropy.physicalAllocationId !== undefined);
+        const prediction = frame.report.resources.find(resource => /^particles4all\.simulation\.pred-[ab]$/.test(resource.label ?? '')
+            && resource.physicalAllocationId === anisotropy.physicalAllocationId);
+        assert.ok(prediction, 'solver scratch and anisotropy must share a physical allocation');
+        assert.equal(groupPath(frame.report, prediction.debugGroupId), 'Particles4All/Simulation');
+        assert.equal(groupPath(frame.report, anisotropy.debugGroupId), 'Particles4All/Render');
+        frame.pending.discard();
+    } finally { fixture.dispose(); }
+});
+
 test('time-bank remainder survives commit and discard, and timeScale applies after raw-gap limiting', () => {
     const fixture = createFixture();
     try {

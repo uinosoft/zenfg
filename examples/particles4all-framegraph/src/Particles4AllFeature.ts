@@ -776,8 +776,9 @@ export class Particles4All {
                 return Math.max(4, activeParticleCount * 4);
             }
             if (name === 'cellCount' || name === 'cursor') return Math.max(16, (sim.nCells + 1) * 4);
-            if (name === 'cellStart' || name === 'bcellStart') return Math.max(16, (sim.nCells + 2) * 4);
-            if (name === 'blockSum') return Math.max(16, (Math.ceil(sim.nCells / 256) + 2) * 4);
+            if (name === 'cellStart') return (sim.nCells + 1) * 4;
+            if (name === 'bcellStart') return (sim.nCells + 2) * 4;
+            if (name === 'blockSum') return (Math.ceil(sim.nCells / 256) + 1) * 4;
             if (name === 'bodyAccum') return Math.max(16, sim.nBodies * 16);
             if (name === 'bodyCov') return Math.max(16, sim.nBodies * 36);
             if (name === 'bodyIdx') return sim.nBodyParts * 4;
@@ -797,6 +798,8 @@ export class Particles4All {
             const physicalUses = new Map<string, ResourceUse>();
             for (const name of reads) {
                 if (INTERNAL_SIM_INPUTS.has(name)) continue;
+                // A preserving storage write already consumes the same range's prior value.
+                if (writes.some(([written, contents]) => written === name && contents === 'preserve')) continue;
                 const use = graph.use(handle(name), BufferAccess.StorageRead, {
                     range: { offset: 0, size: sizeOf(name) },
                 });
@@ -847,7 +850,6 @@ export class Particles4All {
                             label: 'particles4all.initialization.grid-clear',
                             operations: [
                                 { target: handle('cellCount') },
-                                { target: handle('blockSum') },
                                 { target: handle('cursor') },
                             ],
                         });
@@ -857,8 +859,8 @@ export class Particles4All {
                                 pass, primeSourceParity, buffers, initialActiveCount, initialUniform,
                             ));
                         recordCompute('particles4all.initialization.grid-prefix-scan',
-                            ['cellCount', 'blockSum', 'cellStart'],
-                            [['blockSum', 'preserve'], ['cellStart', 'preserve']], uni,
+                            ['cellCount'],
+                            [['blockSum', 'overwrite'], ['cellStart', 'overwrite']], uni,
                             (pass, buffers) => sim.encodeGridScan(pass, buffers, initialUniform));
                         const outputSuffix = suffix(primeSourceParity ^ 1);
                         recordCompute('particles4all.initialization.grid-scatter', [
@@ -946,7 +948,6 @@ export class Particles4All {
                         label: `particles4all.substep-${substep + 1}.grid-clear`,
                         operations: [
                             { target: handle('cellCount') },
-                            { target: handle('blockSum') },
                             { target: handle('cursor') },
                         ],
                     });
@@ -956,8 +957,8 @@ export class Particles4All {
                             pass, predictParity, buffers, substepActiveCount, substepUniform,
                         ));
                     recordCompute(`particles4all.substep-${substep + 1}.grid-prefix-scan`,
-                        ['cellCount', 'blockSum', 'cellStart'],
-                        [['blockSum', 'preserve'], ['cellStart', 'preserve']], uni,
+                        ['cellCount'],
+                        [['blockSum', 'overwrite'], ['cellStart', 'overwrite']], uni,
                         (pass, buffers) => sim.encodeGridScan(pass, buffers, substepUniform));
                     const outputSuffix = suffix(predictParity ^ 1);
                     recordCompute(`particles4all.substep-${substep + 1}.grid-scatter`, [
@@ -1232,13 +1233,8 @@ export class Particles4All {
         rayResources: RayTransientResources | null,
         surfaceResources: SurfaceTransientResources | null,
     ): void {
-        const bufferHandle = (buffer: GPUBuffer, label: string): BufferHandle => {
-            const handle = imported.buffers.get(buffer);
-            if (!handle) throw new Error(`Particles4All ${label} buffer was not imported.`);
-            return handle;
-        };
-        const readBuffer = (buffer: GPUBuffer, label: string): ResourceUse => graph.use(
-            bufferHandle(buffer, label), BufferAccess.StorageRead,
+        const readBuffer = (name: string): ResourceUse => this.readSimulationBuffer(
+            graph, native, imported, name, renderFrame.particleCount,
         );
         const branchLabel: Record<Particles4AllDisplayMode, string> = {
             particles: 'Particle',
@@ -1264,8 +1260,8 @@ export class Particles4All {
                 sideEffect: false,
                 uses: [
 
-                    readBuffer(native.sim.buf.bodyCentre, 'body centre'),
-                    readBuffer(native.sim.buf.bodyRot, 'body rotation'),
+                    readBuffer('bodyCentre'),
+                    readBuffer('bodyRot'),
 
                     solidPackedWrite,
                 ],
@@ -1310,9 +1306,9 @@ export class Particles4All {
             if (!renderFrame.meshOn) {
                 const paritySuffix = renderFrame.parity === 0 ? 'A' : 'B';
                 rasterUses.push(
-                    readBuffer(native.sim.buf[`pos${paritySuffix}`], 'particle positions'),
-                    readBuffer(native.sim.buf[`vel${paritySuffix}`], 'particle velocities'),
-                    readBuffer(native.sim.buf[`body${paritySuffix}`], 'particle body phases'),
+                    readBuffer(`pos${paritySuffix}`),
+                    readBuffer(`vel${paritySuffix}`),
+                    readBuffer(`body${paritySuffix}`),
                 );
             }
             graph.render({
@@ -1445,10 +1441,11 @@ export class Particles4All {
         const fieldOnly = renderFrame.rayOn && nativeRenderOptions.raySurface === 0;
         graph.withDebugGroup('Surface Build', () => {
 
-            const position = graph.use(importedHandle(native.sim.buf[renderFrame.parity === 0 ? 'posA' : 'posB']), BufferAccess.StorageRead);
-            const body = graph.use(importedHandle(native.sim.buf[renderFrame.parity === 0 ? 'bodyA' : 'bodyB']), BufferAccess.StorageRead);
-            const density = graph.use(importedHandle(native.sim.buf.density), BufferAccess.StorageRead);
-            const cellStart = graph.use(importedHandle(native.sim.buf.cellStart), BufferAccess.StorageRead);
+            const readBuffer = (name: string) => this.readSimulationBuffer(graph, native, imported, name, renderFrame.particleCount);
+            const position = readBuffer(renderFrame.parity === 0 ? 'posA' : 'posB');
+            const body = readBuffer(renderFrame.parity === 0 ? 'bodyA' : 'bodyB');
+            const density = readBuffer('density');
+            const cellStart = readBuffer('cellStart');
             const fieldWrite = graph.use(resources.field, BufferAccess.StorageWrite, { contents: 'overwrite' });
             graph.compute({
                 label: 'particles4all.surface.density-field',
@@ -1598,18 +1595,11 @@ export class Particles4All {
         resources: SsfrTransientResources,
         solidPackedRead: ResourceUse | null,
     ): void {
-        const bufferUse = (
-            buffer: GPUBuffer,
-            access: BufferAccess.Uniform | BufferAccess.StorageRead,
-        ): ResourceUse => {
-            const handle = imported.buffers.get(buffer);
-            if (!handle) throw new Error('Particles4All SSFR buffer was not imported.');
-            return graph.use(handle, access);
-        };
+        const readBuffer = (name: string) => this.readSimulationBuffer(graph, native, imported, name, frame.particleCount);
         const paritySuffix = frame.parity === 0 ? 'A' : 'B';
-        const position = bufferUse(native.sim.buf[`pos${paritySuffix}`], BufferAccess.StorageRead);
-        const body = bufferUse(native.sim.buf[`body${paritySuffix}`], BufferAccess.StorageRead);
-        const cellStart = bufferUse(native.sim.buf.cellStart, BufferAccess.StorageRead);
+        const position = readBuffer(`pos${paritySuffix}`);
+        const body = readBuffer(`body${paritySuffix}`);
+        const cellStart = readBuffer('cellStart');
         const smoothPositionWrite = graph.use(
             resources.smoothPosition, BufferAccess.StorageWrite, { contents: 'overwrite' },
         );
@@ -1924,6 +1914,22 @@ export class Particles4All {
             this.importBuffer(graph, imported, native.sim.buf[name], 'particles4all.sim.' + name);
         }
         return imported;
+    }
+
+    private readSimulationBuffer(
+        graph: FrameGraphRecording, native: NativeObjects, imported: ImportedResources,
+        name: string, particleCount: number,
+    ): ResourceUse {
+        const handle = imported.buffers.get(native.sim.buf[name]);
+        if (!handle) throw new Error(`Particles4All simulation buffer ${name} was not imported.`);
+        const size = /^(pos|vel|body|rest)[AB]$/.test(name) ? particleCount * 16
+            : name === 'density' ? particleCount * 4
+            : name === 'cellStart' ? (native.sim.nCells + 1) * 4
+            : name === 'bodyRot' ? native.sim.nBodies * 48
+            : name === 'bodyCentre' || name === 'bodyRef' ? native.sim.nBodies * 16
+            : undefined;
+        if (size === undefined) throw new Error(`Particles4All has no active range for ${name}.`);
+        return graph.use(handle, BufferAccess.StorageRead, { range: { offset: 0, size } });
     }
 
     private importBuffer(graph: FrameGraphRecording, imported: ImportedResources, buffer: GPUBuffer, label: string): BufferHandle {

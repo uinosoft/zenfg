@@ -65,7 +65,15 @@ Resource declarations follow the
   the workload, but add no dependencies between graph nodes.
 
 Content declarations distinguish full overwrite from preserving sparse/atomic
-writes. State parity, simulation time, particle count, pouring, and pointer
+writes. Grid scans overwrite only their generated prefixes: `(nCells + 1) * 4`
+bytes for cell starts and `(ceil(nCells / 256) + 1) * 4` bytes for scan blocks.
+Their internal dispatches do not require a graph read of the previous scan's
+values. Native allocation padding stays outside these accesses and roots.
+Render nodes read active particle, rigid-body, and grid ranges, including newly
+poured particles. A preserving storage write already consumes prior contents,
+so it does not need a duplicate storage read over the same range.
+
+State parity, simulation time, particle count, pouring, and pointer
 impulses settle only after submission. Readback starts afterward; scene replacement
 and disposal invalidate results from older generations.
 

@@ -5,7 +5,16 @@ The accepted implementation scope is the Particles4All example, its tests and
 documentation: resource attribution, redundant groups and access precision.
 Inspector navigation, projection changes and new public APIs are deferred to
 a separate evaluation. The measurements below describe the baseline, not the
-subsequent corrected implementation; see the example's VALIDATION.md for results.
+subsequent corrected implementation; see the example's
+[validation record](../examples/particles4all-framegraph/VALIDATION.md#example-access-and-inspection-refinement)
+for results.
+
+Implemented example results: the fixed-topology comparison retains 65 execution
+nodes and 40 resources, while accesses drop from 352 to 302. With the existing
+Inspector, full collapse drops from 53 nodes / 52 edges to 14 / 13; full expansion
+still has 143 nodes / 381 edges. Resource attribution and precise access semantics
+improve the current workflow without resolving every navigation problem. All
+Inspector proposals below remain deferred; none were implemented in this round.
 
 Evidence: the user-provided `frame-graph-5.fgsnapshot.json`, frame 5 captured at
 `2026-09-08T02:31:57.765Z`, the running Playground Inspector, the workload,
