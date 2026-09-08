@@ -69,17 +69,19 @@ for (const displayMode of ['particles', 'surface-mesh', 'ray-march', 'ssfr'] as 
                     assert.equal(actual, '', 'the host owns the presentation target');
                     continue;
                 }
-                const expected = /stats-reduction|stats-readback|pose-readback/.test(label) ? 'Particles4All/Diagnostics'
-                    : /\.simulation\.|pour-upload/.test(label) ? 'Particles4All/Simulation'
-                    : /\.sim\./.test(label) ? 'Particles4All'
-                    : 'Particles4All/Render';
+                const expected = /stats-reduction|stats-readback|pose-readback/.test(label) ? 'Diagnostics'
+                    : /\.simulation\.|pour-upload/.test(label) ? 'Simulation'
+                    : /\.sim\./.test(label) ? ''
+                    : 'Render';
                 assert.equal(actual, expected, label);
             }
             assert.equal(new Set(report.resources.map(resource => resource.label)).size, report.resources.length,
                 'stage recording must not duplicate shared imports');
-            assert.ok(!report.debugGroups.some(group => group.label === 'Rigid Projection'));
+            assert.ok(!report.debugGroups.some(group => group.label === 'Rigid Projection' || group.label === 'Particles4All'));
+            assert.deepEqual(report.debugGroups.filter(group => group.parentId === undefined).map(group => group.label),
+                ['Simulation', 'Diagnostics', 'Render']);
             for (const node of report.nodes.filter(node => /\.initialization\.|\.substep-/.test(node.label ?? ''))) {
-                assert.ok(groupPath(report, node.debugGroupId).startsWith('Particles4All/Simulation/'), node.label);
+                assert.ok(groupPath(report, node.debugGroupId).startsWith('Simulation/'), node.label);
             }
             pending.discard();
         } finally { fixture.dispose(); }
@@ -399,13 +401,13 @@ for (const displayMode of ['particles', 'surface-mesh', 'ray-march', 'ssfr'] as 
             const frame = fixture.record(1 / 30);
             assert.ok(labels(frame.report).some(label => label.endsWith('.pour-injection')));
             const upload = frame.report.resources.find(resource => resource.label === 'particles4all.pour-upload')!;
-            assert.equal(groupPath(frame.report, upload.debugGroupId), 'Particles4All/Simulation');
+            assert.equal(groupPath(frame.report, upload.debugGroupId), 'Simulation');
             const root = particleRoot(frame.report)!;
             assert.equal(root.range.kind, 'buffer');
             if (root.range.kind !== 'buffer') throw new Error('Expected particle buffer root');
             const particleBytes = root.range.size;
             const resources = new Map(frame.report.resources.map(resource => [resource.id, resource]));
-            const renderNodes = new Set(frame.report.nodes.filter(node => groupPath(frame.report, node.debugGroupId).startsWith('Particles4All/Render')).map(node => node.id));
+            const renderNodes = new Set(frame.report.nodes.filter(node => groupPath(frame.report, node.debugGroupId).startsWith('Render')).map(node => node.id));
             let checked = 0;
             for (const access of frame.report.accesses.filter(access => renderNodes.has(access.nodeId))) {
                 const resource = resources.get(access.resourceId)!;
@@ -429,8 +431,8 @@ test('SSFR reuses solver allocation across diagnostic group boundaries', () => {
         const prediction = frame.report.resources.find(resource => /^particles4all\.simulation\.pred-[ab]$/.test(resource.label ?? '')
             && resource.physicalAllocationId === anisotropy.physicalAllocationId);
         assert.ok(prediction, 'solver scratch and anisotropy must share a physical allocation');
-        assert.equal(groupPath(frame.report, prediction.debugGroupId), 'Particles4All/Simulation');
-        assert.equal(groupPath(frame.report, anisotropy.debugGroupId), 'Particles4All/Render');
+        assert.equal(groupPath(frame.report, prediction.debugGroupId), 'Simulation');
+        assert.equal(groupPath(frame.report, anisotropy.debugGroupId), 'Render');
         frame.pending.discard();
     } finally { fixture.dispose(); }
 });

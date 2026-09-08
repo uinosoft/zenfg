@@ -78,6 +78,8 @@ the comparison. This isolates grouping from later access-range corrections.
 
 ## Example access and inspection refinement
 
+The measurements in this section describe revision `cb888c4`.
+
 The subsequent example-only revision passed the four repository commands above
 in sequence, with **522 tests** passing. No Inspector, compiler, public API,
 Snapshot protocol, or vendored shader changes were made.
@@ -132,6 +134,34 @@ relationships still require navigation. Breadcrumbs, stage focus, and relation
 summaries remain separate proposals in the
 [debugging review](../../docs/particles4all-debugging-review.md); acceptance of
 this example revision does not depend on them.
+
+## Follow-up: expose stages directly
+
+Removed the outer Particles4All debug group after reviewing the collapsed graph.
+Simulation, Diagnostics, and Render now appear directly at the top level; shared
+persistent imports remain ungrouped so their relationships with multiple stages
+stay visible. Stage-local resources keep their existing attribution. The counts
+above document the earlier enclosing-group revision, not this follow-up layout.
+The four-mode attribution regressions now require exactly these three top-level
+groups and verify shared imports remain unique and outside them.
+All 67 example tests, the example typecheck, and `npm run docs:check` passed.
+
+## Submission review
+
+The final 2026-09-08 review found no blocking issue within the agreed migration
+scope. It revisited workload/host/Playground separation, all rendering branches,
+preset and INI handling, environment replacement, time-bank and pour fidelity,
+scan access declarations, submission settlement, readback invalidation, and
+cleanup. The last code diff only removes the enclosing debug scope; node
+recording order and encoding callbacks are unchanged.
+
+The final tree passed `npm run typecheck`, `npm test` (522 tests),
+`npm run build:pages`, and `npm run docs:check` in sequence. Browser rendering and
+the new top-level stage layout were checked in the preceding follow-up, with
+zero Inspector diagnostics. The earlier browser coverage and hardware limits
+remain applicable; this review does not claim new hardware or exhaustive visual
+parameter coverage. Removing the old t3d-next example and evaluating Inspector
+navigation remain separate tasks.
 
 ## Remaining hardware coverage
 

@@ -586,41 +586,39 @@ export class Particles4All {
                     native.solids.gen || 0,
                 );
             }
-            graph.withDebugGroup('Particles4All', () => {
-                const imported = this.importResources(graph, native);
-                const simulation = graph.withDebugGroup('Simulation', () => {
-                    const resources = this.createSimulationTransientResources(graph, native.sim);
-                    const simulationImports = { ...imported, pourUpload: pourSchedule.uploadBuffer
-                        ? this.importBuffer(graph, imported, pourSchedule.uploadBuffer, 'particles4all.pour-upload')
-                        : undefined };
-                    return this.recordSimulation(
-                        graph, native, simulationImports, resources, framePlan, pourSchedule, frameUniforms,
+            const imported = this.importResources(graph, native);
+            const simulation = graph.withDebugGroup('Simulation', () => {
+                const resources = this.createSimulationTransientResources(graph, native.sim);
+                const simulationImports = { ...imported, pourUpload: pourSchedule.uploadBuffer
+                    ? this.importBuffer(graph, imported, pourSchedule.uploadBuffer, 'particles4all.pour-upload')
+                    : undefined };
+                return this.recordSimulation(
+                    graph, native, simulationImports, resources, framePlan, pourSchedule, frameUniforms,
+                );
+            });
+            const readbacks = graph.withDebugGroup('Diagnostics', () => this.recordDiagnostics(
+                graph, native, imported, simulation.parity, pourSchedule.finalCount,
+                frameUniforms[framePlan.substeps] ?? frameUniforms[0] ?? native.sim.uni,
+            ));
+            this.pendingSimulationCommit = { ...simulation, ...readbacks };
+            graph.withDebugGroup('Render', () => {
+                const depth = this.settings.displayMode === 'particles' || this.settings.displayMode === 'surface-mesh'
+                    ? graph.createTexture({ label: 'particles4all.render.depth', format: 'depth24plus',
+                        size: [this.width, this.height] }) : undefined;
+                const surfaceResources = renderFrame.meshOn ? this.createSurfaceTransientResources(graph, native.mesh) : null;
+                const ssfrResources = renderFrame.ssfrOn ? this.createSsfrTransientResources(graph, native.ssfr, pourSchedule.finalCount) : null;
+                const rayResources = renderFrame.rayOn && nativeRenderOptions.raySurface === 1
+                    ? this.createRayTransientResources(graph) : null;
+                const solidPacked = native.solids.count > 0
+                    ? graph.createBuffer({ label: 'particles4all.solids.packed', size: native.solids.count * 6 * 16 }) : null;
+                if (renderFrame.meshOn && (!renderFrame.rayOn || nativeRenderOptions.raySurface === 1)) {
+                    const slot = native.mesh.frame % native.mesh.triRing.length;
+                    if (native.mesh.triState[slot] === 0) this.importBuffer(
+                        graph, imported, native.mesh.triRing[slot], 'particles4all.triangle-readback.' + slot,
                     );
-                });
-                const readbacks = graph.withDebugGroup('Diagnostics', () => this.recordDiagnostics(
-                    graph, native, imported, simulation.parity, pourSchedule.finalCount,
-                    frameUniforms[framePlan.substeps] ?? frameUniforms[0] ?? native.sim.uni,
-                ));
-                this.pendingSimulationCommit = { ...simulation, ...readbacks };
-                graph.withDebugGroup('Render', () => {
-                    const depth = this.settings.displayMode === 'particles' || this.settings.displayMode === 'surface-mesh'
-                        ? graph.createTexture({ label: 'particles4all.render.depth', format: 'depth24plus',
-                            size: [this.width, this.height] }) : undefined;
-                    const surfaceResources = renderFrame.meshOn ? this.createSurfaceTransientResources(graph, native.mesh) : null;
-                    const ssfrResources = renderFrame.ssfrOn ? this.createSsfrTransientResources(graph, native.ssfr, pourSchedule.finalCount) : null;
-                    const rayResources = renderFrame.rayOn && nativeRenderOptions.raySurface === 1
-                        ? this.createRayTransientResources(graph) : null;
-                    const solidPacked = native.solids.count > 0
-                        ? graph.createBuffer({ label: 'particles4all.solids.packed', size: native.solids.count * 6 * 16 }) : null;
-                    if (renderFrame.meshOn && (!renderFrame.rayOn || nativeRenderOptions.raySurface === 1)) {
-                        const slot = native.mesh.frame % native.mesh.triRing.length;
-                        if (native.mesh.triState[slot] === 0) this.importBuffer(
-                            graph, imported, native.mesh.triRing[slot], 'particles4all.triangle-readback.' + slot,
-                        );
-                    }
-                    this.recordRender(graph, native, imported, { ...options, depth }, nativeRenderOptions,
-                        renderFrame, ssfrFrame, ssfrResources, solidPacked, rayFrame, rayResources, surfaceResources);
-                });
+                }
+                this.recordRender(graph, native, imported, { ...options, depth }, nativeRenderOptions,
+                    renderFrame, ssfrFrame, ssfrResources, solidPacked, rayFrame, rayResources, surfaceResources);
             });
             this.pendingFrameRecorded = true;
             // planFrame computes against temporary CPU timing state; publish it only on commit.
