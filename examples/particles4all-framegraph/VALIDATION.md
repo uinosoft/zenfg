@@ -54,10 +54,18 @@ npm run build:pages
 npm run docs:check
 ```
 
-All four commands passed. The final root suite passed 459 tests. The assembled
+All four commands passed. After rebasing onto main `0ea2efc`, the root suite
+passed 510 tests. The assembled
 Pages build was also opened in the browser and rendered the default scene with
 its bundled environment and no WebGPU validation errors. Vite reported the
 existing large-chunk warning for shared Inspector/highlighter dependencies.
+
+The rebased checkout was also verified with `npm run dev:playground` on port
+5175 after `npm install` restored the new workspace package link. The default
+fluid scene and environment loaded, Inspector captured real frames with GPU
+timing and zero diagnostics, and switching to Minimal Frame and back refreshed
+the capture correctly. The JavaScript shader source tab rendered with syntax
+highlighting.
 
 ## Remaining hardware coverage
 

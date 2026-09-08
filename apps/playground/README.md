@@ -5,9 +5,14 @@ keeps a live example as the stage and opens source code or the embedded
 FrameGraph Inspector in an overlay above it.
 
 ```sh
+npm install
 npm run dev:playground
 npm run build --workspace @zenfg/playground-app
 ```
+
+Run these commands from the repository root. Repeat `npm install` after pulling
+or rebasing changes that add example workspaces, so npm creates their local
+package links before Vite scans the catalog imports.
 
 For the integrated Site, Inspector, and Playground development workflow, see
 the website development section in [`CONTRIBUTING.md`](../../CONTRIBUTING.md).
