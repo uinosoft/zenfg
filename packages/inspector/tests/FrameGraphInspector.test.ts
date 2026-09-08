@@ -400,6 +400,7 @@ test('imports V1 and Legacy JSON atomically without removing the live provider',
 		{ type: 'application/json' },
 	) as unknown as File);
 	assert.equal(panel.getSnapshot()?.capture.frameIndex, 2);
+	tabButton(panel.dom.querySelector('.zenfg-inspector-workbench-tabs')!, 'Overview').click();
 	assert.match(panel.dom.querySelector('.zenfg-inspector-capture-summary')?.textContent ?? '', /legacy-v0 → canonical v1\.1/);
 	assert.match(panel.dom.querySelector('.zenfg-inspector-command-status')?.textContent ?? '', /migrated/);
 	assert.match(panel.dom.querySelector('.zenfg-inspector-capture-summary')?.textContent ?? '', /Texture viewsUnknown/);
@@ -874,8 +875,9 @@ test('detail link hover previews exact targets and clears on pane changes withou
     tabButton(tabs, 'Relations').click();
     const passLink = tabButton(content, 'bloom');
     assert.equal(passLink.textContent, 'bloom');
-    assert.match(passLink.parentElement!.querySelector('span')!.textContent!, /write.*color-attachment.*overwrite.*baseMipLevel/);
-    assert.equal(passLink.parentElement!.querySelector('span')!.querySelector('button'), null);
+    const accessFacts = passLink.closest('.zenfg-inspector-relation-entry')!.querySelector('span')!;
+    assert.match(accessFacts.textContent!, /write.*color-attachment.*overwrite.*mip 0–0.*layers 0–0.*aspect all/);
+    assert.equal(accessFacts.querySelector('button'), null);
     enter(passLink);
     assert.deepEqual(request!.hovered, { kind: 'node', id: 'node:2' });
     assert.deepEqual(request!.selected, { kind: 'resource', id: 'resource:2' });
@@ -935,11 +937,11 @@ test('resource selection exposes exact access facts and distinct output roots wi
     const content = panel.dom.querySelector('.zenfg-inspector-inspector-content')!;
     tabButton(tabs, 'Relations').click();
     const accessLink = tabButton(content, 'Update history 0');
-    const facts = accessLink.parentElement!.querySelector('span')!.textContent!;
-    assert.match(facts, /write.*overwrite.*producesValue: true.*bytes 0–8/);
+    const facts = accessLink.closest('.zenfg-inspector-relation-entry')!.querySelector('span')!.textContent!;
+    assert.match(facts, /write.*overwrite.*produces a value.*bytes 0–8/);
     accessLink.click();
     const historyLink = tabButton(content, 'Temporal history');
-    assert.equal(historyLink.parentElement!.querySelector('span')!.textContent, facts);
+    assert.equal(historyLink.closest('.zenfg-inspector-relation-entry')!.querySelector('span')!.textContent, facts);
     historyLink.click();
     assert.equal(tabButton(tabs, 'Summary').getAttribute('aria-selected'), 'true');
     const expectedRoots = ['persistent-state · bytes 0–32', 'debug-capture · bytes 16–32'];
@@ -1056,7 +1058,8 @@ test('keeps active view, filters, Inspector state, and list scroll across select
 	assert.equal(panel.dom.querySelector<HTMLElement>('.zenfg-inspector-inspector')?.hidden, true);
 	assert.match(panel.dom.querySelector('.zenfg-inspector-resources-view')?.textContent ?? '', /scene-color/);
 	assert.doesNotMatch(panel.dom.querySelector('.zenfg-inspector-resources-view')?.textContent ?? '', /postfx-color/);
-	assert.equal(panel.dom.querySelector('.zenfg-inspector-inspector > header strong')?.textContent, 'scene');
+	assert.equal(panel.dom.querySelector('.zenfg-inspector-inspector > header strong')?.textContent, 'Inspector');
+	assert.equal(panel.dom.querySelector<HTMLButtonElement>('.zenfg-inspector-open-inspector')?.hidden, true);
 
 	const sceneResource = Array.from(panel.dom.querySelectorAll<HTMLButtonElement>('.zenfg-inspector-resources-view .zenfg-inspector-relation-button'))
 		.find((button) => button.textContent === 'scene-color');

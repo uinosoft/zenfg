@@ -1,4 +1,3 @@
-import { GraphSearch } from './panelGraphSearch.ts';
 import type { FrameGraphDebugViewModel } from './debugCaptureModel.ts';
 import {
 	formatBytes,
@@ -13,8 +12,10 @@ import { MemoryView } from './panelMemoryView.ts';
 import { PassesView } from './panelPassesView.ts';
 import { ResourcesView } from './panelResourcesView.ts';
 import { renderGraphView, resizeGraph } from './panelGraphView.ts';
+import { DetailLayout } from './panelDetailLayout.ts';
+import { GraphSearch } from './panelGraphSearch.ts';
 import type { GraphViewState, Selection, WorkbenchTab } from './panelTypes.ts';
-import { formatEstimatedBytes, formatEstimateCoverage, formatTimingCoverage, type WorkbenchCallbacks } from './panelWorkbenchHelpers.ts';
+import { enableTabKeyboard, formatEstimatedBytes, formatEstimateCoverage, formatTimingCoverage, type WorkbenchCallbacks } from './panelWorkbenchHelpers.ts';
 
 export type FrameGraphDebugWorkbenchActions = {
 	onCapture(): void;
@@ -48,6 +49,9 @@ export class FrameGraphDebugWorkbench {
 	private readonly tabList = document.createElement('div');
 	private readonly commandActions = document.createElement('div');
 	private readonly commandStatus = document.createElement('span');
+	private readonly feedback = document.createElement('details');
+	private readonly feedbackTitle = document.createElement('summary');
+	private readonly captureContext = document.createElement('div');
 	private readonly workspace = document.createElement('div');
 	private readonly main = document.createElement('main');
 	private readonly emptyHost = document.createElement('div');
@@ -58,9 +62,9 @@ export class FrameGraphDebugWorkbench {
 	private readonly memory: MemoryView;
 	private readonly diagnostics: DiagnosticsView;
 	private readonly inspector: InspectorView;
+	private readonly detailLayout: DetailLayout;
 	private readonly graphSearch: GraphSearch;
 	private readonly captureDetails = document.createElement('details');
-	private destroyed = false;
 	private readonly inspectorOpenButton = document.createElement('button');
 	private readonly captureButton = document.createElement('button');
 	private readonly importButton = document.createElement('button');
@@ -76,6 +80,7 @@ export class FrameGraphDebugWorkbench {
 	private snapshot: FrameGraphDebugViewModel | undefined;
 	private selected: Selection | undefined;
 	private hovered: Selection | undefined;
+	private destroyed = false;
 
 	constructor(
 		private readonly graphView: GraphViewState,
@@ -98,7 +103,7 @@ export class FrameGraphDebugWorkbench {
 		this.commandStatus.className = 'zenfg-inspector-command-status';
 		this.commandStatus.setAttribute('role', 'status');
 		this.commandStatus.setAttribute('aria-live', 'polite');
-		this.workspace.className = 'zenfg-inspector-workspace inspector-open';
+		this.workspace.className = 'zenfg-inspector-workspace';
 		this.main.className = 'zenfg-inspector-main';
 		this.emptyHost.className = 'zenfg-inspector-workbench-empty';
 		this.emptyHost.setAttribute('role', 'status');
@@ -144,6 +149,7 @@ export class FrameGraphDebugWorkbench {
 			this.tabButtons.set(tab, button);
 			this.tabList.appendChild(button);
 		}
+		enableTabKeyboard(this.tabList);
 
 		this.inspectorOpenButton.type = 'button';
 		this.inspectorOpenButton.hidden = true;
@@ -197,7 +203,6 @@ export class FrameGraphDebugWorkbench {
 		this.exportMenu.append(this.downloadButton, this.copyButton);
 
 		this.commandActions.append(
-			this.commandStatus,
 			this.inspectorOpenButton,
 			this.captureButton,
 			this.importButton,
@@ -212,14 +217,17 @@ export class FrameGraphDebugWorkbench {
 			const targetNode = target as Node;
 			if (!this.exportButton.contains(targetNode) && !this.exportMenu.contains(targetNode)) this.setExportMenuOpen(false);
 		});
-		this.root.addEventListener('keydown', (event) => {
-			if (event.key !== 'Escape' || this.exportMenu.hidden) return;
-			this.setExportMenuOpen(false);
-			this.exportButton.focus();
-		});
+		this.root.addEventListener('keydown', (event) => this.handleMenuKey(event));
 		this.main.append(this.emptyHost, ...this.views.values());
 		this.workspace.append(this.main, this.inspector.root);
-		this.root.append(this.commandBar, this.workspace);
+		this.captureContext.className = 'zenfg-inspector-capture-context';
+		this.captureContext.hidden = true;
+		this.feedback.className = 'zenfg-inspector-feedback';
+		this.feedback.hidden = true;
+		this.feedback.append(this.feedbackTitle, this.commandStatus);
+		this.root.append(this.commandBar, this.captureContext, this.feedback, this.workspace);
+		this.detailLayout = new DetailLayout(this.workspace, this.main, this.inspector.root, this.commandBar, () => this.inspector.setOpen(false));
+		this.workspace.addEventListener('detail-layout-change', () => this.resizeGraph());
 		this.showEmptyState('empty', 'Drop a ZenFG Snapshot here or choose Import.', 'Files are processed locally in your browser.');
 		this.setSnapshotActionState({
 			providerAvailable: false,
@@ -237,21 +245,16 @@ export class FrameGraphDebugWorkbench {
 		this.selected = selected;
 		this.hovered = undefined;
 		this.renderSummary(snapshot);
-		this.graphSearch.setSnapshot(snapshot);
 		this.passes.setSnapshot(snapshot);
 		this.resources.setSnapshot(snapshot);
 		this.memory.setSnapshot(snapshot);
 		this.diagnostics.setSnapshot(snapshot);
-		const counts = snapshot.protocol.diagnostics.reduce((counts, entry) => { if (entry.severity !== 'info') counts[entry.severity]++; return counts; }, { error: 0, warning: 0 });
-		this.tabButtons.get('diagnostics')!.title = `${counts.error} errors, ${counts.warning} warnings`;
-		this.tabButtons.get('diagnostics')!.dataset.diagnosticCount = counts.error + counts.warning ? `${counts.error}/${counts.warning}` : '';
+		this.renderCaptureContext(snapshot);
+		this.graphSearch.setSnapshot(snapshot);
 		this.inspector.setSnapshot(snapshot);
-		this.passes.setSelection(selected);
-		this.resources.setSelection(selected);
-		this.memory.setSelection(selected);
-		this.diagnostics.setSelection(selected);
 		this.inspector.setSelection(selected, false);
 		this.emptyHost.hidden = true;
+		this.updateSelectionViews();
 		this.updateActiveTab();
 		this.updateWorkspaceState();
 		if (this.activeTab === 'graph') this.renderGraph();
@@ -262,6 +265,7 @@ export class FrameGraphDebugWorkbench {
 		this.snapshot = undefined;
 		this.selected = undefined;
 		this.hovered = undefined;
+		this.captureContext.hidden = true;
 		this.emptyHost.hidden = false;
 		this.emptyHost.dataset.state = kind;
 		const icon = createPanelIcon(kind === 'capturing' ? 'spinner' : kind === 'error' ? 'error' : kind === 'waiting' ? 'waiting' : 'empty');
@@ -313,14 +317,14 @@ export class FrameGraphDebugWorkbench {
 		this.commandStatus.dataset.tone = state.message ? state.messageTone ?? 'error' : 'neutral';
 		if (state.message) this.commandStatus.title = state.message;
 		else this.commandStatus.removeAttribute('title');
+		this.feedback.hidden = !state.message;
+		this.feedback.dataset.tone = state.messageTone ?? 'neutral';
+		this.feedbackTitle.textContent = state.message ? state.messageTone === 'error' ? 'Operation failed · show details' : 'Operation feedback · show details' : '';
 	}
 
 	setSelection(selected: Selection | undefined): void {
 		this.selected = selected;
-		this.passes.setSelection(selected);
-		this.resources.setSelection(selected);
-		this.memory.setSelection(selected);
-		this.diagnostics.setSelection(selected);
+		this.updateSelectionViews();
 		this.inspector.setSelection(selected);
 		if (this.activeTab === 'graph') this.renderGraph();
 	}
@@ -331,10 +335,15 @@ export class FrameGraphDebugWorkbench {
 	}
 
 	setActiveTab(tab: WorkbenchTab): void {
-		if (this.destroyed || this.activeTab === tab) return;
-		if (this.activeTab === 'graph') { this.graphView.revealOnNextRender = undefined; this.graphView.renderer?.cancelReveal?.(); }
+		if (this.destroyed) return;
+		if (this.activeTab === tab) return;
+		if (this.activeTab === 'graph') {
+			this.graphView.revealOnNextRender = undefined;
+			this.graphView.renderer?.cancelReveal?.();
+		}
 		this.activeTab = tab;
 		this.updateActiveTab();
+		this.updateSelectionViews();
 		this.updateWorkspaceState();
 		if (tab === 'graph') {
 			window.requestAnimationFrame(() => {
@@ -347,7 +356,6 @@ export class FrameGraphDebugWorkbench {
 
 	refreshGraphStructure(): void {
 		if (!this.snapshot) return;
-		this.passes.setSnapshot(this.snapshot);
 		if (this.activeTab === 'graph') this.renderGraph();
 	}
 
@@ -366,6 +374,7 @@ export class FrameGraphDebugWorkbench {
 			button.disabled = !this.hasSnapshot;
 			button.classList.toggle('active', active);
 			button.setAttribute('aria-selected', active ? 'true' : 'false');
+			button.tabIndex = active ? 0 : -1;
 			const view = this.views.get(tab)!;
 			view.hidden = !this.hasSnapshot || !active;
 			view.setAttribute('aria-labelledby', button.id);
@@ -480,11 +489,68 @@ export class FrameGraphDebugWorkbench {
 	private setExportMenuOpen(open: boolean): void {
 		this.exportMenu.hidden = !open;
 		this.exportButton.setAttribute('aria-expanded', open ? 'true' : 'false');
+		if (open) this.downloadButton.focus();
 	}
 
 	private handleInspectorOpenChange(_open: boolean): void {
 		this.updateWorkspaceState();
 		if (this.activeTab === 'graph') this.resizeGraph(false);
+	}
+
+	private updateWorkspaceState(): void {
+		const inspectorOpen = this.hasSnapshot && this.inspector.isOpen && this.activeTab !== 'overview';
+		this.workspace.classList.toggle('has-capture', this.hasSnapshot);
+		this.inspector.root.classList.toggle('unavailable', !inspectorOpen);
+		this.inspectorOpenButton.hidden = !this.hasSnapshot || !this.selected || inspectorOpen || this.activeTab === 'overview';
+		this.detailLayout.update(inspectorOpen);
+	}
+
+	reveal(selection: Selection, tab: WorkbenchTab): void {
+		if (this.feedbackTitle.textContent === 'Graph location unavailable') {
+			this.feedback.hidden = true;
+			this.commandStatus.replaceChildren();
+			this.commandStatus.hidden = true;
+		}
+		this.setActiveTab(tab);
+		if (tab === 'passes') this.passes.reveal(selection);
+		else if (tab === 'resources') this.resources.reveal(selection);
+		else if (tab === 'memory') this.memory.reveal(selection);
+		else if (tab === 'diagnostics') this.diagnostics.reveal(selection);
+		if (this.detailLayout.isDrawer) this.inspector.setOpen(false);
+		if (tab === 'graph') this.renderGraph();
+	}
+
+	navigate(tab: WorkbenchTab, filter?: 'culled'): void {
+		this.setActiveTab(tab);
+		if (tab === 'passes' && filter === 'culled') this.passes.showCulled();
+		if (this.detailLayout.isDrawer) this.inspector.setOpen(false);
+	}
+
+	showNavigationIssue(message: string, selection: Selection): void {
+		if (this.detailLayout.isDrawer) this.inspector.setOpen(false);
+		this.feedback.hidden = false;
+		this.feedback.open = true;
+		this.feedback.dataset.tone = 'neutral';
+		this.feedbackTitle.textContent = 'Graph location unavailable';
+		const action = document.createElement('button');
+		action.type = 'button';
+		action.className = 'zenfg-inspector-relation-button';
+		const tab = selection.kind === 'resource' ? 'resources' : selection.kind === 'allocation' ? 'memory'
+			: selection.kind === 'root' || selection.kind === 'segment' ? 'diagnostics' : 'passes';
+		action.textContent = `Show in ${tab}`;
+		action.addEventListener('click', () => this.callbacks.onReveal?.(selection, tab));
+		this.commandStatus.hidden = false;
+		this.commandStatus.replaceChildren(document.createTextNode(`${message} `), action);
+		action.focus();
+	}
+
+	destroy(): void { this.destroyed = true; this.detailLayout.destroy(); }
+
+	private updateSelectionViews(): void {
+		this.passes.setSelection(this.selected);
+		this.resources.setSelection(this.selected);
+		this.memory.setSelection(this.selected);
+		this.diagnostics.setSelection(this.selected);
 	}
 
 	private diagnosticCounts(snapshot: FrameGraphDebugViewModel): Record<'error' | 'warning' | 'info', number> {
@@ -493,37 +559,42 @@ export class FrameGraphDebugWorkbench {
 		return counts;
 	}
 
-	private updateWorkspaceState(): void {
-		const inspectorOpen = this.hasSnapshot && this.inspector.isOpen && this.activeTab !== 'overview';
-		this.workspace.classList.toggle('has-capture', this.hasSnapshot);
-		this.workspace.classList.toggle('inspector-open', inspectorOpen);
-		this.inspector.root.classList.toggle('unavailable', !inspectorOpen);
-		this.inspectorOpenButton.hidden = !this.hasSnapshot || inspectorOpen || this.activeTab === 'overview';
-	}
-	reveal(selection: Selection, tab: WorkbenchTab): void {
-		this.setActiveTab(tab);
-		if (tab === 'passes') this.passes.reveal(selection);
-		else if (tab === 'resources') this.resources.reveal(selection);
-		else if (tab === 'memory') this.memory.reveal(selection);
-		else if (tab === 'diagnostics') this.diagnostics.reveal(selection);
-		if (tab === 'graph') this.renderGraph();
-	}
-
-	navigate(tab: WorkbenchTab, filter?: 'culled'): void {
-		this.setActiveTab(tab);
-		if (tab === 'passes' && filter === 'culled') this.passes.showCulled();
-	}
-
-	showNavigationIssue(message: string, selection: Selection): void {
-		const tab = selection.kind === 'resource' ? 'resources' : selection.kind === 'allocation' ? 'memory'
-			: selection.kind === 'root' || selection.kind === 'segment' ? 'diagnostics' : 'passes';
-		const action = document.createElement('button');
-		action.type = 'button'; action.textContent = `Show in ${tab}`;
-		action.addEventListener('click', () => this.callbacks.onReveal?.(selection, tab));
-		this.commandStatus.hidden = false; this.commandStatus.title = message;
-		this.commandStatus.replaceChildren(document.createTextNode(message + ' '), action);
+	private renderCaptureContext(snapshot: FrameGraphDebugViewModel): void {
+		const counts = this.diagnosticCounts(snapshot);
+		this.captureContext.hidden = false;
+		const source = document.createElement('span');
+		source.textContent = `${snapshot.source.label} · Frame ${snapshot.frameIndex} · Captured ${snapshot.protocol.capture.capturedAt ?? 'at unknown time'}`;
+		source.title = source.textContent;
+		const diagnostics = document.createElement('button');
+		diagnostics.type = 'button';
+		diagnostics.textContent = `${counts.error} errors · ${counts.warning} warnings`;
+		diagnostics.dataset.tone = counts.error ? 'error' : counts.warning ? 'warning' : 'neutral';
+		diagnostics.addEventListener('click', () => this.navigate('diagnostics'));
+		this.captureContext.replaceChildren(source, diagnostics);
+		const tab = this.tabButtons.get('diagnostics')!;
+		const label = document.createElement('span');
+		label.textContent = 'Diagnostics';
+		const badge = document.createElement('span');
+		badge.className = 'zenfg-inspector-diagnostic-badge';
+		badge.textContent = `${counts.error} / ${counts.warning}`;
+		badge.title = `${counts.error} errors, ${counts.warning} warnings`;
+		badge.setAttribute('aria-hidden', 'true');
+		tab.replaceChildren(label, ...(counts.error + counts.warning ? [badge] : []));
+		tab.title = badge.title;
 	}
 
-	destroy(): void { this.destroyed = true; }
-
+	private handleMenuKey(event: KeyboardEvent): void {
+		if (this.exportMenu.hidden || event.defaultPrevented) return;
+		if (event.key === 'Escape') {
+			event.preventDefault(); event.stopPropagation();
+			this.setExportMenuOpen(false); this.exportButton.focus();
+		} else if (['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) {
+			event.preventDefault(); event.stopPropagation();
+			const items = [this.downloadButton, this.copyButton].filter((button) => !button.disabled);
+			const index = items.indexOf(document.activeElement as HTMLButtonElement);
+			const next = event.key === 'Home' ? 0 : event.key === 'End' ? items.length - 1
+				: (index + (event.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length;
+			items[next]?.focus();
+		}
+	}
 }

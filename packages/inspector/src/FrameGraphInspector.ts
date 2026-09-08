@@ -418,11 +418,7 @@ export class FrameGraphInspector {
 		this.statusMessage = undefined;
 		this.statusTone = 'neutral';
 		if (this.selected?.kind === 'node' || this.selected?.kind === 'culled') this.selected = resolveNodeSelection(viewModel, this.selected.id);
-		if (!this.selected || !selectionExists(viewModel, this.selected)) {
-			this.selected = viewModel.nodes[0]
-				? { kind: 'node', id: viewModel.nodes[0].id }
-				: undefined;
-		}
+		else if (this.selected && !selectionExists(viewModel, this.selected)) this.selected = undefined;
 		this.workbench.setSnapshot(viewModel, this.selected);
 		this.updateCaptureActions();
 		this.updateGraphControls();
@@ -474,6 +470,7 @@ export class FrameGraphInspector {
 		void this.captureSnapshot();
 	}
 	private handleSelect(selection: Selection): void {
+		if (!this.viewModel || !selectionExists(this.viewModel, selection)) return;
 		this.selected = selection;
 		this.workbench.setSelection(selection);
 	}
@@ -645,7 +642,7 @@ function formatImportLimit(bytes: number): string {
 }
 
 function formatIssues(issues: readonly { readonly path: string; readonly message: string }[]): string {
-	return issues.slice(0, 3).map((issue) => `${issue.path || '/'}: ${issue.message}`).join('; ');
+	return issues.map((issue) => `${issue.path || '/'}: ${issue.message}`).join('\n');
 }
 
 function isFileDrag(event: DragEvent): boolean {

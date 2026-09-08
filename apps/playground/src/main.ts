@@ -79,7 +79,7 @@ overlayClose.addEventListener('click', () => {
 });
 
 document.addEventListener('keydown', (event) => {
-	if (event.key !== 'Escape' || currentPanel === 'none') return;
+	if (event.defaultPrevented || event.key !== 'Escape' || currentPanel === 'none') return;
 	event.preventDefault();
 	closePanel();
 });
