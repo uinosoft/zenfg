@@ -27,3 +27,7 @@ forward-Z and reverse-Z modes. Its host and adapter remain local to the showcase
 adaptation: Babylon.js writes native attachments, a native pass normalizes both
 color and depth orientation, and the Reference Renderer continues drawing.
 Its Reverse Z control changes convention on the same engine and shared device.
+
+`babylon-lite-interop` uses Babylon Lite 1.28 with native reverse depth. A graph
+pass decodes Lite color while Reference Renderer loads the original depth
+attachment. It uses the same procedural composition without configurable effects.

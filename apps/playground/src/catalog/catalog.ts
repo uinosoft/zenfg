@@ -1,5 +1,6 @@
 import { interactiveBackgroundExample } from './interactiveBackground.ts';
 import { referenceRendererExample } from './referenceRenderer.ts';
+import { babylonLiteInteropExample } from './babylonLiteInterop.ts';
 import { babylonInteropExample } from './babylonInterop.ts';
 import { threeInteropExample } from './threeInterop.ts';
 import { typeGpuSlimeMoldExample } from './typeGpuSlimeMold.ts';
@@ -20,6 +21,7 @@ export const publicExamples = [
 	referenceRendererExample,
 	threeInteropExample,
 	babylonInteropExample,
+	babylonLiteInteropExample,
 	typeGpuSlimeMoldExample,
 	typeGpuMonocularLightInjectionExample,
 	particles4AllExample,

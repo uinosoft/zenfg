@@ -38,6 +38,10 @@ test('the production catalog is explicit, grouped, and keeps canonical sources f
 	assert.equal(findPublicExample('three-interop')?.hasControls, true);
 	assert.equal(findPublicExample('babylon-interop')?.title, 'Babylon.js Co-rendering');
 	assert.equal(findPublicExample('babylon-interop')?.hasControls, true);
+	assert.equal(findPublicExample('babylon-lite-interop')?.title, 'Babylon Lite Co-rendering');
+	assert.equal(findPublicExample('babylon-lite-interop')?.hasControls, true);
+	assert.deepEqual(parsePlaygroundRoute('?example=babylon-lite-interop&panel=code'), { exampleId: 'babylon-lite-interop', panel: 'code' });
+	assert.deepEqual(findPublicExample('babylon-lite-interop')?.sourceFiles.map(file => file.label), ['graph.ts', 'bridge.ts', 'resolve.ts', 'scene.ts', 'start.ts', 'present.ts', 'babylonLiteInterop.ts']);
 	assert.deepEqual(parsePlaygroundRoute('?example=babylon-interop&panel=code'), { exampleId: 'babylon-interop', panel: 'code' });
 	assert.deepEqual(findPublicExample('babylon-interop')?.sourceFiles.map(file => file.label), ['graph.ts', 'bridge.ts', 'resolve.ts', 'scene.ts', 'start.ts', 'present.ts', 'babylonInterop.ts']);
 	assert.equal(findPublicExample('missing'), undefined);
@@ -49,6 +53,7 @@ test('the production catalog is explicit, grouped, and keeps canonical sources f
 			['reference-renderer', 'Showcases'],
 			['three-interop', 'Showcases'],
 			['babylon-interop', 'Showcases'],
+			['babylon-lite-interop', 'Showcases'],
 			['typegpu-slime-mold', 'Showcases'],
 			['typegpu-monocular-light-injection', 'Showcases'],
 			['particles4all-framegraph', 'Showcases'],
