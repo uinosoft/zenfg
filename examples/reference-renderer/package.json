@@ -1,0 +1,14 @@
+{
+  "name": "@zenfg-example/reference-renderer",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": { ".": "./src/index.ts" },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "node ../../scripts/run-tests.mjs examples/reference-renderer/tests"
+  },
+  "dependencies": {
+    "@zenfg/webgpu": "0.1.0-beta.3"
+  }
+}

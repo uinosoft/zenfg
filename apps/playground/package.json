@@ -13,6 +13,7 @@
     "@shikijs/langs": "^4.4.3",
     "@shikijs/themes": "^4.4.3",
     "@zenfg-example/interactive-background": "0.0.0",
+    "@zenfg-example/reference-renderer-demo": "0.0.0",
     "@zenfg-example/typegpu-slime-mold": "0.0.0",
     "@zenfg/inspector": "0.1.0-beta.3",
     "@zenfg/snapshot": "0.1.0-beta.3",

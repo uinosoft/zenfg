@@ -15,6 +15,8 @@ const defaultTestRoots = [
 	resolve(rootDir, 'apps', 'playground', 'tests'),
 	resolve(rootDir, 'apps', 'site', 'tests'),
 	resolve(rootDir, 'examples', 'interactive-background', 'tests'),
+	resolve(rootDir, 'examples', 'reference-renderer', 'tests'),
+	resolve(rootDir, 'examples', 'reference-renderer-demo', 'tests'),
 	resolve(rootDir, 'examples', 'typegpu-slime-mold', 'tests'),
 	resolve(rootDir, 'examples', 'typegpu-monocular-light-injection', 'tests'),
 ];

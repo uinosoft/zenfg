@@ -36,6 +36,7 @@ test('the production catalog is explicit, grouped, and keeps canonical sources f
 		publicExamples.map((example) => [example.id, example.group]),
 		[
 			['interactive-background', 'Showcases'],
+			['reference-renderer', 'Showcases'],
 			['typegpu-slime-mold', 'Showcases'],
 			['typegpu-monocular-light-injection', 'Showcases'],
 			['minimal-frame', '@zenfg/webgpu basics'],
