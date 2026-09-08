@@ -1,0 +1,19 @@
+{
+  "name": "@zenfg-example/babylon-interop",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "test": "node ../../scripts/run-tests.mjs examples/babylon-interop/tests",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "@zenfg-example/reference-renderer": "0.0.0",
+    "@zenfg/snapshot": "0.1.0-beta.3",
+    "@zenfg/webgpu": "0.1.0-beta.3",
+    "@babylonjs/core": "9.4.0"
+  }
+}

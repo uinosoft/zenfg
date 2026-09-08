@@ -18,6 +18,7 @@ const defaultTestRoots = [
 	resolve(rootDir, 'examples', 'reference-renderer', 'tests'),
 	resolve(rootDir, 'examples', 'reference-renderer-demo', 'tests'),
 	resolve(rootDir, 'examples', 'three-interop', 'tests'),
+	resolve(rootDir, 'examples', 'babylon-interop', 'tests'),
 	resolve(rootDir, 'examples', 'typegpu-slime-mold', 'tests'),
 	resolve(rootDir, 'examples', 'typegpu-monocular-light-injection', 'tests'),
 	resolve(rootDir, 'examples', 'particles4all-framegraph', 'tests'),

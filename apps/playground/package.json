@@ -13,6 +13,7 @@
     "@zenfg-example/particles4all-framegraph": "0.0.0",
     "@shikijs/langs": "^4.4.3",
     "@shikijs/themes": "^4.4.3",
+    "@zenfg-example/babylon-interop": "0.0.0",
     "@zenfg-example/interactive-background": "0.0.0",
     "@zenfg-example/reference-renderer-demo": "0.0.0",
     "@zenfg-example/three-interop": "0.0.0",

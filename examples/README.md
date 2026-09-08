@@ -22,3 +22,8 @@ shared attachments, host and presentation policy independently.
 `three-interop` demonstrates that composition with Three.js: the external
 renderer and Reference Renderer share color and depth on one device, with
 forward-Z and reverse-Z modes. Its host and adapter remain local to the showcase.
+
+`babylon-interop` demonstrates an engine-owned device and graph-visible resource
+adaptation: Babylon.js writes native attachments, a native pass normalizes both
+color and depth orientation, and the Reference Renderer continues drawing.
+Its Reverse Z control changes convention on the same engine and shared device.
