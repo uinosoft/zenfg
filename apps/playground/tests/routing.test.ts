@@ -14,6 +14,10 @@ test('playground routes default missing and invalid values safely', () => {
 		exampleId: 'interactive-background',
 		panel: 'inspector',
 	});
+	assert.deepEqual(parsePlaygroundRoute('?example=three-interop&panel=code'), {
+		exampleId: 'three-interop',
+		panel: 'code',
+	});
 	assert.deepEqual(parsePlaygroundRoute('?example=missing&panel=unexpected'), {
 		exampleId: 'missing',
 		panel: 'none',
@@ -30,6 +34,8 @@ test('playground panel controls are mutually exclusive and serializable', () => 
 
 test('the production catalog is explicit, grouped, and keeps canonical sources first', () => {
 	assert.equal(findPublicExample('interactive-background')?.title, 'Interactive FrameGraph Background');
+	assert.equal(findPublicExample('three-interop')?.title, 'Three.js Co-rendering');
+	assert.equal(findPublicExample('three-interop')?.hasControls, true);
 	assert.equal(findPublicExample('missing'), undefined);
 	assert.equal(new Set(publicExamples.map((example) => example.id)).size, publicExamples.length);
 	assert.deepEqual(
@@ -37,6 +43,7 @@ test('the production catalog is explicit, grouped, and keeps canonical sources f
 		[
 			['interactive-background', 'Showcases'],
 			['reference-renderer', 'Showcases'],
+			['three-interop', 'Showcases'],
 			['typegpu-slime-mold', 'Showcases'],
 			['typegpu-monocular-light-injection', 'Showcases'],
 			['particles4all-framegraph', 'Showcases'],
@@ -76,6 +83,17 @@ test('the production catalog is explicit, grouped, and keeps canonical sources f
 			'examples/typegpu-slime-mold/src/slimeMold.ts',
 			'examples/typegpu-slime-mold/src/startTypeGpuSlimeMold.ts',
 			'apps/playground/src/catalog/typeGpuSlimeMold.ts',
+		],
+	);
+	assert.deepEqual(
+		findPublicExample('three-interop')?.sourceFiles.map((file) => file.path),
+		[
+			'examples/three-interop/src/graph.ts',
+			'examples/three-interop/src/bridge.ts',
+			'examples/three-interop/src/scene.ts',
+			'examples/three-interop/src/start.ts',
+			'examples/three-interop/src/present.ts',
+			'apps/playground/src/catalog/threeInterop.ts',
 		],
 	);
 	assert.ok(publicExamples

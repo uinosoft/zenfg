@@ -18,3 +18,7 @@ application-local catalog adapters.
 in `reference-renderer-demo`, which depends on the renderer's package entrypoint.
 Future integrations can depend on that same module while owning their device,
 shared attachments, host and presentation policy independently.
+
+`three-interop` demonstrates that composition with Three.js: the external
+renderer and Reference Renderer share color and depth on one device, with
+forward-Z and reverse-Z modes. Its host and adapter remain local to the showcase.
