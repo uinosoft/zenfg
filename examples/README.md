@@ -13,3 +13,8 @@ their primary dependency.
 Both repository examples and package recipes must remain independent of the
 Playground. The Playground executes and displays their real source through
 application-local catalog adapters.
+
+`reference-renderer` is a private reusable GPU module. Its basic showcase lives
+in `reference-renderer-demo`, which depends on the renderer's package entrypoint.
+Future integrations can depend on that same module while owning their device,
+shared attachments, host and presentation policy independently.

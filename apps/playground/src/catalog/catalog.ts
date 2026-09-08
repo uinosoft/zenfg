@@ -1,4 +1,5 @@
 import { interactiveBackgroundExample } from './interactiveBackground.ts';
+import { referenceRendererExample } from './referenceRenderer.ts';
 import { typeGpuSlimeMoldExample } from './typeGpuSlimeMold.ts';
 import { typeGpuMonocularLightInjectionExample } from './typeGpuMonocularLightInjection.ts';
 import { particles4AllExample } from './particles4All.ts';
@@ -14,6 +15,7 @@ import type { PlaygroundExampleDefinition } from '../types.ts';
 
 export const publicExamples = [
 	interactiveBackgroundExample,
+	referenceRendererExample,
 	typeGpuSlimeMoldExample,
 	typeGpuMonocularLightInjectionExample,
 	particles4AllExample,
