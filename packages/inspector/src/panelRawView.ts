@@ -1,7 +1,7 @@
 import type { SelectedCanonicalDetail } from './panelSelection.ts';
 import { createSearchInput, writeClipboardText } from './panelWorkbenchHelpers.ts';
 
-/** Renders a searchable canonical object when the Raw pane is visited. */
+/** Created only when Raw is visited and retained for the current object/capture. */
 export class RawDetailView {
 	readonly root = document.createElement('div');
 	private readonly tree = document.createElement('div');

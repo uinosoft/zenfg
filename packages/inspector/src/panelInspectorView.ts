@@ -17,6 +17,7 @@ import {
 	formatMeasuredGpuWork,
 	enableTabKeyboard,
 	writeClipboardText,
+	selectionKey,
 	groupPath,
 	resourceLabel,
 	type WorkbenchCallbacks,
@@ -58,6 +59,7 @@ export class InspectorView {
 	private activeTab: InspectorTab = 'summary';
 	private open = false;
 	private hoveredLink: HTMLButtonElement | undefined;
+	private rawCache: { readonly snapshot: FrameGraphDebugViewModel; readonly key: string; readonly view: RawDetailView } | undefined;
 
 	constructor(
 		private readonly callbacks: WorkbenchCallbacks,
@@ -104,11 +106,13 @@ export class InspectorView {
 	}
 
 	setSnapshot(snapshot: FrameGraphDebugViewModel): void {
+		if (this.snapshot !== snapshot) this.rawCache = undefined;
 		this.snapshot = snapshot;
 		this.render();
 	}
 
 	setSelection(selected: Selection | undefined, reveal = true): void {
+		if (!selected || !this.selected || selectionKey(selected) !== selectionKey(this.selected)) this.rawCache = undefined;
 		if (selected?.kind === 'resource'
 			&& (this.selected?.kind !== 'resource' || this.selected.id !== selected.id)) this.activeTab = 'summary';
 		this.selected = selected;
@@ -162,8 +166,12 @@ export class InspectorView {
 		this.title.textContent = this.selectionTitle(snapshot, selected);
 		if (!this.open) return;
 		if (this.activeTab === 'raw') {
-			const detail = resolveSelectedCanonicalDetail(snapshot, selected);
-			if (detail) this.content.appendChild(new RawDetailView(detail, Boolean(snapshot.protocol.capture.migration)).root);
+			const key = selectionKey(selected);
+			if (this.rawCache?.snapshot !== snapshot || this.rawCache.key !== key) {
+				const detail = resolveSelectedCanonicalDetail(snapshot, selected);
+				this.rawCache = detail ? { snapshot, key, view: new RawDetailView(detail, Boolean(snapshot.protocol.capture.migration)) } : undefined;
+			}
+			if (this.rawCache) this.content.appendChild(this.rawCache.view.root);
 			else this.content.textContent = 'Canonical object unavailable in this capture.';
 		} else if (this.activeTab === 'relations') {
 			this.content.appendChild(this.createRelations(snapshot, selected));

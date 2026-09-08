@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { nodeDimensions } from '../src/panelGraphVisuals.ts';
-import { rootKey } from '../src/debugCaptureModel.ts';
+import { createDebugViewModel, rootKey } from '../src/debugCaptureModel.ts';
+import type { FrameGraphSnapshotGpuTimings, FrameGraphSnapshotNodeKind } from '@zenfg/snapshot';
 import { resolveSelectedDetail, selectionExists } from '../src/panelSelection.ts';
 
 import { BufferAccess, TextureAccess } from './accessKinds.ts';
@@ -166,6 +167,76 @@ test('projects collapsed groups while keeping compound hierarchy in the scene', 
         fullyExpanded.interaction.primaryElementIdsBySelection.get(selectionKey({ kind: 'group', pathKey: outer.pathKey })),
         [graphGroupElementId(outer.pathKey)],
     );
+});
+
+test('group graph labels and tooltips distinguish uncollected, partial, complete, and real zero GPU work', () => {
+    const source = createLegacyDebugViewModel(createGroupedCapture()).protocol;
+    const graph = { ...source.graph, nodes: source.graph.nodes.map((node) => ({ ...node, groupId: 'group:1' })) };
+    const cases: readonly { timings: FrameGraphSnapshotGpuTimings; expected: string }[] = [
+        { timings: { status: 'unavailable', reason: 'not collected' }, expected: 'Not collected' },
+        { timings: { status: 'available', frameSpanMicros: 0, nodes: [] }, expected: 'Not collected' },
+        { timings: { status: 'available', frameSpanMicros: 0, nodes: [{ nodeId: 'node:1', durationMicros: 0 }] }, expected: '0.000 ms · Partial · 1/3 timed' },
+        { timings: { status: 'available', frameSpanMicros: 1000, nodes: [{ nodeId: 'node:1', durationMicros: 1000 }] }, expected: '1.000 ms · Partial · 1/3 timed' },
+        { timings: { status: 'available', frameSpanMicros: 0, nodes: [1, 2, 3].map((id) => ({ nodeId: `node:${id}`, durationMicros: 0 })) }, expected: '0.000 ms · Complete · 3/3 timed' },
+        { timings: { status: 'available', frameSpanMicros: 6000, nodes: [1, 2, 3].map((id) => ({ nodeId: `node:${id}`, durationMicros: id * 1000 })) }, expected: '6.000 ms · Complete · 3/3 timed' },
+    ];
+    for (const { timings, expected } of cases) {
+        const snapshot = createDebugViewModel({ ...source, graph, timings: { gpu: timings } });
+        for (const expanded of [false, true]) {
+            const scene = createGraphScene(snapshot, { groupsEnabled: true,
+                expandedGroupPaths: new Set(expanded ? snapshot.debugGroups.map((group) => group.pathKey) : []),
+            });
+            const group = scene.nodes.find((node) => node.kind === 'group' && node.groupId === 'group:1')!;
+            assert.ok(group.label.endsWith(`Measured pass sum: ${expected}`), group.label);
+            assert.ok(group.title.endsWith(`Measured pass sum: ${expected}`), group.title);
+            assert.doesNotMatch(group.title, /Σ GPU work/);
+            if (expected === 'Not collected') assert.doesNotMatch(group.label + group.title, /0\.000 ms/);
+        }
+    }
+    const noEligible = createDebugViewModel({ ...source, graph: { ...graph,
+        nodes: graph.nodes.map((node) => ({ ...node, kind: 'copy' })),
+    }, timings: { gpu: { status: 'unavailable', reason: 'not applicable' } } });
+    const group = createGraphScene(noEligible, { groupsEnabled: true, expandedGroupPaths: new Set() })
+        .nodes.find((node) => node.kind === 'group' && node.groupId === 'group:1')!;
+    assert.ok(group.label.endsWith('Measured pass sum: Not applicable'));
+    assert.ok(group.title.endsWith('Measured pass sum: Not applicable'));
+    assert.doesNotMatch(group.label + group.title, /0\.000 ms|Not collected/);
+});
+
+test('group graph tooltips distinguish missing allocation reports from a valid empty report', () => {
+    const source = createLegacyDebugViewModel(createGroupedCapture()).protocol;
+    const graph = { ...source.graph, resources: source.graph.resources.map(({ allocationId: _allocationId, ...resource }) => resource) };
+    for (const available of [false, true]) {
+        const snapshot = createDebugViewModel({ ...source, graph, memory: { ...source.memory,
+            allocationReport: available ? { status: 'available', allocations: [] } : { status: 'unavailable', reason: 'not captured' },
+        } });
+        const group = createGraphScene(snapshot, { groupsEnabled: true, expandedGroupPaths: new Set() })
+            .nodes.find((node) => node.kind === 'group')!;
+        const allocationLine = group.title.split('\n').find((line) => line.startsWith('physical allocations:'));
+        assert.equal(allocationLine, `physical allocations: ${available ? '0' : 'Not collected'}`);
+    }
+});
+
+test('pass graph tooltips distinguish GPU eligibility, opaque work, missing measurements, and zero duration', () => {
+    const source = createLegacyDebugViewModel(createGroupedCapture()).protocol;
+    const cases: readonly [FrameGraphSnapshotNodeKind, number | undefined, string][] = [
+        ['render', undefined, 'Not collected'], ['compute', undefined, 'Not collected'],
+        ['render', 0, '0.000 ms'], ['compute', 250, '0.250 ms'],
+        ['copy', undefined, 'Not applicable'], ['clear-buffer', undefined, 'Not applicable'],
+        ['command', undefined, 'Not applicable'], ['external-submission', undefined, 'Opaque'],
+    ];
+    for (const [kind, duration, expected] of cases) {
+        const nodes = source.graph.nodes.map((node) => node.id === 'node:1' ? { ...node, kind } : node);
+        const snapshot = createDebugViewModel({ ...source, graph: { ...source.graph, nodes },
+            timings: { gpu: duration === undefined ? { status: 'unavailable', reason: 'not captured' }
+                : { status: 'available', frameSpanMicros: duration, nodes: [{ nodeId: 'node:1', durationMicros: duration }] } },
+        });
+        const node = createGraphScene(snapshot, { groupsEnabled: false, expandedGroupPaths: new Set() })
+            .nodes.find((node) => node.kind === 'pass' && node.nodeId === 'node:1')!;
+        const gpu = node.title.split('\n').find((line) => line.startsWith('gpu:'));
+        assert.equal(gpu, `gpu: ${expected}`, kind);
+        assert.doesNotMatch(node.title, /gpu: - ms/);
+    }
 });
 
 test('folds representative dependencies per resource and gives value dependencies priority', () => {

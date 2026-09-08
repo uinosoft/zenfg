@@ -79,7 +79,7 @@ test('node selections follow stable IDs through reorder and retained/culled tran
 	assert.equal(resolveSelectedCanonicalDetail(changed, { kind: 'culled', id: 'node:scene' })?.path, '$.graph.nodes[3]');
 });
 
-test('details start closed, clear disappeared selections, and render canonical Raw for the current object', () => {
+test('details start closed, clear disappeared selections, and cache canonical Raw only for the current object', () => {
 	const window = installDom();
 	try {
 		const view = detailView();
@@ -97,7 +97,9 @@ test('details start closed, clear disappeared selections, and render canonical R
 		assert.doesNotMatch(raw.textContent!, /gpuDurationMicros|debugGroupPath|executionSegment/);
 		button(view.root, 'Summary').click();
 		button(view.root, 'Raw').click();
+		assert.strictEqual(view.root.querySelector('.zenfg-inspector-raw-view'), raw);
 		view.setSnapshot(createDebugViewModel(fixture()));
+		assert.notStrictEqual(view.root.querySelector('.zenfg-inspector-raw-view'), raw);
 		view.setSelection(undefined);
 		assert.equal(view.isOpen, false);
 		assert.equal(view.root.hidden, true);

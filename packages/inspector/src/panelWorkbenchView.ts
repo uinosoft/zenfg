@@ -64,6 +64,7 @@ export class FrameGraphDebugWorkbench {
 	private readonly inspector: InspectorView;
 	private readonly detailLayout: DetailLayout;
 	private readonly graphSearch: GraphSearch;
+	private readonly dirtyViews = new Set<WorkbenchTab>();
 	private readonly captureDetails = document.createElement('details');
 	private readonly inspectorOpenButton = document.createElement('button');
 	private readonly captureButton = document.createElement('button');
@@ -244,17 +245,13 @@ export class FrameGraphDebugWorkbench {
 		this.snapshot = snapshot;
 		this.selected = selected;
 		this.hovered = undefined;
-		this.renderSummary(snapshot);
-		this.passes.setSnapshot(snapshot);
-		this.resources.setSnapshot(snapshot);
-		this.memory.setSnapshot(snapshot);
-		this.diagnostics.setSnapshot(snapshot);
+		for (const tab of this.views.keys()) this.dirtyViews.add(tab);
 		this.renderCaptureContext(snapshot);
 		this.graphSearch.setSnapshot(snapshot);
 		this.inspector.setSnapshot(snapshot);
 		this.inspector.setSelection(selected, false);
 		this.emptyHost.hidden = true;
-		this.updateSelectionViews();
+		this.ensureActiveView();
 		this.updateActiveTab();
 		this.updateWorkspaceState();
 		if (this.activeTab === 'graph') this.renderGraph();
@@ -324,7 +321,7 @@ export class FrameGraphDebugWorkbench {
 
 	setSelection(selected: Selection | undefined): void {
 		this.selected = selected;
-		this.updateSelectionViews();
+		this.updateActiveSelection();
 		this.inspector.setSelection(selected);
 		if (this.activeTab === 'graph') this.renderGraph();
 	}
@@ -343,7 +340,7 @@ export class FrameGraphDebugWorkbench {
 		}
 		this.activeTab = tab;
 		this.updateActiveTab();
-		this.updateSelectionViews();
+		this.ensureActiveView();
 		this.updateWorkspaceState();
 		if (tab === 'graph') {
 			window.requestAnimationFrame(() => {
@@ -546,11 +543,29 @@ export class FrameGraphDebugWorkbench {
 
 	destroy(): void { this.destroyed = true; this.detailLayout.destroy(); }
 
-	private updateSelectionViews(): void {
-		this.passes.setSelection(this.selected);
-		this.resources.setSelection(this.selected);
-		this.memory.setSelection(this.selected);
-		this.diagnostics.setSelection(this.selected);
+	private ensureActiveView(): void {
+		const snapshot = this.snapshot;
+		if (!snapshot) return;
+		if (this.dirtyViews.has(this.activeTab)) {
+			switch (this.activeTab) {
+				case 'overview': this.renderSummary(snapshot); break;
+				case 'passes': this.passes.setSnapshot(snapshot); break;
+				case 'resources': this.resources.setSnapshot(snapshot); break;
+				case 'memory': this.memory.setSnapshot(snapshot); break;
+				case 'diagnostics': this.diagnostics.setSnapshot(snapshot); break;
+			}
+			this.dirtyViews.delete(this.activeTab);
+		}
+		this.updateActiveSelection();
+	}
+
+	private updateActiveSelection(): void {
+		switch (this.activeTab) {
+			case 'passes': this.passes.setSelection(this.selected); break;
+			case 'resources': this.resources.setSelection(this.selected); break;
+			case 'memory': this.memory.setSelection(this.selected); break;
+			case 'diagnostics': this.diagnostics.setSelection(this.selected); break;
+		}
 	}
 
 	private diagnosticCounts(snapshot: FrameGraphDebugViewModel): Record<'error' | 'warning' | 'info', number> {

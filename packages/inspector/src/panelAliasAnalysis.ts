@@ -25,7 +25,13 @@ export type AliasAnalysis = {
     readonly hasLifetimes: boolean;
 };
 
+// View models are immutable for the lifetime of a capture. Search and selection
+// changes should not rebuild allocation membership or the execution domain.
+const analysisBySnapshot = new WeakMap<FrameGraphDebugViewModel, AliasAnalysis>();
+
 export function analyzeSnapshotAliases(snapshot: FrameGraphDebugViewModel): AliasAnalysis {
+    const cached = analysisBySnapshot.get(snapshot);
+    if (cached) return cached;
     const allocationById = snapshot.allocationById;
     const resourcesById = snapshot.resourceById;
     const allocationGroups = snapshot.physicalAllocations.map((allocation): AliasAnalysisAllocation => {
@@ -78,6 +84,7 @@ export function analyzeSnapshotAliases(snapshot: FrameGraphDebugViewModel): Alia
         maxUse,
         hasLifetimes,
     };
+    analysisBySnapshot.set(snapshot, analysis);
     return analysis;
 }
 

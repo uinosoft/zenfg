@@ -135,9 +135,10 @@ test('memory distinguishes unavailable reports, partial estimates, and valid zer
 	} finally { env.close(); }
 });
 
-test('allocation analysis ignores imported resource lifetimes', () => {
+test('allocation analysis caches immutable captures and ignores imported resource lifetimes', () => {
 	const viewModel = createDebugViewModel(snapshot());
 	const first = analyzeSnapshotAliases(viewModel);
+	assert.equal(analyzeSnapshotAliases(viewModel), first);
 	assert.equal(first.minUse, 5);
 	assert.equal(first.maxUse, 8);
 	assert.equal(first.resources.get('resource:imported')!.aliasStatus, 'not-transient');
