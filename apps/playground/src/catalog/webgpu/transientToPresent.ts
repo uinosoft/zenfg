@@ -8,6 +8,7 @@ export const transientToPresentExample: PlaygroundExampleDefinition = {
 	summary: 'WebGPU · Transient texture · 2 passes',
 	readyMessage: 'Ready · transient texture presented',
 	footerHint: 'Inspect the transient lifetime between scene and present passes',
+	entrySourceId: 'transient-to-present-recipe',
 	sourceFiles: [
 		{
 			id: 'transient-to-present-recipe',

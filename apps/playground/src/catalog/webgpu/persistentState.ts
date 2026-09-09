@@ -9,6 +9,7 @@ export const persistentStateExample: PlaygroundExampleDefinition = {
 	summary: 'WebGPU · Imported texture · Persistent root',
 	readyMessage: 'Ready · caller-owned history retained',
 	footerHint: 'Capture again to see the imported state begin defined',
+	entrySourceId: 'persistent-state-recipe',
 	sourceFiles: [
 		{
 			id: 'persistent-state-recipe',

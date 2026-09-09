@@ -477,7 +477,7 @@ a:focus-visible {
 
 .code-workspace {
 	display: grid;
-	grid-template-columns: 218px minmax(0, 1fr);
+	grid-template-columns: 260px minmax(0, 1fr);
 	min-width: 0;
 	min-height: 0;
 }
@@ -489,6 +489,8 @@ a:focus-visible {
 	display: flex;
 	flex-direction: column;
 	gap: 3px;
+	min-height: 0;
+	overflow-y: auto;
 	min-width: 0;
 	padding: 12px 9px;
 	border-right: 1px solid rgba(180, 201, 216, 0.12);
@@ -496,6 +498,10 @@ a:focus-visible {
 }
 
 .source-files button {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	flex-shrink: 0;
 	width: 100%;
 	min-height: 36px;
 	padding: 0 10px;
@@ -504,7 +510,7 @@ a:focus-visible {
 	color: #8197a9;
 	background: transparent;
 	font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
-	font-size: 10px;
+	font-size: 12px;
 	text-align: left;
 	cursor: pointer;
 }
@@ -534,7 +540,7 @@ a:focus-visible {
 	border-bottom: 1px solid rgba(180, 201, 216, 0.1);
 	color: #637a8c;
 	font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
-	font-size: 9px;
+	font-size: 12px;
 }
 
 .source-view__toolbar > span {
@@ -550,7 +556,9 @@ a:focus-visible {
 	border-radius: 5px;
 	color: #8fa6b7;
 	background: rgba(255, 255, 255, 0.025);
-	font: 650 9px/1 inherit;
+	font-family: inherit;
+	font-size: 12px;
+	font-weight: 650;
 	cursor: pointer;
 }
 
@@ -572,7 +580,7 @@ a:focus-visible {
 	margin: 0;
 	padding: 18px 0 24px;
 	background: transparent !important;
-	font: 11px/1.68 ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
+	font: 14px/1.7 ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
 	tab-size: 4;
 }
 
@@ -581,7 +589,7 @@ a:focus-visible {
 .source-view__content .shiki .line {
 	display: inline-block;
 	width: 100%;
-	min-height: 1.68em;
+	min-height: 1.7em;
 	padding: 0 24px 0 62px;
 	position: relative;
 }
@@ -596,6 +604,9 @@ a:focus-visible {
 	text-align: right;
 	user-select: none;
 }
+
+.source-files__label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.source-files__entry { flex-shrink: 0; margin-left: auto; padding: 2px 5px; border-radius: 4px; color: #a5e5ff; background: rgba(65, 183, 230, 0.12); font: 11px/1.4 ui-sans-serif, system-ui, sans-serif; }
 
 .panel-message,
 .inspector-loading {
@@ -698,10 +709,10 @@ a:focus-visible {
 	.playground-controls { top: 112px; right: 12px; left: 12px; width: auto; max-height: calc(100% - 132px); }
 	.tool-overlay__header { min-height: 56px; padding-left: 14px; }
 	.code-workspace { grid-template-columns: 1fr; grid-template-rows: auto minmax(0, 1fr); }
-	.source-files { flex-direction: row; overflow-x: auto; padding: 7px; border-right: 0; border-bottom: 1px solid rgba(180, 201, 216, 0.12); }
+	.source-files { flex-direction: row; overflow-x: auto; overflow-y: hidden; padding: 7px; border-right: 0; border-bottom: 1px solid rgba(180, 201, 216, 0.12); }
 	.source-files button { width: auto; flex: 0 0 auto; }
 	.source-view__toolbar { padding-left: 10px; }
-	.source-view__content .shiki { font-size: 10px; }
+	.source-view__content .shiki { font-size: 13px; }
 	.source-view__content .shiki .line { padding-right: 16px; padding-left: 50px; }
 	.source-view__content .shiki .line::before { width: 34px; }
 	.effect-status, .playground-footer { display: none; }

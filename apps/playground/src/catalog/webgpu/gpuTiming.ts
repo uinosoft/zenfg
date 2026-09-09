@@ -8,6 +8,7 @@ export const gpuTimingExample: PlaygroundExampleDefinition = {
 	summary: 'WebGPU · Timestamp query · 1 pass',
 	readyMessage: 'Ready · GPU timing requested',
 	footerHint: 'Unsupported timing remains a valid, inspectable result',
+	entrySourceId: 'gpu-timing-recipe',
 	sourceFiles: [
 		{
 			id: 'gpu-timing-recipe',

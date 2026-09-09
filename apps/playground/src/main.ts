@@ -3,8 +3,9 @@ import { installAppPageLifecycle } from '../../shared/pageLifecycle.ts';
 import { findPublicExample, publicExamples } from './catalog/catalog.ts';
 import { createExamplePicker } from './examplePicker.ts';
 import { parsePlaygroundRoute, routeSearch, toggledPanel } from './routing.ts';
+import { createSourceView } from './sourceView.ts';
 import { disposeHighlighter, highlightSource } from './syntaxHighlighter.ts';
-import type { PlaygroundExampleDefinition, PlaygroundPanel, PlaygroundRuntime, PlaygroundSourceFile } from './types.ts';
+import type { PlaygroundExampleDefinition, PlaygroundPanel, PlaygroundRuntime } from './types.ts';
 
 const playground = requireElement<HTMLElement>('[data-playground]');
 const effectCanvas = requireElement<HTMLCanvasElement>('[data-effect-canvas]');
@@ -37,8 +38,7 @@ let runtime: PlaygroundRuntime | undefined;
 let inspector: FrameGraphInspector | undefined;
 let inspectorPromise: Promise<void> | undefined;
 let codePromise: Promise<void> | undefined;
-let currentSource: string | undefined;
-let sourceRevision = 0;
+let sourceView: ReturnType<typeof createSourceView> | undefined;
 let disposed = false;
 const mountAbort = new AbortController();
 
@@ -84,16 +84,6 @@ document.addEventListener('keydown', (event) => {
 	closePanel();
 });
 
-copySource.addEventListener('click', () => {
-	if (!currentSource) return;
-	void copyText(currentSource).then(() => {
-		copySource.textContent = 'Copied';
-		window.setTimeout(() => {
-			copySource.textContent = 'Copy';
-		}, 1200);
-	});
-});
-
 let runtimePromise: Promise<PlaygroundRuntime | undefined> = Promise.resolve(undefined);
 if (example) {
 	runtimePromise = mountExample(example);
@@ -105,6 +95,7 @@ installAppPageLifecycle(window, {
 		disposed = true;
 		mountAbort.abort();
 		examplePicker.destroy();
+		sourceView?.destroy();
 		inspector?.destroy();
 		runtime?.dispose();
 		controlsHost.replaceChildren();
@@ -184,44 +175,12 @@ function ensureCodeWorkspace(): Promise<void> {
 	return codePromise;
 }
 
-async function initializeCodeWorkspace(definition: PlaygroundExampleDefinition): Promise<void> {
-	sourceFiles.replaceChildren();
-	for (const [index, file] of definition.sourceFiles.entries()) {
-		const button = document.createElement('button');
-		button.type = 'button';
-		button.textContent = file.label;
-		button.dataset.sourceId = file.id;
-		button.dataset.sourceRole = file.role;
-		button.addEventListener('click', () => {
-			void selectSource(file, button);
-		});
-		sourceFiles.appendChild(button);
-		if (index === 0) await selectSource(file, button);
-	}
-}
-
-async function selectSource(file: PlaygroundSourceFile, button: HTMLButtonElement): Promise<void> {
-	const revision = ++sourceRevision;
-	for (const candidate of sourceFiles.querySelectorAll<HTMLButtonElement>('button')) {
-		candidate.classList.toggle('active', candidate === button);
-		candidate.setAttribute('aria-pressed', String(candidate === button));
-	}
-	sourcePath.textContent = file.path;
-	copySource.disabled = true;
-	sourceContent.innerHTML = '<p class="panel-message">Loading source and syntax highlighter…</p>';
-	try {
-		const source = await file.loadSource();
-		const html = await highlightSource(source, file.language);
-		if (revision !== sourceRevision) return;
-		currentSource = source;
-		sourceContent.innerHTML = html;
-		copySource.disabled = false;
-	}
-	catch (error) {
-		if (revision !== sourceRevision) return;
-		currentSource = undefined;
-		sourceContent.textContent = `Could not load source: ${toError(error).message}`;
-	}
+function initializeCodeWorkspace(definition: PlaygroundExampleDefinition): Promise<void> {
+	sourceView = createSourceView({
+		definition, files: sourceFiles, path: sourcePath,
+		content: sourceContent, copy: copySource, highlight: highlightSource, copyText,
+	});
+	return sourceView.ready;
 }
 
 function ensureInspectorWorkspace(): Promise<void> {

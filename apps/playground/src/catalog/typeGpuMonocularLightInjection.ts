@@ -10,14 +10,14 @@ type ControlPane = {
 };
 const sources = {
     'monocularLightInjection.ts': () => import('../../../../examples/typegpu-monocular-light-injection/src/monocularLightInjection.ts?raw'),
-    'startMonocularLightInjection.ts': () => import('../../../../examples/typegpu-monocular-light-injection/src/startMonocularLightInjection.ts?raw'),
-    'monocularLightInjectionShaders.ts': () => import('../../../../examples/typegpu-monocular-light-injection/src/monocularLightInjectionShaders.ts?raw'),
     'model-store.ts': () => import('../../../../examples/typegpu-monocular-light-injection/src/model-store.ts?raw'),
+    'monocularLightInjectionShaders.ts': () => import('../../../../examples/typegpu-monocular-light-injection/src/monocularLightInjectionShaders.ts?raw'),
+    'host.ts': () => import('../../../../examples/typegpu-monocular-light-injection/src/host.ts?raw'),
 };
 const sourceFiles: PlaygroundSourceFile[] = Object.entries(sources).map(([name, load]) => ({
     id: `monocular-${name}`, label: name,
     path: `examples/typegpu-monocular-light-injection/src/${name}`,
-    role: name.includes('Shaders') ? 'shader' : name.startsWith('start') || name === 'model-store.ts' ? 'host' : 'example',
+    role: name.includes('Shaders') ? 'shader' : name === 'host.ts' || name === 'model-store.ts' ? 'host' : 'example',
     language: 'typescript',
     loadSource: async () => (await load()).default,
 }));
@@ -30,11 +30,18 @@ export const typeGpuMonocularLightInjectionExample: PlaygroundExampleDefinition 
     readyMessage: 'Live · TypeGPU depth inference + ZenFG',
     footerHint: 'Move or drag the light · Scroll to change distance · Initial model ~13–23 MB',
     hasControls: true,
-    sourceFiles: [...sourceFiles, {
-        id: 'monocular-adapter', label: 'typeGpuMonocularLightInjection.ts',
-        path: 'apps/playground/src/catalog/typeGpuMonocularLightInjection.ts', role: 'host', language: 'typescript',
-        loadSource: async () => (await import('./typeGpuMonocularLightInjection.ts?raw')).default,
-    }],
+    entrySourceId: 'typegpu-monocular-light-injection-entry',
+    sourceFiles: [
+        {
+            id: 'typegpu-monocular-light-injection-entry', label: 'main.ts', role: 'example', language: 'typescript',
+            path: 'examples/typegpu-monocular-light-injection/src/main.ts',
+            loadSource: async () => (await import('../../../../examples/typegpu-monocular-light-injection/src/main.ts?raw')).default,
+        },
+        ...sourceFiles, {
+            id: 'monocular-adapter', label: 'typeGpuMonocularLightInjection.ts',
+            path: 'apps/playground/src/catalog/typeGpuMonocularLightInjection.ts', role: 'host', language: 'typescript',
+            loadSource: async () => (await import('./typeGpuMonocularLightInjection.ts?raw')).default,
+        }],
     async mount(context) {
         const [example, { Pane }] = await Promise.all([import('@zenfg-example/typegpu-monocular-light-injection'), import('tweakpane')]);
         context.signal?.throwIfAborted();
@@ -54,8 +61,10 @@ export const typeGpuMonocularLightInjectionExample: PlaygroundExampleDefinition 
         };
         const sync = (state: MonocularState) => {
             if (disposed) return;
-            Object.assign(params, { model: state.model, source: state.source, camera: state.camera,
-                status: state.status, cacheModels: state.cacheModels, cached: state.cached ? 'cached' : 'not cached' });
+            Object.assign(params, {
+                model: state.model, source: state.source, camera: state.camera,
+                status: state.status, cacheModels: state.cacheModels, cached: state.cached ? 'cached' : 'not cached'
+            });
             for (const control of controls) control.disabled = state.busy;
             syncing = true;
             try { pane?.refresh(); }

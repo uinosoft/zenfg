@@ -12,18 +12,18 @@ type ControlPane = {
 type PaneConstructor = new (options: { container: HTMLElement; title: string }) => ControlPane;
 const sources = {
     'Particles4AllFeature.ts': () => import('../../../../examples/particles4all-framegraph/src/Particles4AllFeature.ts?raw'),
-    'startParticles4All.ts': () => import('../../../../examples/particles4all-framegraph/src/startParticles4All.ts?raw'),
     'settings.ts': () => import('../../../../examples/particles4all-framegraph/src/settings.ts?raw'),
     'upstream/wgsl.js': () => import('../../../../examples/particles4all-framegraph/src/upstream/wgsl.js?raw'),
     'upstream/mesh_wgsl.js': () => import('../../../../examples/particles4all-framegraph/src/upstream/mesh_wgsl.js?raw'),
     'upstream/ray_wgsl.js': () => import('../../../../examples/particles4all-framegraph/src/upstream/ray_wgsl.js?raw'),
     'upstream/ssfr_wgsl.js': () => import('../../../../examples/particles4all-framegraph/src/upstream/ssfr_wgsl.js?raw'),
     'upstream/ssfr_composite_wgsl.js': () => import('../../../../examples/particles4all-framegraph/src/upstream/ssfr_composite_wgsl.js?raw'),
+    'host.ts': () => import('../../../../examples/particles4all-framegraph/src/host.ts?raw'),
 };
 const sourceFiles: PlaygroundSourceFile[] = Object.entries(sources).map(([name, load]) => ({
     id: `particles4all-${name}`, label: name,
     path: `examples/particles4all-framegraph/src/${name}`,
-    role: name.endsWith('.js') ? 'shader' : name.startsWith('start') ? 'host' : 'example',
+    role: name.endsWith('.js') ? 'shader' : name === 'host.ts' ? 'host' : 'example',
     language: name.endsWith('.js') ? 'javascript' : 'typescript',
     loadSource: async () => (await load()).default,
 }));
@@ -34,11 +34,18 @@ export const particles4AllExample: PlaygroundExampleDefinition = {
     readyMessage: 'Live · Particles4All simulation + ZenFG',
     footerHint: 'Hover to push · Drag to orbit or carry solids · Right-drag to pan · Scroll to zoom · Space to pause',
     hasControls: true,
-    sourceFiles: [...sourceFiles, {
-        id: 'particles4all-adapter', label: 'particles4All.ts',
-        path: 'apps/playground/src/catalog/particles4All.ts', role: 'host', language: 'typescript',
-        loadSource: async () => (await import('./particles4All.ts?raw')).default,
-    }],
+    entrySourceId: 'particles4all-framegraph-entry',
+    sourceFiles: [
+        {
+            id: 'particles4all-framegraph-entry', label: 'main.ts', role: 'example', language: 'typescript',
+            path: 'examples/particles4all-framegraph/src/main.ts',
+            loadSource: async () => (await import('../../../../examples/particles4all-framegraph/src/main.ts?raw')).default,
+        },
+        ...sourceFiles, {
+            id: 'particles4all-adapter', label: 'particles4All.ts',
+            path: 'apps/playground/src/catalog/particles4All.ts', role: 'host', language: 'typescript',
+            loadSource: async () => (await import('./particles4All.ts?raw')).default,
+        }],
     async mount(context) {
         const [{ startParticles4All }, { Pane }] = await Promise.all([
             import('@zenfg-example/particles4all-framegraph'), import('tweakpane'),
@@ -154,8 +161,10 @@ export function createParticles4AllControls(
     const scene = pane.addFolder({ title: 'Scene', expanded: true });
     scene.addBinding(params, 'preset', { options: { Small: 'small', Medium: 'medium', Large: 'large' } }).on('change', () => attempt(() => {
         const preservedQuality = params.ssfrScale;
-        feature.setSettings({ preset: params.preset as Particles4AllPreset,
-            ...(qualityTouched ? { ssfrScale: preservedQuality } : {}) });
+        feature.setSettings({
+            preset: params.preset as Particles4AllPreset,
+            ...(qualityTouched ? { ssfrScale: preservedQuality } : {})
+        });
         refreshFromFeature();
     }));
     scene.addBinding(params, 'displayMode', {

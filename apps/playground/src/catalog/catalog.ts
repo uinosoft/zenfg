@@ -1,3 +1,4 @@
+import { orderedSourceFiles } from '../sourceView.ts';
 import { interactiveBackgroundExample } from './interactiveBackground.ts';
 import { referenceRendererExample } from './referenceRenderer.ts';
 import { babylonLiteInteropExample } from './babylonLiteInterop.ts';
@@ -36,6 +37,7 @@ export const publicExamples = [
 ] as const satisfies readonly PlaygroundExampleDefinition[];
 
 for (const example of publicExamples) {
+	orderedSourceFiles(example);
 	if (example.hasControls && example.group !== 'Showcases') {
 		throw new Error(`Only repository showcases may declare controls: ${example.id}`);
 	}

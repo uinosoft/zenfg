@@ -18,7 +18,13 @@ export const babylonInteropExample: PlaygroundExampleDefinition = {
     readyMessage: 'Live · Babylon.js + Reference Renderer',
     footerHint: 'Drag to orbit · Scroll to zoom',
     hasControls: true,
+    entrySourceId: 'babylon-interop-entry',
     sourceFiles: [
+        {
+            id: 'babylon-interop-entry', label: 'main.ts', role: 'example', language: 'typescript',
+            path: 'examples/babylon-interop/src/main.ts',
+            loadSource: async () => (await import('../../../../examples/babylon-interop/src/main.ts?raw')).default,
+        },
         {
             id: 'babylon-interop-graph', label: 'graph.ts', role: 'example', language: 'typescript',
             path: 'examples/babylon-interop/src/graph.ts',
@@ -40,14 +46,14 @@ export const babylonInteropExample: PlaygroundExampleDefinition = {
             loadSource: async () => (await import('../../../../examples/babylon-interop/src/scene.ts?raw')).default,
         },
         {
-            id: 'babylon-interop-start', label: 'start.ts', role: 'host', language: 'typescript',
-            path: 'examples/babylon-interop/src/start.ts',
-            loadSource: async () => (await import('../../../../examples/babylon-interop/src/start.ts?raw')).default,
-        },
-        {
             id: 'babylon-interop-present', label: 'present.ts', role: 'host', language: 'typescript',
             path: 'examples/babylon-interop/src/present.ts',
             loadSource: async () => (await import('../../../../examples/babylon-interop/src/present.ts?raw')).default,
+        },
+        {
+            id: 'babylon-interop-start', label: 'host.ts', role: 'host', language: 'typescript',
+            path: 'examples/babylon-interop/src/host.ts',
+            loadSource: async () => (await import('../../../../examples/babylon-interop/src/host.ts?raw')).default,
         },
         {
             id: 'babylon-interop-adapter', label: 'babylonInterop.ts', role: 'host', language: 'typescript',

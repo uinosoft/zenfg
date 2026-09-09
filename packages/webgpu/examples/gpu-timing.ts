@@ -1,3 +1,11 @@
+/**
+ * Source: Original ZenFG package recipe.
+ * Demonstrates: Optional GPU timestamp measurements and unavailable results.
+ * Flow: Record a clear pass, compile with reporting and execute with GPU timing enabled.
+ * The caller owns the device and native inputs; ZenFG owns graph execution.
+ * Read next: README.md for inputs and related recipes. The Playground adapter
+ * and recipeHost.ts provide browser setup and snapshot capture.
+ */
 import {
 	FrameGraph,
 	type FrameGraphRecording,

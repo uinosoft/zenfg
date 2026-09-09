@@ -52,8 +52,9 @@ try {
     await checkboxLabel.click();
     if (!await control.isChecked()) throw new Error('Reverse Z did not turn on');
     await page.locator('[data-panel-button=code]').click();
-    await page.waitForFunction(() => document.querySelector('[data-source-content]')?.textContent?.includes('externalSubmission'));
-    if (await page.locator('[data-source-files] button').count() !== 7) throw new Error('Expected seven real source files');
+    await page.waitForFunction(() => document.querySelector('[data-source-content]')?.textContent?.includes('startBabylonInterop'));
+    if (!(await page.locator('[data-source-path]').textContent()).endsWith('/main.ts')) throw new Error('Expected the main.ts reading entry');
+    if (await page.locator('[data-source-files] button').count() !== 8) throw new Error('Expected eight real source files');
     await page.locator('[data-source-files] button').filter({ hasText: 'resolve.ts' }).click();
     await page.waitForFunction(() => document.querySelector('[data-source-content]')?.textContent?.includes('frag_depth'));
     await page.locator('[data-panel-button=inspector]').click();
@@ -82,7 +83,7 @@ try {
         await ready();
     }
     if (errors.length || remoteRequests.length) throw new Error(JSON.stringify({ errors, remoteRequests }));
-    const result = { ok: true, browser: browser.version(), errors, remoteRequests, sourceFiles: 7,
+    const result = { ok: true, browser: browser.version(), errors, remoteRequests, sourceFiles: 8,
         checks: ['desktop', 'real mouse drag', 'pointer/keyboard focus', 'Reverse Z', 'code', 'Inspector', 'mobile', 'four example switches'] };
     await writeFile(resolve(output, 'playground-result.json'), JSON.stringify(result, null, 2));
     console.log(JSON.stringify(result));

@@ -9,6 +9,7 @@ export const snapshotExportExample: PlaygroundExampleDefinition = {
 	summary: 'WebGPU · Diagnostics · Snapshot 1.1',
 	readyMessage: 'Ready · Snapshot 1.1 captured',
 	footerHint: 'Inspector parses the JSON produced by the package recipe',
+	entrySourceId: 'snapshot-export-recipe',
 	sourceFiles: [
 		{
 			id: 'snapshot-export-recipe',

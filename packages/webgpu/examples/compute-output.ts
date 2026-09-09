@@ -1,3 +1,11 @@
+/**
+ * Source: Original ZenFG package recipe.
+ * Demonstrates: A compute result retained by an explicit output root.
+ * Flow: Create storage, record compute writes, mark the output and execute.
+ * The caller owns the device and native inputs; ZenFG owns graph execution.
+ * Read next: README.md for inputs and related recipes. The Playground adapter
+ * and recipeHost.ts provide browser setup and snapshot capture.
+ */
 import { BufferAccess, FrameGraph, type FrameGraphRecording } from '@zenfg/webgpu';
 
 export type ComputeOutputRecordOptions = {

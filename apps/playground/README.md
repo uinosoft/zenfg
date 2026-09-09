@@ -22,6 +22,40 @@ grouped as repository showcases or `@zenfg/webgpu` basics. Catalog adapters own
 Playground metadata, source display, WebGPU hosting, and Inspector wiring;
 example implementations must not import Playground code.
 
+## Code reading entries
+
+Every catalog definition must set `entrySourceId` to exactly one of its source
+file IDs. Code puts that file first, marks it **Entry**, and opens it initially;
+the default does not depend on array order. Duplicate IDs and missing entries
+are catalog errors. All buttons are available while source highlighting loads.
+Closing and reopening Code keeps the selection; changing files resets scrolling.
+
+Repository showcases use their actual `src/main.ts` as the reading entry.
+Reference Renderer uses the demo package's entry, not the reusable renderer.
+Package basics keep their topic-named recipe files. Source lists explicitly
+follow this reading order: entry, core implementation, supporting modules,
+shaders, browser host, and Playground adapter. Compatibility forwarding files
+are not useful reading tabs; display the implementation they forward to.
+
+Entries begin with a short English block comment containing `Source:`,
+`Demonstrates:`, `Flow:`, and `Read next:`. Attribution must match the example's
+README and third-party notices. Raw imports display and copy these exact source
+files, including their introductions; do not inject a separate tutorial snippet.
+
+When registering an example, add its entry and real supporting files, and run
+the catalog/source-view tests. Code uses 14px text on desktop and 13px on mobile,
+with 1.7 line height, horizontal code scrolling and a scrollable file list.
+
+For browser acceptance, build with `npm run build:pages`, serve `.pages` using
+Vite preview on port 4175, then run
+`node apps/playground/tests/browser/sourceView.mjs` from the repository root.
+`PLAYWRIGHT_MODULE` can point to an existing Playwright installation;
+`PLAYGROUND_URL` and `GPU_TEST_BROWSER` override the preview and browser.
+The suite checks all 16 entries, desktop/mobile typography, exact source copying
+(allowing platform clipboard line endings), selection, scrolling and real
+Inspector exports. It requires hardware WebGPU and network access for Monocular's
+model and demo image. Results and screenshots go to `.test-dist/playground-source`.
+
 The Particles4All showcase lives in `examples/particles4all-framegraph` and is
 available at `?example=particles4all-framegraph`. It retains upstream fluid and
 rigid-body simulation, Particles / Surface mesh / Ray march / SSFR rendering,

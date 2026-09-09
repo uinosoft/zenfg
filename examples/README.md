@@ -14,6 +14,28 @@ Both repository examples and package recipes must remain independent of the
 Playground. The Playground executes and displays their real source through
 application-local catalog adapters.
 
+## Reading entry convention
+
+Each runnable showcase has a `src/main.ts` that participates in normal execution.
+It contains the existing startup function, the per-frame recording/compilation/
+submission flow, and GPU resource release. Keep browser events, controls,
+asynchronous input preparation and snapshot delivery in example-local host
+helpers; keep algorithms, shaders and detailed resource setup in focused modules.
+This convention does not require a shared runtime abstraction or a common start
+function signature. Importing an entry must not automatically launch the demo.
+
+Begin `main.ts` with a short English comment containing `Source:` (original or
+adapted, with pinned provenance and notices where available), `Demonstrates:`,
+`Flow:` (including ownership), and `Read next:` (files and their roles).
+Distinguish adapted integration code from third-party dependencies. Preserve
+existing package exports and startup signatures; old source entry paths may
+forward to `main.ts` for compatibility. The Reference Renderer showcase's main
+belongs to `reference-renderer-demo`, while `reference-renderer` remains reusable.
+
+Register that file as the Playground catalog's explicit `entrySourceId` and
+display the implementation, helpers, shaders and host after it in reading order.
+The displayed raw file and the executed file must be the same source.
+
 `reference-renderer` is a private reusable GPU module. Its basic showcase lives
 in `reference-renderer-demo`, which depends on the renderer's package entrypoint.
 Future integrations can depend on that same module while owning their device,

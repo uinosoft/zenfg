@@ -9,6 +9,7 @@ export const externalSubmissionExample: PlaygroundExampleDefinition = {
 	summary: 'WebGPU · External queue submission · 2 segments',
 	readyMessage: 'Ready · external submission ordered before present',
 	footerHint: 'Inspector shows the caller-owned submission boundary',
+	entrySourceId: 'external-submission-recipe',
 	sourceFiles: [
 		{
 			id: 'external-submission-recipe',

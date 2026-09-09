@@ -10,6 +10,7 @@ export const computeOutputExample: PlaygroundExampleDefinition = {
 	summary: 'WebGPU · Compute · Storage output',
 	readyMessage: 'Ready · 16 values written by compute',
 	footerHint: 'Inspector shows a storage write retained by an output root',
+	entrySourceId: 'compute-output-recipe',
 	sourceFiles: [
 		{
 			id: 'compute-output-recipe',

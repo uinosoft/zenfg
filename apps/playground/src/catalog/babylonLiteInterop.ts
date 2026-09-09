@@ -8,7 +8,13 @@ export const babylonLiteInteropExample: PlaygroundExampleDefinition = {
     readyMessage: 'Live · Babylon Lite + Reference Renderer',
     footerHint: 'Drag to orbit · Scroll to zoom',
     hasControls: true,
+    entrySourceId: 'babylon-lite-interop-entry',
     sourceFiles: [
+        {
+            id: 'babylon-lite-interop-entry', label: 'main.ts', role: 'example', language: 'typescript',
+            path: 'examples/babylon-lite-interop/src/main.ts',
+            loadSource: async () => (await import('../../../../examples/babylon-lite-interop/src/main.ts?raw')).default,
+        },
         {
             id: 'babylon-lite-interop-graph', label: 'graph.ts', role: 'example', language: 'typescript',
             path: 'examples/babylon-lite-interop/src/graph.ts',
@@ -30,14 +36,14 @@ export const babylonLiteInteropExample: PlaygroundExampleDefinition = {
             loadSource: async () => (await import('../../../../examples/babylon-lite-interop/src/scene.ts?raw')).default,
         },
         {
-            id: 'babylon-lite-interop-start', label: 'start.ts', role: 'host', language: 'typescript',
-            path: 'examples/babylon-lite-interop/src/start.ts',
-            loadSource: async () => (await import('../../../../examples/babylon-lite-interop/src/start.ts?raw')).default,
-        },
-        {
             id: 'babylon-lite-interop-present', label: 'present.ts', role: 'host', language: 'typescript',
             path: 'examples/babylon-lite-interop/src/present.ts',
             loadSource: async () => (await import('../../../../examples/babylon-lite-interop/src/present.ts?raw')).default,
+        },
+        {
+            id: 'babylon-lite-interop-start', label: 'host.ts', role: 'host', language: 'typescript',
+            path: 'examples/babylon-lite-interop/src/host.ts',
+            loadSource: async () => (await import('../../../../examples/babylon-lite-interop/src/host.ts?raw')).default,
         },
         {
             id: 'babylon-lite-interop-adapter', label: 'babylonLiteInterop.ts', role: 'host', language: 'typescript',

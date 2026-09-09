@@ -8,6 +8,7 @@ export const minimalFrameExample: PlaygroundExampleDefinition = {
 	summary: 'WebGPU · Render · 1 pass',
 	readyMessage: 'Ready · 1 retained render pass',
 	footerHint: 'Open Inspector to see why the clear pass is retained',
+	entrySourceId: 'minimal-frame-recipe',
 	sourceFiles: [
 		{
 			id: 'minimal-frame-recipe',

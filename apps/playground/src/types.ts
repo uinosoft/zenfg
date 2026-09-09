@@ -36,6 +36,8 @@ export type PlaygroundExampleDefinition = {
 	readonly readyMessage: string;
 	readonly footerHint: string;
 	readonly hasControls?: boolean;
+	/** The real source file readers should open first, independent of list order. */
+	readonly entrySourceId: string;
 	readonly sourceFiles: readonly PlaygroundSourceFile[];
 	readonly mount: (context: PlaygroundMountContext) => Promise<PlaygroundRuntime | undefined>;
 };

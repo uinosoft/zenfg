@@ -18,7 +18,13 @@ export const typeGpuSlimeMoldExample: PlaygroundExampleDefinition = {
 	readyMessage: 'Live · TypeGPU + ZenFG',
 	footerHint: 'Tune the five simulation parameters',
 	hasControls: true,
+	entrySourceId: 'typegpu-slime-mold-entry',
 	sourceFiles: [
+		{
+			id: 'typegpu-slime-mold-entry', label: 'main.ts', role: 'example', language: 'typescript',
+			path: 'examples/typegpu-slime-mold/src/main.ts',
+			loadSource: async () => (await import('../../../../examples/typegpu-slime-mold/src/main.ts?raw')).default,
+		},
 		{
 			id: 'typegpu-slime-mold',
 			label: 'slimeMold.ts',
@@ -28,12 +34,17 @@ export const typeGpuSlimeMoldExample: PlaygroundExampleDefinition = {
 			loadSource: async () => (await import('../../../../examples/typegpu-slime-mold/src/slimeMold.ts?raw')).default,
 		},
 		{
+			id: 'typegpu-slime-mold-types', label: 'types.ts', role: 'example', language: 'typescript',
+			path: 'examples/typegpu-slime-mold/src/types.ts',
+			loadSource: async () => (await import('../../../../examples/typegpu-slime-mold/src/types.ts?raw')).default,
+		},
+		{
 			id: 'typegpu-slime-mold-host',
-			label: 'startTypeGpuSlimeMold.ts',
-			path: 'examples/typegpu-slime-mold/src/startTypeGpuSlimeMold.ts',
+			label: 'host.ts',
+			path: 'examples/typegpu-slime-mold/src/host.ts',
 			role: 'host',
 			language: 'typescript',
-			loadSource: async () => (await import('../../../../examples/typegpu-slime-mold/src/startTypeGpuSlimeMold.ts?raw')).default,
+			loadSource: async () => (await import('../../../../examples/typegpu-slime-mold/src/host.ts?raw')).default,
 		},
 		{
 			id: 'typegpu-slime-mold-adapter',

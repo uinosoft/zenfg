@@ -1,5 +1,5 @@
 type BrowserHighlighter = {
-	codeToHtml: (code: string, options: { readonly lang: 'typescript' | 'javascript'; readonly theme: 'github-dark-default' }) => string;
+	codeToHtml: (code: string, options: { readonly lang: 'typescript' | 'javascript'; readonly theme: 'poimandres' }) => string;
 	dispose: () => void;
 };
 
@@ -8,7 +8,7 @@ let highlighterPromise: Promise<BrowserHighlighter> | undefined;
 export function highlightSource(source: string, language: 'typescript' | 'javascript'): Promise<string> {
 	return getHighlighter().then((highlighter) => highlighter.codeToHtml(source, {
 		lang: language,
-		theme: 'github-dark-default',
+		theme: 'poimandres',
 	}));
 }
 
@@ -24,11 +24,11 @@ function getHighlighter(): Promise<BrowserHighlighter> {
 		import('shiki/engine/oniguruma'),
 		import('@shikijs/langs/typescript'),
 		import('@shikijs/langs/javascript'),
-		import('@shikijs/themes/github-dark-default'),
-	]).then(async ([{ createHighlighterCore }, { createOnigurumaEngine }, { default: typescript }, { default: javascript }, { default: githubDarkDefault }]) => createHighlighterCore({
+		import('@shikijs/themes/poimandres'),
+	]).then(async ([{ createHighlighterCore }, { createOnigurumaEngine }, { default: typescript }, { default: javascript }, { default: poimandres }]) => createHighlighterCore({
 		engine: createOnigurumaEngine(import('shiki/wasm')),
 		langs: [typescript, javascript],
-		themes: [githubDarkDefault],
+		themes: [poimandres],
 	}));
 	return highlighterPromise;
 }

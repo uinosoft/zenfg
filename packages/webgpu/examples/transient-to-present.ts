@@ -1,3 +1,11 @@
+/**
+ * Source: Original ZenFG package recipe.
+ * Demonstrates: Graph-owned transient textures and derived resource usage.
+ * Flow: Record offscreen rendering and presentation, then compile and execute the frame.
+ * The caller owns the device and native inputs; ZenFG owns graph execution.
+ * Read next: README.md for inputs and related recipes. The Playground adapter
+ * and recipeHost.ts provide browser setup and snapshot capture.
+ */
 import { FrameGraph, TextureAccess, type FrameGraphRecording } from '@zenfg/webgpu';
 
 export type TransientToPresentRecordOptions = {

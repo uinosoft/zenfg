@@ -4,6 +4,7 @@ import test from 'node:test';
 import { resolve } from 'node:path';
 import { findPublicExample, publicExamples } from '../src/catalog/catalog.ts';
 import { defaultExampleId, parsePlaygroundRoute, routeSearch, toggledPanel } from '../src/routing.ts';
+import { orderedSourceFiles } from '../src/sourceView.ts';
 
 test('playground routes default missing and invalid values safely', () => {
 	assert.deepEqual(parsePlaygroundRoute(''), {
@@ -41,9 +42,9 @@ test('the production catalog is explicit, grouped, and keeps canonical sources f
 	assert.equal(findPublicExample('babylon-lite-interop')?.title, 'Babylon Lite Co-rendering');
 	assert.equal(findPublicExample('babylon-lite-interop')?.hasControls, true);
 	assert.deepEqual(parsePlaygroundRoute('?example=babylon-lite-interop&panel=code'), { exampleId: 'babylon-lite-interop', panel: 'code' });
-	assert.deepEqual(findPublicExample('babylon-lite-interop')?.sourceFiles.map(file => file.label), ['graph.ts', 'bridge.ts', 'resolve.ts', 'scene.ts', 'start.ts', 'present.ts', 'babylonLiteInterop.ts']);
+	assert.deepEqual(findPublicExample('babylon-lite-interop')?.sourceFiles.map(file => file.label), ['main.ts', 'graph.ts', 'bridge.ts', 'resolve.ts', 'scene.ts', 'present.ts', 'host.ts', 'babylonLiteInterop.ts']);
 	assert.deepEqual(parsePlaygroundRoute('?example=babylon-interop&panel=code'), { exampleId: 'babylon-interop', panel: 'code' });
-	assert.deepEqual(findPublicExample('babylon-interop')?.sourceFiles.map(file => file.label), ['graph.ts', 'bridge.ts', 'resolve.ts', 'scene.ts', 'start.ts', 'present.ts', 'babylonInterop.ts']);
+	assert.deepEqual(findPublicExample('babylon-interop')?.sourceFiles.map(file => file.label), ['main.ts', 'graph.ts', 'bridge.ts', 'resolve.ts', 'scene.ts', 'present.ts', 'host.ts', 'babylonInterop.ts']);
 	assert.equal(findPublicExample('missing'), undefined);
 	assert.equal(new Set(publicExamples.map((example) => example.id)).size, publicExamples.length);
 	assert.deepEqual(
@@ -90,25 +91,53 @@ test('the production catalog is explicit, grouped, and keeps canonical sources f
 	assert.deepEqual(
 		findPublicExample('typegpu-slime-mold')?.sourceFiles.map((file) => file.path),
 		[
+			'examples/typegpu-slime-mold/src/main.ts',
 			'examples/typegpu-slime-mold/src/slimeMold.ts',
-			'examples/typegpu-slime-mold/src/startTypeGpuSlimeMold.ts',
+			'examples/typegpu-slime-mold/src/types.ts',
+			'examples/typegpu-slime-mold/src/host.ts',
 			'apps/playground/src/catalog/typeGpuSlimeMold.ts',
 		],
 	);
 	assert.deepEqual(
 		findPublicExample('three-interop')?.sourceFiles.map((file) => file.path),
 		[
+			'examples/three-interop/src/main.ts',
 			'examples/three-interop/src/graph.ts',
 			'examples/three-interop/src/bridge.ts',
 			'examples/three-interop/src/scene.ts',
-			'examples/three-interop/src/start.ts',
 			'examples/three-interop/src/present.ts',
+			'examples/three-interop/src/host.ts',
 			'apps/playground/src/catalog/threeInterop.ts',
 		],
 	);
 	assert.ok(publicExamples
 		.filter((example) => example.group === '@zenfg/webgpu basics')
 		.every((example) => !example.hasControls));
+});
+
+test('every example declares a real reading entry with a source introduction', () => {
+	assert.equal(publicExamples.length, 16);
+	for (const example of publicExamples) {
+		const ordered = orderedSourceFiles(example);
+		assert.equal(ordered[0]!.id, example.entrySourceId);
+		assert.equal(example.sourceFiles[0]!.id, example.entrySourceId);
+		const entry = ordered[0]!;
+		assert.equal(entry.path.endsWith('/main.ts'), example.group === 'Showcases');
+		for (const file of ordered) {
+			assert.ok(readFileSync(resolve(file.path), 'utf8').length > 0, file.path);
+		}
+		const source = readFileSync(resolve(entry.path), 'utf8');
+		const introduction = source.slice(0, source.indexOf('*/') + 2);
+		assert.ok(introduction.startsWith('/**'), entry.path);
+		for (const heading of ['Source:', 'Demonstrates:', 'Flow:', 'Read next:']) {
+			assert.ok(introduction.includes(heading), `${entry.path}: ${heading}`);
+		}
+		if (example.group === 'Showcases') {
+			for (const operation of ['beginFrame(', 'markPresent(', '.compile(', '.execute(']) {
+				assert.ok(source.includes(operation), `${entry.path}: real frame execution`);
+			}
+		}
+	}
 });
 
 test('package adapters call recipes instead of redeclaring FrameGraph nodes', () => {

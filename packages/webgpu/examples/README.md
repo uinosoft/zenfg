@@ -8,6 +8,13 @@ FrameGraph declarations in a `record*` function and provides a small execution
 wrapper, allowing hosts such as the ZenFG Playground to compile the exact same
 recording with diagnostics enabled.
 
+The topic-named file is each recipe's reading entry; recipes do not introduce
+`main.ts` or a browser runtime. Begin each file with a short English block comment
+containing `Source:`, `Demonstrates:`, `Flow:`, and `Read next:`. Explain caller-owned
+inputs and graph execution, and point to related code without duplicating it.
+Playground adapters explicitly register this same file with `entrySourceId` and
+place browser setup, capture helpers and shaders after the recipe.
+
 | Recipe | Demonstrates |
 | --- | --- |
 | [`minimal-frame.ts`](./minimal-frame.ts) | Runtime/recording lifecycle, surface import, presentation root |

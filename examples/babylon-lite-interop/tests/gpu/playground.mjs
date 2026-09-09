@@ -52,8 +52,9 @@ try {
     if (await page.locator('[data-controls-host] input').count() !== 0) throw new Error('Lite has no settings controls');
     if (!(await page.locator('[data-controls-host]').textContent()).includes('Reverse Z · Always enabled')) throw new Error('Missing fixed depth description');
     await page.locator('[data-panel-button=code]').click();
-    await page.waitForFunction(() => document.querySelector('[data-source-content]')?.textContent?.includes('externalSubmission'));
-    if (await page.locator('[data-source-files] button').count() !== 7) throw new Error('Expected seven real source files');
+    await page.waitForFunction(() => document.querySelector('[data-source-content]')?.textContent?.includes('startBabylonLiteInterop'));
+    if (!(await page.locator('[data-source-path]').textContent()).endsWith('/main.ts')) throw new Error('Expected the main.ts reading entry');
+    if (await page.locator('[data-source-files] button').count() !== 8) throw new Error('Expected eight real source files');
     await page.locator('[data-source-files] button').filter({ hasText: 'resolve.ts' }).click();
     await page.waitForFunction(() => document.querySelector('[data-source-content]')?.textContent?.includes('pow(max(encoded.rgb'));
     await page.locator('[data-panel-button=inspector]').click();
@@ -85,7 +86,7 @@ try {
         await ready();
     }
     if (errors.length || remoteRequests.length) throw new Error(JSON.stringify({ errors, remoteRequests }));
-    const result = { ok: true, browser: browser.version(), errors, remoteRequests, sourceFiles: 7,
+    const result = { ok: true, browser: browser.version(), errors, remoteRequests, sourceFiles: 8,
         checks: ['desktop', 'real mouse drag', 'pointer/keyboard focus', 'fixed Reverse Z', 'code', 'Inspector', 'mobile', 'four example switches'] };
     await writeFile(resolve(output, 'playground-result.json'), JSON.stringify(result, null, 2));
     console.log(JSON.stringify(result));

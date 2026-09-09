@@ -10,6 +10,7 @@ export const importedResourceExample: PlaygroundExampleDefinition = {
 	summary: 'WebGPU · Imported uniform · 1 pass',
 	readyMessage: 'Ready · caller-owned uniform imported',
 	footerHint: 'The native uniform stays caller-owned across graph execution',
+	entrySourceId: 'imported-resource-recipe',
 	sourceFiles: [
 		{
 			id: 'imported-resource-recipe',

@@ -7,14 +7,35 @@ export const interactiveBackgroundExample: PlaygroundExampleDefinition = {
 	summary: 'WebGPU · Compute + Render · 5 passes',
 	readyMessage: 'Live · 5 FrameGraph passes',
 	footerHint: 'Move your pointer to disturb the field',
+	entrySourceId: 'interactive-background-entry',
 	sourceFiles: [
 		{
+			id: 'interactive-background-entry', label: 'main.ts', role: 'example', language: 'typescript',
+			path: 'examples/interactive-background/src/main.ts',
+			loadSource: async () => (await import('../../../../examples/interactive-background/src/main.ts?raw')).default,
+		},
+		{
 			id: 'background',
-			label: 'background.ts',
-			path: 'examples/interactive-background/src/background.ts',
+			label: 'backgroundGraph.ts',
+			path: 'examples/interactive-background/src/backgroundGraph.ts',
 			role: 'example',
 			language: 'typescript',
-			loadSource: async () => (await import('../../../../examples/interactive-background/src/background.ts?raw')).default,
+			loadSource: async () => (await import('../../../../examples/interactive-background/src/backgroundGraph.ts?raw')).default,
+		},
+		{
+			id: 'background-resources.ts', label: 'resources.ts', path: 'examples/interactive-background/src/resources.ts',
+			role: 'example', language: 'typescript',
+			loadSource: async () => (await import('../../../../examples/interactive-background/src/resources.ts?raw')).default
+		},
+		{
+			id: 'background-backgroundInteraction.ts', label: 'backgroundInteraction.ts', path: 'examples/interactive-background/src/backgroundInteraction.ts',
+			role: 'example', language: 'typescript',
+			loadSource: async () => (await import('../../../../examples/interactive-background/src/backgroundInteraction.ts?raw')).default
+		},
+		{
+			id: 'background-backgroundLayout.ts', label: 'backgroundLayout.ts', path: 'examples/interactive-background/src/backgroundLayout.ts',
+			role: 'example', language: 'typescript',
+			loadSource: async () => (await import('../../../../examples/interactive-background/src/backgroundLayout.ts?raw')).default
 		},
 		{
 			id: 'background-shaders',
@@ -23,6 +44,11 @@ export const interactiveBackgroundExample: PlaygroundExampleDefinition = {
 			role: 'shader',
 			language: 'typescript',
 			loadSource: async () => (await import('../../../../examples/interactive-background/src/backgroundShaders.ts?raw')).default,
+		},
+		{
+			id: 'background-host.ts', label: 'host.ts', path: 'examples/interactive-background/src/host.ts',
+			role: 'host', language: 'typescript',
+			loadSource: async () => (await import('../../../../examples/interactive-background/src/host.ts?raw')).default
 		},
 	],
 	async mount(context) {

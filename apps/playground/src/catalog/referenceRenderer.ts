@@ -9,7 +9,13 @@ export const referenceRendererExample: PlaygroundExampleDefinition = {
     readyMessage: 'Live · GPU culling + indirect drawing',
     footerHint: 'Drag to orbit · Scroll to zoom',
     hasControls: true,
+    entrySourceId: 'reference-renderer-entry',
     sourceFiles: [
+        {
+            id: 'reference-renderer-entry', label: 'main.ts', role: 'example', language: 'typescript',
+            path: 'examples/reference-renderer-demo/src/main.ts',
+            loadSource: async () => (await import('../../../../examples/reference-renderer-demo/src/main.ts?raw')).default,
+        },
         {
             id: 'reference-renderer', label: 'renderer.ts', role: 'example', language: 'typescript',
             path: 'examples/reference-renderer/src/renderer.ts',
@@ -19,11 +25,6 @@ export const referenceRendererExample: PlaygroundExampleDefinition = {
             id: 'reference-renderer-types', label: 'types.ts', role: 'example', language: 'typescript',
             path: 'examples/reference-renderer/src/types.ts',
             loadSource: async () => (await import('../../../../examples/reference-renderer/src/types.ts?raw')).default,
-        },
-        {
-            id: 'reference-renderer-shaders', label: 'shaders.ts', role: 'shader', language: 'typescript',
-            path: 'examples/reference-renderer/src/shaders.ts',
-            loadSource: async () => (await import('../../../../examples/reference-renderer/src/shaders.ts?raw')).default,
         },
         {
             id: 'reference-renderer-primitives', label: 'primitives.ts', role: 'example', language: 'typescript',
@@ -41,14 +42,19 @@ export const referenceRendererExample: PlaygroundExampleDefinition = {
             loadSource: async () => (await import('../../../../examples/reference-renderer-demo/src/camera.ts?raw')).default,
         },
         {
-            id: 'reference-renderer-host', label: 'start.ts', role: 'host', language: 'typescript',
-            path: 'examples/reference-renderer-demo/src/start.ts',
-            loadSource: async () => (await import('../../../../examples/reference-renderer-demo/src/start.ts?raw')).default,
-        },
-        {
             id: 'reference-renderer-present', label: 'present.ts', role: 'host', language: 'typescript',
             path: 'examples/reference-renderer-demo/src/present.ts',
             loadSource: async () => (await import('../../../../examples/reference-renderer-demo/src/present.ts?raw')).default,
+        },
+        {
+            id: 'reference-renderer-shaders', label: 'shaders.ts', role: 'shader', language: 'typescript',
+            path: 'examples/reference-renderer/src/shaders.ts',
+            loadSource: async () => (await import('../../../../examples/reference-renderer/src/shaders.ts?raw')).default,
+        },
+        {
+            id: 'reference-renderer-host', label: 'host.ts', role: 'host', language: 'typescript',
+            path: 'examples/reference-renderer-demo/src/host.ts',
+            loadSource: async () => (await import('../../../../examples/reference-renderer-demo/src/host.ts?raw')).default,
         },
         {
             id: 'reference-renderer-adapter', label: 'referenceRenderer.ts', role: 'host', language: 'typescript',
