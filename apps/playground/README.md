@@ -4,6 +4,11 @@ The Playground is a private static application deployed at `/playground/`. It
 keeps a live example as the stage and opens source code or the embedded
 FrameGraph Inspector in an overlay above it.
 
+The local Storm / Light visual prototype is available with
+`npm run dev:visual-lab` at `http://127.0.0.1:5176/visual-lab/`. It is excluded
+from normal production builds. See [visual foundations](../../docs/visual-foundations.md)
+for the independent build, shared tokens, and browser acceptance workflow.
+
 ```sh
 npm install
 npm run dev:playground

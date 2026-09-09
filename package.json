@@ -25,6 +25,8 @@
     "dev:inspector": "npm run build:packages && npm run dev --workspace @zenfg/inspector-app -- --port 5174 --strictPort",
     "dev:playground": "npm run build:packages && npm run dev --workspace @zenfg/playground-app -- --port 5175 --strictPort",
     "dev:site": "npm run build:packages && npm run dev --workspace @zenfg/site-app -- --port 5173 --strictPort",
+    "dev:visual-lab": "npm run dev --workspace @zenfg/playground-app -- --mode visual-lab --port 5176 --strictPort --base /",
+    "build:visual-lab": "npm run build --workspace @zenfg/playground-app -- --mode visual-lab",
     "docs:check": "node ./scripts/check-public-docs.mjs",
     "test:cross-language": "npm run build:packages && node ./scripts/run-cross-language-conformance.mjs",
     "typecheck:examples": "tsc --noEmit -p packages/webgpu/examples/tsconfig.json",
