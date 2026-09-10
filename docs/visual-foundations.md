@@ -67,9 +67,11 @@ screenshots, or fonts are redistributed from the reference repository.
 
 ## Production adoption
 
-The formal Examples page now consumes these definitions for its shell and Code,
-with explicit Dark / Light selection. Its live Inspector and Tweakpane controls
-keep their existing dark internals; those themes, the Site, and standalone
+The formal Examples page now consumes these definitions for its shell, Code,
+and Tweakpane controls, with explicit Dark / Light selection. The scoped
+`apps/playground/src/tweakpane.css` adapter inherits palette changes without
+remounting controls. Its live Inspector keeps its existing dark internals;
+that theme, the Site, and standalone
 Inspector remain future work. The lab stays independently buildable and excluded
 from Pages output. See the [Examples README](../apps/playground/README.md).
 

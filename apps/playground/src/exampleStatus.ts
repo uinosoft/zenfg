@@ -9,7 +9,8 @@ export function createExampleStatus(options: {
 	label: HTMLElement;
 	signal: HTMLElement;
 	feedback: HTMLElement;
-	fps?: HTMLElement;
+	onFrameRate?: (value?: number) => void;
+	onFrameSample?: (value: number) => void;
 	readyState: 'live' | 'ready';
 	loadingNote?: string;
 }) {
@@ -21,9 +22,7 @@ export function createExampleStatus(options: {
 	const frameRate = createFrameRate();
 	const canMeasure = () => state === 'ready' && options.readyState === 'live' && !paused && !suspended;
 	function showFps(value?: number): void {
-		if (!options.fps) return;
-		options.fps.hidden = value === undefined;
-		options.fps.textContent = value === undefined ? '' : `${value} FPS`;
+		options.onFrameRate?.(value);
 	}
 	function resetFps(): void { frameRate.reset(); showFps(); }
 	function render(): void {
@@ -32,6 +31,7 @@ export function createExampleStatus(options: {
 		options.status.dataset.state = state;
 		options.status.dataset.paused = String(paused);
 		options.status.dataset.warning = String(!!warning);
+		options.status.hidden = state === 'ready' && !paused && !warning;
 		const baseLabel = state === 'ready' ? (paused ? 'Paused' : options.readyState === 'live' ? 'Live' : 'Ready')
 			: state === 'loading' ? 'Loading…' : 'Error';
 		options.label.textContent = baseLabel + (warning ? ' · Warning' : '');
@@ -51,7 +51,12 @@ export function createExampleStatus(options: {
 			resetFps();
 			render();
 		},
-		frame(now: number) { if (canMeasure()) frameRate.record(now); },
+		frame(now: number) {
+			if (!canMeasure()) return;
+			const value = frameRate.record(now);
+			if (value !== undefined) options.onFrameSample?.(value);
+		},
+		// Only the readable average uses the timer; the graph still samples every frame.
 		tick(now: number) { showFps(canMeasure() ? frameRate.sample(now) : undefined); },
 		pause(value: boolean) { if (paused === value) return; paused = value; resetFps(); render(); },
 		suspend(value: boolean) { if (suspended === value) return; suspended = value; resetFps(); },

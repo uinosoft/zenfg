@@ -77,7 +77,7 @@ export const referenceRendererExample: PlaygroundExampleDefinition = {
         }
         let pane: InstanceType<typeof Pane> | undefined;
         try {
-            pane = new Pane({ container: context.controlsHost, title: 'Reference Renderer' });
+            pane = new Pane({ container: context.controlsHost });
             const settings: ReferenceRendererSettings = { ...controller.getSettings() };
             const controls = pane as unknown as {
                 addBinding(object: object, key: string, options?: object): {

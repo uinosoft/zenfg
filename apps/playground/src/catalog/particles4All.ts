@@ -9,7 +9,7 @@ type ControlPane = {
     refresh(): void;
     dispose(): void;
 };
-type PaneConstructor = new (options: { container: HTMLElement; title: string }) => ControlPane;
+type PaneConstructor = new (options: { container: HTMLElement; title?: string }) => ControlPane;
 const sources = {
     'Particles4AllFeature.ts': () => import('../../../../examples/particles4all-framegraph/src/Particles4AllFeature.ts?raw'),
     'settings.ts': () => import('../../../../examples/particles4all-framegraph/src/settings.ts?raw'),
@@ -134,7 +134,7 @@ export function createParticles4AllControls(
 ): { pane: ControlPane; refreshFromFeature: () => void } {
     const params = feature.getSettings() as Particles4AllSettings;
     const transmission = { r: params.transmission[0], g: params.transmission[1], b: params.transmission[2] };
-    const pane = new Pane({ container: controlsHost, title: 'Particles4All' });
+    const pane = new Pane({ container: controlsHost });
     let refreshing = false;
     const attempt = (action: () => void) => {
         if (refreshing) return;

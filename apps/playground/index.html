@@ -23,12 +23,13 @@
 <section class="demo-card" data-demo-card data-background-region aria-label="Live example">
 <div class="demo-stage">
 <canvas class="effect-stage" data-effect-canvas aria-label="Interactive WebGPU example"></canvas>
-<div class="runtime-status" aria-label="Example runtime status">
-<div class="runtime-status__row"><div class="effect-status" data-effect-status role="status" aria-live="polite"><span class="effect-status__signal" aria-hidden="true"></span><span data-effect-status-text>Loading…</span></div><span class="runtime-fps" data-frame-rate title="Rendered frames per second" hidden></span></div>
-</div>
+<div class="runtime-status effect-status" data-effect-status role="status" aria-live="polite" aria-label="Example runtime status"><span class="effect-status__signal" aria-hidden="true"></span><span data-effect-status-text>Loading…</span></div>
 </div>
 <p class="example-feedback" data-example-feedback role="status" hidden></p>
-<aside class="playground-controls" data-controls-host aria-label="Example controls" hidden></aside>
+<aside class="playground-controls" data-controls-panel aria-label="Example controls and monitoring" hidden>
+<div class="playground-metrics" data-metrics-host hidden></div>
+<div class="playground-parameters" data-controls-host aria-label="Example controls" hidden></div>
+</aside>
 </section>
 <section class="example-intro" data-background-region>
 <div class="title-row"><h1 data-example-title>Examples</h1></div>

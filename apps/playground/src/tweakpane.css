@@ -1,0 +1,110 @@
+/* Tweakpane 4 adapter: inherit the page palette without recreating live controls. */
+.playground-controls {
+	--tp-base-background-color: var(--zenfg-panel);
+	--tp-base-shadow-color: transparent;
+	--tp-base-border-radius: 0px;
+	--tp-base-font-family: var(--zenfg-font-ui);
+	--tp-blade-border-radius: var(--zenfg-radius-small);
+	--tp-blade-horizontal-padding: 6px;
+	--tp-blade-value-width: 54%;
+	--tp-container-horizontal-padding: 8px;
+	--tp-container-vertical-padding: 8px;
+	--tp-container-unit-size: 28px;
+	--tp-container-unit-spacing: 4px;
+	--tp-container-background-color: var(--zenfg-sidebar);
+	--tp-container-background-color-hover: var(--zenfg-hover);
+	--tp-container-background-color-focus: var(--zenfg-hover);
+	--tp-container-background-color-active: var(--zenfg-accent-soft);
+	--tp-container-foreground-color: var(--zenfg-text);
+	--tp-label-foreground-color: var(--zenfg-secondary);
+	--tp-input-background-color: var(--zenfg-inset);
+	--tp-input-background-color-hover: var(--zenfg-hover);
+	--tp-input-background-color-focus: var(--zenfg-accent-soft);
+	--tp-input-background-color-active: var(--zenfg-accent-soft);
+	--tp-input-foreground-color: var(--zenfg-text);
+	--tp-button-background-color: var(--zenfg-accent-soft);
+	--tp-button-background-color-hover: var(--zenfg-hover);
+	--tp-button-background-color-focus: var(--zenfg-hover);
+	--tp-button-background-color-active: var(--zenfg-inset);
+	--tp-button-foreground-color: var(--zenfg-accent);
+	--tp-monitor-background-color: var(--zenfg-inset);
+	--tp-monitor-foreground-color: var(--zenfg-secondary);
+	--tp-groove-foreground-color: var(--zenfg-border);
+	color: var(--zenfg-text);
+	scrollbar-color: var(--zenfg-border) var(--zenfg-panel);
+	scrollbar-width: thin;
+}
+
+.playground-controls .tp-rotv {
+	font-size: var(--zenfg-font-control);
+}
+
+/* Compact fixed telemetry: current value above a full-width native history graph. */
+.playground-metrics {
+	min-height: 70px;
+	--tp-container-unit-size: 20px;
+}
+
+.playground-metrics .tp-grlv {
+	--mo-fg: var(--zenfg-accent);
+}
+
+.playground-metrics .tp-lblv:has(.tp-grlv) {
+	display: block;
+}
+
+.playground-metrics .tp-lblv:has(.tp-grlv) > .tp-lblv_l {
+	display: none;
+}
+
+.playground-metrics .tp-lblv:has(.tp-grlv) > .tp-lblv_v {
+	width: 100%;
+}
+
+.playground-controls .tp-lblv_l {
+	padding-right: 8px;
+}
+
+.playground-controls .tp-sldtxtv_t {
+	flex: 0 0 48px;
+}
+
+.playground-controls .tp-sldtxtv_s {
+	min-width: 0;
+}
+
+.playground-controls .tp-sldv {
+	/* Tweakpane resolves these aliases on the root; limit slider accents to its track. */
+	--in-bg: var(--zenfg-border);
+	--in-fg: var(--zenfg-accent);
+	--btn-bg: var(--zenfg-accent);
+	--btn-bg-h: var(--zenfg-text);
+	--btn-bg-f: var(--zenfg-text);
+	--btn-bg-a: var(--zenfg-accent);
+}
+
+.playground-controls :is(.tp-txtv_i, .tp-sglv_i, .tp-mllv_i) {
+	font-variant-numeric: tabular-nums;
+}
+
+/* Keep the native checkbox keyboard-accessible and give it a full hit target. */
+.playground-controls .tp-ckbv_i {
+	width: var(--cnt-usz);
+	height: var(--cnt-usz);
+	cursor: pointer;
+}
+
+.playground-controls .tp-ckbv_i:checked + .tp-ckbv_w {
+	background: var(--zenfg-accent);
+	--in-fg: var(--zenfg-on-accent);
+}
+
+.playground-controls :is(button, input, select, textarea, [tabindex]):focus-visible {
+	outline: 2px solid var(--zenfg-accent);
+	outline-offset: -2px;
+}
+
+.playground-controls .tp-ckbv_i:focus-visible + .tp-ckbv_w {
+	outline: 2px solid var(--zenfg-accent);
+	outline-offset: 2px;
+}

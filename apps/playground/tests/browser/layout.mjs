@@ -50,14 +50,29 @@ try {
     }));
     const darkStyles = await embeddedStyles();
     await page.locator('[data-theme-mode=light]').click();
-    assert.deepEqual(await embeddedStyles(), darkStyles, 'embedded dark styles unchanged');
+    const lightStyles = await embeddedStyles();
+    assert.deepEqual(lightStyles[0], darkStyles[0], 'Inspector dark styles unchanged');
+    assert.notDeepEqual(lightStyles[1], darkStyles[1], 'parameter host follows theme');
+    assert.notDeepEqual(lightStyles[2], darkStyles[2], 'parameter inputs follow theme');
     for (const width of [1440, 1277, 1024, 390]) {
         await page.setViewportSize({ width, height: width === 390 ? 844 : 920 });
         for (const mode of ['dark', 'light']) {
             await page.locator('[data-theme-mode=' + mode + ']').click();
+            const paneStyles = await page.locator('[data-controls-host] .tp-rotv').evaluate(el => {
+                const style = getComputedStyle(el);
+                const input = getComputedStyle(el.querySelector('.tp-txtv_i'));
+                return { background: style.backgroundColor, scheme: style.colorScheme, fontSize: style.fontSize,
+                    inputBackground: input.backgroundColor, inputColor: input.color };
+            });
+            assert.deepEqual(paneStyles, {
+                background: mode === 'dark' ? 'rgb(41, 46, 66)' : 'rgb(255, 255, 255)',
+                scheme: mode, fontSize: '13px',
+                inputBackground: mode === 'dark' ? 'rgb(32, 36, 55)' : 'rgb(238, 240, 247)',
+                inputColor: mode === 'dark' ? 'rgb(192, 202, 245)' : 'rgb(52, 59, 88)',
+            });
             await page.evaluate(async () => { window.scrollTo({ top: 0, behavior: 'instant' }); await new Promise(requestAnimationFrame); await new Promise(requestAnimationFrame); });
             assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), 'no overflow at ' + width);
-            const controls = await page.locator('[data-controls-host]').boundingBox();
+            const controls = await page.locator('[data-controls-panel]').boundingBox();
             const canvas = await page.locator('.demo-stage').boundingBox();
             const hint = await page.locator('[data-example-description]').boundingBox();
             const intro = await page.locator('.example-intro').boundingBox();
@@ -67,12 +82,10 @@ try {
             const title = await page.locator('[data-example-title]').boundingBox();
             const tags = await page.locator('[data-example-tags]').boundingBox();
             assert.ok(title.y < hint.y && hint.y < tags.y, 'title, description, tags reading order');
-            const status = await page.locator('.runtime-status').boundingBox();
-            assert.ok(status.x > canvas.x && status.y > canvas.y && status.y + status.height < canvas.y + canvas.height, 'compact status inside canvas');
-            assert.ok(await page.locator('.runtime-status').evaluate(el => {
-                const r = el.getBoundingClientRect();
-                return document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2)?.matches('[data-effect-canvas]');
-            }), 'status does not intercept canvas input');
+            assert.equal(await page.locator('.runtime-status').isVisible(), false, 'healthy runtime leaves the canvas clear');
+            assert.equal(await page.locator('[data-metrics-host] .tp-rotv_b').isVisible(), false);
+            assert.equal(await page.locator('[data-controls-host] .tp-rotv_b').isVisible(), false);
+            assert.equal(await page.locator('[data-frame-rate]').isVisible(), true);
             if (width === 390) assert.ok(controls.y >= canvas.y + canvas.height + 12);
             else assert.ok(controls.x >= canvas.x + canvas.width + 15, 'separate panel gap');
             assert.ok(controls.height < canvas.height, 'short pane retains natural height');
@@ -132,6 +145,11 @@ try {
     assert.deepEqual(after.pan, original.pan);
     assert.deepEqual(after.selection, original.selection);
     assert.equal(await page.locator('[data-controls-host] input[type=checkbox]').first().isChecked(), false);
+    const checkbox = page.locator('[data-controls-host] input[type=checkbox]').first();
+    await checkbox.focus();
+    assert.equal(await checkbox.evaluate(el => getComputedStyle(el.nextElementSibling).outlineStyle), 'solid');
+    await page.keyboard.press('Space');
+    assert.equal(await checkbox.isChecked(), true, 'checkbox supports keyboard input');
     await page.locator('[data-panel-button=inspector]').focus();
     await page.keyboard.press('ArrowRight');
     assert.equal(await page.locator('[data-panel-button=code]').getAttribute('aria-selected'), 'true');
@@ -139,6 +157,10 @@ try {
     assert.equal(await page.locator('[data-playground]').getAttribute('data-panel'), 'code');
     await page.locator('[data-panel-button=inspector]').click();
     await page.locator('[data-theme-mode=light]').click();
+    await page.reload();
+    await page.locator('[data-controls-host] .tp-rotv').waitFor();
+    assert.equal(await page.locator('[data-controls-host] .tp-rotv').evaluate(el => getComputedStyle(el).backgroundColor),
+        'rgb(255, 255, 255)', 'new pane inherits persisted Light theme');
     await page.locator('[data-example-directory] details').nth(1).locator('summary').click();
     await page.locator('[data-example-id=minimal-frame]').click();
     assert.equal(await page.locator('html').getAttribute('data-theme'), 'light');
@@ -171,6 +193,12 @@ try {
     await noGpu.locator('[data-panel-button=code]').click();
     await noGpu.locator('.shiki').waitFor();
     assert.equal(await noGpu.locator('[data-copy-source]').isEnabled(), true);
+    await noGpu.goto(base + '?example=babylon-lite-interop&panel=code');
+    await noGpu.locator('[data-frame-rate-history]').waitFor();
+    assert.equal(await noGpu.locator('[data-frame-rate]').inputValue(), '—');
+    assert.equal(await noGpu.locator('[data-frame-rate-history] polyline').getAttribute('points'), '');
+    assert.equal(await noGpu.locator('[data-metrics-host]').isVisible(), true, 'complete monitor exists before any valid frames');
+    assert.ok((await noGpu.locator('[data-metrics-host]').boundingBox()).height >= 70);
     await noGpu.close();
     report.interactions.push('Code available without WebGPU');
 

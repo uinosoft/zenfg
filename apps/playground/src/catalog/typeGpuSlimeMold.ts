@@ -72,7 +72,6 @@ export const typeGpuSlimeMoldExample: PlaygroundExampleDefinition = {
 		try {
 			pane = new Pane({
 				container: context.controlsHost,
-				title: 'Slime Mold',
 			}) as unknown as TweakpaneControl;
 			bindSetting(pane, settings, controller.setSettings.bind(controller), 'moveSpeed', {
 				label: 'Move Speed', min: 0, max: 100, step: 1,

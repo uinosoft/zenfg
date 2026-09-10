@@ -1,5 +1,6 @@
 import { exampleTagLabels } from './exampleTags.ts';
 import { createExampleStatus, type ExampleStatus } from './exampleStatus.ts';
+import type { createFrameRateMonitor } from './frameRateMonitor.ts';
 import type { FrameGraphInspector } from '@zenfg/inspector';
 import { installAppPageLifecycle } from '../../shared/pageLifecycle.ts';
 import { findPublicExample, publicExamples } from './catalog/catalog.ts';
@@ -20,6 +21,8 @@ const graphHint = requireElement<HTMLElement>('[data-graph-hint]');
 const exampleDescription = requireElement<HTMLElement>('[data-example-description]');
 const exampleError = requireElement<HTMLElement>('[data-example-error]');
 const controlsHost = requireElement<HTMLElement>('[data-controls-host]');
+const controlsPanel = requireElement<HTMLElement>('[data-controls-panel]');
+const metricsHost = requireElement<HTMLElement>('[data-metrics-host]');
 const workbench = requireElement<HTMLElement>('[data-workbench]');
 const codeWorkspace = requireElement<HTMLElement>('[data-code-workspace]');
 const inspectorWorkspace = requireElement<HTMLElement>('[data-inspector-workspace]');
@@ -40,16 +43,18 @@ let inspectorPromise: Promise<void> | undefined;
 let codePromise: Promise<void> | undefined;
 let sourceView: ReturnType<typeof createSourceView> | undefined;
 let disposed = false;
+let frameRateMonitor: ReturnType<typeof createFrameRateMonitor> | undefined;
 const mountAbort = new AbortController();
 const runtimeStatus = createExampleStatus({
 	root: playground, status: effectStatus, label: effectStatusText,
 	signal: requireElement<HTMLElement>('.effect-status__signal'),
 	feedback: requireElement<HTMLElement>('[data-example-feedback]'),
-	fps: requireElement<HTMLElement>('[data-frame-rate]'),
+	onFrameRate: value => frameRateMonitor?.update(value),
+	onFrameSample: value => frameRateMonitor?.record(value),
 	readyState: example?.readyState ?? 'ready', loadingNote: example?.loadingNote,
 });
 
-const statusTimer = window.setInterval(() => runtimeStatus.tick(performance.now()), 500);
+const statusTimer = window.setInterval(() => runtimeStatus.tick(performance.now()), 250);
 const onVisibilityChange = () => runtimeStatus.suspend(document.hidden);
 const onPageHide = () => runtimeStatus.suspend(true);
 document.addEventListener('visibilitychange', onVisibilityChange);
@@ -114,7 +119,10 @@ if (example) {
 	graphHint.textContent = example.graphHint ?? '';
 	document.title = example.title + ' · ZenFG Examples';
 	requireElement<HTMLElement>('[data-example-title]').textContent = example.title;
-	requireElement<HTMLElement>('[data-demo-card]').dataset.hasControls = String(!!example.hasControls);
+	const hasSidebar = !!example.hasControls || example.readyState === 'live';
+	requireElement<HTMLElement>('[data-demo-card]').dataset.hasSidebar = String(hasSidebar);
+	controlsPanel.hidden = !hasSidebar;
+	metricsHost.hidden = example.readyState !== 'live';
 	controlsHost.hidden = !example.hasControls;
 } else {
 	exampleError.hidden = false;
@@ -152,11 +160,11 @@ document.addEventListener('keydown', (event) => {
 // Constrain the host, leaving Tweakpane's own folding and intrinsic height intact.
 const demoStage = requireElement<HTMLElement>('.demo-stage');
 function syncControlsHeight(): void {
-	if (disposed || !example?.hasControls) return;
+	if (disposed || controlsPanel.hidden) return;
 	const height = demoStage.getBoundingClientRect().height;
-	if (height > 0) controlsHost.style.setProperty('--canvas-height', `${height}px`);
+	if (height > 0) controlsPanel.style.setProperty('--canvas-height', `${height}px`);
 }
-const controlsResizeObserver = example?.hasControls ? new ResizeObserver(syncControlsHeight) : undefined;
+const controlsResizeObserver = example && !controlsPanel.hidden ? new ResizeObserver(syncControlsHeight) : undefined;
 controlsResizeObserver?.observe(demoStage, { box: 'border-box' });
 syncControlsHeight();
 
@@ -179,6 +187,7 @@ installAppPageLifecycle(window, {
 		sourceView?.destroy();
 		inspector?.destroy();
 		runtime?.dispose();
+		frameRateMonitor?.dispose();
 		controlsHost.replaceChildren();
 		void disposeHighlighter();
 	},
@@ -192,6 +201,11 @@ async function mountExample(definition: PlaygroundExampleDefinition): Promise<Pl
 	setEffectStatus('loading', 'Initializing WebGPU…');
 	let reportedError = false;
 	try {
+		if (definition.readyState === 'live') {
+			const { createFrameRateMonitor } = await import('./frameRateMonitor.ts');
+			if (disposed) return undefined;
+			frameRateMonitor = createFrameRateMonitor(metricsHost);
+		}
 		const mounted = await definition.mount({
 			signal: mountAbort.signal,
 			onFrame: () => { if (!disposed) runtimeStatus.frame(performance.now()); },

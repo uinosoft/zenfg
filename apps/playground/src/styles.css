@@ -1,3 +1,5 @@
+@import './tweakpane.css';
+
 :root {
 	font-family: var(--zenfg-font-ui, system-ui, sans-serif);
 	color: var(--zenfg-text, #c0caf5);
@@ -249,7 +251,7 @@ html, body {
 	grid-template-columns: minmax(0, 1fr);
 }
 
-.demo-card[data-has-controls=true] {
+.demo-card[data-has-sidebar=true] {
 	grid-template-columns: minmax(0, 1fr) 250px;
 }
 
@@ -301,22 +303,6 @@ html, body {
 	border-radius: 6px;
 	background: #0b121ddd;
 	pointer-events: none;
-}
-
-.runtime-status__row {
-	display: flex;
-	align-items: center;
-	justify-content: space-between;
-	gap: 14px;
-	min-height: 20px;
-}
-
-.runtime-fps {
-	flex-shrink: 0;
-	color: var(--zenfg-secondary);
-	font-size: 12px;
-	font-variant-numeric: tabular-nums;
-	white-space: nowrap;
 }
 
 .effect-status[data-state=ready][data-paused=true] .effect-status__signal {
@@ -393,9 +379,9 @@ html, body {
 	}
 }
 
-/* Preserve embedded tools' existing dark styling until their own theme work. */
+/* Inspector owns its existing dark styling until its own theme work. */
 
-.playground-controls, .inspector-workspace {
+.inspector-workspace {
 	color-scheme: dark;
 	color: #e7eef5;
 	font-family: Inter, ui-sans-serif, system-ui, sans-serif;
@@ -404,6 +390,8 @@ html, body {
 }
 
 .playground-controls {
+	display: flex;
+	flex-direction: column;
 	grid-column: 2;
 	grid-row: 1;
 	align-self: start;
@@ -411,16 +399,26 @@ html, body {
 	min-height: 0;
 	max-height: var(--canvas-height, 560px);
 	padding: 0;
-	overflow-y: auto;
-	overflow-x: hidden;
-	background: #10181f;
+	overflow: hidden;
+	background: var(--zenfg-panel);
 	border: 1px solid var(--zenfg-divider);
 	border-radius: var(--zenfg-radius-panel);
 }
 
-/* The host owns scrolling; Tweakpane retains native sizing and fold animations. */
+/* The monitor stays outside the scrolling parameter host. Both panes size naturally. */
+.playground-metrics { flex: none; }
+.playground-metrics:not([hidden]):has(+ .playground-parameters:not([hidden])) {
+	border-bottom: 1px solid var(--zenfg-divider);
+}
+.playground-parameters {
+	min-height: 0;
+	overflow-y: auto;
+	overflow-x: hidden;
+	scrollbar-color: var(--zenfg-border) var(--zenfg-panel);
+	scrollbar-width: thin;
+}
 
-.playground-controls > .tp-rotv {
+.playground-controls .tp-rotv {
 	width: 100%;
 	border-radius: 0;
 	box-shadow: none;
@@ -658,7 +656,7 @@ body:has(.tool-workbench[data-maximized=true]) {
 	.examples-layout {
 		grid-template-columns: 210px minmax(0, 1fr);
 	}
-	.demo-card[data-has-controls=true] {
+	.demo-card[data-has-sidebar=true] {
 		grid-template-columns: minmax(0, 1fr) 230px;
 	}
 }
@@ -694,7 +692,7 @@ body:has(.tool-workbench[data-maximized=true]) {
 	.title-row h1 {
 		font-size: 26px;
 	}
-	.demo-card[data-has-controls=true] {
+	.demo-card[data-has-sidebar=true] {
 		grid-template-columns: minmax(0, 1fr);
 	}
 	.playground-controls {

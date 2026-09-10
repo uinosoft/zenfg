@@ -95,7 +95,7 @@ export const babylonInteropExample: PlaygroundExampleDefinition = {
         };
         try {
             context.signal?.addEventListener('abort', cleanup, { once: true });
-            pane = new Pane({ container: context.controlsHost, title: 'Babylon.js Co-rendering' }) as unknown as ControlPane;
+            pane = new Pane({ container: context.controlsHost }) as unknown as ControlPane;
             const settings = { reverseZ: true };
             Object.assign(settings, controller.getSettings());
             let changing = false;

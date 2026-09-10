@@ -89,7 +89,7 @@ export const typeGpuMonocularLightInjectionExample: PlaygroundExampleDefinition 
             context.signal?.throwIfAborted();
             context.signal?.addEventListener('abort', cleanup, { once: true });
             context.controlsHost.append(upload);
-            pane = new Pane({ container: context.controlsHost, title: 'Monocular Light Injection' }) as unknown as ControlPane;
+            pane = new Pane({ container: context.controlsHost }) as unknown as ControlPane;
             const active = controller;
             const bind = (key: string, options: Record<string, unknown>, change: () => void) => {
                 controls.push(pane!.addBinding(params, key, options).on('change', () => {

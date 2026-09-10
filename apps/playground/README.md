@@ -36,11 +36,13 @@ remembers the explicit choice in `zenfg-playground-theme` local storage, default
 to Dark, and still switches when storage is unavailable. This preference is
 specific to Examples; system appearance and cross-app synchronization are deferred.
 
-Only the page shell and Code switch themes. Tweakpane remains the parameter
-library, and both its contents and the embedded Inspector retain their existing
-dark appearance. Their host dimensions and placement adapt to the page; internal
-theme/style settings remain separate follow-up work. Canvas output does not
-change with the page theme.
+The page shell, Code, and Tweakpane controls switch themes together. The scoped
+`src/tweakpane.css` adapter maps Tweakpane 4 properties to shared palette tokens,
+including folders, inputs, buttons, sliders, checkboxes, and read-only monitors.
+Controls use 13px UI text, 28px rows, and visible keyboard focus. Changing theme
+preserves mounted controls, values, folder state, and parameter scroll position;
+newly loaded panes inherit the saved choice. The embedded Inspector retains its
+existing dark appearance. Canvas output does not change with the page theme.
 
 Inspector opens by default and captures a real frame. Explicit `panel=code`
 and `panel=inspector` URLs select the active tool; legacy `panel=none`, missing
@@ -54,29 +56,49 @@ Showcases starts expanded; basics starts collapsed unless it contains the curren
 example. The directory starts collapsed at 800px or below. The canvas uses a stable
 4:3 aspect ratio at every viewport, sized from available width within the bounded
 content column. A 16px gap separates the canvas from the parameter panel.
-Tweakpane uses its natural content height. A ResizeObserver limits the outer host
-to the actual canvas border-box height on desktop, including after directory and
-viewport changes. Mobile retains a separate 340px limit. Only the host scrolls;
-Tweakpane keeps its native internal heights and folding animations. Short panes
-do not stretch to match the canvas. The observer disconnects on page disposal.
+Live examples use two titleless Tweakpane instances inside one shared border:
+a page-owned FPS monitor with a native history graph at the top and
+example-owned parameters below it. Only the parameter host scrolls, so FPS stays visible while adjusting
+long panes. The entire region follows normal page scrolling. Internal folders
+retain native folding animations; there is no root collapse button.
+A ResizeObserver limits the combined region to the canvas border-box height on
+desktop, including after directory and viewport changes. Mobile retains a 340px
+combined limit. Short panes use natural height. The observer and monitor are
+disposed with the page.
 Static explanations and renderer color legends belong in the example description. Particles4All statistics
 are read-only monitors in a collapsed Statistics folder. Hidden file inputs are
 implementation details, not visible content alongside the pane. Babylon Lite has
-no adjustable parameters and uses the layout without a controls column.
+no adjustable parameters and shows only the compact FPS pane. Static recipes
+without parameters or continuous rendering have no right-hand column.
 
-A compact, non-interactive badge overlays the canvas's bottom-left corner with
-runtime state and FPS. It retains readable dark styling in both shell themes and
-lets pointer input pass through. Longer loading, warning and error details appear
+A compact, non-interactive badge overlays the canvas's bottom-left corner only
+for loading, pause, warnings and errors. Healthy Live and Ready states hide it.
+It retains readable dark styling in both shell themes and lets pointer input
+pass through. Longer loading, warning and error details appear
 below the canvas. The introduction follows the demo: title, description and tags.
 On mobile, parameters move below the canvas and any runtime details.
 
-Live examples report FPS from successful render submissions, sampled at most twice
-per second. This is render frequency, not GPU timing or model inference frequency.
-Loading, Ready, errors, pause and background suspension hide FPS and reset its
-sample; on-demand examples hide stale readings after 1.5 seconds without a frame.
+Live examples calculate FPS from the interval between successive successful render
+submissions. The curve updates on every submitted frame; the number uses a
+500ms rolling average, refreshed every 250ms. The average divides the number
+of intervals by their total duration, including the interval crossing the window
+boundary. Pause and resume reset the averaging window. This is render frequency,
+not GPU timing or model inference frequency.
+Loading, errors, pause and background suspension reset its sample and display
+`—` in the monitor; on-demand examples clear stale readings after 1.5 seconds
+without a frame. Static Ready recipes do not create a monitor.
 Returning or resuming waits for a fresh sample. Private example hosts expose
 optional observational frame notifications; published package APIs and snapshots
 remain unchanged.
+
+The fixed FPS region is 70px tall: current value above the latest 120 rendered
+frame intervals (roughly two seconds at 60 FPS). The full empty graph and `—`
+appear before the first valid sample. It freezes during pauses or missing
+readings, without inserting zeroes. Resizing redraws frozen history without
+adding samples. Its vertical range starts at 0–120 FPS and grows for higher
+frame rates.
+Frame callbacks feed both calculations. A shared 250ms timer publishes the average
+and clears stale readings; it never appends graph history.
 
 Code uses the same Shiki theme definitions as the visual lab, registering both
 TypeScript and JavaScript. Dual-theme markup changes colors without remounting;
@@ -85,12 +107,14 @@ failed highlighting leaves the exact source readable and copyable.
 Run `node apps/playground/tests/browser/layout.mjs` against the same Pages preview
 and Playwright configuration described below. It checks both themes at 1440,
 1277, 1024 and 390px, real captured graph nodes,
-embedded style isolation, graph/parameter/source retention, keyboard controls,
+Tweakpane colors and Inspector style isolation, graph/parameter/source retention,
+keyboard controls,
 theme persistence and storage failure, unknown examples, and Code without WebGPU.
 Reports and screenshots go to `.test-dist/examples-layout`.
 `node apps/playground/tests/browser/runtimeStatus.mjs` additionally checks live FPS,
-pause/resume, BFCache suspension, canvas status placement, native pane folding,
-and parameter height limits across viewport and directory changes. It uses the same preview and Playwright settings; its
+pause/resume, BFCache suspension, fixed FPS during parameter scrolling, native
+folder folding, and combined height limits across viewport and directory changes.
+It uses the same preview and Playwright settings; its
 Monocular checks need network access to the public model and demo photo. Reports
 and screenshots go to `.test-dist/examples-status`.
 
