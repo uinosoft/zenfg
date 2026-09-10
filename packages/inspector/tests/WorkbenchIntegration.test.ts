@@ -69,7 +69,9 @@ test('workbench first snapshot opens Graph with no selection or detail panel', (
 		assert.equal(element(panel.dom, '.zenfg-inspector-workspace').classList.contains('inspector-open'), false);
 		assert.equal(element<HTMLButtonElement>(panel.dom, '.zenfg-inspector-open-inspector').hidden, true);
 		assert.equal(panel.dom.querySelector('[data-selection].selected'), null);
-		assert.match(element(panel.dom, '.zenfg-inspector-capture-context').textContent!, /Frame 42.*2026-06-15/);
+		assert.equal(panel.dom.querySelector('.zenfg-inspector-capture-context'), null);
+		button(tabs(panel), 'Overview').click();
+		assert.match(element(panel.dom, '.zenfg-inspector-capture-details').textContent!, /Frame42.*2026-06-15/);
 	} finally { panel.destroy(); window.close(); }
 });
 

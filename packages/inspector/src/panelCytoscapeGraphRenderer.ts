@@ -1,3 +1,4 @@
+import { GRAPH_VISUAL_THEME, type GraphVisualTheme } from './panelVisualTheme.ts';
 import type cytoscape from 'cytoscape';
 import type { ELK } from 'elkjs/lib/elk-api';
 
@@ -18,6 +19,7 @@ import {
 } from './panelGraphScene.ts';
 import {
     createGraphStyles,
+    fitGraphLabel,
     expandedGroupLabelMaxWidth,
     GRAPH_GEOMETRY,
     graphEdgeDisplayLabel,
@@ -38,7 +40,7 @@ export type GraphResizeSubscription = { disconnect(): void };
 export type GraphRendererEnvironment = {
     readonly createElement: (tagName: string) => HTMLElement;
     readonly loadRuntime: () => Promise<GraphRendererRuntime>;
-    readonly layoutScene: (elk: ELK, scene: GraphScene) => Promise<GraphLayoutResult>;
+    readonly layoutScene: (elk: ELK, scene: GraphScene, theme?: GraphVisualTheme) => Promise<GraphLayoutResult>;
     readonly observeResize?: (element: HTMLElement, onResize: () => void) => GraphResizeSubscription;
 };
 
@@ -49,6 +51,9 @@ export class CytoscapeGraphRenderer implements GraphRenderer {
     private readonly statusMessage: HTMLElement;
     private readonly retryButton: HTMLButtonElement;
     private readonly resizeSubscription: GraphResizeSubscription | undefined;
+    private theme: GraphVisualTheme = GRAPH_VISUAL_THEME;
+    private geometryRevision = 0;
+    private wasVisible = false;
     private core: cytoscape.Core | undefined;
     private elk: ELK | undefined;
     private loading: Promise<void> | undefined;
@@ -64,6 +69,14 @@ export class CytoscapeGraphRenderer implements GraphRenderer {
     private anchorTargetContentKey: string | undefined;
     private failedSceneContentKey: string | undefined;
     private overview = false;
+    private dragPanning = false;
+    private pointerInside = false;
+    private pointerOverElement = false;
+    private readonly cancelPointerInteraction = () => {
+        this.dragPanning = false;
+        this.cancelGroupTap();
+        this.clearHover();
+    };
     private pendingReveal: { readonly request: NonNullable<GraphRenderRequest['reveal']>; readonly contentKey: string; readonly captureRevision: number | undefined } | undefined;
     private pendingGroupTap: { readonly id: string; readonly timer: ReturnType<typeof setTimeout> } | undefined;
 
@@ -73,11 +86,15 @@ export class CytoscapeGraphRenderer implements GraphRenderer {
     ) {
         this.canvasHost = environment.createElement('div');
         this.canvasHost.className = 'zenfg-inspector-graph-canvas';
+        this.updateCursor();
         this.tooltip = environment.createElement('div');
         this.tooltip.className = 'zenfg-inspector-graph-tooltip';
         this.tooltip.hidden = true;
         // Cytoscape's node mouseout is not guaranteed when leaving its canvas directly.
-        this.canvasHost.addEventListener('pointerleave', () => this.clearHover());
+        this.canvasHost.addEventListener('pointerenter', () => { this.pointerInside = true; });
+        this.canvasHost.addEventListener('pointerleave', () => { this.pointerInside = false; this.clearHover(); });
+        this.canvasHost.addEventListener('pointercancel', this.cancelPointerInteraction);
+        this.canvasHost.ownerDocument?.defaultView?.addEventListener('blur', this.cancelPointerInteraction);
         this.status = environment.createElement('div');
         this.status.className = 'zenfg-inspector-graph-status';
         this.status.hidden = true;
@@ -91,11 +108,17 @@ export class CytoscapeGraphRenderer implements GraphRenderer {
         this.retryButton.addEventListener('click', () => this.relayout());
         this.status.append(this.statusMessage, this.retryButton);
         this.host.replaceChildren(this.canvasHost, this.status, this.tooltip);
-        this.resizeSubscription = environment.observeResize?.(host, () => this.core?.resize());
+        this.resizeSubscription = environment.observeResize?.(host, () => {
+            const visible = host.clientWidth > 0 && host.clientHeight > 0;
+            if (visible && !this.wasVisible) this.latestRequest?.onVisible?.();
+            this.wasVisible = visible;
+            this.core?.resize();
+        });
     }
 
     render(request: GraphRenderRequest): void {
         if (this.destroyed) return;
+        if (request.theme) this.setTheme(request.theme);
         if (this.latestRequest?.scene !== request.scene
             || (this.latestRequest?.selected && selectionKey(this.latestRequest.selected)) !== (request.selected && selectionKey(request.selected))) {
             this.cancelGroupTap();
@@ -147,6 +170,31 @@ export class CytoscapeGraphRenderer implements GraphRenderer {
         this.scheduleProcessing();
     }
 
+    setTheme(theme: GraphVisualTheme): void {
+        if (this.destroyed || JSON.stringify(theme) === JSON.stringify(this.theme)) return;
+        const typographyChanged = theme.fontFamily !== this.theme.fontFamily || theme.fontSize !== this.theme.fontSize;
+        this.theme = theme;
+        this.core?.style().fromJson(createGraphStyles(theme)).update();
+        if (!typographyChanged) return;
+        this.geometryRevision++;
+        if (this.core && this.latestRequest && this.appliedScene) {
+            const selected = this.core.nodes('.semantic-selected').first();
+            const center = this.core.extent();
+            const target = selected.nonempty() ? selected : this.core.nodes().filter(node => !node.isParent()).sort((a, b) => {
+                const distance = (node: cytoscape.NodeSingular) => Math.hypot(node.position('x') - center.x1 - center.w / 2, node.position('y') - center.y1 - center.h / 2);
+                return distance(a as cytoscape.NodeSingular) - distance(b as cytoscape.NodeSingular);
+            }).first();
+            if (target.nonempty()) {
+                this.anchorElementId = target.id();
+                this.anchorTargetContentKey = this.latestRequest.scene.contentKey;
+            }
+            this.forceRelayout = true;
+            ++this.requestVersion;
+            this.scheduleProcessing();
+        }
+        this.updateSemanticZoom(true);
+    }
+
     resize(): void {
         this.core?.resize();
     }
@@ -186,6 +234,7 @@ export class CytoscapeGraphRenderer implements GraphRenderer {
         this.cancelGroupTap();
         this.requestVersion++;
         this.resizeSubscription?.disconnect();
+        this.canvasHost.ownerDocument?.defaultView?.removeEventListener('blur', this.cancelPointerInteraction);
         this.hideTooltip();
         this.core?.destroy();
         this.core = undefined;
@@ -219,7 +268,7 @@ export class CytoscapeGraphRenderer implements GraphRenderer {
 
             if (request.scene.nodes.length === 0) {
                 this.hideTooltip();
-                if (this.core) replaceElements(this.core, request.scene);
+                if (this.core) replaceElements(this.core, request.scene, this.theme);
                 this.appliedScene = request.scene;
                 this.forceRelayout = false;
                 if (this.fitTargetContentKey === request.scene.contentKey) this.fitTargetContentKey = undefined;
@@ -263,16 +312,18 @@ export class CytoscapeGraphRenderer implements GraphRenderer {
 
                 if (geometryChanged || this.forceRelayout) {
                     this.showStatus('layout', 'Laying out graph…');
-                    const result = await this.environment.layoutScene(this.elk!, request.scene);
+                    const geometryRevision = this.geometryRevision;
+                    const result = await this.environment.layoutScene(this.elk!, request.scene, this.theme);
+                    if (geometryRevision !== this.geometryRevision) continue;
                     const layoutRequest = this.resolveCurrentRequest(version, request.scene.contentKey);
                     if (!layoutRequest) continue;
                     ({ version, request } = layoutRequest);
-                    if (topologyChanged || !this.appliedScene) replaceElements(core, request.scene);
-                    else updateElementData(core, request.scene);
+                    if (topologyChanged || !this.appliedScene) replaceElements(core, request.scene, this.theme);
+                    else updateElementData(core, request.scene, this.theme);
                     applyGraphLayout(core, request.scene, result);
                     laidOut = true;
                 } else {
-                    updateElementData(core, request.scene);
+                    updateElementData(core, request.scene, this.theme);
                 }
 
                 syncExpandedGroupLabelGeometry(core);
@@ -330,7 +381,7 @@ export class CytoscapeGraphRenderer implements GraphRenderer {
         this.core = runtime.createCore({
             container: this.canvasHost,
             elements: [],
-            style: createGraphStyles(),
+            style: createGraphStyles(this.theme),
             layout: { name: 'preset' },
             minZoom: 0.03,
             maxZoom: 4,
@@ -369,9 +420,12 @@ export class CytoscapeGraphRenderer implements GraphRenderer {
         });
         const hoverElement = (event: cytoscape.EventObject) => {
             const request = this.interactiveRequest();
-            if (!request) return;
+            if (!request || this.dragPanning) return;
             const id = event.target.id() as GraphSceneElementId;
             const selection = request.scene.interaction.selectionByElementId.get(id);
+            this.pointerInside = true;
+            this.pointerOverElement = !!selection;
+            this.updateCursor();
             if (selection) request.onHover(selection);
             const title = event.target.data('tooltip') as string | undefined;
             if (title) {
@@ -388,6 +442,18 @@ export class CytoscapeGraphRenderer implements GraphRenderer {
         const clearHover = () => this.clearHover();
         core.on('mouseout', 'node', clearHover);
         core.on('mouseout', 'edge', clearHover);
+        core.on('dragpan', () => {
+            if (this.dragPanning) return;
+            this.dragPanning = true;
+            this.cancelGroupTap();
+            this.clearHover();
+        });
+        core.on('tapend', (event) => {
+            this.dragPanning = false;
+            this.pointerOverElement = this.pointerInside && event.target !== core
+                && !!this.interactiveRequest()?.scene.interaction.selectionByElementId.get(event.target.id());
+            this.updateCursor();
+        });
         core.on('zoom', () => this.updateSemanticZoom());
     }
 
@@ -459,7 +525,7 @@ export class CytoscapeGraphRenderer implements GraphRenderer {
     private updateSemanticZoom(force = false): void {
         const core = this.core;
         if (!core) return;
-        const overview = isOverviewGraphScale(core.zoom());
+        const overview = isOverviewGraphScale(core.zoom(), this.theme);
         if (!force && overview === this.overview) return;
         this.overview = overview;
         core.batch(() => {
@@ -490,8 +556,14 @@ export class CytoscapeGraphRenderer implements GraphRenderer {
     }
 
     private clearHover(): void {
+        this.pointerOverElement = false;
+        this.updateCursor();
         this.hideTooltip();
         this.latestRequest?.onHover(undefined);
+    }
+
+    private updateCursor(): void {
+        this.canvasHost.style.cursor = this.dragPanning ? 'grabbing' : this.pointerOverElement ? 'pointer' : 'grab';
     }
 
     private showStatus(kind: 'loading' | 'layout' | 'empty' | 'error', message: string, retry = false): void {
@@ -559,9 +631,9 @@ const browserGraphRendererEnvironment: GraphRendererEnvironment = {
     },
 };
 
-function replaceElements(core: cytoscape.Core, scene: GraphScene): void {
+function replaceElements(core: cytoscape.Core, scene: GraphScene, theme: GraphVisualTheme = GRAPH_VISUAL_THEME): void {
     const definitions: cytoscape.ElementDefinition[] = [
-        ...scene.nodes.map(nodeDefinition),
+        ...scene.nodes.map(node => nodeDefinition(node, theme)),
         ...scene.edges.map(edgeDefinition),
     ];
     core.startBatch();
@@ -570,11 +642,11 @@ function replaceElements(core: cytoscape.Core, scene: GraphScene): void {
     core.endBatch();
 }
 
-export function updateElementData(core: cytoscape.Core, scene: GraphScene): void {
+export function updateElementData(core: cytoscape.Core, scene: GraphScene, theme: GraphVisualTheme = GRAPH_VISUAL_THEME): void {
     core.batch(() => {
         for (const node of scene.nodes) {
             const element = core.getElementById(node.id);
-            if (element.nonempty()) element.data(nodeRenderableData(node));
+            if (element.nonempty()) element.data(nodeRenderableData(node, theme));
         }
         for (const edge of scene.edges) {
             const element = core.getElementById(edge.id);
@@ -583,22 +655,23 @@ export function updateElementData(core: cytoscape.Core, scene: GraphScene): void
     });
 }
 
-function nodeDefinition(node: GraphSceneNode): cytoscape.ElementDefinition {
+function nodeDefinition(node: GraphSceneNode, theme: GraphVisualTheme): cytoscape.ElementDefinition {
     return {
         group: 'nodes',
+        pannable: true,
         data: {
             id: node.id,
             parent: node.parentId,
-            ...nodeRenderableData(node),
+            ...nodeRenderableData(node, theme),
         },
     };
 }
 
-function nodeRenderableData(node: GraphSceneNode): Record<string, unknown> {
-    const dimensions = nodeDimensions(node);
+function nodeRenderableData(node: GraphSceneNode, theme: GraphVisualTheme): Record<string, unknown> {
+    const dimensions = nodeDimensions(node, theme);
     const labelMaxWidth = node.kind === 'group' && node.collapsed
         ? expandedGroupLabelMaxWidth(dimensions.width)
-        : 160;
+        : 160 * theme.fontSize / GRAPH_GEOMETRY.baseFontSize;
     return {
         kind: node.kind,
         passKind: node.kind === 'pass' ? node.passKind : undefined,
@@ -606,9 +679,9 @@ function nodeRenderableData(node: GraphSceneNode): Record<string, unknown> {
         collapsed: node.kind === 'group' && node.collapsed ? 1 : 0,
         hasCulled: node.kind === 'group' && node.culledNodeCount > 0 ? 1 : 0,
         depthBand: node.kind === 'group' ? node.depthBand : undefined,
-        detailLabel: node.label,
-        overviewLabel: node.overviewLabel,
-        displayLabel: node.label,
+        detailLabel: fitGraphLabel(node.label, labelMaxWidth, theme),
+        overviewLabel: fitGraphLabel(node.overviewLabel, labelMaxWidth, theme),
+        displayLabel: fitGraphLabel(node.label, labelMaxWidth, theme),
         tooltip: node.title,
         labelMaxWidth,
         width: dimensions.width,

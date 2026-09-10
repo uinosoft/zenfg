@@ -1,3 +1,4 @@
+import { GRAPH_VISUAL_THEME } from './panelVisualTheme.ts';
 import type { FrameGraphDebugViewModel } from './debugCaptureModel.ts';
 import { CytoscapeGraphRenderer } from './panelCytoscapeGraphRenderer.ts';
 import { createGraphScene, type GraphScene } from './panelGraphScene.ts';
@@ -22,7 +23,8 @@ export function renderGraphView(
     onToggleGroup: (pathKey: string) => void,
 ): void {
     const scene = resolveGraphScene(graphView, snapshot);
-    renderGraphLegend(graphView.legend, snapshot);
+    if (!graphView.theme) graphView.refreshTheme?.();
+    renderGraphLegend(graphView.legend, snapshot, graphView.theme);
 	const elementCount = scene.nodes.length + scene.edges.length;
 	const layoutElementBudget = graphView.layoutElementBudget ?? Number.MAX_SAFE_INTEGER;
 	if (elementCount > layoutElementBudget) {
@@ -39,6 +41,8 @@ export function renderGraphView(
 	graphView.renderer ??= new CytoscapeGraphRenderer(graphView.host);
     graphView.renderer.render({
         scene,
+        theme: graphView.theme,
+        onVisible: graphView.refreshTheme,
         selected,
         hovered,
         fit: graphView.fitOnNextRender,
@@ -77,6 +81,7 @@ export function fitGraph(graphView: GraphViewState): void {
 }
 
 export function resizeGraph(graphView: GraphViewState): void {
+    graphView.refreshTheme?.();
     graphView.renderer?.resize();
 }
 
@@ -86,9 +91,9 @@ export function destroyGraph(graphView: GraphViewState): void {
     graphSceneCache.delete(graphView);
 }
 
-function renderGraphLegend(host: HTMLElement | undefined, snapshot: FrameGraphDebugViewModel): void {
+export function renderGraphLegend(host: HTMLElement | undefined, snapshot: FrameGraphDebugViewModel, theme = GRAPH_VISUAL_THEME): void {
     if (!host) return;
-    const entries = createGraphLegend(snapshot);
+    const entries = createGraphLegend(snapshot, theme);
     const key = JSON.stringify(entries);
     if (host.dataset.legendKey === key) return;
     host.dataset.legendKey = key;

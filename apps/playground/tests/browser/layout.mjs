@@ -19,6 +19,8 @@ page.on('pageerror', error => errors.push(String(error)));
 const report = { layouts: [], interactions: [], errors };
 try {
     await page.goto(base + '?example=reference-renderer&panel=none');
+    assert.equal(await page.locator('.playground-brand a').innerText(), 'ZenFG');
+    assert.equal(await page.locator('.playground-brand').getByText('Examples', { exact: true }).evaluate(el => el.closest('a') === null), true);
     await page.waitForFunction(() => document.querySelector('[data-playground]').dataset.effectState === 'ready');
     await page.locator('.zenfg-inspector-graph-canvas canvas').first().waitFor();
     await page.locator('.zenfg-inspector-graph-status').waitFor({ state: 'hidden' });
@@ -51,7 +53,8 @@ try {
     const darkStyles = await embeddedStyles();
     await page.locator('[data-theme-mode=light]').click();
     const lightStyles = await embeddedStyles();
-    assert.deepEqual(lightStyles[0], darkStyles[0], 'Inspector dark styles unchanged');
+    assert.notDeepEqual(lightStyles[0], darkStyles[0], 'Inspector follows the selected theme');
+    assert.equal(lightStyles[0][2], 'light');
     assert.notDeepEqual(lightStyles[1], darkStyles[1], 'parameter host follows theme');
     assert.notDeepEqual(lightStyles[2], darkStyles[2], 'parameter inputs follow theme');
     for (const width of [1440, 1277, 1024, 390]) {

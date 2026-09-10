@@ -1,3 +1,4 @@
+import type { GraphVisualTheme } from './panelVisualTheme.ts';
 import type { GraphRenderer } from './panelGraphRenderer.ts';
 import type { FrameGraphDebugEdge } from './debugCaptureModel.ts';
 
@@ -22,6 +23,8 @@ export type PassesSubview = 'list' | 'groups';
 export type InspectorTab = 'summary' | 'relations' | 'raw';
 
 export type GraphViewState = {
+    theme?: GraphVisualTheme;
+    readonly refreshTheme?: () => void;
     readonly host: HTMLElement;
     readonly toolbar: HTMLElement;
     readonly legend?: HTMLElement;

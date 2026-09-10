@@ -6,7 +6,7 @@ export const PANEL_LIST_CSS = `
 .zenfg-inspector-result-count {
 	color: var(--fgd-muted);
 	white-space: nowrap;
-	font: 12px/1.4 var(--fgd-font-ui);
+	font: var(--fgd-font-size-small)/1.4 var(--fgd-font-ui);
 }
 .zenfg-inspector-list-context {
 	flex: 0 0 auto;
@@ -14,27 +14,27 @@ export const PANEL_LIST_CSS = `
 	padding: 7px 10px;
 	border-bottom: 1px solid var(--fgd-border-subtle);
 	color: var(--fgd-muted);
-	font: 12px/1.5 var(--fgd-font-ui);
+	font: var(--fgd-font-size-small)/1.5 var(--fgd-font-ui);
 }
 .zenfg-inspector-view-toolbar button {
-	min-height: 28px;
-	padding: 4px 8px;
+	min-height: var(--fgd-control-height);
+	padding: var(--fgd-space-1) var(--fgd-space-2);
 	border: 1px solid var(--fgd-border);
-	border-radius: 5px;
+	border-radius: var(--fgd-radius-sm);
 	background: var(--fgd-panel);
 	color: var(--fgd-text-secondary);
-	font: 12px/1.3 var(--fgd-font-ui);
+	font: var(--fgd-font-size)/1.3 var(--fgd-font-ui);
 	cursor: pointer;
 }
 .zenfg-inspector-view-toolbar button:hover { background: var(--fgd-surface-hover); }
 .zenfg-inspector-view-toolbar input,
-.zenfg-inspector-view-toolbar select { font-size: 12px; }
+.zenfg-inspector-view-toolbar select { font-size: var(--fgd-font-size); }
 .zenfg-inspector-passes-view .zenfg-inspector-workbench-table,
 .zenfg-inspector-resources-view .zenfg-inspector-workbench-table {
 	min-width: 580px;
 	border-collapse: separate;
 	border-spacing: 0;
-	font: 12px/1.5 var(--fgd-font-ui);
+	font: var(--fgd-font-size-small)/1.5 var(--fgd-font-ui);
 }
 .zenfg-inspector-passes-view .zenfg-inspector-workbench-table [data-column='numeric'],
 .zenfg-inspector-resources-view .zenfg-inspector-workbench-table [data-column='numeric'] {
@@ -82,12 +82,12 @@ export const PANEL_LIST_CSS = `
 .zenfg-inspector-diagnostic-section > p {
 	margin: 5px 0 10px;
 	color: var(--fgd-muted);
-	font: 12px/1.5 var(--fgd-font-ui);
+	font: var(--fgd-font-size-small)/1.5 var(--fgd-font-ui);
 }
 .zenfg-inspector-diagnostic-message {
 	--diagnostic-color: var(--fgd-accent);
 	margin-top: 9px;
-	padding: 10px 12px;
+	padding: 10px var(--fgd-space-3);
 	border-left: 3px solid var(--diagnostic-color);
 	background: var(--fgd-surface);
 	overflow-wrap: anywhere;
@@ -97,20 +97,20 @@ export const PANEL_LIST_CSS = `
 .zenfg-inspector-diagnostic-message h3 {
 	display: flex;
 	flex-wrap: wrap;
-	gap: 8px;
+	gap: var(--fgd-space-2);
 	margin: 0;
-	font: 600 12px/1.5 var(--fgd-font-ui);
+	font: 600 var(--fgd-font-size-small)/1.5 var(--fgd-font-ui);
 }
 .zenfg-inspector-diagnostic-severity { color: var(--diagnostic-color); text-transform: capitalize; }
-.zenfg-inspector-diagnostic-message code { font: 12px/1.5 var(--fgd-font-mono); }
-.zenfg-inspector-diagnostic-message p { margin: 6px 0; white-space: pre-wrap; font: 13px/1.55 var(--fgd-font-ui); }
+.zenfg-inspector-diagnostic-message code { font: var(--fgd-font-size-small)/1.5 var(--fgd-font-mono); }
+.zenfg-inspector-diagnostic-message p { margin: 6px 0; white-space: pre-wrap; font: var(--fgd-font-size)/1.55 var(--fgd-font-ui); }
 .zenfg-inspector-diagnostic-links {
 	display: flex;
 	align-items: baseline;
 	flex-wrap: wrap;
-	gap: 5px 12px;
+	gap: 5px var(--fgd-space-3);
 	min-width: 0;
-	margin-top: 4px;
+	margin-top: var(--fgd-space-1);
 }
 .zenfg-inspector-diagnostic-links .zenfg-inspector-relation-button {
 	min-width: 0;
@@ -118,7 +118,7 @@ export const PANEL_LIST_CSS = `
 	white-space: normal;
 	overflow-wrap: anywhere;
 	text-align: left;
-	font: 12px/1.5 var(--fgd-font-ui);
+	font: var(--fgd-font-size)/1.5 var(--fgd-font-ui);
 }
 .zenfg-inspector-diagnostic-reveal { color: var(--fgd-muted); }
 .zenfg-inspector-diagnostic-section {
@@ -129,11 +129,11 @@ export const PANEL_LIST_CSS = `
 }
 .zenfg-inspector-diagnostic-section > summary {
 	padding: 3px 0;
-	font: 600 13px/1.5 var(--fgd-font-ui);
+	font: 600 var(--fgd-font-size)/1.5 var(--fgd-font-ui);
 	cursor: pointer;
 }
-.zenfg-inspector-diagnostic-section > .zenfg-inspector-diagnostic-section { margin: 8px 0 0 12px; }
-.zenfg-inspector-diagnostic-section .zenfg-inspector-diagnostic-list { overflow: visible; padding: 4px 0; }
+.zenfg-inspector-diagnostic-section > .zenfg-inspector-diagnostic-section { margin: var(--fgd-space-2) 0 0 var(--fgd-space-3); }
+.zenfg-inspector-diagnostic-section .zenfg-inspector-diagnostic-list { overflow: visible; padding: var(--fgd-space-1) 0; }
 .zenfg-inspector-diagnostic-section ul { padding-left: 20px; }
 .zenfg-inspector-diagnostic-section > .zenfg-inspector-relation-button { margin: 5px 0; }
 .zenfg-inspector-diagnostic-links .selected { background: var(--fgd-accent-soft); }

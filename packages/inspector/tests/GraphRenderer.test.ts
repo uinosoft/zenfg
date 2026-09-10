@@ -1,3 +1,4 @@
+import { lightVariables } from '../src/themeDefinitions.ts';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
@@ -25,7 +26,7 @@ import { createGraphScene, graphGroupElementId, selectionKey } from '../src/pane
 import { resolveGraphScene } from '../src/panelGraphView.ts';
 import { createGraphLegend, GRAPH_VISUAL_THEME, GRAPH_GEOMETRY, nodeDimensions } from '../src/panelGraphVisuals.ts';
 import type { GraphViewState, Selection } from '../src/panelTypes.ts';
-import { FRAME_GRAPH_DEBUG_VISUAL_THEME } from '../src/panelVisualTheme.ts';
+import { createGraphVisualTheme, defaultThemeValue, FRAME_GRAPH_DEBUG_VISUAL_THEME } from '../src/panelVisualTheme.ts';
 
 test('all graph categories preserve opaque high-contrast text and fills across interaction states', () => {
     const theme = GRAPH_VISUAL_THEME;
@@ -75,8 +76,8 @@ test('all graph categories preserve opaque high-contrast text and fills across i
             assert.ok(contrast(blend(theme.dependency.value, background, 0.82), rgb(background)) >= 3);
             assert.ok(contrast(rgb(theme.group.stroke), rgb(background)) >= 3);
         }
-        assert.equal(theme.texture.stroke, '#f472b6');
-        assert.equal(theme.buffer.stroke, '#2dd4bf');
+        assert.equal(theme.texture.stroke, '#f5a2c0');
+        assert.equal(theme.buffer.stroke, '#73daca');
     } finally { core.destroy(); }
 });
 
@@ -465,6 +466,42 @@ test('updates content in place while preserving positions, viewport, and ELK rou
     renderer.destroy();
 });
 
+test('cursor feedback prioritizes panning and recovers on release, leaving, and cancellation', async (context) => {
+    const scene = createGraphScene(createLegacyDebugViewModel(createNestedCapture()), { groupsEnabled: true, expandedGroupPaths: new Set() });
+    const harness = createRendererHarness();
+    const renderer = new CytoscapeGraphRenderer(harness.host, harness.environment);
+    context.after(() => renderer.destroy());
+    renderer.render(graphRequest(scene));
+    await waitFor(() => !!harness.core?.nodes().length);
+    const core = harness.core!;
+    const canvas = harness.createdElements[0]!;
+    const node = core.nodes().first();
+    assert.ok(core.nodes().every(element => {
+        const node = element as cytoscape.NodeSingular;
+        return node.pannable() && !node.grabbable();
+    }));
+    assert.equal(canvas.style.cursor, 'grab');
+    const hoverTarget = node as unknown as { emit(event: { type: string; renderedPosition: { x: number; y: number } }): void };
+    hoverTarget.emit({ type: 'mouseover', renderedPosition: { x: 10, y: 10 } });
+    assert.equal(canvas.style.cursor, 'pointer');
+    core.emit('dragpan');
+    assert.equal(canvas.style.cursor, 'grabbing');
+    assert.equal(harness.createdElements[1]!.hidden, true);
+    hoverTarget.emit({ type: 'mouseover', renderedPosition: { x: 20, y: 20 } });
+    assert.equal(canvas.style.cursor, 'grabbing');
+    assert.equal(harness.createdElements[1]!.hidden, true);
+    node.emit('tapend');
+    assert.equal(canvas.style.cursor, 'pointer');
+    canvas.dispatchEvent({ type: 'pointerleave' } as Event);
+    assert.equal(canvas.style.cursor, 'grab');
+    core.emit('dragpan');
+    canvas.dispatchEvent({ type: 'pointercancel' } as Event);
+    assert.equal(canvas.style.cursor, 'grab');
+    core.emit('dragpan');
+    core.emit('tapend');
+    assert.equal(canvas.style.cursor, 'grab');
+});
+
 test('separates direct hover, resource associations, and single selection without moving the viewport', async (context) => {
     const base = createLegacyDebugViewModel(createNestedCapture());
     const resource = base.resources[0]!;
@@ -599,7 +636,7 @@ test('keeps selection and group double-click interaction on the read-only graph'
     assert.equal(groupNode.hasClass('semantic-selected'), true);
     assert.equal(groupNode.hasClass('semantic-hover'), true);
     assert.equal(groupNode.selected(), false);
-    assert.equal(groupNode.style('border-color'), 'rgb(56,189,248)');
+    assert.equal(groupNode.style('border-color'), 'rgb(122,162,247)');
     groupNode.emit('tap');
     let staleSelection = false;
     renderer.render({ ...graphRequest({ ...scene }), onSelect: () => { staleSelection = true; } });
@@ -1432,3 +1469,43 @@ function createParallelCapture(): LegacyFrameGraphCapture {
         },
     };
 }
+
+
+test('theme restyling preserves core, selection, positions and viewport without layout; typography lays out once', async () => {
+    let layouts = 0;
+    const harness = createRendererHarness({ layoutScene: async (_elk, scene) => { layouts++; return testLayout(scene, 10); } });
+    const renderer = new CytoscapeGraphRenderer(harness.host, harness.environment);
+    const scene = createGraphScene(createLegacyDebugViewModel(createNestedCapture()), { groupsEnabled: true, expandedGroupPaths: new Set() });
+    const selected = scene.interaction.selectionByElementId.get(scene.nodes.find(node => node.kind === 'pass')!.id)!
+    renderer.render(graphRequest(scene, { selected }));
+    await waitFor(() => harness.core?.nodes().length === scene.nodes.length);
+    const core = harness.core!;
+    core.zoom(1.3); core.pan({ x: 42, y: 29 });
+    const before = { pan: core.pan(), zoom: core.zoom(), nodes: core.nodes().map(node => [node.id(), node.position()]), selected: core.nodes('.semantic-selected').map(node => node.id()) };
+    const light = createGraphVisualTheme(key => defaultThemeValue(key, lightVariables));
+    renderer.setTheme(light);
+    assert.equal(harness.core, core);
+    assert.equal(layouts, 1);
+    assert.deepEqual({ pan: core.pan(), zoom: core.zoom(), nodes: core.nodes().map(node => [node.id(), node.position()]), selected: core.nodes('.semantic-selected').map(node => node.id()) }, before);
+    assert.equal(core.nodes()[0]!.style('color'), 'rgb(52,59,88)');
+    renderer.setTheme({ ...light, fontSize: 18 });
+    await waitFor(() => layouts === 2 && core.nodes()[0]!.style('font-size') === '18px');
+    assert.equal(core.zoom(), before.zoom);
+    assert.deepEqual(core.nodes('.semantic-selected').map(node => node.id()), before.selected);
+    renderer.destroy();
+});
+
+test('latest theme wins while the graph runtime is loading', async () => {
+    let resolveRuntime!: (runtime: RendererRuntime) => void;
+    const pending = new Promise<RendererRuntime>(resolve => { resolveRuntime = resolve; });
+    const harness = createRendererHarness({ runtime: pending });
+    const renderer = new CytoscapeGraphRenderer(harness.host, harness.environment);
+    const scene = createGraphScene(createLegacyDebugViewModel(createNestedCapture()), { groupsEnabled: false, expandedGroupPaths: new Set() });
+    renderer.render(graphRequest(scene));
+    const light = createGraphVisualTheme(key => defaultThemeValue(key, lightVariables));
+    renderer.setTheme(light);
+    resolveRuntime(createHeadlessRuntime(core => harness.setCore(core)));
+    await waitFor(() => harness.core?.nodes().length === scene.nodes.length);
+    assert.equal(harness.core!.nodes()[0]!.style('color'), 'rgb(52,59,88)');
+    renderer.destroy();
+});

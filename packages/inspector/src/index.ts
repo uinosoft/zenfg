@@ -19,3 +19,5 @@ export { FrameGraphInspector, mountFrameGraphInspector } from './FrameGraphInspe
 export type { FrameGraphInspectorOptions } from './FrameGraphInspector.ts';
 export { ZENFG_INSPECTOR_QUERY_PARAM, isZenFGInspectorRequested } from './query.ts';
 export { ensureFrameGraphInspectorStyles } from './styles.ts';
+
+export type { InspectorTheme, InspectorThemeVariables } from './theme.ts';

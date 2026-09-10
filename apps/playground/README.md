@@ -36,13 +36,13 @@ remembers the explicit choice in `zenfg-playground-theme` local storage, default
 to Dark, and still switches when storage is unavailable. This preference is
 specific to Examples; system appearance and cross-app synchronization are deferred.
 
-The page shell, Code, and Tweakpane controls switch themes together. The scoped
+The page shell, Code, Tweakpane controls, and Inspector switch themes together. The scoped
 `src/tweakpane.css` adapter maps Tweakpane 4 properties to shared palette tokens,
 including folders, inputs, buttons, sliders, checkboxes, and read-only monitors.
 Controls use 13px UI text, 28px rows, and visible keyboard focus. Changing theme
 preserves mounted controls, values, folder state, and parameter scroll position;
-newly loaded panes inherit the saved choice. The embedded Inspector retains its
-existing dark appearance. Canvas output does not change with the page theme.
+newly loaded panes inherit the saved choice. Inspector DOM and graph styles
+use the matching official preset. Example canvas output does not change with the page theme.
 
 Inspector opens by default and captures a real frame. Explicit `panel=code`
 and `panel=inspector` URLs select the active tool; legacy `panel=none`, missing
@@ -226,3 +226,10 @@ Put controls and gestures in `instructions`, shown in the collapsed Interaction
 guide. Declare attribution separately in `references` with `relation` (`Adapted
 from` or `Reference`), `label`, and `href`. Prefer the original example or a pinned
 source revision documented by the example's third-party notices.
+
+## Inspector themes
+
+The live Inspector follows the page Dark/Light selection using the official
+Tokyo Night presets. Theme changes retain graph instances, pan/zoom, selection,
+group state, and view state. Lazy initialization reads the latest appearance.
+The Inspector loading region also follows the page palette.

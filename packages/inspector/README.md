@@ -50,6 +50,17 @@ The host must have non-zero width and height. `FrameGraphInspector` fills that
 host, so the same workbench can be embedded in a tool panel or mounted as a
 full-page application.
 
+## Themes and style customization
+
+Inspector uses Tokyo Night Storm by default and includes a complete Light preset.
+Use public `--zfgi-*` variables on an owned host, or pass a theme object and call
+`setTheme()` to update one instance without losing graph interaction state.
+After changing external CSS dynamically, call `refreshTheme()` to synchronize
+the Canvas graph. Static CSS is read automatically at mount.
+
+See [Theming](./THEMING.md) for JS presets, the optional CSS preset stylesheet,
+variable reference, compatibility aliases, and multi-instance behavior.
+
 ## Common tasks
 
 | Task | Public API |
@@ -62,6 +73,8 @@ full-page application.
 | Import and migrate a file | `importSnapshot()` |
 | Download canonical Snapshot JSON | `downloadSnapshot()` |
 | Copy canonical Snapshot JSON | `copySnapshotJson()` |
+| Apply a preset or custom theme | `theme` option and `setTheme()` |
+| Synchronize graph after external CSS changes | `refreshTheme()` |
 | Set visible product branding | `branding` option |
 | Limit imported file size | `maxImportBytes` option |
 | Limit automatic graph layout | `maxGraphElements` option |
@@ -103,9 +116,12 @@ that tree; **Show in Graph** is a separate action.
 
 Diagnostics preserve capture order within each severity and offer separate
 node and resource links when a message references both. Culled-node links work
-the same way as retained-node links. The Diagnostics tab and capture context show
-error/warning counts; the context also keeps source, frame, and capture time
-visible. An absent capture timestamp is shown as unknown.
+the same way as retained-node links. The Diagnostics tab shows error/warning
+counts. Source, frame, and capture time are available under **Capture information**
+in Overview; an absent capture timestamp is shown as unknown. The collapsible
+graph legend floats inside the canvas without changing its size or viewport.
+Graph controls also float over the canvas. **Search** opens the search field;
+**Escape** dismisses it. **Fit** frames the graph in the available viewport.
 
 The selection pane has **Summary**, **Relations**, and **Raw** tabs. Summary
 explains compilation status, timing coverage, accesses, allocation relationships,
@@ -175,10 +191,10 @@ The grouped legend describes the whole snapshot's Frame Flow, including collapse
 objects, and remains stable while groups expand/collapse. Culled-only categories
 and unused resources do not add legend entries.
 
-Category fills are opaque 18% sRGB tints over the canvas; node text stays light
-and targets at least 7:1 contrast. Supporting text targets 4.5:1, and identifying
+Category fills are opaque sRGB tints over the canvas: 18% in Storm and 8% in
+Light. Theme-specific node text targets at least 7:1 contrast. Supporting text targets 4.5:1, and identifying
 borders/symbols target 3:1 against their adjacent backgrounds. Automated checks
-cover the default theme and interaction states; custom CSS colour overrides must
+cover both official themes and interaction states; custom CSS colour overrides must
 preserve these contrast relationships.
 
 Solid edges represent declarations, values, and output sources; dashed edges

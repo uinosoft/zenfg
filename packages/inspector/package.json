@@ -3,10 +3,28 @@
   "version": "0.1.0-beta.3",
   "description": "Embeddable Inspector for ZenFG Snapshot files and live captures",
   "type": "module",
-  "sideEffects": false,
-  "exports": { ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js" } },
+  "sideEffects": [
+    "**/*.css"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./theme": {
+      "types": "./dist/theme.d.ts",
+      "import": "./dist/theme.js"
+    },
+    "./themes.css": "./dist/themes.css"
+  },
   "types": "./dist/index.d.ts",
-  "files": ["dist", "src", "README.md", "LICENSE"],
+  "files": [
+    "dist",
+    "src",
+    "README.md",
+    "LICENSE",
+    "THEMING.md"
+  ],
   "dependencies": {
     "@zenfg/snapshot": "0.1.0-beta.3",
     "cytoscape": "^3.34.1",
@@ -20,10 +38,25 @@
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test": "node ../../scripts/run-tests.mjs packages/inspector/tests"
   },
-  "publishConfig": { "access": "public", "registry": "https://registry.npmjs.org/" },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  },
   "license": "MIT",
-  "repository": { "type": "git", "url": "git+https://github.com/uinosoft/zenfg.git", "directory": "packages/inspector" },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/uinosoft/zenfg.git",
+    "directory": "packages/inspector"
+  },
   "homepage": "https://github.com/uinosoft/zenfg/tree/main/packages/inspector",
-  "bugs": { "url": "https://github.com/uinosoft/zenfg/issues" },
-  "keywords": ["framegraph", "inspector", "webgpu", "wgpu", "diagnostics"]
+  "bugs": {
+    "url": "https://github.com/uinosoft/zenfg/issues"
+  },
+  "keywords": [
+    "framegraph",
+    "inspector",
+    "webgpu",
+    "wgpu",
+    "diagnostics"
+  ]
 }

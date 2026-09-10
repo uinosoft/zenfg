@@ -1,3 +1,4 @@
+import { GRAPH_VISUAL_THEME, type GraphVisualTheme } from './panelVisualTheme.ts';
 import type cytoscape from 'cytoscape';
 import type { ELK, ElkExtendedEdge, ElkNode, ElkPort } from 'elkjs/lib/elk-api';
 
@@ -22,8 +23,8 @@ export type CytoscapeEdgeRouteData = {
     readonly segmentDistances: string;
 };
 
-export async function layoutGraphScene(elk: ELK, scene: GraphScene): Promise<GraphLayoutResult> {
-    const graph = createElkLayoutGraph(scene);
+export async function layoutGraphScene(elk: ELK, scene: GraphScene, theme: GraphVisualTheme = GRAPH_VISUAL_THEME): Promise<GraphLayoutResult> {
+    const graph = createElkLayoutGraph(scene, theme);
     const layout = await elk.layout(graph);
     const positions = new Map<GraphSceneElementId, GraphPosition>();
     collectLayoutPositions(layout, 0, 0, positions);
@@ -39,14 +40,14 @@ function usesCenterPorts(node: GraphSceneNode): boolean {
         || (node.kind === 'pass' && node.passKind === 'external-submission');
 }
 
-export function createElkLayoutGraph(scene: GraphScene): ElkNode {
+export function createElkLayoutGraph(scene: GraphScene, theme: GraphVisualTheme = GRAPH_VISUAL_THEME): ElkNode {
     const childrenByParent = new Map<GraphSceneElementId | undefined, GraphSceneNode[]>();
     const portsByNode = new Map<GraphSceneElementId, ElkPort[]>();
     const nodesById = new Map(scene.nodes.map((node) => [node.id, node]));
     const boundaryPort = (id: string, source: boolean) => {
         const node = nodesById.get(id)!;
         if (!usesCenterPorts(node)) return {};
-        const dimensions = nodeDimensions(node);
+        const dimensions = nodeDimensions(node, theme);
         return { x: source ? dimensions.width : 0, y: dimensions.height / 2 };
     };
     const elkEdges = scene.edges.map((edge): ElkExtendedEdge => {
@@ -79,7 +80,7 @@ export function createElkLayoutGraph(scene: GraphScene): ElkNode {
     }
     const createNode = (node: GraphSceneNode): ElkNode => {
         const children = childrenByParent.get(node.id)?.map(createNode);
-        const dimensions = nodeDimensions(node);
+        const dimensions = nodeDimensions(node, theme);
         return {
             id: node.id,
             width: dimensions.width,

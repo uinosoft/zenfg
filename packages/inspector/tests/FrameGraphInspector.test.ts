@@ -153,8 +153,8 @@ test('injects scoped visual tokens and keeps icon buttons accessibly named', () 
 	const style = document.getElementById('zenfg-inspector-panel-styles');
 	assert.ok(style);
 	const css = style.textContent ?? '';
-	assert.match(css, /--fgd-canvas: #0b0f14/);
-	assert.match(css, /--fgd-accent: var\(--zenfg-inspector-accent, #38bdf8\)/);
+	assert.match(css, /--fgd-canvas: var\(--zfgi-canvas, #24283b\)/);
+	assert.match(css, /--fgd-accent: var\(--zfgi-accent, var\(--zenfg-inspector-accent, #7aa2f7\)\)/);
 	assert.match(css, /\.zenfg-inspector-body \{[^}]*border: 0;[^}]*border-radius: 0;/s);
 	assert.match(css, /container-name: zenfg-inspector/);
 	assert.match(css, /@container zenfg-inspector \(max-width: 840px\)/);
@@ -548,7 +548,7 @@ test('does not apply capture or import results after destruction', async () => {
 	testWindow.close();
 });
 
-test('renders graph controls in a dedicated toolbar with a semantic legend', () => {
+test('renders graph controls in a dedicated toolbar and a collapsible canvas legend', () => {
     const testWindow = installDom();
     const panel = new FrameGraphInspector();
     panel.setSnapshot(toSnapshot(createGroupedCapture()));
@@ -556,15 +556,19 @@ test('renders graph controls in a dedicated toolbar with a semantic legend', () 
     const graphPanel = panel.dom.querySelector<HTMLElement>('.zenfg-inspector-graph-view');
     const toolbar = graphPanel?.querySelector<HTMLElement>('.zenfg-inspector-graph-toolbar');
     const graph = graphPanel?.querySelector<HTMLElement>('.zenfg-inspector-graph');
-    const legend = toolbar?.querySelector<HTMLElement>('.zenfg-inspector-graph-legend');
-    assert.ok(graphPanel && toolbar && graph && legend);
-    assert.equal(graphPanel.firstElementChild, toolbar);
-    assert.equal(graphPanel.lastElementChild, graph);
+    const viewport = graphPanel?.querySelector<HTMLElement>('.zenfg-inspector-graph-viewport');
+    const details = viewport?.querySelector<HTMLDetailsElement>('.zenfg-inspector-legend-details');
+    const legend = details?.querySelector<HTMLElement>('.zenfg-inspector-graph-legend');
+    assert.ok(graphPanel && toolbar && graph && viewport && details && legend);
+    assert.equal(toolbar.parentElement, viewport);
+    assert.equal(graphPanel.lastElementChild, viewport);
+    assert.equal(viewport.firstElementChild, graph);
+    assert.equal(details.open, false);
     assert.equal(toolbar.getAttribute('role'), 'toolbar');
     assert.match(legend.textContent, /Render/);
     assert.match(legend.textContent, /Group/);
 	assert.equal(toolbar.querySelector('[aria-label="Relayout graph"]'), null);
-	assert.ok(toolbar.querySelector('[aria-label="Fit graph to view"] svg'));
+	assert.equal(toolbar.querySelector('[aria-label="Fit graph to view"]')?.textContent, 'Fit');
 
     panel.destroy();
     testWindow.close();

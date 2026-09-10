@@ -7,7 +7,8 @@ import type { FrameGraphInspector } from '@zenfg/inspector';
 import { installAppPageLifecycle } from '../../shared/pageLifecycle.ts';
 import { findPublicExample, publicExamples } from './catalog/catalog.ts';
 import { createExampleDirectory } from './exampleDirectory.ts';
-import { setTheme } from './theme.ts';
+import { setTheme, getTheme, subscribeTheme } from './theme.ts';
+import { tokyoNightStorm, tokyoNightLight } from '@zenfg/inspector/theme';
 import { parsePlaygroundRoute, routeSearch } from './routing.ts';
 import { createSourceView } from './sourceView.ts';
 import { disposeHighlighter, highlightSource } from './syntaxHighlighter.ts';
@@ -48,6 +49,8 @@ let currentPanel: PlaygroundPanel = initialRoute.panel;
 const example: PlaygroundExampleDefinition | undefined = findPublicExample(initialRoute.exampleId);
 let runtime: PlaygroundRuntime | undefined;
 let inspector: FrameGraphInspector | undefined;
+const inspectorThemes = { dark: tokyoNightStorm, light: tokyoNightLight };
+const unsubscribeTheme = subscribeTheme(mode => inspector?.setTheme(inspectorThemes[mode]));
 let inspectorPromise: Promise<void> | undefined;
 let codePromise: Promise<void> | undefined;
 let sourceView: ReturnType<typeof createSourceView> | undefined;
@@ -207,6 +210,7 @@ installAppPageLifecycle(window, {
 		exampleDirectory.destroy();
 		narrowViewport.removeEventListener('change', onViewportChange);
 		sourceView?.destroy();
+		unsubscribeTheme();
 		inspector?.destroy();
 		runtime?.dispose();
 		frameRateMonitor?.dispose();
@@ -326,6 +330,7 @@ async function initializeInspectorWorkspace(): Promise<void> {
 		const { mountFrameGraphInspector } = await import('@zenfg/inspector');
 		if (disposed) return;
 		inspector = mountFrameGraphInspector(inspectorHost, {
+			theme: inspectorThemes[getTheme()],
 			branding: false,
 			captureSnapshot: () => mounted.captureSnapshot(),
 		});

@@ -1,50 +1,39 @@
-export const FRAME_GRAPH_DEBUG_VISUAL_THEME = {
-	canvas: '#0b0f14',
-	panel: '#0f151d',
-	surface: '#131b24',
-	surfaceRaised: '#18222d',
-	surfaceHover: '#1d2935',
-	border: '#263341',
-	text: '#e6edf3',
-	textSecondary: '#b4beca',
-	muted: '#8b98a5',
-	accent: '#38bdf8',
-	success: '#34d399',
-	warning: '#fbbf24',
-	danger: '#fb7185',
-	fontUi: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
-	fontMono: 'ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace',
-} as const;
-
-function category(stroke: string) {
-	const canvas = FRAME_GRAPH_DEBUG_VISUAL_THEME.canvas;
-	const fill = '#' + [1, 3, 5].map((offset) => Math.round(
-		parseInt(stroke.slice(offset, offset + 2), 16) * 0.18
-		+ parseInt(canvas.slice(offset, offset + 2), 16) * 0.82,
-	).toString(16).padStart(2, '0')).join('');
-	return { stroke, fill };
+import { stormVariables } from './themeDefinitions.ts';
+import type { InspectorThemeVariables } from './theme.ts';
+type Variable = keyof InspectorThemeVariables;
+export function mixHex(front: string, back: string, amount: number): string {
+    return '#' + [1, 3, 5].map(offset => Math.round(parseInt(front.slice(offset, offset + 2), 16) * amount + parseInt(back.slice(offset, offset + 2), 16) * (1 - amount)).toString(16).padStart(2, '0')).join('');
 }
-
-export const GRAPH_VISUAL_THEME = {
-	canvas: FRAME_GRAPH_DEBUG_VISUAL_THEME.canvas,
-	surface: FRAME_GRAPH_DEBUG_VISUAL_THEME.surface,
-	surfaceRaised: FRAME_GRAPH_DEBUG_VISUAL_THEME.surfaceRaised,
-	text: FRAME_GRAPH_DEBUG_VISUAL_THEME.text,
-	muted: FRAME_GRAPH_DEBUG_VISUAL_THEME.muted,
-	render: category('#57C785'),
-	compute: category('#9AA5FF'),
-	copy: category('#F2CD60'),
-	clear: category('#C4CF89'),
-	command: category('#CF91E8'),
-	external: category('#F29A67'),
-	declaration: category('#B9AB94'),
-	output: category('#EC91AE'),
-	texture: { stroke: '#f472b6', fill: '#3c1f32' },
-	buffer: { stroke: '#2dd4bf', fill: '#123632' },
-	group: { stroke: '#64748b', fill: '#141c29', alternateFill: '#172033' },
-	dependency: { value: '#94a3b8', ordering: '#8593a6' },
-	access: { read: '#2dd4bf', write: '#f59e0b' },
-	selected: FRAME_GRAPH_DEBUG_VISUAL_THEME.accent,
-	hover: '#cbd5e1',
-	culled: { stroke: '#64748b', fill: '#171d24' },
-} as const;
+export function defaultThemeValue(key: Variable, variables: InspectorThemeVariables = stormVariables): string {
+    let value: string = variables[key];
+    value = value.replace(/var\((--zfgi-[\w-]+), ([^()]+)\)/g, (_match, name: Variable) => defaultThemeValue(name, variables));
+    const mix = /^color-mix\(in srgb, (#[\da-f]+) ([\d.]+)%, (#[\da-f]+)\)$/i.exec(value);
+    return mix ? mixHex(mix[1]!, mix[3]!, Number(mix[2]) / 100) : value;
+}
+export function createGraphVisualTheme(read: (key: Variable) => string = defaultThemeValue) {
+    const category = (kind: 'render' | 'compute' | 'copy' | 'clear' | 'command' | 'external' | 'declaration' | 'output' | 'texture' | 'buffer') => ({
+        stroke: read(('--zfgi-graph-' + kind + '-stroke') as Variable), fill: read(('--zfgi-graph-' + kind + '-fill') as Variable),
+    });
+    const number = (key: Variable) => parseFloat(read(key));
+    return {
+        canvas: read('--zfgi-canvas'), surface: read('--zfgi-surface'), surfaceRaised: read('--zfgi-surface-raised'),
+        text: read('--zfgi-graph-text'), muted: read('--zfgi-graph-muted'),
+        render: category('render'), compute: category('compute'), copy: category('copy'), clear: category('clear'),
+        command: category('command'), external: category('external'), declaration: category('declaration'), output: category('output'), texture: category('texture'), buffer: category('buffer'),
+        group: { stroke: read('--zfgi-graph-group-stroke'), fill: read('--zfgi-graph-group-fill'), alternateFill: read('--zfgi-graph-group-alternate-fill') },
+        dependency: { value: read('--zfgi-graph-value'), ordering: read('--zfgi-graph-ordering') },
+        access: { read: read('--zfgi-graph-read'), write: read('--zfgi-graph-write') },
+        selected: read('--zfgi-graph-selected'), hover: read('--zfgi-graph-hover'),
+        activeBackground: { color: read('--zfgi-graph-active-bg'), opacity: number('--zfgi-graph-active-bg-opacity'), size: number('--zfgi-graph-active-bg-size') },
+        culled: { stroke: read('--zfgi-graph-culled-stroke'), fill: read('--zfgi-graph-culled-fill') },
+        fontFamily: read('--zfgi-graph-font-family'), fontSize: number('--zfgi-graph-font-size'),
+        nodeBorderWidth: number('--zfgi-graph-node-border-width'), groupBorderWidth: number('--zfgi-graph-group-border-width'),
+        edgeWidth: number('--zfgi-graph-edge-width'), edgeOpacity: number('--zfgi-graph-edge-opacity'), orderingOpacity: number('--zfgi-graph-ordering-opacity'), groupOpacity: number('--zfgi-graph-group-opacity'),
+        arrowScale: number('--zfgi-graph-arrow-scale'), hoverWidth: number('--zfgi-graph-hover-width'), selectedWidth: number('--zfgi-graph-selected-width'),
+    };
+}
+export type GraphVisualTheme = ReturnType<typeof createGraphVisualTheme>;
+export const GRAPH_VISUAL_THEME = createGraphVisualTheme();
+export const FRAME_GRAPH_DEBUG_VISUAL_THEME = {
+    canvas: defaultThemeValue('--zfgi-canvas'), panel: defaultThemeValue('--zfgi-background'), surface: defaultThemeValue('--zfgi-surface'), surfaceRaised: defaultThemeValue('--zfgi-surface-raised'), surfaceHover: defaultThemeValue('--zfgi-surface-hover'), text: defaultThemeValue('--zfgi-text'), textSecondary: defaultThemeValue('--zfgi-text-secondary'), muted: defaultThemeValue('--zfgi-muted'),
+};

@@ -51,7 +51,6 @@ export class FrameGraphDebugWorkbench {
 	private readonly commandStatus = document.createElement('span');
 	private readonly feedback = document.createElement('details');
 	private readonly feedbackTitle = document.createElement('summary');
-	private readonly captureContext = document.createElement('div');
 	private readonly workspace = document.createElement('div');
 	private readonly main = document.createElement('main');
 	private readonly emptyHost = document.createElement('div');
@@ -117,13 +116,24 @@ export class FrameGraphDebugWorkbench {
 		this.graphRoot.className = 'zenfg-inspector-view zenfg-inspector-graph-view';
 		this.graphRoot.id = `${options.idPrefix}-view-graph`;
 		this.graphRoot.setAttribute('role', 'tabpanel');
-		this.graphRoot.append(this.graphView.toolbar, this.graphView.host);
+		const graphViewport = document.createElement('div');
+		graphViewport.className = 'zenfg-inspector-graph-viewport';
+		graphViewport.append(this.graphView.host, this.graphView.toolbar);
+		if (this.graphView.legend) {
+			const legend = document.createElement('details');
+			legend.className = 'zenfg-inspector-legend-details';
+			const title = document.createElement('summary');
+			title.textContent = 'Legend';
+			legend.append(title, this.graphView.legend);
+			graphViewport.append(legend);
+		}
+		this.graphRoot.append(graphViewport);
 		this.passes = new PassesView(callbacks, options.idPrefix);
 		this.resources = new ResourcesView(callbacks, options.idPrefix);
 		this.memory = new MemoryView(callbacks, options.idPrefix);
 		this.diagnostics = new DiagnosticsView(callbacks, options.idPrefix);
 		this.inspector = new InspectorView(callbacks, (open) => this.handleInspectorOpenChange(open), options.idPrefix);
-		this.graphSearch = new GraphSearch((selection) => callbacks.onReveal?.(selection, 'graph'));
+		this.graphSearch = new GraphSearch((selection) => callbacks.onReveal?.(selection, 'graph'), `${options.idPrefix}-graph-search`);
 		this.graphView.toolbar.prepend(this.graphSearch.root);
 
 		this.views.set('overview', this.overviewRoot);
@@ -221,12 +231,10 @@ export class FrameGraphDebugWorkbench {
 		this.root.addEventListener('keydown', (event) => this.handleMenuKey(event));
 		this.main.append(this.emptyHost, ...this.views.values());
 		this.workspace.append(this.main, this.inspector.root);
-		this.captureContext.className = 'zenfg-inspector-capture-context';
-		this.captureContext.hidden = true;
 		this.feedback.className = 'zenfg-inspector-feedback';
 		this.feedback.hidden = true;
 		this.feedback.append(this.feedbackTitle, this.commandStatus);
-		this.root.append(this.commandBar, this.captureContext, this.feedback, this.workspace);
+		this.root.append(this.commandBar, this.feedback, this.workspace);
 		this.detailLayout = new DetailLayout(this.workspace, this.main, this.inspector.root, this.commandBar, () => this.inspector.setOpen(false));
 		this.workspace.addEventListener('detail-layout-change', () => this.resizeGraph());
 		this.showEmptyState('empty', 'Drop a ZenFG Snapshot here or choose Import.', 'Files are processed locally in your browser.');
@@ -246,7 +254,7 @@ export class FrameGraphDebugWorkbench {
 		this.selected = selected;
 		this.hovered = undefined;
 		for (const tab of this.views.keys()) this.dirtyViews.add(tab);
-		this.renderCaptureContext(snapshot);
+		this.renderDiagnosticBadge(snapshot);
 		this.graphSearch.setSnapshot(snapshot);
 		this.inspector.setSnapshot(snapshot);
 		this.inspector.setSelection(selected, false);
@@ -262,7 +270,6 @@ export class FrameGraphDebugWorkbench {
 		this.snapshot = undefined;
 		this.selected = undefined;
 		this.hovered = undefined;
-		this.captureContext.hidden = true;
 		this.emptyHost.hidden = false;
 		this.emptyHost.dataset.state = kind;
 		const icon = createPanelIcon(kind === 'capturing' ? 'spinner' : kind === 'error' ? 'error' : kind === 'waiting' ? 'waiting' : 'empty');
@@ -574,18 +581,8 @@ export class FrameGraphDebugWorkbench {
 		return counts;
 	}
 
-	private renderCaptureContext(snapshot: FrameGraphDebugViewModel): void {
+	private renderDiagnosticBadge(snapshot: FrameGraphDebugViewModel): void {
 		const counts = this.diagnosticCounts(snapshot);
-		this.captureContext.hidden = false;
-		const source = document.createElement('span');
-		source.textContent = `${snapshot.source.label} · Frame ${snapshot.frameIndex} · Captured ${snapshot.protocol.capture.capturedAt ?? 'at unknown time'}`;
-		source.title = source.textContent;
-		const diagnostics = document.createElement('button');
-		diagnostics.type = 'button';
-		diagnostics.textContent = `${counts.error} errors · ${counts.warning} warnings`;
-		diagnostics.dataset.tone = counts.error ? 'error' : counts.warning ? 'warning' : 'neutral';
-		diagnostics.addEventListener('click', () => this.navigate('diagnostics'));
-		this.captureContext.replaceChildren(source, diagnostics);
 		const tab = this.tabButtons.get('diagnostics')!;
 		const label = document.createElement('span');
 		label.textContent = 'Diagnostics';

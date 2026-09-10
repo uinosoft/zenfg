@@ -1,7 +1,7 @@
 import type cytoscape from 'cytoscape';
 
 import type { GraphScene, GraphSceneEdge, GraphSceneNode } from './panelGraphScene.ts';
-import { GRAPH_VISUAL_THEME } from './panelVisualTheme.ts';
+import { GRAPH_VISUAL_THEME, type GraphVisualTheme } from './panelVisualTheme.ts';
 import { declarationEntrances, type FrameGraphDebugViewModel } from './debugCaptureModel.ts';
 
 export { GRAPH_VISUAL_THEME } from './panelVisualTheme.ts';
@@ -35,20 +35,20 @@ export type GraphLegendEntry = {
     readonly hollowArrow?: boolean;
 };
 
-const NODE_LEGEND_ENTRIES = {
-    render: nodeLegend('render', 'Render', GRAPH_VISUAL_THEME.render.stroke),
-    compute: nodeLegend('compute', 'Compute', GRAPH_VISUAL_THEME.compute.stroke),
-    copy: nodeLegend('copy', 'Copy', GRAPH_VISUAL_THEME.copy.stroke),
-    'clear-buffer': nodeLegend('clear', 'Clear', GRAPH_VISUAL_THEME.clear.stroke),
-    command: nodeLegend('command', 'Command', GRAPH_VISUAL_THEME.command.stroke),
-    'external-submission': { ...nodeLegend('external', 'External', GRAPH_VISUAL_THEME.external.stroke), shape: 'cut-rectangle' as const },
-} as const;
+export function createGraphLegend(snapshot: FrameGraphDebugViewModel, theme: GraphVisualTheme = GRAPH_VISUAL_THEME): readonly GraphLegendEntry[] {
+    const nodeEntries = {
+        render: nodeLegend('render', 'Render', theme.render.stroke),
+        compute: nodeLegend('compute', 'Compute', theme.compute.stroke),
+        copy: nodeLegend('copy', 'Copy', theme.copy.stroke),
+        'clear-buffer': nodeLegend('clear', 'Clear', theme.clear.stroke),
+        command: nodeLegend('command', 'Command', theme.command.stroke),
+        'external-submission': { ...nodeLegend('external', 'External', theme.external.stroke), shape: 'cut-rectangle' as const },
+    } as const;
 
-export function createGraphLegend(snapshot: FrameGraphDebugViewModel): readonly GraphLegendEntry[] {
     const entries: GraphLegendEntry[] = [];
     const passKinds = new Set(snapshot.nodes.map((node) => node.kind));
     for (const kind of ['render', 'compute', 'copy', 'clear-buffer', 'command', 'external-submission'] as const) {
-        if (passKinds.has(kind)) entries.push(NODE_LEGEND_ENTRIES[kind]);
+        if (passKinds.has(kind)) entries.push(nodeEntries[kind]);
     }
     const retained = new Set(snapshot.nodes.map((node) => node.id));
     const used = new Set([
@@ -56,28 +56,36 @@ export function createGraphLegend(snapshot: FrameGraphDebugViewModel): readonly 
         ...snapshot.roots.flatMap((root) => root.resource ? [root.resource.id] : []),
     ]);
     const resources = snapshot.resources.filter((resource) => used.has(resource.id));
-    if (resources.length) entries.push({ group: 'Resources', key: 'declaration', label: 'Declaration', color: GRAPH_VISUAL_THEME.declaration.stroke, shape: 'ellipse' });
-    if (snapshot.roots.some((root) => root.resource)) entries.push({ group: 'Resources', key: 'output', label: 'Output', color: GRAPH_VISUAL_THEME.output.stroke, shape: 'tag' });
+    if (resources.length) entries.push({ group: 'Resources', key: 'declaration', label: 'Declaration', color: theme.declaration.stroke, shape: 'ellipse' });
+    if (snapshot.roots.some((root) => root.resource)) entries.push({ group: 'Resources', key: 'output', label: 'Output', color: theme.output.stroke, shape: 'tag' });
     if ([...snapshot.nodes, ...resources].some((item) => item.debugGroupId !== undefined)) {
-        entries.push({ group: 'Relationships', key: 'group', label: 'Group', color: GRAPH_VISUAL_THEME.group.stroke, shape: 'group' });
+        entries.push({ group: 'Relationships', key: 'group', label: 'Group', color: theme.group.stroke, shape: 'group' });
     }
     if (snapshot.edges.some((edge) => edge.kind === 'value')
         || declarationEntrances(snapshot.nodes, snapshot.accessEdges, snapshot.edges).length
         || snapshot.roots.some((root) => root.resource && root.resolution && (root.resolution.usesInitialContents || root.resolution.producerNodeIds.length))) {
-        entries.push(edgeLegend('flow', 'Resource Flow', GRAPH_VISUAL_THEME.dependency.value, 'solid'));
+        entries.push(edgeLegend('flow', 'Resource Flow', theme.dependency.value, 'solid'));
     }
     if (snapshot.edges.some((edge) => edge.kind === 'ordering')) {
         entries.push({
-            ...edgeLegend('ordering', 'Order', GRAPH_VISUAL_THEME.dependency.ordering, 'dotted'),
+            ...edgeLegend('ordering', 'Order', theme.dependency.ordering, 'dotted'),
             hollowArrow: true,
         });
     }
     return entries;
 }
 
-export function createGraphStyles(): cytoscape.StylesheetJson {
-    const theme = GRAPH_VISUAL_THEME;
+export function createGraphStyles(theme: GraphVisualTheme = GRAPH_VISUAL_THEME): cytoscape.StylesheetJson {
     return [
+        {
+            selector: 'core',
+            style: {
+                'active-bg-color': theme.activeBackground.color,
+                'active-bg-opacity': theme.activeBackground.opacity,
+                'active-bg-size': theme.activeBackground.size,
+            // Cytoscape accepts partial core styles; its Core type marks every property required.
+            } satisfies Partial<cytoscape.Css.Core> as cytoscape.Css.Core,
+        },
         {
             selector: 'node',
             style: {
@@ -86,14 +94,14 @@ export function createGraphStyles(): cytoscape.StylesheetJson {
                 'height': 'data(height)',
                 'label': 'data(displayLabel)',
                 'text-wrap': 'wrap',
-                'text-max-width': '160px',
-                'font-family': 'ui-monospace, SFMono-Regular, Consolas, Liberation Mono, monospace',
-                'font-size': GRAPH_GEOMETRY.baseFontSize,
+                'text-max-width': 'data(labelMaxWidth)',
+                'font-family': theme.fontFamily,
+                'font-size': theme.fontSize,
                 'min-zoomed-font-size': GRAPH_GEOMETRY.minimumZoomedFontSize,
                 'color': theme.text,
                 'background-color': theme.surfaceRaised,
                 'border-color': theme.group.stroke,
-                'border-width': 1.25,
+                'border-width': theme.nodeBorderWidth,
                 'border-style': 'solid',
                 'text-valign': 'center',
                 'text-halign': 'center',
@@ -130,9 +138,9 @@ export function createGraphStyles(): cytoscape.StylesheetJson {
                 'shape-polygon-points': `-1 -1 ${1 - 2 * GRAPH_GEOMETRY.outputTipWidth / GRAPH_GEOMETRY.outputWidth} -1 1 0 ${1 - 2 * GRAPH_GEOMETRY.outputTipWidth / GRAPH_GEOMETRY.outputWidth} 1 -1 1`,
                 'background-color': theme.output.fill,
                 'border-color': theme.output.stroke,
-                'text-max-width': `${GRAPH_GEOMETRY.outputLabelWidth}px`,
+                'text-max-width': 'data(labelMaxWidth)',
                 // Keep a short tip and center the label in the rectangular body.
-                'text-margin-x': -GRAPH_GEOMETRY.outputTipWidth / 2,
+                'text-margin-x': -GRAPH_GEOMETRY.outputTipWidth / 2 * theme.fontSize / GRAPH_GEOMETRY.baseFontSize,
             },
         },
         {
@@ -146,13 +154,13 @@ export function createGraphStyles(): cytoscape.StylesheetJson {
             style: {
                 'background-color': theme.group.fill,
                 'border-color': theme.group.stroke,
-                'border-width': 2,
+                'border-width': theme.groupBorderWidth,
                 'color': theme.text,
             },
         },
         {
             selector: 'node[kind = "group"][collapsed = 0]',
-            style: expandedGroupStyle(theme.group.fill),
+            style: expandedGroupStyle(theme.group.fill, theme),
         },
         {
             selector: 'node[kind = "group"][collapsed = 0][depthBand = 1]',
@@ -161,16 +169,16 @@ export function createGraphStyles(): cytoscape.StylesheetJson {
         {
             selector: 'edge',
             style: {
-                'width': 1.5,
+                'width': theme.edgeWidth,
                 'line-color': theme.dependency.value,
-                'line-opacity': 0.82,
+                'line-opacity': theme.edgeOpacity,
                 'target-arrow-color': theme.dependency.value,
                 'target-arrow-shape': 'triangle',
                 'target-arrow-fill': 'filled',
-                'arrow-scale': 0.8,
+                'arrow-scale': theme.arrowScale,
                 'curve-style': 'straight',
                 'label': 'data(displayLabel)',
-                'font-family': 'ui-monospace, SFMono-Regular, Consolas, Liberation Mono, monospace',
+                'font-family': theme.fontFamily,
                 'font-size': 10,
                 'min-zoomed-font-size': GRAPH_GEOMETRY.minimumZoomedFontSize,
                 'color': theme.text,
@@ -189,7 +197,7 @@ export function createGraphStyles(): cytoscape.StylesheetJson {
                 'target-arrow-color': theme.dependency.ordering,
                 'line-style': 'dotted',
                 'target-arrow-fill': 'hollow',
-                'line-opacity': 0.72,
+                'line-opacity': theme.orderingOpacity,
             },
         },
         {
@@ -213,7 +221,7 @@ export function createGraphStyles(): cytoscape.StylesheetJson {
             selector: 'node.semantic-hover',
             style: {
                 'border-color': theme.hover,
-                'border-width': 2,
+                'border-width': theme.hoverWidth,
                 'z-index': 15,
             },
         },
@@ -223,7 +231,7 @@ export function createGraphStyles(): cytoscape.StylesheetJson {
                 'line-color': theme.hover,
                 'target-arrow-color': theme.hover,
                 'line-opacity': 1,
-                'width': 2.5,
+                'width': theme.hoverWidth,
                 'z-index': 15,
             },
         },
@@ -231,7 +239,7 @@ export function createGraphStyles(): cytoscape.StylesheetJson {
             selector: 'node.semantic-selected',
             style: {
                 'border-color': theme.selected,
-                'border-width': 3,
+                'border-width': theme.selectedWidth,
                 'opacity': 1,
                 'z-index': 20,
             },
@@ -242,14 +250,14 @@ export function createGraphStyles(): cytoscape.StylesheetJson {
                 'line-color': theme.selected,
                 'target-arrow-color': theme.selected,
                 'line-opacity': 1,
-                'width': 3,
+                'width': theme.selectedWidth,
                 'z-index': 20,
             },
         },
     ];
 }
 
-export function nodeDimensions(node: GraphSceneNode): { readonly width: number; readonly height: number } {
+function baseNodeDimensions(node: GraphSceneNode): { readonly width: number; readonly height: number } {
     switch (node.kind) {
         case 'pass':
             return { width: 184, height: node.label.includes('\n') ? 62 : 48 };
@@ -260,6 +268,32 @@ export function nodeDimensions(node: GraphSceneNode): { readonly width: number; 
         case 'group':
             return node.collapsed ? { width: 224, height: 68 } : { width: 120, height: 80 };
     }
+}
+
+export function nodeDimensions(node: GraphSceneNode, theme: GraphVisualTheme = GRAPH_VISUAL_THEME): { readonly width: number; readonly height: number } {
+    const base = baseNodeDimensions(node);
+    const scale = theme.fontSize / GRAPH_GEOMETRY.baseFontSize;
+    return { width: base.width * scale, height: base.height * scale };
+}
+
+/** Fit the already semantic label to its available width after font changes. */
+export function fitGraphLabel(label: string, width: number, theme: GraphVisualTheme): string {
+    const context = graphTextContext();
+    if (context) context.font = theme.fontSize + 'px ' + theme.fontFamily;
+    const measure = (text: string) => context?.measureText(text).width ?? [...text].length * theme.fontSize * .62;
+    return label.split('\n').map(line => {
+        if (measure(line) <= width) return line;
+        const chars = [...line];
+        while (chars.length && measure(chars.join('') + '…') > width) chars.pop();
+        return chars.join('') + '…';
+    }).join('\n');
+}
+
+let textContext: CanvasRenderingContext2D | null | undefined;
+function graphTextContext(): CanvasRenderingContext2D | null {
+    if (typeof document === 'undefined') return null;
+    if (textContext === undefined) textContext = document.createElement('canvas').getContext('2d');
+    return textContext;
 }
 
 export function graphLayoutGeometryKey(scene: GraphScene): string {
@@ -280,8 +314,8 @@ export function expandedGroupLabelMaxWidth(outerWidth: number): number {
     return Math.max(80, Math.floor(outerWidth - GRAPH_GEOMETRY.groupTitleInset * 2));
 }
 
-export function isOverviewGraphScale(zoom: number): boolean {
-    return GRAPH_GEOMETRY.baseFontSize * zoom < GRAPH_GEOMETRY.overviewFontThreshold;
+export function isOverviewGraphScale(zoom: number, theme: GraphVisualTheme = GRAPH_VISUAL_THEME): boolean {
+    return theme.fontSize * zoom < GRAPH_GEOMETRY.overviewFontThreshold;
 }
 
 function nodeLegend(key: string, label: string, color: string): GraphLegendEntry {
@@ -307,13 +341,13 @@ function passStyle(
     };
 }
 
-function expandedGroupStyle(backgroundColor: string): cytoscape.Css.Node {
+function expandedGroupStyle(backgroundColor: string, theme: GraphVisualTheme): cytoscape.Css.Node {
     const geometry = GRAPH_GEOMETRY;
     return {
         'background-color': backgroundColor,
-        'background-opacity': 0.34,
-        'border-color': GRAPH_VISUAL_THEME.group.stroke,
-        'border-width': 1.5,
+        'background-opacity': theme.groupOpacity,
+        'border-color': theme.group.stroke,
+        'border-width': theme.groupBorderWidth,
         'padding': `${geometry.groupPadding}px`,
         'compound-sizing-wrt-labels': 'include',
         'min-width': '120px',
@@ -324,7 +358,7 @@ function expandedGroupStyle(backgroundColor: string): cytoscape.Css.Node {
         'text-margin-x': geometry.groupTitleInset - geometry.groupPadding * 2,
         'text-margin-y': geometry.groupTitleInset - geometry.groupPadding * 2,
         'line-height': geometry.groupTitleLineHeight,
-        'color': GRAPH_VISUAL_THEME.text,
+        'color': theme.text,
         'font-weight': 600,
     };
 }

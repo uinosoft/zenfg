@@ -1,7 +1,10 @@
+import type { GraphVisualTheme } from './panelVisualTheme.ts';
 import type { GraphScene, GraphSceneElementId } from './panelGraphScene.ts';
 import type { Selection } from './panelTypes.ts';
 
 export type GraphRenderRequest = {
+    readonly theme?: GraphVisualTheme;
+    readonly onVisible?: () => void;
     readonly scene: GraphScene;
     readonly selected: Selection | undefined;
     readonly hovered: Selection | undefined;
@@ -16,6 +19,7 @@ export type GraphRenderRequest = {
 
 export interface GraphRenderer {
     render(request: GraphRenderRequest): void;
+    setTheme?(theme: GraphVisualTheme): void;
     resize(): void;
     fit(): void;
     relayout(): void;

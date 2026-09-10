@@ -1,3 +1,5 @@
+import type { InspectorTheme } from './theme.ts';
+import { InspectorThemeController, resolveGraphTheme } from './panelTheme.ts';
 import {
 	FrameGraphSnapshotValidationError,
 	decodeFrameGraphSnapshot,
@@ -11,11 +13,11 @@ import {
 	type FrameGraphDebugViewModel,
 } from './debugCaptureModel.ts';
 import { createToolbarButton } from './panelDomHelpers.ts';
-import { createPanelIcon } from './panelIcons.ts';
 import {
 	destroyGraph,
 	fitGraph,
 	resolveGraphScene,
+	renderGraphLegend,
 } from './panelGraphView.ts';
 import { graphGroupElementId, selectionKey } from './panelGraphScene.ts';
 import { resolveNodeSelection, selectionExists } from './panelSelection.ts';
@@ -26,6 +28,8 @@ import { FrameGraphDebugWorkbench } from './panelWorkbenchView.ts';
 
 /** Construction and safety limits for an embedded {@link FrameGraphInspector}. */
 export type FrameGraphInspectorOptions = {
+	/** Optional CSS theme. Without one, host variables inherit over the Storm defaults. */
+	theme?: InspectorTheme;
 	/**
 	 * Product label shown in the workbench command bar. Pass `false` to hide
 	 * visible branding while retaining the inspector's accessible name.
@@ -75,6 +79,7 @@ const DEFAULT_BRANDING = 'ZenFG Inspector';
 export class FrameGraphInspector {
 	/** Root element owned by this inspector instance. */
 	readonly dom = document.createElement('section');
+	private readonly themeController = new InspectorThemeController(this.dom);
 
 	private readonly body = document.createElement('div');
 	private readonly content = document.createElement('div');
@@ -160,6 +165,7 @@ export class FrameGraphInspector {
 			host: document.createElement('div'),
 			toolbar: document.createElement('div'),
 			legend: graphLegend,
+			refreshTheme: () => this.refreshTheme(),
 			layoutElementBudget: normalizeLimit(options.maxGraphElements, DEFAULT_MAX_GRAPH_ELEMENTS, 'maxGraphElements'),
 			groupsEnabled: true,
 			expandedGroupPaths: new Set(),
@@ -178,14 +184,9 @@ export class FrameGraphInspector {
 		actionControls.append(
 			this.groupsButton,
 			this.collapseGroupsButton,
-			createGraphIconButton('fit', 'Fit graph to view', () => fitGraph(this.graphView)),
+			createToolbarButton('Fit', 'Fit graph to view', () => fitGraph(this.graphView)),
 		);
-		const legend = document.createElement('details');
-		legend.className = 'zenfg-inspector-legend-details';
-		const legendTitle = document.createElement('summary');
-		legendTitle.textContent = 'Legend';
-		legend.append(legendTitle, graphLegend);
-		this.graphView.toolbar.append(actionControls, legend);
+		this.graphView.toolbar.append(actionControls);
 
 		const callbacks: WorkbenchCallbacks = {
 			onSelect: (selection) => this.handleSelect(selection),
@@ -215,8 +216,29 @@ export class FrameGraphInspector {
 		this.updateCaptureActions();
 		this.updateGraphControls();
 		this.showEmptyState();
-		queueMicrotask(() => this.maybeAutoCapture());
+		if (options.theme) this.setTheme(options.theme);
+		queueMicrotask(() => { if (!this.destroyed) { this.refreshTheme(); this.maybeAutoCapture(); } });
 	}
+
+    /** Replace API-applied variables on this instance, then synchronize graph styles.
+     * Pass null to restore host CSS and defaults. Does not change capture or interaction state.
+     */
+    setTheme(theme: InspectorTheme | null): void {
+        if (this.destroyed) return;
+        this.themeController.apply(theme);
+        this.refreshTheme();
+    }
+
+    /** Re-read final CSS values after external CSS changes and refresh graph and legend.
+     * Does not write theme variables, recapture, fit, or rebuild the component.
+     */
+    refreshTheme(): void {
+        if (this.destroyed) return;
+        const theme = resolveGraphTheme(this.dom);
+        this.graphView.theme = theme;
+        this.graphView.renderer?.setTheme?.(theme);
+        if (this.viewModel) renderGraphLegend(this.graphView.legend, this.viewModel, theme);
+    }
 
 	/**
 	 * Replaces or removes the live-capture provider.
@@ -439,6 +461,7 @@ export class FrameGraphInspector {
 		this.dom.removeEventListener('dragleave', this.handleDragLeave);
 		this.dom.removeEventListener('dragend', this.handleDragEnd);
 		this.dom.removeEventListener('drop', this.handleDrop);
+		this.themeController.destroy();
 		destroyGraph(this.graphView);
 		this.workbench.destroy();
 		this.dom.remove();
@@ -592,14 +615,8 @@ export class FrameGraphInspector {
 export function mountFrameGraphInspector(host: HTMLElement, options?: FrameGraphInspectorOptions): FrameGraphInspector {
 	const inspector = new FrameGraphInspector(options);
 	host.appendChild(inspector.dom);
+	inspector.refreshTheme();
 	return inspector;
-}
-
-function createGraphIconButton(icon: 'fit', title: string, onClick: () => void): HTMLButtonElement {
-	const button = createToolbarButton('', title, onClick);
-	button.classList.add('zenfg-inspector-icon-button');
-	button.appendChild(createPanelIcon(icon));
-	return button;
 }
 
 async function writeTextToClipboard(text: string): Promise<void> {

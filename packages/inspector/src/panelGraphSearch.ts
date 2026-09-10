@@ -6,12 +6,22 @@ type SearchEntry = { readonly label: string; readonly kind: string; readonly tex
 
 export class GraphSearch {
 	readonly root = document.createElement('div');
+	private readonly toggle = document.createElement('button');
+	private readonly popover = document.createElement('div');
 	private readonly input = document.createElement('input');
 	private readonly results = document.createElement('div');
 	private entries: SearchEntry[] = [];
 
-	constructor(private readonly onReveal: (selection: Selection) => void) {
+	constructor(private readonly onReveal: (selection: Selection) => void, id: string) {
 		this.root.className = 'zenfg-inspector-graph-search';
+		this.toggle.type = 'button';
+		this.toggle.textContent = 'Search';
+		this.toggle.setAttribute('aria-expanded', 'false');
+		this.toggle.setAttribute('aria-controls', id);
+		this.toggle.addEventListener('click', () => this.setOpen(this.popover.hidden !== false));
+		this.popover.className = 'zenfg-inspector-graph-search-popover';
+		this.popover.id = id;
+		this.popover.hidden = true;
 		this.input.type = 'search';
 		this.input.placeholder = 'Find pass, resource, group or output';
 		this.input.setAttribute('aria-label', 'Find in graph');
@@ -20,18 +30,28 @@ export class GraphSearch {
 		this.results.hidden = true;
 		this.input.addEventListener('input', () => this.render());
 		this.root.addEventListener('keydown', (event) => {
-			if (event.key === 'Escape' && !this.results.hidden) {
+			if (event.key === 'Escape' && !this.popover.hidden) {
 				event.preventDefault();
 				event.stopPropagation();
-				this.input.value = '';
-				this.results.hidden = true;
-				this.input.focus();
+				this.setOpen(false);
 			} else if (event.key === 'ArrowDown' && event.target === this.input) {
 				event.preventDefault();
 				this.results.querySelector('button')?.focus();
 			}
 		});
-		this.root.append(this.input, this.results);
+		this.popover.append(this.input, this.results);
+		this.root.append(this.toggle, this.popover);
+	}
+
+	private setOpen(open: boolean): void {
+		this.popover.hidden = !open;
+		this.toggle.setAttribute('aria-expanded', String(open));
+		if (open) this.input.focus();
+		else {
+			this.input.value = '';
+			this.results.hidden = true;
+			this.toggle.focus();
+		}
 	}
 
 	setSnapshot(snapshot: FrameGraphDebugViewModel): void {
@@ -67,8 +87,7 @@ export class GraphSearch {
 			button.textContent = `${entry.kind} · ${entry.label}`;
 			button.title = `Show in Graph · ${entry.label}`;
 			button.addEventListener('click', () => {
-				this.results.hidden = true;
-				this.input.value = '';
+				this.setOpen(false);
 				this.onReveal(entry.selection);
 			});
 			this.results.append(button);

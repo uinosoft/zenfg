@@ -70,14 +70,15 @@ screenshots, or fonts are redistributed from the reference repository.
 The formal Examples page now consumes these definitions for its shell, Code,
 and Tweakpane controls, with explicit Dark / Light selection. The scoped
 `apps/playground/src/tweakpane.css` adapter inherits palette changes without
-remounting controls. Its live Inspector keeps its existing dark internals;
-that theme, the Site, and standalone
-Inspector remain future work. The lab stays independently buildable and excluded
+remounting controls. The embedded Inspector and standalone Inspector now share these palettes through
+CSS variables and the pure `@zenfg/inspector/theme` entry. Site theme adoption
+remains separate work. The lab stays independently buildable and excluded
 from Pages output. See the [Examples README](../apps/playground/README.md).
 
 ## Shared definitions and future integration
 
-`apps/shared/theme/index.ts` owns `visualThemes`, `visualMetrics`,
+`@zenfg/inspector/theme` owns the pure `visualThemes` and `visualMetrics` data.
+`apps/shared/theme/index.ts` re-exports them and owns
 `themeProperties(mode)`, `ThemeMode = 'dark' | 'light'`, and
 `applyVisualTheme(container, mode)`. The helper sets `data-theme`, `color-scheme`,
 and `--zenfg-*` properties on the supplied container only. It does not touch
@@ -95,11 +96,11 @@ both themes once; changing the container's theme changes colors without
 recreating source markup or losing its scroll position. Parameters and graph
 selection similarly remain mounted during theme changes.
 
-Future app work should adopt semantic variables rather than copy hex values.
-The published Inspector must remain independent of `apps/`: when it is ready
-to adopt these foundations, first move the framework-free definitions to an
-appropriate shared package boundary. Its theme API, Cytoscape restyling, host
-preferences, and storage policy are separate future work.
+The published Inspector remains independent of `apps/`. Its pure theme entry
+exports official preset objects, and its optional `themes.css` is generated from
+the same definitions. The public `--zfgi-*` variables customize both DOM and
+graph styles; dynamic external CSS changes use `refreshTheme()`. Host preference
+selection and storage remain app-owned. See [Inspector theming](../packages/inspector/THEMING.md).
 
 ## What the sample does
 

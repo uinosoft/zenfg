@@ -1,5 +1,5 @@
-import { spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, rmSync } from 'node:fs';
+import { spawn, spawnSync } from 'node:child_process';
+import { existsSync, mkdirSync, rmSync, watch as watchDirectory } from 'node:fs';
 import { isAbsolute, relative, resolve, sep } from 'node:path';
 
 const rootDir = resolve(import.meta.dirname, '..');
@@ -34,9 +34,29 @@ if (!existsSync(packageJsonPath) || !existsSync(buildConfigPath)) {
 const outDir = resolve(packageDir, 'dist');
 rmSync(outDir, { recursive: true, force: true });
 mkdirSync(outDir, { recursive: true });
+function generateInspectorThemes() {
+    // Use a fresh process so changes to imported palette data cannot remain cached.
+    const result = spawnSync(process.execPath, [resolve(rootDir, 'scripts/build-inspector-themes.mjs')], { stdio: 'inherit' });
+    if (result.error) console.error(result.error);
+    return result.status ?? 1;
+}
+if (relativePackageDir === 'inspector' && generateInspectorThemes() !== 0) process.exit(1);
+
+let themeTimer;
+const themeWatcher = watch && relativePackageDir === 'inspector'
+    ? watchDirectory(resolve(packageDir, 'src'), (_event, filename) => {
+        if (!['themeDefinitions.ts', 'themePalette.ts'].includes(String(filename))) return;
+        clearTimeout(themeTimer);
+        themeTimer = setTimeout(generateInspectorThemes, 100);
+    }) : undefined;
+
+function cleanup() {
+    clearTimeout(themeTimer);
+    themeWatcher?.close();
+}
 
 const tscPath = resolve(rootDir, 'node_modules', 'typescript', 'bin', 'tsc');
-const result = spawnSync(process.execPath, [
+const compiler = spawn(process.execPath, [
     tscPath,
     '--project',
     buildConfigPath,
@@ -46,9 +66,11 @@ const result = spawnSync(process.execPath, [
     stdio: 'inherit',
 });
 
-if (result.error) {
-    console.error(result.error);
+compiler.on('error', error => {
+    cleanup();
+    console.error(error);
     process.exit(1);
-}
-
-process.exit(result.status ?? 1);
+});
+compiler.on('exit', code => { cleanup(); process.exit(code ?? 1); });
+process.on('SIGINT', () => { cleanup(); compiler.kill('SIGINT'); });
+process.on('SIGTERM', () => { cleanup(); compiler.kill('SIGTERM'); });

@@ -48,7 +48,7 @@ html, body {
 	cursor: default;
 }
 
-.shell-button:focus-visible, .playground-brand:focus-visible, .example-sidebar :is(a, summary):focus-visible, .source-files button:focus-visible, .source-view__content:focus-visible {
+.shell-button:focus-visible, .playground-brand a:focus-visible, .example-sidebar :is(a, summary):focus-visible, .source-files button:focus-visible, .source-view__content:focus-visible {
 	outline: 2px solid var(--zenfg-accent);
 	outline-offset: 2px;
 }
@@ -79,9 +79,9 @@ html, body {
 }
 
 .playground-brand {
-	text-decoration: none;
 	color: var(--zenfg-secondary);
 }
+.playground-brand a { text-decoration: none; }
 
 .playground-brand strong {
 	color: var(--zenfg-text);
@@ -579,7 +579,7 @@ body:has(.tool-workbench[data-maximized=true]) {
 	min-width: 0;
 	min-height: 0;
 	height: 100%;
-	background: #070d13;
+	background: var(--zenfg-canvas);
 }
 
 .inspector-host {
@@ -594,7 +594,7 @@ body:has(.tool-workbench[data-maximized=true]) {
 	display: grid;
 	place-items: center;
 	padding: 24px;
-	color: #a9b1d6;
+	color: var(--zenfg-secondary);
 	text-align: center;
 }
 
