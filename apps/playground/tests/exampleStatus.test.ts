@@ -9,7 +9,7 @@ function fixture(readyState: 'live' | 'ready' = 'live') {
 	let fps: number | undefined;
 	const samples: number[] = [];
 	const elements = { root: document.createElement('main'), status: document.createElement('div'),
-		label: document.createElement('span'), signal: document.createElement('span'), feedback: document.createElement('p') };
+		preview: document.createElement('span'), label: document.createElement('span'), signal: document.createElement('span'), feedback: document.createElement('p') };
 	return { ...elements, samples, get fps() { return fps; }, ...createExampleStatus({ ...elements, onFrameRate: value => { fps = value; }, onFrameSample: value => samples.push(value), readyState, loadingNote: 'Model download: 13–23 MB.' }),
 		destroy: () => browser.happyDOM.abort() };
 }
@@ -107,4 +107,17 @@ test('curve samples every frame while the average publishes only on timer ticks'
  f.pause(true); assert.equal(f.fps, undefined);
  f.pause(false); f.frame(200); f.tick(200); assert.equal(f.fps, undefined);
  f.frame(220); f.tick(250); assert.equal(f.fps, 50, 'resume starts a fresh average');
+});
+
+test('runtime output stays with warnings and clears on a new loading cycle', t => {
+ const f = fixture('ready'); t.after(f.destroy);
+ f.update('ready'); f.output('GPU time: 12 µs');
+ assert.equal(f.status.hidden, false); assert.equal(f.preview.textContent, 'GPU time: 12 µs');
+ f.warn('Timing limited'); assert.match(f.preview.textContent!, /Timing limited.*\n\nGPU time/);
+ f.warn(); assert.equal(f.preview.textContent, 'GPU time: 12 µs');
+ f.update('loading', 'Preparing'); assert.doesNotMatch(f.preview.textContent!, /GPU time/);
+ f.warn('Fallback active'); f.update('loading', 'Requesting device');
+ assert.match(f.preview.textContent!, /Fallback active/);
+ f.update('ready'); assert.match(f.preview.textContent!, /Fallback active/);
+ f.warn(); assert.equal(f.status.hidden, true);
 });

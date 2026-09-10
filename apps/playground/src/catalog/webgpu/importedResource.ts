@@ -9,6 +9,7 @@ export const importedResourceExample: PlaygroundExampleDefinition = {
 	group: '@zenfg/webgpu basics',
 	tags: ['webgpu', 'imported-resources', 'uniform-buffer'],
 	readyState: 'ready',
+	description: "Import a caller-owned uniform buffer into a render pass. Explore how the graph tracks its use while resource ownership stays with the caller.",
 	graphHint: 'The native uniform stays caller-owned across graph execution',
 	entrySourceId: 'imported-resource-recipe',
 	sourceFiles: [

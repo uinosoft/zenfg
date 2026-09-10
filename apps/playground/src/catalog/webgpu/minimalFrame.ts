@@ -7,6 +7,7 @@ export const minimalFrameExample: PlaygroundExampleDefinition = {
 	group: '@zenfg/webgpu basics',
 	tags: ['webgpu', 'render'],
 	readyState: 'ready',
+	description: "Record a clear pass and present its result. Inspect how the presentation output keeps the pass in the compiled graph.",
 	graphHint: 'Open Inspector to see why the clear pass is retained',
 	entrySourceId: 'minimal-frame-recipe',
 	sourceFiles: [

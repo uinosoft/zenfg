@@ -7,6 +7,7 @@ export const gpuTimingExample: PlaygroundExampleDefinition = {
 	group: '@zenfg/webgpu basics',
 	tags: ['webgpu', 'gpu-timing', 'diagnostics'],
 	readyState: 'ready',
+	description: "Measure GPU execution time when timestamp queries are available. Inspect the timing result or the explicit unsupported status on other devices.",
 	graphHint: 'Unsupported timing remains a valid, inspectable result',
 	entrySourceId: 'gpu-timing-recipe',
 	sourceFiles: [

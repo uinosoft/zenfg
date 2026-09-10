@@ -32,7 +32,9 @@ export const particles4AllExample: PlaygroundExampleDefinition = {
     id: 'particles4all-framegraph', title: 'Particles4All · Fluid Simulation', group: 'Showcases',
     tags: ['webgpu', 'fluid-simulation', 'rigid-body'],
     readyState: 'live',
-    description: 'Hover to push · Drag to orbit or carry solids · Right-drag to pan · Scroll to zoom · Space to pause',
+    references: [{ relation: 'Adapted from', label: "Particles4All", href: "https://github.com/matsuoka-601/Particles4All" }],
+    description: "Organize particle fluid simulation, rigid-body interaction and water rendering into a FrameGraph. Inspect stage dependencies and transient resource lifetimes.",
+    instructions: 'Hover to push · Drag to orbit or carry solids · Right-drag to pan · Scroll to zoom · Space to pause',
     hasControls: true,
     entrySourceId: 'particles4all-framegraph-entry',
     sourceFiles: [

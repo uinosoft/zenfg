@@ -71,12 +71,14 @@ implementation details, not visible content alongside the pane. Babylon Lite has
 no adjustable parameters and shows only the compact FPS pane. Static recipes
 without parameters or continuous rendering have no right-hand column.
 
-A compact, non-interactive badge overlays the canvas's bottom-left corner only
-for loading, pause, warnings and errors. Healthy Live and Ready states hide it.
-It retains readable dark styling in both shell themes and lets pointer input
-pass through. Longer loading, warning and error details appear
-below the canvas. The introduction follows the demo: title, description and tags.
-On mobile, parameters move below the canvas and any runtime details.
+A compact dark translucent overlay at the canvas's bottom-left owns loading,
+paused state, runtime output, warnings and errors. Healthy Live and Ready states
+without output or warnings hide it. Its closed summary shows up to two lines;
+Details opens the complete selectable message in a bounded scrolling region.
+Only the overlay intercepts input, and its keyboard interactions do not trigger
+example shortcuts. Expanding it never moves the page content. Static introductions
+and Inspector hints remain in the document flow. On mobile, parameters follow
+the canvas.
 
 Live examples calculate FPS from the interval between successive successful render
 submissions. The curve updates on every submitted frame; the number uses a
@@ -125,14 +127,14 @@ single vocabulary for future search and filtering. Tags are currently descriptiv
 not buttons. Keep implementation counts out of tags. The page shows tags after
 the optional description; the former summary field has been removed.
 
-The canvas badge shows Loading, Live (running showcases), Paused, Ready
-(one-shot recipes), or Error. Loading stages and optional `loadingNote` appear
-below the canvas while preparation is underway. Errors show their full message
-there and preserve any last rendered frame. `onWarning` reports a nonfatal
-limitation, including during initial loading, and preserves rendering; undefined
-clears it. Warnings survive the first ready notification.
-GPU Timing uses this for unavailable timestamps, while preserving rendering and
-capture. Numeric timing results appear next to the Inspector.
+The canvas overlay shows Loading, Live, Paused, Ready, or Error with its current
+message. Loading stages replace one another, with optional `loadingNote` shown
+in the same overlay. Errors retain the last rendered frame and expose complete
+text through Details. `onWarning` reports a nonfatal limitation; undefined clears
+it. Warnings survive loading-stage updates and the first ready notification.
+One-shot `onReady(message)` outputs, including GPU Timing results, stay in the
+overlay alongside any warning and remain available in both Code and Inspector.
+A new loading cycle clears previous output. `graphHint` contains static guidance.
 
 Use optional `description` for a brief introduction below the demo, and optional
 `graphHint` for an observation beside the Inspector. Empty hints occupy no space.
@@ -206,3 +208,21 @@ the same files through Vite raw imports. Their `record*` functions let the
 Playground request compilation reports without changing the normal recipe
 execution path. Adapter, host, and shader files appear as secondary source tabs
 so the boundary remains visible.
+
+Run `node apps/playground/tests/browser/runtimeOverlay.mjs` for loading, runtime output,
+long errors, keyboard expansion and layout stability checks. Screenshots are written
+to `.test-dist/runtime-overlay`.
+
+### Example introductions
+
+Keep `description` to one or two sentences explaining the demonstration and what
+readers can observe. It accepts plain text or an array of text and inline objects
+such as `{ text: 'persistent state', emphasis: 'strong' }` or
+`{ text: 'source', href: 'https://example.com' }`. Supported emphasis values are
+`strong`, `em`, and `code`; links use HTTP(S), and HTML is never interpreted.
+Use theme styles rather than per-example colors.
+
+Put controls and gestures in `instructions`, shown in the collapsed Interaction
+guide. Declare attribution separately in `references` with `relation` (`Adapted
+from` or `Reference`), `label`, and `href`. Prefer the original example or a pinned
+source revision documented by the example's third-party notices.

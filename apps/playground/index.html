@@ -11,7 +11,7 @@
 <link rel="stylesheet" href="/src/styles.css">
 </head>
 <body>
-<div class="playground" data-playground>
+<div class="playground" id="page-top" data-playground>
 <header class="playground-header" data-background-region>
 <div class="brand-group"><button class="shell-button" data-directory-toggle aria-controls="example-directory" aria-expanded="false" aria-label="Toggle example directory">☰</button><a class="playground-brand" href="../"><strong>ZenFG</strong><span>/</span><span>Examples</span></a></div>
 <div class="theme-switch" role="group" aria-label="Appearance"><button class="shell-button" data-theme-mode="dark" aria-pressed="true">Dark</button><button class="shell-button" data-theme-mode="light" aria-pressed="false">Light</button></div>
@@ -23,9 +23,11 @@
 <section class="demo-card" data-demo-card data-background-region aria-label="Live example">
 <div class="demo-stage">
 <canvas class="effect-stage" data-effect-canvas aria-label="Interactive WebGPU example"></canvas>
-<div class="runtime-status effect-status" data-effect-status role="status" aria-live="polite" aria-label="Example runtime status"><span class="effect-status__signal" aria-hidden="true"></span><span data-effect-status-text>Loading…</span></div>
+<details class="runtime-status" data-effect-status aria-label="Example runtime status">
+<summary><span class="effect-status" role="status" aria-live="polite"><span class="effect-status__signal" aria-hidden="true"></span><span data-effect-status-text>Loading…</span></span><span class="runtime-status__preview" data-status-preview></span><span class="runtime-status__toggle">Details</span></summary>
+<p class="runtime-status__detail" data-example-feedback hidden></p>
+</details>
 </div>
-<p class="example-feedback" data-example-feedback role="status" hidden></p>
 <aside class="playground-controls" data-controls-panel aria-label="Example controls and monitoring" hidden>
 <div class="playground-metrics" data-metrics-host hidden></div>
 <div class="playground-parameters" data-controls-host aria-label="Example controls" hidden></div>
@@ -34,6 +36,8 @@
 <section class="example-intro" data-background-region>
 <div class="title-row"><h1 data-example-title>Examples</h1></div>
 <p class="example-description" data-example-description hidden></p>
+<p class="example-references" data-example-references hidden></p>
+<details class="example-instructions" data-example-instructions hidden><summary>Interaction guide</summary><p></p></details>
 <ul class="example-tags" data-example-tags aria-label="Example topics"></ul>
 </section>
 <section class="tool-workbench" id="workbench" data-workbench role="region" aria-label="Example tools">
@@ -49,6 +53,9 @@
 </section>
 <p class="graph-hint" data-graph-hint data-background-region hidden></p>
 <section class="example-error" data-example-error data-background-region hidden><h1>The requested example is not available.</h1><a href="./?example=interactive-background">Open the interactive background</a></section>
+<footer class="playground-footer" data-background-region>
+<div class="playground-footer__row"><a class="playground-footer__brand" href="../">ZenFG <span>Examples</span></a><nav aria-label="Footer"><a href="https://github.com/uinosoft/zenfg/blob/main/docs/README.md" target="_blank" rel="noopener noreferrer">Docs</a><a href="https://github.com/uinosoft/zenfg" target="_blank" rel="noopener noreferrer">GitHub</a><a href="#page-top">Back to top ↑</a></nav></div>
+</footer>
 </main>
 </div>
 </div>

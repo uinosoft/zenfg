@@ -8,6 +8,7 @@ export const snapshotExportExample: PlaygroundExampleDefinition = {
 	group: '@zenfg/webgpu basics',
 	tags: ['webgpu', 'snapshot', 'diagnostics'],
 	readyState: 'ready',
+	description: "Export a graph snapshot as JSON and inspect the captured structure. Explore how diagnostics can be transferred without the running renderer.",
 	graphHint: 'Inspector parses the JSON produced by the package recipe',
 	entrySourceId: 'snapshot-export-recipe',
 	sourceFiles: [

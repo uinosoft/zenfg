@@ -1,3 +1,4 @@
+import { setIconButton } from './icons.ts';
 import type { PlaygroundExampleDefinition, PlaygroundSourceFile } from './types.ts';
 
 type SourceDefinition = Pick<PlaygroundExampleDefinition, 'id' | 'entrySourceId' | 'sourceFiles'>;
@@ -28,6 +29,7 @@ export function createSourceView(options: {
 	let destroyed = false;
 	let copiedTimer: ReturnType<typeof setTimeout> | undefined;
 	const buttons = new Map<string, HTMLButtonElement>();
+	copy.setAttribute('aria-live', 'polite');
 	files.replaceChildren();
 	copy.disabled = true;
 
@@ -35,7 +37,7 @@ export function createSourceView(options: {
 		const selectedRevision = ++revision;
 		currentSource = undefined;
 		clearTimeout(copiedTimer);
-		copy.textContent = 'Copy';
+		setIconButton(copy, 'copy', 'Copy');
 		copy.disabled = true;
 		for (const [id, button] of buttons) {
 			button.classList.toggle('active', id === file.id);
@@ -97,12 +99,12 @@ export function createSourceView(options: {
 		try {
 			await options.copyText(currentSource);
 			if (destroyed || copiedRevision !== revision) return;
-			copy.textContent = 'Copied';
+			setIconButton(copy, 'check', 'Copied');
 		} catch {
 			if (destroyed || copiedRevision !== revision) return;
-			copy.textContent = 'Retry copy';
+			setIconButton(copy, 'error', 'Retry copy');
 		}
-		copiedTimer = setTimeout(() => { copy.textContent = 'Copy'; }, 1200);
+		copiedTimer = setTimeout(() => { setIconButton(copy, 'copy', 'Copy'); }, 1200);
 	};
 	copy.addEventListener('click', onCopy);
 	return {

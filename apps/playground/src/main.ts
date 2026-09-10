@@ -1,3 +1,5 @@
+import { renderExampleText } from './exampleIntro.ts';
+import { createIcon, setIconButton } from './icons.ts';
 import { exampleTagLabels } from './exampleTags.ts';
 import { createExampleStatus, type ExampleStatus } from './exampleStatus.ts';
 import type { createFrameRateMonitor } from './frameRateMonitor.ts';
@@ -14,6 +16,13 @@ import type { PlaygroundExampleDefinition, PlaygroundPanel, PlaygroundRuntime } 
 const playground = requireElement<HTMLElement>('[data-playground]');
 const effectCanvas = requireElement<HTMLCanvasElement>('[data-effect-canvas]');
 const effectStatus = requireElement<HTMLElement>('[data-effect-status]');
+// Overlay keyboard interaction must not trigger example shortcuts (for example Space).
+effectStatus.addEventListener('keydown', event => event.stopPropagation());
+const detailToggle = requireElement<HTMLElement>('.runtime-status__toggle');
+detailToggle.prepend(createIcon(document, 'chevron'));
+effectStatus.addEventListener('toggle', () => {
+	detailToggle.lastChild!.textContent = effectStatus.hasAttribute('open') ? 'Hide details' : 'Details';
+});
 const effectStatusText = requireElement<HTMLElement>('[data-effect-status-text]');
 const exampleDirectoryHost = requireElement<HTMLElement>('[data-example-directory]');
 const exampleTags = requireElement<HTMLElement>('[data-example-tags]');
@@ -49,6 +58,7 @@ const runtimeStatus = createExampleStatus({
 	root: playground, status: effectStatus, label: effectStatusText,
 	signal: requireElement<HTMLElement>('.effect-status__signal'),
 	feedback: requireElement<HTMLElement>('[data-example-feedback]'),
+	preview: requireElement<HTMLElement>('[data-status-preview]'),
 	onFrameRate: value => frameRateMonitor?.update(value),
 	onFrameSample: value => frameRateMonitor?.record(value),
 	readyState: example?.readyState ?? 'ready', loadingNote: example?.loadingNote,
@@ -72,15 +82,19 @@ function setDirectoryOpen(open: boolean): void {
 	directory.hidden = !open;
 	playground.dataset.directoryOpen = String(open);
 	directoryToggle.setAttribute('aria-expanded', String(open));
+	setIconButton(directoryToggle, open ? 'panelClose' : 'panelOpen', open ? 'Close example directory' : 'Open example directory');
 }
 setDirectoryOpen(!narrowViewport.matches);
 const onViewportChange = (): void => setDirectoryOpen(!narrowViewport.matches);
 narrowViewport.addEventListener('change', onViewportChange);
 directoryToggle.addEventListener('click', () => setDirectoryOpen(directory.hidden === true));
 for (const button of document.querySelectorAll<HTMLButtonElement>('[data-theme-mode]')) {
+	setIconButton(button, button.dataset.themeMode === 'light' ? 'sun' : 'moon', button.dataset.themeMode === 'light' ? 'Light' : 'Dark');
 	button.addEventListener('click', () => setTheme(button.dataset.themeMode === 'light' ? 'light' : 'dark'));
 }
 const maximizeButton = requireElement<HTMLButtonElement>('[data-maximize]');
+setIconButton(maximizeButton, 'maximize', 'Expand tools');
+setIconButton(copySource, 'copy', 'Copy');
 let maximized = false;
 let restoreScroll = 0;
 let restoreFocus: HTMLElement | null = null;
@@ -95,7 +109,7 @@ function setMaximized(value: boolean): void {
 	workbench.setAttribute('role', value ? 'dialog' : 'region');
 	if (value) workbench.setAttribute('aria-modal', 'true');
 	else workbench.removeAttribute('aria-modal');
-	maximizeButton.textContent = value ? 'Restore' : 'Expand';
+	setIconButton(maximizeButton, value ? 'minimize' : 'maximize', value ? 'Restore tools' : 'Expand tools');
 	maximizeButton.setAttribute('aria-label', value ? 'Restore tools' : 'Expand tools');
 	maximizeButton.setAttribute('aria-pressed', String(value));
 	for (const region of document.querySelectorAll<HTMLElement>('[data-background-region]')) region.inert = value;
@@ -114,7 +128,15 @@ if (example) {
 		tag.textContent = exampleTagLabels[id];
 		exampleTags.append(tag);
 	}
-	exampleDescription.textContent = example.description ?? '';
+	renderExampleText(exampleDescription, example.description ?? '');
+	const references = requireElement<HTMLElement>('[data-example-references]');
+	references.hidden = !example.references?.length;
+	renderExampleText(references, (example.references ?? []).flatMap((reference, index) => [
+		(index ? ' · ' : '') + reference.relation + ' ', { text: reference.label, href: reference.href },
+	]));
+	const instructions = requireElement<HTMLElement>('[data-example-instructions]');
+	instructions.hidden = !example.instructions;
+	instructions.querySelector('p')!.textContent = example.instructions ?? '';
 	exampleDescription.hidden = !example.description;
 	graphHint.textContent = example.graphHint ?? '';
 	document.title = example.title + ' · ZenFG Examples';
@@ -215,9 +237,8 @@ async function mountExample(definition: PlaygroundExampleDefinition): Promise<Pl
 			controlsHost,
 			onReady: message => {
 				setEffectStatus('ready');
-				if (!disposed && definition.readyState === 'ready' && message) {
-					graphHint.textContent = [message, definition.graphHint].filter(Boolean).join(' · ');
-					graphHint.hidden = currentPanel !== 'inspector';
+				if (!disposed && definition.readyState === 'ready') {
+					runtimeStatus.output(message);
 				}
 			},
 			onWarning: message => { if (!disposed) runtimeStatus.warn(message); },

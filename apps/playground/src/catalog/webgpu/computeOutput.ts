@@ -9,6 +9,7 @@ export const computeOutputExample: PlaygroundExampleDefinition = {
 	group: '@zenfg/webgpu basics',
 	tags: ['webgpu', 'compute', 'storage-buffer'],
 	readyState: 'ready',
+	description: "Write a storage buffer in a compute pass and declare it as an output. Inspect why the graph retains useful work even without a presentation pass.",
 	graphHint: 'Inspector shows a storage write retained by an output root',
 	entrySourceId: 'compute-output-recipe',
 	sourceFiles: [

@@ -167,7 +167,7 @@ try {
     assert.equal(await page.locator('[data-controls-host]').isVisible(), false);
     const noControlsStage = await page.locator('.demo-stage').boundingBox();
     assert.ok(Math.abs(noControlsStage.width / noControlsStage.height - 4 / 3) < .01, 'no-parameter examples retain the same ratio');
-    assert.equal(await page.locator('[data-example-description]').isVisible(), false);
+    assert.equal(await page.locator('[data-example-description]').isVisible(), true);
     await page.waitForFunction(() => document.querySelector('[data-effect-status-text]').textContent === 'Ready');
     assert.equal(await page.locator('[data-graph-hint]').isVisible(), true);
     assert.equal(await page.locator('[data-example-id=minimal-frame]').getAttribute('aria-current'), 'page');
@@ -186,10 +186,15 @@ try {
     await noGpu.goto(base + '?example=minimal-frame');
     await noGpu.waitForFunction(() => document.querySelector('[data-playground]').dataset.effectState === 'error');
     assert.equal(await noGpu.locator('[data-effect-status-text]').textContent(), 'Error');
+    assert.equal(await noGpu.locator('[data-status-preview]').isVisible(), true);
+    await noGpu.locator('.runtime-status summary').click();
     assert.equal(await noGpu.locator('[data-example-feedback]').isVisible(), true);
     const failedStage = await noGpu.locator('.demo-stage').boundingBox();
     const failureDetail = await noGpu.locator('[data-example-feedback]').boundingBox();
-    assert.ok(failureDetail.y >= failedStage.y + failedStage.height, 'error detail outside the canvas');
+    assert.ok(failureDetail.y >= failedStage.y && failureDetail.y + failureDetail.height <= failedStage.y + failedStage.height, 'error details stay inside the canvas');
+    const introBefore = await noGpu.locator('.example-intro').boundingBox();
+    await noGpu.locator('.runtime-status summary').click();
+    assert.deepEqual(await noGpu.locator('.example-intro').boundingBox(), introBefore, 'folding feedback never shifts the page');
     await noGpu.locator('[data-panel-button=code]').click();
     await noGpu.locator('.shiki').waitFor();
     assert.equal(await noGpu.locator('[data-copy-source]').isEnabled(), true);

@@ -5,6 +5,12 @@ export type PlaygroundPanel = 'code' | 'inspector';
 export type PlaygroundExampleGroup = 'Showcases' | '@zenfg/webgpu basics';
 export type PlaygroundSourceRole = 'example' | 'recipe' | 'host' | 'shader';
 
+export type PlaygroundText = string | readonly (string | {
+	readonly text: string;
+	readonly emphasis?: 'strong' | 'em' | 'code';
+	readonly href?: string;
+})[];
+
 export type PlaygroundSourceFile = {
 	readonly id: string;
 	readonly label: string;
@@ -40,7 +46,9 @@ export type PlaygroundExampleDefinition = {
 	readonly group: PlaygroundExampleGroup;
 	readonly tags: readonly ExampleTag[];
 	readonly readyState: 'live' | 'ready';
-	readonly description?: string;
+	readonly description?: PlaygroundText;
+	readonly instructions?: string;
+	readonly references?: readonly { readonly label: string; readonly href: string; readonly relation: 'Adapted from' | 'Reference' }[];
 	readonly graphHint?: string;
 	readonly loadingNote?: string;
 	readonly hasControls?: boolean;

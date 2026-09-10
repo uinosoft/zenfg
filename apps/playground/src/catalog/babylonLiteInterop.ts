@@ -6,7 +6,8 @@ export const babylonLiteInteropExample: PlaygroundExampleDefinition = {
     group: 'Showcases',
     tags: ['babylon-lite', 'interop', 'shared-resources'],
     readyState: 'live',
-    description: 'Cyan objects: Babylon Lite. Orange objects and gray base: Reference Renderer. Reverse Z is always enabled (Babylon Lite native depth). Drag to orbit · Scroll to zoom',
+    description: "Combine Babylon Lite and the reference renderer using shared color and reverse-Z depth. Inspect the boundary between engine-owned rendering and graph-managed work.",
+    instructions: 'Cyan objects: Babylon Lite. Orange objects and gray base: Reference Renderer. Reverse Z is always enabled (Babylon Lite native depth). Drag to orbit · Scroll to zoom',
     hasControls: false,
     entrySourceId: 'babylon-lite-interop-entry',
     sourceFiles: [
