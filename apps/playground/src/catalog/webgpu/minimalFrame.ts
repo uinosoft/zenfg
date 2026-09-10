@@ -5,9 +5,9 @@ export const minimalFrameExample: PlaygroundExampleDefinition = {
 	id: 'minimal-frame',
 	title: 'Minimal Frame',
 	group: '@zenfg/webgpu basics',
-	summary: 'WebGPU · Render · 1 pass',
-	readyMessage: 'Ready · 1 retained render pass',
-	footerHint: 'Open Inspector to see why the clear pass is retained',
+	tags: ['webgpu', 'render'],
+	readyState: 'ready',
+	graphHint: 'Open Inspector to see why the clear pass is retained',
 	entrySourceId: 'minimal-frame-recipe',
 	sourceFiles: [
 		{

@@ -12,6 +12,7 @@ export type Workload = Pick<Particles4All, 'recordFrameGraph' | 'dispose' | 'res
     | 'endBodyDrag' | 'applyPointerImpulse' | 'orbit' | 'pan' | 'zoom'>;
 
 export interface Particles4AllState {
+    readonly paused: boolean;
     readonly ready: boolean;
     readonly status: string;
 }
@@ -20,9 +21,11 @@ export interface StartParticles4AllOptions {
     readonly signal?: AbortSignal;
     readonly initialSettings?: Partial<Particles4AllSettings>;
     readonly onLoading?: (message: string) => void;
+    /** Called after a frame is submitted; observational only. */
+    readonly onFrame?: () => void;
     readonly onReady?: (message?: string) => void;
     readonly onError?: (error: Error) => void;
-    readonly onWarning?: (message: string) => void;
+    readonly onWarning?: (message?: string) => void;
     readonly onStateChange?: (state: Particles4AllState) => void;
     /** False keeps the procedural sky; uploads remain available. */
     readonly loadDefaultEnvironment?: boolean;
@@ -89,12 +92,15 @@ export function createHostSupport(canvas: HTMLCanvasElement, device: GPUDevice, 
     let pageHidden = false;
     let environmentRevision = 0;
     let observer: ResizeObserver | undefined;
-    const getState = (): Particles4AllState => ({ ready: frameState.ready, status: frameState.status });
+    const getState = (): Particles4AllState => ({ ready: frameState.ready, status: frameState.status, paused: workload.getSettings().paused });
     const changed = () => notify(() => options.onStateChange?.(getState()));
+    const setWarning = (message?: string) => {
+        notify(() => options.onWarning?.(message));
+    };
     const warn = (message: string) => {
         if (frameState.disposed) return;
         frameState.status = message;
-        notify(() => options.onWarning?.(message));
+        setWarning(message);
         changed();
     };
     const settleCapture = () => {
@@ -188,7 +194,7 @@ export function createHostSupport(canvas: HTMLCanvasElement, device: GPUDevice, 
                 imported.missingPanorama ? `Load the INI panorama separately: ${imported.missingPanorama}` : '',
             ].filter(Boolean);
             frameState.status = warnings.join(' · ') || 'INI settings loaded';
-            if (warnings.length) notify(() => options.onWarning?.(frameState.status));
+            setWarning(warnings.join(' · ') || undefined);
             changed();
             return imported;
         },
@@ -199,6 +205,7 @@ export function createHostSupport(canvas: HTMLCanvasElement, device: GPUDevice, 
             try {
                 await workload.loadEnvironment(source);
                 if (frameState.disposed || revision !== environmentRevision) return;
+                setWarning();
                 frameState.status = 'Environment loaded'; changed();
             } catch (error) {
                 if (frameState.disposed || revision !== environmentRevision) return;
@@ -207,7 +214,7 @@ export function createHostSupport(canvas: HTMLCanvasElement, device: GPUDevice, 
         },
         clearEnvironment() {
             active(); ++environmentRevision;
-            workload.clearEnvironment(); frameState.status = 'Procedural sky'; changed();
+            workload.clearEnvironment(); setWarning(); frameState.status = 'Procedural sky'; changed();
         },
         captureSnapshot() {
             if (frameState.disposed || suspended()) return Promise.resolve(undefined);

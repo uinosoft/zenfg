@@ -6,9 +6,9 @@ export const persistentStateExample: PlaygroundExampleDefinition = {
 	id: 'persistent-state',
 	title: 'Persistent State',
 	group: '@zenfg/webgpu basics',
-	summary: 'WebGPU · Imported texture · Persistent root',
-	readyMessage: 'Ready · caller-owned history retained',
-	footerHint: 'Capture again to see the imported state begin defined',
+	tags: ['webgpu', 'persistent-resources'],
+	readyState: 'ready',
+	graphHint: 'Capture again to see the imported state begin defined',
 	entrySourceId: 'persistent-state-recipe',
 	sourceFiles: [
 		{

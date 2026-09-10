@@ -10,6 +10,19 @@ function file(id: string, loadSource = async () => `/** Source: ${id} */\nexport
 
 const flush = () => new Promise<void>(resolve => setImmediate(resolve));
 
+test('failed highlighting preserves exact source and copying', async t => {
+	const source = '<script>not markup</script>\nconst value = 1;';
+	const f = fixture([file('main', async () => source)], async () => { throw new Error('offline highlighter'); });
+	t.after(() => f.destroy());
+	await f.ready;
+	assert.equal(f.content.textContent, source);
+	assert.equal(f.content.querySelector('script'), null);
+	assert.equal(f.copy.disabled, false);
+	f.copy.click();
+	await flush();
+	assert.deepEqual(f.copied, [source]);
+});
+
 function fixture(files: readonly PlaygroundSourceFile[], highlight = async (source: string) => `<pre>${source}</pre>`) {
 	const browser = new Window();
 	const document = browser.document as unknown as Document;
@@ -120,3 +133,20 @@ test('hiding the view retains selection and disposal ignores outstanding loads',
 	assert.notEqual(f.content.textContent, 'discarded');
 	assert.equal(f.copy.disabled, true);
 });
+
+for (const fails of [false, true]) {
+ test('slow highlighting preserves reading position when it ' + (fails ? 'fails' : 'completes'), async t => {
+  let finish!: (html: string) => void;
+  let fail!: (error: Error) => void;
+  const f = fixture([file('main')], () => new Promise((resolve, reject) => { finish = resolve; fail = reject; }));
+  t.after(() => f.destroy());
+  await flush();
+  assert.equal(f.copy.disabled, false);
+  f.content.scrollTop = 200;
+  f.content.scrollLeft = 150;
+  if (fails) fail(new Error('offline')); else finish('<pre>highlighted source</pre>');
+  await f.ready;
+  assert.equal(f.content.scrollTop, 200);
+  assert.equal(f.content.scrollLeft, 150);
+ });
+}

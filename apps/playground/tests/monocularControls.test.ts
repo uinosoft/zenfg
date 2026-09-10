@@ -62,7 +62,7 @@ test('Monocular adapter shows retryable failures, resumes rendering and cleans u
         source.dispatchEvent(new env.browser.Event('change') as never);
         await until(() => errors.some((error) => error.message === 'Choose an image first.'));
         assert.equal(source.selectedOptions[0]!.textContent, 'Demo photo');
-        assert.ok(Array.from(env.controlsHost.querySelectorAll('textarea')).some((input) => input.value === 'Choose an image first.'));
+        assert.equal(env.controlsHost.querySelectorAll('textarea').length, 0, 'runtime feedback is owned by the shell');
         const capture = runtime!.captureSnapshot();
         abort.abort();
         assert.equal(await capture, undefined);

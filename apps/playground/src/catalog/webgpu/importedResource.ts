@@ -7,9 +7,9 @@ export const importedResourceExample: PlaygroundExampleDefinition = {
 	id: 'imported-resource',
 	title: 'Imported Resource',
 	group: '@zenfg/webgpu basics',
-	summary: 'WebGPU · Imported uniform · 1 pass',
-	readyMessage: 'Ready · caller-owned uniform imported',
-	footerHint: 'The native uniform stays caller-owned across graph execution',
+	tags: ['webgpu', 'imported-resources', 'uniform-buffer'],
+	readyState: 'ready',
+	graphHint: 'The native uniform stays caller-owned across graph execution',
 	entrySourceId: 'imported-resource-recipe',
 	sourceFiles: [
 		{

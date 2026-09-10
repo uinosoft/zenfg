@@ -7,9 +7,9 @@ export const computeOutputExample: PlaygroundExampleDefinition = {
 	id: 'compute-output',
 	title: 'Compute Output',
 	group: '@zenfg/webgpu basics',
-	summary: 'WebGPU · Compute · Storage output',
-	readyMessage: 'Ready · 16 values written by compute',
-	footerHint: 'Inspector shows a storage write retained by an output root',
+	tags: ['webgpu', 'compute', 'storage-buffer'],
+	readyState: 'ready',
+	graphHint: 'Inspector shows a storage write retained by an output root',
 	entrySourceId: 'compute-output-recipe',
 	sourceFiles: [
 		{

@@ -30,9 +30,9 @@ const sourceFiles: PlaygroundSourceFile[] = Object.entries(sources).map(([name, 
 
 export const particles4AllExample: PlaygroundExampleDefinition = {
     id: 'particles4all-framegraph', title: 'Particles4All · Fluid Simulation', group: 'Showcases',
-    summary: 'Advanced · Fluid + rigid bodies · Four rendering modes',
-    readyMessage: 'Live · Particles4All simulation + ZenFG',
-    footerHint: 'Hover to push · Drag to orbit or carry solids · Right-drag to pan · Scroll to zoom · Space to pause',
+    tags: ['webgpu', 'fluid-simulation', 'rigid-body'],
+    readyState: 'live',
+    description: 'Hover to push · Drag to orbit or carry solids · Right-drag to pan · Scroll to zoom · Space to pause',
     hasControls: true,
     entrySourceId: 'particles4all-framegraph-entry',
     sourceFiles: [
@@ -57,16 +57,11 @@ export const particles4AllExample: PlaygroundExampleDefinition = {
         let controls: ReturnType<typeof createParticles4AllControls> | undefined;
         let timer: ReturnType<typeof setInterval> | undefined;
         let iniRevision = 0;
-        const status = document.createElement('p');
-        status.setAttribute('role', 'status');
-        status.style.cssText = 'font-size:12px;line-height:1.5;padding:8px;overflow-wrap:anywhere';
-        const stats = document.createElement('pre');
-        stats.style.cssText = 'font-size:11px;line-height:1.6;padding:8px;white-space:pre-wrap';
         const environmentInput = document.createElement('input');
         environmentInput.type = 'file'; environmentInput.accept = 'image/*,.hdr'; environmentInput.hidden = true;
         const iniInput = document.createElement('input');
         iniInput.type = 'file'; iniInput.accept = '.ini,text/plain'; iniInput.hidden = true;
-        const warning = (messages: readonly string[]) => { if (!disposed) status.textContent = messages.join(' · '); };
+        const warning = (messages: readonly string[]) => { if (!disposed) context.onWarning?.(messages.join(' · ') || undefined); };
         const cleanup = () => {
             if (disposed) return;
             disposed = true; ++iniRevision;
@@ -79,12 +74,12 @@ export const particles4AllExample: PlaygroundExampleDefinition = {
         };
         try {
             controller = await startParticles4All(context.canvas, {
-                signal: context.signal, onLoading: context.onLoading, onReady: context.onReady,
+                onFrame: context.onFrame, signal: context.signal, onLoading: context.onLoading, onReady: context.onReady,
                 onError: (error) => { cleanup(); context.onError(error); },
-                onWarning: (message) => warning([message]),
+                onWarning: (message) => warning(message ? [message] : []),
                 onStateChange: (state) => {
                     if (disposed) return;
-                    status.textContent = state.status;
+                    context.onPaused?.(state.paused);
                     controls?.refreshFromFeature();
                 },
             });
@@ -93,8 +88,8 @@ export const particles4AllExample: PlaygroundExampleDefinition = {
             const active = controller;
             controls = createParticles4AllControls(context.controlsHost, active, warning, Pane as unknown as PaneConstructor,
                 (kind) => (kind === 'environment' ? environmentInput : iniInput).click());
-            context.controlsHost.append(status, stats, environmentInput, iniInput);
-            status.textContent = active.getState().status;
+            context.controlsHost.append(environmentInput, iniInput);
+            context.onPaused?.(active.getState().paused);
             environmentInput.addEventListener('change', () => {
                 const file = environmentInput.files?.[0]; environmentInput.value = '';
                 if (file) void active.loadEnvironment(file);
@@ -111,19 +106,21 @@ export const particles4AllExample: PlaygroundExampleDefinition = {
                     if (!disposed && revision === iniRevision) warning([`INI import failed: ${error instanceof Error ? error.message : String(error)}`]);
                 });
             }, { signal: abort.signal });
-            const updateStats = () => {
-                if (disposed) return;
-                const s = active.getStats();
-                stats.textContent = [
-                    `Particles: ${s.particleCount.toLocaleString()}`,
-                    `Fluid / rigid: ${s.fluidParticleCount.toLocaleString()} / ${s.rigidParticleCount.toLocaleString()}`,
-                    `Boundary samples: ${s.boundaryParticleCount.toLocaleString()} · Bodies: ${s.bodyCount}`,
-                    `Substeps: ${s.lastSubsteps} · Mesh triangles: ${s.meshTriangles.toLocaleString()}`,
-                    `Density avg / max: ${s.averageDensity.toFixed(1)} / ${s.maximumDensity.toFixed(1)}`,
-                    `Maximum speed: ${s.maximumSpeed.toFixed(2)} · Pour remaining: ${s.pourRemaining.toLocaleString()}`,
-                ].join('\n');
-            };
-            updateStats(); timer = setInterval(updateStats, 250);
+            const stats = { ...active.getStats() };
+            const statistics = controls.pane.addFolder({ title: 'Statistics', expanded: false });
+            for (const [key, label] of [
+                ['particleCount', 'Particles'], ['fluidParticleCount', 'Fluid'], ['rigidParticleCount', 'Rigid'],
+                ['boundaryParticleCount', 'Boundary samples'], ['bodyCount', 'Bodies'],
+                ['lastSubsteps', 'Substeps'], ['meshTriangles', 'Mesh triangles'],
+                ['averageDensity', 'Density avg'], ['maximumDensity', 'Density max'],
+                ['maximumSpeed', 'Max speed'], ['pourRemaining', 'Pour remaining'],
+            ] as const) {
+                statistics.addBinding(stats, key, {
+                    label, readonly: true, interval: 250,
+                    format: (value: number) => value.toLocaleString('en-US', { maximumFractionDigits: 2 }),
+                });
+            }
+            timer = setInterval(() => { if (!disposed) Object.assign(stats, active.getStats()); }, 250);
             return { captureSnapshot: () => active.captureSnapshot(), dispose: cleanup };
         } catch (error) { cleanup(); throw error; }
     },

@@ -74,6 +74,7 @@ class ZenBackground extends BackgroundBrowserHost {
             this.updateUniforms(now / 1000, deltaSeconds);
             this.recordAndExecuteFrame();
             this.frameIndex += 1;
+            try { this.options.onFrame?.(); } catch { /* Telemetry must not interrupt rendering. */ }
             this.dirty = false;
             if (!this.readyReported) {
                 this.readyReported = true;

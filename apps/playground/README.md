@@ -1,8 +1,10 @@
-# ZenFG Playground
+# ZenFG Examples (Playground workspace)
 
-The Playground is a private static application deployed at `/playground/`. It
-keeps a live example as the stage and opens source code or the embedded
-FrameGraph Inspector in an overlay above it.
+The Examples page is a private static application deployed at `/playground/`.
+A collapsible grouped directory sits beside a naturally scrolling page:
+canvas and parameters with runtime status first, then the title, optional brief
+description and topic tags, followed by the Inspector / Code workbench.
+The public route and example IDs retain their existing names.
 
 The local Storm / Light visual prototype is available with
 `npm run dev:visual-lab` at `http://127.0.0.1:5176/visual-lab/`. It is excluded
@@ -27,13 +29,100 @@ grouped as repository showcases or `@zenfg/webgpu` basics. Catalog adapters own
 Playground metadata, source display, WebGPU hosting, and Inspector wiring;
 example implementations must not import Playground code.
 
+## Layout and appearance
+
+Dark (Storm-inspired) and Light use the shared visual foundations. The page
+remembers the explicit choice in `zenfg-playground-theme` local storage, defaults
+to Dark, and still switches when storage is unavailable. This preference is
+specific to Examples; system appearance and cross-app synchronization are deferred.
+
+Only the page shell and Code switch themes. Tweakpane remains the parameter
+library, and both its contents and the embedded Inspector retain their existing
+dark appearance. Their host dimensions and placement adapt to the page; internal
+theme/style settings remain separate follow-up work. Canvas output does not
+change with the page theme.
+
+Inspector opens by default and captures a real frame. Explicit `panel=code`
+and `panel=inspector` URLs select the active tool; legacy `panel=none`, missing
+or invalid panel values open Inspector. The workbench always has an open tab;
+re-selecting it keeps it open. Expand reuses the same tools;
+Escape restores the page, focus and scroll position. Theme changes, tabs and
+expansion preserve the source selection, parameters, snapshot and graph viewport.
+Example links continue to navigate to a new page and preserve the active panel.
+
+Showcases starts expanded; basics starts collapsed unless it contains the current
+example. The directory starts collapsed at 800px or below. The canvas uses a stable
+4:3 aspect ratio at every viewport, sized from available width within the bounded
+content column. A 16px gap separates the canvas from the parameter panel.
+Tweakpane uses its natural content height. A ResizeObserver limits the outer host
+to the actual canvas border-box height on desktop, including after directory and
+viewport changes. Mobile retains a separate 340px limit. Only the host scrolls;
+Tweakpane keeps its native internal heights and folding animations. Short panes
+do not stretch to match the canvas. The observer disconnects on page disposal.
+Static explanations and renderer color legends belong in the example description. Particles4All statistics
+are read-only monitors in a collapsed Statistics folder. Hidden file inputs are
+implementation details, not visible content alongside the pane. Babylon Lite has
+no adjustable parameters and uses the layout without a controls column.
+
+A compact, non-interactive badge overlays the canvas's bottom-left corner with
+runtime state and FPS. It retains readable dark styling in both shell themes and
+lets pointer input pass through. Longer loading, warning and error details appear
+below the canvas. The introduction follows the demo: title, description and tags.
+On mobile, parameters move below the canvas and any runtime details.
+
+Live examples report FPS from successful render submissions, sampled at most twice
+per second. This is render frequency, not GPU timing or model inference frequency.
+Loading, Ready, errors, pause and background suspension hide FPS and reset its
+sample; on-demand examples hide stale readings after 1.5 seconds without a frame.
+Returning or resuming waits for a fresh sample. Private example hosts expose
+optional observational frame notifications; published package APIs and snapshots
+remain unchanged.
+
+Code uses the same Shiki theme definitions as the visual lab, registering both
+TypeScript and JavaScript. Dual-theme markup changes colors without remounting;
+failed highlighting leaves the exact source readable and copyable.
+
+Run `node apps/playground/tests/browser/layout.mjs` against the same Pages preview
+and Playwright configuration described below. It checks both themes at 1440,
+1277, 1024 and 390px, real captured graph nodes,
+embedded style isolation, graph/parameter/source retention, keyboard controls,
+theme persistence and storage failure, unknown examples, and Code without WebGPU.
+Reports and screenshots go to `.test-dist/examples-layout`.
+`node apps/playground/tests/browser/runtimeStatus.mjs` additionally checks live FPS,
+pause/resume, BFCache suspension, canvas status placement, native pane folding,
+and parameter height limits across viewport and directory changes. It uses the same preview and Playwright settings; its
+Monocular checks need network access to the public model and demo photo. Reports
+and screenshots go to `.test-dist/examples-status`.
+
+## Example information
+
+Catalog definitions use stable `tags` IDs from `exampleTags.ts`; labels share a
+single vocabulary for future search and filtering. Tags are currently descriptive,
+not buttons. Keep implementation counts out of tags. The page shows tags after
+the optional description; the former summary field has been removed.
+
+The canvas badge shows Loading, Live (running showcases), Paused, Ready
+(one-shot recipes), or Error. Loading stages and optional `loadingNote` appear
+below the canvas while preparation is underway. Errors show their full message
+there and preserve any last rendered frame. `onWarning` reports a nonfatal
+limitation, including during initial loading, and preserves rendering; undefined
+clears it. Warnings survive the first ready notification.
+GPU Timing uses this for unavailable timestamps, while preserving rendering and
+capture. Numeric timing results appear next to the Inspector.
+
+Use optional `description` for a brief introduction below the demo, and optional
+`graphHint` for an observation beside the Inspector. Empty hints occupy no space.
+Model sizes and download requirements belong to loading feedback, not controls.
+Published Inspector APIs and Snapshot data remain unchanged.
+
 ## Code reading entries
 
 Every catalog definition must set `entrySourceId` to exactly one of its source
 file IDs. Code puts that file first, marks it **Entry**, and opens it initially;
 the default does not depend on array order. Duplicate IDs and missing entries
 are catalog errors. All buttons are available while source highlighting loads.
-Closing and reopening Code keeps the selection; changing files resets scrolling.
+Switching away from Code and back keeps the selection; changing files resets
+scrolling. Delayed highlighting preserves the position already reached in raw source.
 
 Repository showcases use their actual `src/main.ts` as the reading entry.
 Reference Renderer uses the demo package's entry, not the reusable renderer.
@@ -67,8 +156,9 @@ rigid-body simulation, Particles / Surface mesh / Ray march / SSFR rendering,
 presets, INI import, and panorama upload. Its host submits native ZenFG work
 directly to the canvas with the upstream depth convention. Scene controls are
 expanded, advanced simulation and rendering controls are folded, and live
-statistics appear below the pane. The bundled HDR loads in the background;
-panorama or configuration failures are recoverable and appear in the controls.
+statistics appear in its collapsed Statistics folder. The bundled HDR loads in
+the background; panorama or configuration failures are recoverable and appear
+in runtime feedback below the canvas.
 JavaScript shader source tabs display the vendored files actually used at runtime.
 
 The Monocular Light Injection showcase lives in

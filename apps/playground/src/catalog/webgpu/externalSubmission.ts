@@ -6,9 +6,9 @@ export const externalSubmissionExample: PlaygroundExampleDefinition = {
 	id: 'external-submission',
 	title: 'External Submission',
 	group: '@zenfg/webgpu basics',
-	summary: 'WebGPU · External queue submission · 2 segments',
-	readyMessage: 'Ready · external submission ordered before present',
-	footerHint: 'Inspector shows the caller-owned submission boundary',
+	tags: ['webgpu', 'external-submission', 'interop'],
+	readyState: 'ready',
+	graphHint: 'Inspector shows the caller-owned submission boundary',
 	entrySourceId: 'external-submission-recipe',
 	sourceFiles: [
 		{

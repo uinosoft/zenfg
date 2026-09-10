@@ -4,9 +4,9 @@ export const interactiveBackgroundExample: PlaygroundExampleDefinition = {
 	id: 'interactive-background',
 	title: 'Interactive FrameGraph Background',
 	group: 'Showcases',
-	summary: 'WebGPU · Compute + Render · 5 passes',
-	readyMessage: 'Live · 5 FrameGraph passes',
-	footerHint: 'Move your pointer to disturb the field',
+	tags: ['webgpu', 'compute', 'render'],
+	readyState: 'live',
+	description: 'Move your pointer to disturb the field',
 	entrySourceId: 'interactive-background-entry',
 	sourceFiles: [
 		{
@@ -55,6 +55,7 @@ export const interactiveBackgroundExample: PlaygroundExampleDefinition = {
 		const { startZenBackground } = await import('@zenfg-example/interactive-background');
 		return startZenBackground(context.canvas, {
 			interactionTarget: context.canvas,
+			onFrame: context.onFrame,
 			onReady: context.onReady,
 			onError: context.onError,
 		});

@@ -8,6 +8,8 @@ export interface ThreeInteropSettings { readonly reverseZ: boolean; }
 
 export interface StartThreeInteropOptions {
     readonly signal?: AbortSignal;
+    /** Called after a frame is submitted; observational only. */
+    readonly onFrame?: () => void;
     readonly onReady?: (message?: string) => void;
     readonly onError?: (error: Error) => void;
 }

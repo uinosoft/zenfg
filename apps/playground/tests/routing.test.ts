@@ -1,15 +1,17 @@
+import { exampleTagLabels } from '../src/exampleTags.ts';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import { resolve } from 'node:path';
 import { findPublicExample, publicExamples } from '../src/catalog/catalog.ts';
-import { defaultExampleId, parsePlaygroundRoute, routeSearch, toggledPanel } from '../src/routing.ts';
+import { defaultExampleId, parsePlaygroundRoute, routeSearch } from '../src/routing.ts';
 import { orderedSourceFiles } from '../src/sourceView.ts';
 
 test('playground routes default missing and invalid values safely', () => {
+	assert.deepEqual(parsePlaygroundRoute('?panel=none'), { exampleId: defaultExampleId, panel: 'inspector' });
 	assert.deepEqual(parsePlaygroundRoute(''), {
 		exampleId: defaultExampleId,
-		panel: 'none',
+		panel: 'inspector',
 	});
 	assert.deepEqual(parsePlaygroundRoute('?example=interactive-background&panel=inspector'), {
 		exampleId: 'interactive-background',
@@ -21,15 +23,11 @@ test('playground routes default missing and invalid values safely', () => {
 	});
 	assert.deepEqual(parsePlaygroundRoute('?example=missing&panel=unexpected'), {
 		exampleId: 'missing',
-		panel: 'none',
+		panel: 'inspector',
 	});
 });
 
 test('playground panel controls are mutually exclusive and serializable', () => {
-	assert.equal(toggledPanel('none', 'code'), 'code');
-	assert.equal(toggledPanel('code', 'code'), 'none');
-	assert.equal(toggledPanel('code', 'inspector'), 'inspector');
-	assert.equal(toggledPanel('inspector', 'none'), 'none');
 	assert.equal(routeSearch({ exampleId: 'interactive-background', panel: 'inspector' }), '?example=interactive-background&panel=inspector');
 });
 
@@ -40,7 +38,7 @@ test('the production catalog is explicit, grouped, and keeps canonical sources f
 	assert.equal(findPublicExample('babylon-interop')?.title, 'Babylon.js Co-rendering');
 	assert.equal(findPublicExample('babylon-interop')?.hasControls, true);
 	assert.equal(findPublicExample('babylon-lite-interop')?.title, 'Babylon Lite Co-rendering');
-	assert.equal(findPublicExample('babylon-lite-interop')?.hasControls, true);
+	assert.equal(findPublicExample('babylon-lite-interop')?.hasControls, false);
 	assert.deepEqual(parsePlaygroundRoute('?example=babylon-lite-interop&panel=code'), { exampleId: 'babylon-lite-interop', panel: 'code' });
 	assert.deepEqual(findPublicExample('babylon-lite-interop')?.sourceFiles.map(file => file.label), ['main.ts', 'graph.ts', 'bridge.ts', 'resolve.ts', 'scene.ts', 'present.ts', 'host.ts', 'babylonLiteInterop.ts']);
 	assert.deepEqual(parsePlaygroundRoute('?example=babylon-interop&panel=code'), { exampleId: 'babylon-interop', panel: 'code' });
@@ -82,8 +80,10 @@ test('the production catalog is explicit, grouped, and keeps canonical sources f
 		],
 	);
 	for (const example of publicExamples) {
-		assert.ok(example.readyMessage.length > 0);
-		assert.ok(example.footerHint.length > 0);
+		assert.ok(['live', 'ready'].includes(example.readyState));
+		assert.ok(example.tags.length > 0);
+		assert.equal(new Set(example.tags).size, example.tags.length);
+		for (const tag of example.tags) assert.ok(exampleTagLabels[tag]);
 		assert.equal(new Set(example.sourceFiles.map((file) => file.id)).size, example.sourceFiles.length);
 		assert.ok(example.sourceFiles.every((file) => file.language === (file.path.endsWith('.js') ? 'javascript' : 'typescript')));
 		if (example.hasControls) assert.equal(example.group, 'Showcases');

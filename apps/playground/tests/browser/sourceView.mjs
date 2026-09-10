@@ -72,7 +72,7 @@ try {
             await page.waitForFunction(() => !document.querySelector('[data-copy-source]').disabled);
             assert.deepEqual(await content.evaluate(el => [el.scrollTop, el.scrollLeft]), [0, 0]);
             const selected = await page.locator('[data-source-files] [aria-pressed=true]').getAttribute('data-source-id');
-            await page.locator('[data-overlay-close]').click();
+            await page.locator('[data-panel-button=inspector]').click();
             await page.locator('[data-panel-button=code]').click();
             assert.equal(await page.locator('[data-source-files] [aria-pressed=true]').getAttribute('data-source-id'), selected);
             await buttons.first().click();

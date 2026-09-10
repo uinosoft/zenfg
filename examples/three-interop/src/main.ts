@@ -92,6 +92,7 @@ function createHost(canvas: HTMLCanvasElement, device: GPUDevice, context: GPUCa
                     void host.finishCapture(pending, compiled.compilationReport, compiled.execute({ frameIndex: state.frameIndex++, gpuTiming: true }));
                 } else compiled.execute({ frameIndex: state.frameIndex++ });
             } else frame.compile().execute({ frameIndex: state.frameIndex++ });
+            try { options.onFrame?.(); } catch { /* Telemetry must not interrupt rendering. */ }
             if (!state.ready) {
                 state.ready = true;
                 try { options.onReady?.('Live · Three.js + Reference Renderer · shared color and depth'); } catch { /* Notifications do not own rendering. */ }

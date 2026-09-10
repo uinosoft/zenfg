@@ -5,9 +5,9 @@ export const transientToPresentExample: PlaygroundExampleDefinition = {
 	id: 'transient-to-present',
 	title: 'Transient to Present',
 	group: '@zenfg/webgpu basics',
-	summary: 'WebGPU · Transient texture · 2 passes',
-	readyMessage: 'Ready · transient texture presented',
-	footerHint: 'Inspect the transient lifetime between scene and present passes',
+	tags: ['webgpu', 'transient-resources', 'presentation'],
+	readyState: 'ready',
+	graphHint: 'Inspect the transient lifetime between scene and present passes',
 	entrySourceId: 'transient-to-present-recipe',
 	sourceFiles: [
 		{

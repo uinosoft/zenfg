@@ -26,9 +26,10 @@ export const typeGpuMonocularLightInjectionExample: PlaygroundExampleDefinition 
     id: 'typegpu-monocular-light-injection',
     title: 'TypeGPU · Monocular Light Injection',
     group: 'Showcases',
-    summary: 'Advanced · Network download · Optional camera',
-    readyMessage: 'Live · TypeGPU depth inference + ZenFG',
-    footerHint: 'Move or drag the light · Scroll to change distance · Initial model ~13–23 MB',
+    tags: ['typegpu', 'inference', 'lighting'],
+    readyState: 'live',
+    description: 'Move or drag the light · Scroll to change distance',
+    loadingNote: 'Initial model download: approximately 13–23 MB.',
     hasControls: true,
     entrySourceId: 'typegpu-monocular-light-injection-entry',
     sourceFiles: [
@@ -55,7 +56,7 @@ export const typeGpuMonocularLightInjectionExample: PlaygroundExampleDefinition 
         upload.type = 'file'; upload.accept = 'image/*'; upload.hidden = true;
         const params = {
             model: 'small' as ModelSize, source: 'demo' as SourceMode, camera: 'user',
-            status: 'Preparing…', cacheModels: true, cached: 'not cached',
+            cacheModels: true, cached: 'not cached',
             view: 'relit', intensity: 3, exposure: 0.5, relief: 0.85,
             specular: 0.22, shadow: 0.7, occlusion: 0.55, color: '#ffb876',
         };
@@ -63,7 +64,7 @@ export const typeGpuMonocularLightInjectionExample: PlaygroundExampleDefinition 
             if (disposed) return;
             Object.assign(params, {
                 model: state.model, source: state.source, camera: state.camera,
-                status: state.status, cacheModels: state.cacheModels, cached: state.cached ? 'cached' : 'not cached'
+                cacheModels: state.cacheModels, cached: state.cached ? 'cached' : 'not cached'
             });
             for (const control of controls) control.disabled = state.busy;
             syncing = true;
@@ -83,7 +84,7 @@ export const typeGpuMonocularLightInjectionExample: PlaygroundExampleDefinition 
         try {
             controller = await example.startMonocularLightInjection(context.canvas, {
                 signal: context.signal, onStateChange: sync,
-                onLoading: context.onLoading, onReady: context.onReady, onError: context.onError,
+                onFrame: context.onFrame, onLoading: context.onLoading, onReady: context.onReady, onError: context.onError,
             });
             context.signal?.throwIfAborted();
             context.signal?.addEventListener('abort', cleanup, { once: true });
@@ -102,7 +103,6 @@ export const typeGpuMonocularLightInjectionExample: PlaygroundExampleDefinition 
             }));
             bind('model', { label: 'Model', options: modelOptions }, () => { void active.selectModel(params.model); });
             button('Reload / retry model', () => { void active.selectModel(params.model); });
-            pane.addBinding(params, 'status', { label: 'Status', readonly: true, multiline: true });
             bind('source', { label: 'Source', options: { 'Demo photo': 'demo', Camera: 'camera', Upload: 'upload' } }, () => { void active.selectSource(params.source); });
             button('Load / retry demo photo', () => { void active.selectSource('demo'); });
             button('Choose uploaded image', () => upload.click());

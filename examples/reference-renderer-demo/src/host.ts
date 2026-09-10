@@ -12,6 +12,8 @@ export interface ReferenceRendererSettings {
 
 export interface StartReferenceRendererOptions {
     readonly signal?: AbortSignal;
+    /** Called after a frame is submitted; observational only. */
+    readonly onFrame?: () => void;
     readonly onReady?: (message?: string) => void;
     readonly onError?: (error: Error) => void;
 }

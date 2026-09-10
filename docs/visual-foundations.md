@@ -1,7 +1,7 @@
 # ZenFG visual foundations — Storm & Light
 
 This local visual lab establishes the first shared visual vocabulary. It does
-not migrate the production Site, Playground, or Inspector, and it adds no
+not itself migrate production pages, and it adds no
 published API or Snapshot fields.
 
 ## Preview and build
@@ -64,6 +64,14 @@ References:
 [WCAG text contrast](https://www.w3.org/WAI/WCAG22/Understanding/contrast-minimum.html).
 This is an original application layout and semantic mapping; no theme source,
 screenshots, or fonts are redistributed from the reference repository.
+
+## Production adoption
+
+The formal Examples page now consumes these definitions for its shell and Code,
+with explicit Dark / Light selection. Its live Inspector and Tweakpane controls
+keep their existing dark internals; those themes, the Site, and standalone
+Inspector remain future work. The lab stays independently buildable and excluded
+from Pages output. See the [Examples README](../apps/playground/README.md).
 
 ## Shared definitions and future integration
 

@@ -22,11 +22,6 @@ export function routeSearch(route: PlaygroundRoute): string {
 	return `?${params.toString()}`;
 }
 
-export function toggledPanel(current: PlaygroundPanel, requested: PlaygroundPanel): PlaygroundPanel {
-	if (requested === 'none') return 'none';
-	return current === requested ? 'none' : requested;
-}
-
 function parsePanel(value: string | null): PlaygroundPanel {
-	return value === 'code' || value === 'inspector' ? value : 'none';
+	return value === 'code' ? 'code' : 'inspector';
 }

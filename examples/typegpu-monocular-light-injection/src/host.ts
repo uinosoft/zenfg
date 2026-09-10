@@ -27,6 +27,8 @@ export interface StartMonocularOptions {
     readonly signal?: AbortSignal;
     readonly onStateChange?: (state: MonocularState) => void;
     readonly onLoading?: (message: string) => void;
+    /** Called after a frame is submitted; observational only. */
+    readonly onFrame?: () => void;
     readonly onReady?: (message?: string) => void;
     readonly onError?: (error: Error) => void;
 }

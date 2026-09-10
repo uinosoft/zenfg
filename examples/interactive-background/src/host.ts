@@ -18,6 +18,8 @@ const pointerDownPressure = 0.08;
 
 export type ZenBackgroundOptions = {
     readonly interactionTarget?: Window | HTMLElement;
+    /** Called after a frame is submitted; observational only. */
+    readonly onFrame?: () => void;
     readonly onReady?: () => void;
     readonly onError?: (error: Error) => void;
 };

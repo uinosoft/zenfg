@@ -5,9 +5,9 @@ export const gpuTimingExample: PlaygroundExampleDefinition = {
 	id: 'gpu-timing',
 	title: 'GPU Timing',
 	group: '@zenfg/webgpu basics',
-	summary: 'WebGPU · Timestamp query · 1 pass',
-	readyMessage: 'Ready · GPU timing requested',
-	footerHint: 'Unsupported timing remains a valid, inspectable result',
+	tags: ['webgpu', 'gpu-timing', 'diagnostics'],
+	readyState: 'ready',
+	graphHint: 'Unsupported timing remains a valid, inspectable result',
 	entrySourceId: 'gpu-timing-recipe',
 	sourceFiles: [
 		{
@@ -38,8 +38,9 @@ export const gpuTimingExample: PlaygroundExampleDefinition = {
 		const stopResize = host.renderOnResize(async () => {
 			const timing = await recipe.measureClearPass(host.graph, host.context, host.nextFrameIndex());
 			context.onReady(timing.status === 'available'
-				? `Ready · ${timing.frameDurationMicros.toFixed(1)} µs GPU time`
-				: `Ready · timing ${timing.reason}`);
+				? `GPU time: ${timing.frameDurationMicros.toFixed(1)} µs` : undefined);
+			context.onWarning?.(timing.status === 'available'
+				? undefined : 'GPU timing is unavailable (' + timing.reason + '). Rendering and capture remain available.');
 		});
 		return {
 			captureSnapshot: () => host.capture((recorder) => {

@@ -180,6 +180,7 @@ export abstract class SlimeMoldBrowserHost implements TypeGpuSlimeMoldController
             this.previousFrameTime = now;
             this.recordAndExecuteFrame(deltaSeconds);
             this.frameIndex += 1;
+            try { this.options.onFrame?.(); } catch { /* Telemetry must not interrupt rendering. */ }
             if (!this.readyReported) {
                 this.readyReported = true;
                 this.notifyReady();

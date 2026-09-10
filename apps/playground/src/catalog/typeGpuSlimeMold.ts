@@ -14,9 +14,9 @@ export const typeGpuSlimeMoldExample: PlaygroundExampleDefinition = {
 	id: 'typegpu-slime-mold',
 	title: 'TypeGPU · Slime Mold',
 	group: 'Showcases',
-	summary: 'TypeGPU · 200,000 agents · 3–4 passes',
-	readyMessage: 'Live · TypeGPU + ZenFG',
-	footerHint: 'Tune the five simulation parameters',
+	tags: ['typegpu', 'compute', 'simulation'],
+	readyState: 'live',
+	description: 'Tune the five simulation parameters',
 	hasControls: true,
 	entrySourceId: 'typegpu-slime-mold-entry',
 	sourceFiles: [
@@ -61,6 +61,7 @@ export const typeGpuSlimeMoldExample: PlaygroundExampleDefinition = {
 			import('tweakpane'),
 		]);
 		const controller = await startTypeGpuSlimeMold(context.canvas, {
+			onFrame: context.onFrame,
 			onReady: context.onReady,
 			onError: (error) => context.onError(toError(error)),
 		});

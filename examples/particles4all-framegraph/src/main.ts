@@ -86,6 +86,7 @@ export function createParticles4AllHost(canvas: HTMLCanvasElement, device: GPUDe
                 recording.compile().execute({ frameIndex: frameState.frameIndex, afterSubmit });
             }
             frameState.frameIndex++;
+            notify(() => options.onFrame?.());
             if (!frameState.ready) {
                 frameState.ready = true;
                 if (frameState.status === 'Preparing first frame…') frameState.status = 'Running';

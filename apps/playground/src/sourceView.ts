@@ -48,11 +48,22 @@ export function createSourceView(options: {
 		try {
 			const source = await file.loadSource();
 			if (destroyed || revision !== selectedRevision) return;
-			const html = await options.highlight(source, file.language);
-			if (destroyed || revision !== selectedRevision) return;
 			currentSource = source;
-			content.innerHTML = html;
-			content.scrollTop = content.scrollLeft = 0;
+			const fallback = document.createElement('pre');
+			fallback.textContent = source;
+			content.replaceChildren(fallback);
+			copy.disabled = false;
+			try {
+				const html = await options.highlight(source, file.language);
+				if (destroyed || revision !== selectedRevision) return;
+				const { scrollTop, scrollLeft } = content;
+				content.innerHTML = html;
+				content.scrollTop = scrollTop;
+				content.scrollLeft = scrollLeft;
+			} catch {
+				if (destroyed || revision !== selectedRevision) return;
+				// Exact source remains available when the optional highlighter fails.
+			}
 			copy.disabled = false;
 		} catch (error) {
 			if (destroyed || revision !== selectedRevision) return;

@@ -5,15 +5,17 @@ import { browserEnvironment, deferred } from './browserEnvironment.ts';
 
 test('initial and paused snapshot captures execute the next real frame and commit only after submission', async () => {
     const env = browserEnvironment();
-    const host = env.start();
+    let frames = 0;
+    const host = env.start({ onFrame: () => { frames++; assert.equal(env.submits, frames); throw new Error('telemetry consumer failed'); } });
     try {
         const pending = host.captureSnapshot();
         assert.equal(host.captureSnapshot(), pending);
         assert.equal(env.submits, 0);
         env.frame();
-        assert.equal(env.submits, 1); assert.equal(env.state.commits, 1);
+        assert.equal(env.submits, 1); assert.equal(env.state.commits, 1); assert.equal(frames, 1);
         assert.deepEqual((await pending)!.graph.nodes.map((node) => node.label), ['test-fluid-render']);
         host.setSettings({ paused: true });
+        assert.equal(host.getState().paused, true);
         const paused = host.captureSnapshot(); env.frame(1080);
         assert.ok(await paused); assert.equal(env.state.commits, 2);
         assert.deepEqual(env.state.deltaTimes, [0, 0.05]);
@@ -24,7 +26,8 @@ for (const failure of ['record', 'compile', 'submit'] as const) {
     test(`${failure} failure ends snapshot waits, disposes resources and does not commit`, async () => {
         const env = browserEnvironment();
         const errors: Error[] = [];
-        const host = env.start({ onError: (error) => errors.push(error) });
+        let frames = 0;
+        const host = env.start({ onError: (error) => errors.push(error), onFrame: () => { frames++; } });
         try {
             if (failure === 'record') env.state.failRecording = true;
             if (failure === 'compile') env.state.invalidGraph = true;
@@ -32,6 +35,7 @@ for (const failure of ['record', 'compile', 'submit'] as const) {
             const pending = host.captureSnapshot(); env.frame();
             assert.equal(await pending, undefined);
             assert.equal(env.state.commits, 0);
+            assert.equal(frames, 0, 'failed submissions never increment FPS');
             assert.equal(env.state.discards, failure === 'record' ? 0 : 1);
             assert.equal(env.state.disposed, 1); assert.equal(env.destroyed, 1);
             assert.equal(errors.length, 1); assert.equal(env.frames, 0);
@@ -103,17 +107,20 @@ test('latest environment notifications win and clearing a pending upload preserv
     const env = browserEnvironment(); const first = deferred<void>(); const second = deferred<void>();
     let index = 0;
     env.workload.loadEnvironment = () => ++index === 1 ? first.promise : second.promise;
-    const warnings: string[] = []; const host = env.start({ onWarning: (warning) => warnings.push(warning) });
+    const warnings: (string | undefined)[] = []; const host = env.start({ onWarning: (warning) => warnings.push(warning) });
     try {
         const stale = host.loadEnvironment('old.hdr'); const current = host.loadEnvironment('new.hdr');
         second.resolve(); await current; first.reject(new Error('old failure')); await stale;
-        assert.equal(host.getState().status, 'Environment loaded'); assert.deepEqual(warnings, []);
+        assert.equal(host.getState().status, 'Environment loaded'); assert.deepEqual(warnings.filter(Boolean), []);
         const pending = deferred<void>(); env.workload.loadEnvironment = () => pending.promise;
         const upload = host.loadEnvironment(new Blob()); host.clearEnvironment(); pending.resolve(); await upload;
         assert.equal(host.getState().status, 'Procedural sky'); assert.equal(env.state.clearEnvironment, 1);
         env.workload.loadEnvironment = async () => { throw new Error('invalid panorama'); };
-        await host.loadEnvironment(new Blob()); assert.match(warnings[0]!, /invalid panorama/);
+        await host.loadEnvironment(new Blob()); assert.match(warnings.at(-1)!, /invalid panorama/);
         env.frame(); assert.equal(env.submits, 1);
+        env.workload.loadEnvironment = async () => {};
+        await host.loadEnvironment('valid.hdr');
+        assert.equal(warnings.at(-1), undefined, 'successful recovery clears the warning');
     } finally { host.dispose(); env.restore(); }
 });
 

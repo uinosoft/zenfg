@@ -5,9 +5,9 @@ export const referenceRendererExample: PlaygroundExampleDefinition = {
     id: 'reference-renderer',
     title: 'Reference Renderer',
     group: 'Showcases',
-    summary: 'GPU culling · 3 primitive batches · indirect drawing',
-    readyMessage: 'Live · GPU culling + indirect drawing',
-    footerHint: 'Drag to orbit · Scroll to zoom',
+    tags: ['webgpu', 'gpu-culling', 'indirect-draw'],
+    readyState: 'live',
+    description: 'Drag to orbit · Scroll to zoom',
     hasControls: true,
     entrySourceId: 'reference-renderer-entry',
     sourceFiles: [
@@ -68,7 +68,7 @@ export const referenceRendererExample: PlaygroundExampleDefinition = {
         ]);
         context.signal?.throwIfAborted();
         const controller = await startReferenceRenderer(context.canvas, {
-            signal: context.signal, onReady: context.onReady, onError: context.onError,
+            onFrame: context.onFrame, signal: context.signal, onReady: context.onReady, onError: context.onError,
         });
         if (!controller) return undefined;
         if (context.signal?.aborted) {

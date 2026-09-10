@@ -38,6 +38,8 @@ export interface TypeGpuSlimeMoldController {
 }
 
 export interface StartTypeGpuSlimeMoldOptions {
+    /** Called after a frame is submitted; observational only. */
+    readonly onFrame?: () => void;
     readonly onReady?: (message?: string) => void;
     readonly onError?: (error: unknown) => void;
 }

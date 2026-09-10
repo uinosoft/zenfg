@@ -91,6 +91,7 @@ function createBrowserHost(canvas: HTMLCanvasElement, device: GPUDevice, context
                     void host.finishCapture(requested, compiled.compilationReport, timing);
                 } else compiled.execute({ frameIndex: frameState.frameIndex++, afterSubmit });
             } else recording.compile().execute({ frameIndex: frameState.frameIndex++, afterSubmit });
+            try { options.onFrame?.(); } catch { /* Telemetry must not interrupt rendering. */ }
             if (!frameState.reportedReady) {
                 frameState.reportedReady = true;
                 host.publish({ status: `Live · ${frameState.state.model}` });
