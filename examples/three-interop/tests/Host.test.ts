@@ -33,7 +33,7 @@ function stubBridge(device: GPUDevice, width: number, height: number, reverseZ: 
     return { bridge, get destroyed() { return destroyed; } };
 }
 
-test('host renders on demand, captures real frames, and preserves its device and orbit when switching', async t => {
+test('host renders continuously, captures real frames, and preserves its device and orbit when switching', async t => {
     const host = installHost();
     const bridges: ReturnType<typeof stubBridge>[] = [];
     t.mock.method(ThreeBridge, 'create', async (...args: Parameters<typeof ThreeBridge.create>) => {
@@ -52,7 +52,13 @@ test('host renders on demand, captures real frames, and preserves its device and
         assert.ok(snapshot);
         assert.ok(snapshot.graph.nodes.some(node => node.label === 'three-interop.three-render'));
         assert.equal(snapshot.graph.nodes.at(-1)?.label, 'three-interop.present');
-        assert.equal(host.pendingFrames, 0);
+        assert.equal(host.pendingFrames, 1);
+        const submissions = host.trace.submits;
+        for (let frame = 0; frame < 3; frame++) {
+            host.flushFrame();
+            assert.equal(host.pendingFrames, 1, 'idle rendering keeps exactly one frame scheduled');
+        }
+        assert.equal(host.trace.submits, submissions + 6, 'frames submit without input or capture requests');
         const initialPose = bridges[0].bridge.camera.position.toArray();
         for (const reverseZ of [false, true, false, true]) {
             const pending = controller.captureSnapshot();

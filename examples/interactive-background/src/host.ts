@@ -6,10 +6,6 @@ import { frameParamsFloatCount, type BackgroundResources } from './resources.ts'
 
 const fieldDownsample = 6;
 
-export const desktopTargetFrameRate = 60;
-
-export const mobileTargetFrameRate = 36;
-
 const pointerFollowRate = 30;
 
 const pointerVelocityDecayRate = 7;

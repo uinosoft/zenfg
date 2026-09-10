@@ -95,8 +95,9 @@ cancellation is silent. The controller has no settings API:
 - `dispose()` idempotently stops input and scheduling, removes listeners and
   observers, restores canvas styles, and releases resources.
 
-Rendering is on demand and paused while hidden. Preparation has cancellation,
-device-loss handling and a 30-second timeout; late async scene resources use
+Rendering follows `requestAnimationFrame` continuously and pauses while hidden.
+Preparation has cancellation, device-loss handling and a 30-second timeout;
+late async scene resources use
 Lite's disposal tracking. A late engine result after cancellation is disposed.
 Device loss terminates the whole composition; Lite's opt-in automatic recovery
 is not enabled. Timestamp support comes from the actual shared device.

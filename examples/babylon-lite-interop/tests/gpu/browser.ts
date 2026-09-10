@@ -313,7 +313,7 @@ async function hostCase(): Promise<void> {
         snapshotChecks(await within(controller.captureSnapshot(), 'Initial host snapshot'), 'host-initial');
         const idleCount = count(latestBridge());
         await tick(); await tick();
-        equal(count(latestBridge()), idleCount, 'Idle host does not render');
+        assert(count(latestBridge()) > idleCount, 'Idle host continues rendering');
         // Exercise the actual Lite camera input pipeline.
         const poseBeforeWheel = cameraPose(latestBridge());
         canvas.dispatchEvent(new WheelEvent('wheel', { deltaY: -180, bubbles: true, cancelable: true, clientX: 100, clientY: 100 }));
@@ -451,7 +451,7 @@ async function pointerCase(): Promise<void> {
                 const stopped = cameraPose(bridge), stoppedCount = count(bridge);
                 await tick(); await tick();
                 equal(cameraPose(bridge), stopped, 'No inertial drift after pointer release');
-                equal(count(bridge), stoppedCount, 'No extra idle frames after release');
+                assert(count(bridge) > stoppedCount, 'Rendering continues after pointer release');
                 canvas.dispatchEvent(new KeyboardEvent('keydown', { key: 'Shift', bubbles: true }));
                 equal(canvas.style.outline, 'blue solid 2px', 'Keyboard input restores the original focus style');
                 pointerId++;

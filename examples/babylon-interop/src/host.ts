@@ -162,7 +162,7 @@ export function createHostSupport(canvas: HTMLCanvasElement,
     };
     options.signal?.addEventListener('abort', controller.dispose, { once: true });
     void device.lost.then(info => fail(new Error(`Babylon.js co-rendering WebGPU device was lost: ${info.message || info.reason}`)));
-    return { state, controller, start: requestFrame, fail, finishCapture };
+    return { state, controller, requestFrame, fail, finishCapture };
 }
 
 export function resolveCanvasBackingSize(canvas: Pick<HTMLCanvasElement, 'clientWidth' | 'clientHeight' | 'getBoundingClientRect'>,

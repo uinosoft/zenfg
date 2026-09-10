@@ -7,7 +7,7 @@
  * backgroundShaders.ts (WGSL), host.ts (input, scheduling and snapshots).
  */
 import { recordBackground } from './backgroundGraph.ts';
-import { BackgroundBrowserHost, desktopTargetFrameRate, mobileTargetFrameRate, notifyStartError, toError, type ZenBackgroundController, type ZenBackgroundOptions } from './host.ts';
+import { BackgroundBrowserHost, notifyStartError, toError, type ZenBackgroundController, type ZenBackgroundOptions } from './host.ts';
 import { createBackgroundResources } from './resources.ts';
 export type { ZenBackgroundController, ZenBackgroundOptions } from './host.ts';
 
@@ -56,12 +56,6 @@ class ZenBackground extends BackgroundBrowserHost {
         this.animationFrame = 0;
         if (this.disposed || document.visibilityState === 'hidden') return;
 
-        const targetFrameRate = this.coarsePointer.matches ? mobileTargetFrameRate : desktopTargetFrameRate;
-        const targetInterval = 1000 / targetFrameRate;
-        if (!this.reducedMotion.matches && this.previousFrameTime > 0 && now - this.previousFrameTime < targetInterval) {
-            this.requestFrame();
-            return;
-        }
         if (this.reducedMotion.matches && !this.dirty && !this.pendingCapture) return;
 
         try {

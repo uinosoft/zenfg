@@ -68,7 +68,7 @@ function installHost() {
     };
 }
 
-test('host captures real frames, renders on demand, resizes, and switches depth conventions', async () => {
+test('host renders continuously, captures real frames, resizes, and switches depth conventions', async () => {
     const host = installHost();
     try {
         const errors: Error[] = [];
@@ -84,7 +84,13 @@ test('host captures real frames, renders on demand, resizes, and switches depth 
         assert.ok(snapshot);
         assert.equal(snapshot.graph.nodes.at(-1)?.label, 'reference.present');
         assert.equal(host.trace.submits, 1);
-        assert.equal(host.pendingFrames, 0);
+        assert.equal(host.pendingFrames, 1);
+        const submissions = host.trace.submits;
+        for (let frame = 0; frame < 3; frame++) {
+            host.flushFrame();
+            assert.equal(host.pendingFrames, 1, 'idle rendering keeps exactly one frame scheduled');
+        }
+        assert.equal(host.trace.submits, submissions + 3, 'frames submit without input or capture requests');
         assert.equal(ready, 1);
         assert.equal(host.trace.renderPasses.find(pass => pass.depthStencilAttachment)?.depthStencilAttachment?.depthClearValue, 0);
         controller.setSettings({ instanceCount: 10, culling: false, depthConvention: 'forward-z' });
@@ -95,7 +101,7 @@ test('host captures real frames, renders on demand, resizes, and switches depth 
         assert.equal(host.canvas.width, 500);
         assert.equal(host.canvas.height, 200);
         assert.equal(host.trace.renderPasses.findLast(pass => pass.depthStencilAttachment)?.depthStencilAttachment?.depthClearValue, 1);
-        assert.equal(host.trace.submits, 2);
+        assert.equal(host.trace.submits, 5);
         assert.equal(ready, 1);
         assert.deepEqual(errors, []);
         assert.throws(() => controller.setSettings({ instanceCount: 10_001 }), /instanceCount/);

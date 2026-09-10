@@ -84,8 +84,8 @@ are reported through `onError`. The controller provides:
 - `dispose()` idempotently removes input, listeners and observers, releases
   native graph resources and ends pending work.
 
-Rendering is on demand. Pointer interaction, resize, settings and snapshots
-schedule frames; an idle or hidden host has no continuous frame loop. The
+Rendering follows `requestAnimationFrame` continuously while visible, including
+when the camera is idle. Hidden pages suspend the frame loop. The
 Playground owns controls, legend, source tabs and Inspector presentation.
 
 Babylon owns the device and RTT on a separate canvas. The visible canvas,

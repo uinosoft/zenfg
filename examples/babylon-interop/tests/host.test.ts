@@ -34,7 +34,7 @@ function stubBridge(device: GPUDevice, width: number, height: number) {
     return { bridge: stub as unknown as BabylonBridge, get destroyed() { return destroyed; } };
 }
 
-test('host captures on demand, switches on the same device, and destroys borrowers before the device owner', async t => {
+test('host renders continuously, switches on the same device, and destroys borrowers before the device owner', async t => {
     const host = installHost();
     const stub = stubBridge(host.device, 320, 180);
     const create = t.mock.method(BabylonBridge, 'create', async () => stub.bridge);
@@ -49,7 +49,13 @@ test('host captures on demand, switches on the same device, and destroys borrowe
         const snapshot = await first;
         assert.ok(snapshot);
         assert.deepEqual(snapshot.graph.nodes.map(node => node.label), ['babylon-interop.babylon-render', 'babylon-interop.resolve', 'Reset', 'Cull', 'Draw', 'babylon-interop.present']);
-        assert.equal(host.pendingFrames, 0);
+        assert.equal(host.pendingFrames, 1);
+        const submissions = host.trace.submits;
+        for (let frame = 0; frame < 3; frame++) {
+            host.flushFrame();
+            assert.equal(host.pendingFrames, 1, 'idle rendering keeps exactly one frame scheduled');
+        }
+        assert.equal(host.trace.submits, submissions + 6, 'frames submit without input or capture requests');
         for (const reverseZ of [false, true, false, true]) {
             const pending = controller.captureSnapshot();
             await controller.setSettings({ reverseZ });

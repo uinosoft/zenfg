@@ -33,7 +33,7 @@ function stubBridge(device: GPUDevice, width: number, height: number) {
     return { bridge: stub as unknown as BabylonLiteBridge, get destroyed() { return destroyed; } };
 }
 
-test('host captures on demand, stays idle, and destroys borrowers before the device owner', async t => {
+test('host renders continuously, captures real frames, and destroys borrowers before the device owner', async t => {
     const host = installHost();
     const stub = stubBridge(host.device, 320, 180);
     const create = t.mock.method(BabylonLiteBridge, 'create', async () => stub.bridge);
@@ -48,7 +48,13 @@ test('host captures on demand, stays idle, and destroys borrowers before the dev
         const snapshot = await first;
         assert.ok(snapshot);
         assert.deepEqual(snapshot.graph.nodes.map(node => node.label), ['babylon-lite-interop.lite-render', 'babylon-lite-interop.linearize', 'Reset', 'Cull', 'Draw', 'babylon-lite-interop.present']);
-        assert.equal(host.pendingFrames, 0);
+        assert.equal(host.pendingFrames, 1);
+        const submissions = host.trace.submits;
+        for (let frame = 0; frame < 3; frame++) {
+            host.flushFrame();
+            assert.equal(host.pendingFrames, 1, 'idle rendering keeps exactly one frame scheduled');
+        }
+        assert.equal(host.trace.submits, submissions + 6, 'frames submit without input or capture requests');
 
         assert.equal(create.mock.callCount(), 1);
         host.resize(500, 200); host.flushFrame();

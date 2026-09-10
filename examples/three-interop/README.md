@@ -76,8 +76,8 @@ unless cancelled). The controller provides:
   resources, including the host device. A late initialization result is cleaned
   up when it arrives after cancellation.
 
-Rendering is on demand. Camera interaction, resize, depth changes and capture
-requests schedule frames. Page visibility and device loss are handled by the
+Rendering follows `requestAnimationFrame` continuously while visible, including
+when the camera is idle. Page visibility and device loss are handled by the
 host. Playground owns controls, source tabs and Inspector presentation; the
 example does not import Playground or the basic Reference Renderer demo.
 

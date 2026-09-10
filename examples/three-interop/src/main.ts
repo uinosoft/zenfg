@@ -97,9 +97,13 @@ function createHost(canvas: HTMLCanvasElement, device: GPUDevice, context: GPUCa
                 state.ready = true;
                 try { options.onReady?.('Live · Three.js + Reference Renderer · shared color and depth'); } catch { /* Notifications do not own rendering. */ }
             }
-        } catch (error) { host.fail(error); }
+        } catch (error) {
+            host.fail(error);
+            return;
+        }
+        host.requestFrame();
     }
 
-    host.start();
+    host.requestFrame();
     return host.controller;
 }

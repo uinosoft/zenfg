@@ -16,9 +16,9 @@ primitives. Drag to orbit, scroll to zoom, and adjust instance count, frustum
 culling or depth convention in the controls. Camera dragging follows the pointer
 in both directions.
 
-The demo renders on demand, including the next real frame requested by the
-Inspector. It creates an `rgba16float` scene target and uses a separate Present
-pass to encode sRGB exactly once for the canvas.
+The demo renders continuously with `requestAnimationFrame` while visible. The
+Inspector captures the next real frame. It creates an `rgba16float` scene target
+and uses a separate Present pass to encode sRGB exactly once for the canvas.
 
 ## Responsibilities
 
