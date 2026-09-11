@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="Explore live ZenFG FrameGraph examples, their source, and runtime captures.">
+ <meta name="theme-color" content="#24283b">
+ <meta name="color-scheme" content="dark light">
+<link rel="icon" href="../favicon.svg" type="image/svg+xml">
+<title>ZenFG Examples</title>
+<script type="module" src="./src/theme.ts"></script>
+<link rel="stylesheet" href="./src/styles.css">
+</head>
+<body>
+<div class="playground" id="page-top" data-playground>
+<header class="playground-header" data-background-region>
+<div class="playground-brand"><a href="../" data-home-link><strong>ZenFG</strong></a><span>/</span><span>Examples</span></div>
+<div class="theme-switch" role="group" aria-label="Appearance"><button class="shell-button" data-theme-mode="dark" aria-pressed="true">Dark</button><button class="shell-button" data-theme-mode="light" aria-pressed="false">Light</button></div>
+</header>
+<div class="examples-layout">
+<aside class="example-sidebar" data-background-region aria-label="Example directory">
+<div class="directory-shell">
+<div class="directory-toolbar"><span class="directory-label">Example directory</span><button class="shell-button" data-directory-toggle aria-controls="example-directory" aria-expanded="false" aria-label="Toggle example directory">☰</button></div>
+<nav id="example-directory" data-example-directory aria-label="Examples" hidden></nav>
+</div>
+</aside>
+<main class="example-main" id="main-content">
+
+<section class="example-intro" data-background-region>
+<div class="title-row"><h1 data-example-title>Examples</h1></div>
+<ul class="example-tags" data-example-tags aria-label="Example topics"></ul>
+</section>
+<section class="demo-card" data-demo-card data-background-region aria-label="Live example">
+<div class="demo-stage">
+<canvas class="effect-stage" data-effect-canvas aria-label="Interactive WebGPU example"></canvas>
+<details class="runtime-status" data-effect-status aria-label="Example runtime status">
+<summary><span class="effect-status" role="status" aria-live="polite"><span class="effect-status__signal" aria-hidden="true"></span><span data-effect-status-text>Loading…</span></span><span class="runtime-status__preview" data-status-preview></span><span class="runtime-status__toggle">Details</span></summary>
+<p class="runtime-status__detail" data-example-feedback hidden></p>
+</details>
+</div>
+<aside class="playground-controls" data-controls-panel aria-label="Example controls and monitoring" hidden>
+<div class="playground-metrics" data-metrics-host hidden></div>
+<div class="playground-parameters" data-controls-host aria-label="Example controls" hidden></div>
+</aside>
+</section>
+<section class="example-details" data-background-region aria-label="Example description">
+<p class="example-description" data-example-description hidden></p>
+<p class="example-references" data-example-references hidden></p>
+</section>
+<section class="tool-workbench" id="workbench" data-workbench role="region" aria-label="Example tools">
+<header class="workbench-header">
+<div class="workbench-tabs" role="tablist" aria-label="Example tools"><button class="shell-button" id="inspector-tab" role="tab" data-panel-button="inspector" aria-controls="inspector-workspace" aria-selected="false">Inspector</button><button class="shell-button" id="code-tab" role="tab" data-panel-button="code" aria-controls="code-workspace" aria-selected="false">Code</button></div>
+<div class="workbench-actions"><button class="shell-button" data-maximize aria-label="Expand tools" aria-pressed="false">Expand</button></div>
+</header>
+<div class="code-workspace" id="code-workspace" data-code-workspace role="tabpanel" aria-labelledby="code-tab" hidden>
+<aside class="source-files" data-source-files aria-label="Source files"></aside>
+<div class="source-view"><div class="source-view__toolbar"><span data-source-path>No source selected</span><button class="shell-button" data-copy-source disabled>Copy</button></div><div class="source-view__content" data-source-content tabindex="0" aria-label="Source code"><p class="panel-message">Open Code to load syntax highlighting.</p></div></div>
+</div>
+<div class="inspector-workspace" id="inspector-workspace" data-inspector-workspace role="tabpanel" aria-labelledby="inspector-tab" hidden><div class="inspector-loading" data-inspector-loading role="status">Loading FrameGraph Inspector…</div><div class="inspector-host" data-inspector-host></div></div>
+</section>
+<section class="example-error" data-example-error data-background-region hidden><h1>The requested example is not available.</h1><a href="./?example=interactive-background">Open the interactive background</a></section>
+<footer class="playground-footer" data-background-region>
+<div class="playground-footer__row"><a class="playground-footer__brand" href="../" data-home-link aria-label="ZenFG home">ZenFG <span>Home ↗</span></a><nav aria-label="Footer"><a href="https://github.com/uinosoft/zenfg/blob/main/docs/README.md" target="_blank" rel="noopener noreferrer">Docs</a><a href="https://github.com/uinosoft/zenfg" target="_blank" rel="noopener noreferrer">GitHub</a><a href="#page-top">Back to top ↑</a></nav></div>
+</footer>
+</main>
+</div>
+</div>
+<script type="module" src="./src/main.ts"></script>
+</body>
+</html>

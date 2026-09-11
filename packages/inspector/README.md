@@ -249,8 +249,8 @@ with an explanation when a capture exceeds `maxGraphElements`; the tabular and
 raw views remain available.
 
 Snapshot labels, URLs, extensions, and diagnostics are assigned through text
-DOM APIs and are never executed as markup or code. The standalone application
-in `apps/inspector` mounts this same package without adding duplicate controls.
+DOM APIs and are never executed as markup or code. The standalone Site page in
+`apps/site/inspector` mounts this same package without adding duplicate controls.
 
 ## Common mistakes
 

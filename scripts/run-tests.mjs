@@ -11,18 +11,18 @@ const defaultTestRoots = [
 	resolve(rootDir, 'packages', 'webgpu', 'tests'),
 	resolve(rootDir, 'packages', 'snapshot', 'tests'),
 	resolve(rootDir, 'packages', 'inspector', 'tests'),
-	resolve(rootDir, 'apps', 'inspector', 'tests'),
-	resolve(rootDir, 'apps', 'playground', 'tests'),
 	resolve(rootDir, 'apps', 'site', 'tests'),
-	resolve(rootDir, 'examples', 'interactive-background', 'tests'),
-	resolve(rootDir, 'examples', 'reference-renderer', 'tests'),
-	resolve(rootDir, 'examples', 'reference-renderer-demo', 'tests'),
-	resolve(rootDir, 'examples', 'three-interop', 'tests'),
-	resolve(rootDir, 'examples', 'babylon-interop', 'tests'),
-	resolve(rootDir, 'examples', 'babylon-lite-interop', 'tests'),
-	resolve(rootDir, 'examples', 'typegpu-slime-mold', 'tests'),
-	resolve(rootDir, 'examples', 'typegpu-monocular-light-injection', 'tests'),
-	resolve(rootDir, 'examples', 'particles4all-framegraph', 'tests'),
+	resolve(rootDir, 'apps', 'site', 'inspector', 'tests'),
+	resolve(rootDir, 'apps', 'site', 'playground', 'tests'),
+	resolve(rootDir, 'apps', 'site', 'examples', 'interactive-background', 'tests'),
+	resolve(rootDir, 'apps', 'site', 'examples', 'reference-renderer', 'tests'),
+	resolve(rootDir, 'apps', 'site', 'examples', 'reference-renderer-demo', 'tests'),
+	resolve(rootDir, 'apps', 'site', 'examples', 'three-interop', 'tests'),
+	resolve(rootDir, 'apps', 'site', 'examples', 'babylon-interop', 'tests'),
+	resolve(rootDir, 'apps', 'site', 'examples', 'babylon-lite-interop', 'tests'),
+	resolve(rootDir, 'apps', 'site', 'examples', 'typegpu-slime-mold', 'tests'),
+	resolve(rootDir, 'apps', 'site', 'examples', 'typegpu-monocular-light-injection', 'tests'),
+	resolve(rootDir, 'apps', 'site', 'examples', 'particles4all-framegraph', 'tests'),
 ];
 const requestedTestRoots = process.argv.slice(2).map((path) => resolve(rootDir, path));
 const testRoots = requestedTestRoots.length > 0 ? requestedTestRoots : defaultTestRoots;
@@ -130,7 +130,7 @@ await build({
             }));
         },
 	}, typegpuPlugin({
-		include: /examples[\\/]typegpu-(?:slime-mold|monocular-light-injection)[\\/]src[\\/].*\.ts$/,
+		include: /apps[\\/]site[\\/]examples[\\/]typegpu-(?:slime-mold|monocular-light-injection)[\\/]src[\\/].*\.ts$/,
 	})],
 });
 

@@ -24,26 +24,23 @@ npm run cargo:package-check
 Start the complete project site from a clean checkout with:
 
 ```text
-npm run dev:all
+npm run dev
 ```
 
-This builds the workspace packages once, then starts the three Vite applications
-with independent hot module replacement behind one development origin:
+This starts the single Site Vite application. It serves all MPA pages with hot
+module replacement behind one development origin:
 
 - project site: `http://127.0.0.1:5173/`;
 - Inspector: `http://127.0.0.1:5173/inspector/`;
 - Playground: `http://127.0.0.1:5173/playground/`.
 
-To work on one application in isolation, use `npm run dev:site`,
-`npm run dev:inspector`, or `npm run dev:playground`. Their fixed ports are
-5173, 5174, and 5175 respectively. Each command builds the packages first, so
-it also works when package `dist` directories do not exist. Package builds are
-not watched by these commands; restart the development command after changing
-a package, or run that package's `build:watch` script separately.
+The Site resolves the publishable package sources directly, so package `dist`
+directories are not required for website development. Changes to package source
+are included in the same Vite module graph.
 
-`npm run build` builds every package and application. `npm run build:pages`
-additionally assembles the deployable tree in `.pages`, and
-`npm run preview:pages` rebuilds and serves that tree at
+`npm run build` builds every publishable package and the Site. `npm run
+build:pages` builds the directly deployable Site tree, and `npm run
+preview:pages` rebuilds and serves that tree at
 `http://127.0.0.1:4173/` for a production-like check.
 
 Keep engine-specific scene, material, pipeline, and application policy outside
@@ -93,9 +90,9 @@ only when the shared model changes. Before publishing, verify that npm
 declaration maps resolve only to relative source paths included in the tarball
 and that Rust README examples still pass as doctests.
 
-The Playground owns interactive presentation, displayed source, and embedded
+The Site owns interactive presentation, displayed source, and embedded
 Inspector integration. Package recipes and repository showcases remain
-independent of the Playground shell. Package recipes keep their graph
+independent of the Playground shell at the source-module level. Package recipes keep their graph
 declarations in host-neutral `record*` functions so Playground adapters can
 compile the exact same recording with diagnostics enabled; repository showcases
 may instead expose application-level start, capture, and disposal controllers.

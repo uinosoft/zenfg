@@ -41,9 +41,9 @@ Technical documents, package READMEs, API documentation, and examples are
 maintained in English so semantic changes have one normative explanation.
 
 Application-like showcases, cross-package workflows, and third-party
-integrations live in private workspaces under `examples/`. Focused public API
-recipes live with and ship in their owning package. The hosted Playground owns
+integrations live as private source modules under `apps/site/examples/`. Focused
+public API recipes live with and ship in their owning package. The hosted Playground owns
 presentation, exact-source display, and Inspector integration through
 application-local catalog adapters; example implementations do not import the
-Playground. See [`examples/README.md`](../examples/README.md) for the ownership
+Playground. See [`apps/site/examples/README.md`](../apps/site/examples/README.md) for the ownership
 boundary.

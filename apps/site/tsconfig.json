@@ -2,7 +2,23 @@
 	"extends": "../../tsconfig.base.json",
 	"compilerOptions": {
 		"lib": ["ES2022", "DOM", "DOM.Iterable"],
-		"types": ["vite/client", "@webgpu/types"]
+		"types": ["vite/client", "@webgpu/types"],
+		"paths": {
+			"@zenfg/snapshot": ["../../packages/snapshot/src/index.ts"],
+			"@zenfg/snapshot/format": ["../../packages/snapshot/src/format.ts"],
+			"@zenfg/webgpu": ["../../packages/webgpu/src/index.ts"],
+			"@zenfg/webgpu/snapshot": ["../../packages/webgpu/src/snapshot.ts"],
+			"@zenfg/inspector": ["../../packages/inspector/src/index.ts"],
+			"@zenfg/inspector/theme": ["../../packages/inspector/src/theme.ts"]
+		}
 	},
-	"include": ["src/**/*", "vite.config.ts"]
+	"include": [
+		"src/**/*",
+		"shared/**/*",
+		"inspector/src/**/*",
+		"playground/src/**/*",
+		"visual-lab/**/*",
+		"examples/*/src/**/*",
+		"vite.config.ts"
+	]
 }

@@ -6,7 +6,7 @@ documentation: resource attribution, redundant groups and access precision.
 Inspector navigation, projection changes and new public APIs are deferred to
 a separate evaluation. The measurements below describe the baseline, not the
 subsequent corrected implementation; see the example's
-[validation record](../examples/particles4all-framegraph/VALIDATION.md#example-access-and-inspection-refinement)
+[validation record](../apps/site/examples/particles4all-framegraph/VALIDATION.md#example-access-and-inspection-refinement)
 for results.
 
 Implemented example results through `cb888c4`: the fixed-topology comparison retains 65 execution
@@ -84,7 +84,7 @@ detail. It is not evidence of 65 submissions or a GPU scheduling defect.
 
 ### Resource registration occurs outside the groups
 
-[`recordFrameGraph()`](../examples/particles4all-framegraph/src/Particles4AllFeature.ts)
+[`recordFrameGraph()`](../apps/site/examples/particles4all-framegraph/src/Particles4AllFeature.ts)
 creates branch textures, simulation scratch and imports before entering
 `withDebugGroup('Particles4All', ...)`. The recorder associates resources with
 the group active at registration. Later node grouping cannot retroactively

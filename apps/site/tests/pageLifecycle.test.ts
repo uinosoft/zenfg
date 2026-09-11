@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { installAppPageLifecycle } from '../../shared/pageLifecycle.ts';
+import { installAppPageLifecycle } from '../shared/pageLifecycle.ts';
 
 test('keeps persisted pages alive and restores them after back-forward navigation', () => {
 	const target = new EventTarget();

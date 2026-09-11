@@ -1,0 +1,52 @@
+import type { PlaygroundExampleDefinition } from '../../types.ts';
+import { recipeHostSourceFile } from './sources.ts';
+
+export const minimalFrameExample: PlaygroundExampleDefinition = {
+	id: 'minimal-frame',
+	title: 'Minimal Frame',
+	group: '@zenfg/webgpu basics',
+	tags: ['webgpu', 'render'],
+	readyState: 'ready',
+	description: "Record a clear pass and present its result. Inspect how the presentation output keeps the pass in the compiled graph.",
+	entrySourceId: 'minimal-frame-recipe',
+	sourceFiles: [
+		{
+			id: 'minimal-frame-recipe',
+			label: 'Recipe · minimal-frame.ts',
+			path: 'packages/webgpu/examples/minimal-frame.ts',
+			role: 'recipe',
+			language: 'typescript',
+			loadSource: async () => (await import('../../../../../../packages/webgpu/examples/minimal-frame.ts?raw')).default,
+		},
+		{
+			id: 'minimal-frame-adapter',
+			label: 'Host · minimalFrame.ts',
+			path: 'apps/site/playground/src/catalog/webgpu/minimalFrame.ts',
+			role: 'host',
+			language: 'typescript',
+			loadSource: async () => (await import('./minimalFrame.ts?raw')).default,
+		},
+		recipeHostSourceFile,
+	],
+	async mount(context) {
+		const [recipe, { createWebGpuRecipeHost }] = await Promise.all([
+			import('../../../../../../packages/webgpu/examples/minimal-frame.ts'),
+			import('./recipeHost.ts'),
+		]);
+		const host = await createWebGpuRecipeHost(context);
+		if (!host) return undefined;
+		const stopResize = host.renderOnResize(() => {
+			recipe.renderMinimalFrame(host.graph, host.context, host.nextFrameIndex());
+			context.onReady();
+		});
+		return {
+			captureSnapshot: () => host.capture((recorder) => {
+				recipe.recordMinimalFrame(recorder, host.context.getCurrentTexture());
+			}),
+			dispose() {
+				stopResize();
+				host.dispose();
+			},
+		};
+	},
+};

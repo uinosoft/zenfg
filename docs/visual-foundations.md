@@ -69,11 +69,11 @@ screenshots, or fonts are redistributed from the reference repository.
 
 The formal Examples page now consumes these definitions for its shell, Code,
 and Tweakpane controls, with explicit Dark / Light selection. The scoped
-`apps/playground/src/tweakpane.css` adapter inherits palette changes without
+`apps/site/playground/src/tweakpane.css` adapter inherits palette changes without
 remounting controls. The embedded Inspector and standalone Inspector now share these palettes through
 CSS variables and the pure `@zenfg/inspector/theme` entry. Site theme adoption
 remains separate work. The lab stays independently buildable and excluded
-from Pages output. See the [Examples README](../apps/playground/README.md).
+from Pages output. See the [Examples README](../apps/site/playground/README.md).
 
 ## Shared definitions and future integration
 
@@ -131,10 +131,10 @@ selection and storage remain app-owned. See [Inspector theming](../packages/insp
 ## Validation
 
 ```sh
-npm run typecheck --workspace @zenfg/playground-app
+npm run typecheck --workspace @zenfg/site-app
 npm run build
 npm run build:visual-lab
-node apps/playground/tests/browser/visualLab.mjs
+node apps/site/playground/tests/browser/visualLab.mjs
 ```
 
 The browser script uses an existing Playwright installation. Set

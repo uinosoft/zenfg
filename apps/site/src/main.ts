@@ -1,5 +1,5 @@
-import type { ZenBackgroundController } from '@zenfg-example/interactive-background';
-import { installAppPageLifecycle } from '../../shared/pageLifecycle.ts';
+import type { ZenBackgroundController } from '../examples/interactive-background/src/main.ts';
+import { installAppPageLifecycle } from '../shared/pageLifecycle.ts';
 
 type Language = 'en' | 'zh-CN';
 
@@ -95,7 +95,7 @@ const backgroundCanvas = document.querySelector<HTMLCanvasElement>('[data-zenfg-
 let background: ZenBackgroundController | undefined;
 let pageDisposed = false;
 if (backgroundCanvas) {
-	void import('@zenfg-example/interactive-background')
+	void import('../examples/interactive-background/src/main.ts')
 		.then(({ startZenBackground }) => startZenBackground(backgroundCanvas, {
 			interactionTarget: window,
 			onReady: () => {
