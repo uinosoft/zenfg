@@ -9,7 +9,6 @@ export const externalSubmissionExample: PlaygroundExampleDefinition = {
 	tags: ['webgpu', 'external-submission', 'interop'],
 	readyState: 'ready',
 	description: "Record graph work while leaving command submission to the caller. Inspect the boundary between graph execution and externally owned submission.",
-	graphHint: 'Inspector shows the caller-owned submission boundary',
 	entrySourceId: 'external-submission-recipe',
 	sourceFiles: [
 		{

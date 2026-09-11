@@ -134,10 +134,10 @@ text through Details. `onWarning` reports a nonfatal limitation; undefined clear
 it. Warnings survive loading-stage updates and the first ready notification.
 One-shot `onReady(message)` outputs, including GPU Timing results, stay in the
 overlay alongside any warning and remain available in both Code and Inspector.
-A new loading cycle clears previous output. `graphHint` contains static guidance.
+A new loading cycle clears previous output.
 
-Use optional `description` for a brief introduction below the demo, and optional
-`graphHint` for an observation beside the Inspector. Empty hints occupy no space.
+Use optional `description` for the introduction, gestures, and inspection guidance
+together below the canvas. This text stays visible in both Code and Inspector.
 Model sizes and download requirements belong to loading feedback, not controls.
 Published Inspector APIs and Snapshot data remain unchanged.
 
@@ -215,15 +215,18 @@ to `.test-dist/runtime-overlay`.
 
 ### Example introductions
 
-Keep `description` to one or two sentences explaining the demonstration and what
-readers can observe. It accepts plain text or an array of text and inline objects
+Use `description` to explain the demonstration, its interactions, and what
+readers can observe. Short descriptions render as a plain paragraph without a
+disclosure. It accepts plain text or an array of text and inline objects
 such as `{ text: 'persistent state', emphasis: 'strong' }` or
 `{ text: 'source', href: 'https://example.com' }`. Supported emphasis values are
 `strong`, `em`, and `code`; links use HTTP(S), and HTML is never interpreted.
 Use theme styles rather than per-example colors.
 
-Put controls and gestures in `instructions`, shown in the collapsed Interaction
-guide. Declare attribution separately in `references` with `relation` (`Adapted
+Title and tags precede the canvas. FPS and parameters share a fixed column beside
+the canvas on desktop, reserved even when empty, and stack below it on mobile.
+The description follows the demo, before the tools; do not add separate guidance
+after Inspector. Declare attribution in `references` with `relation` (`Adapted
 from` or `Reference`), `label`, and `href`. Prefer the original example or a pinned
 source revision documented by the example's third-party notices.
 

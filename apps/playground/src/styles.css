@@ -72,7 +72,7 @@ html, body {
 	background: var(--zenfg-canvas);
 }
 
-.brand-group, .playground-brand, .theme-switch {
+.playground-brand, .theme-switch {
 	display: flex;
 	align-items: center;
 	gap: 12px;
@@ -110,7 +110,7 @@ html, body {
 }
 
 .playground[data-directory-open=false] .examples-layout {
-	grid-template-columns: minmax(0, 1fr);
+	grid-template-columns: 48px minmax(0, 1fr);
 }
 
 .example-sidebar {
@@ -118,11 +118,41 @@ html, body {
 	border-right: 1px solid var(--zenfg-divider);
 }
 
-.example-sidebar nav {
+.directory-shell {
 	position: sticky;
 	top: 60px;
+	display: flex;
+	flex-direction: column;
 	max-height: calc(100svh - 60px);
-	padding: 22px 16px;
+}
+
+.directory-toolbar {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 8px;
+	min-height: 56px;
+	padding: 8px 16px;
+}
+
+.directory-label {
+	font-size: 12px;
+	font-weight: 600;
+	color: var(--zenfg-secondary);
+}
+
+.playground[data-directory-open=false] .directory-toolbar {
+	justify-content: center;
+	padding-inline: 4px;
+}
+
+.playground[data-directory-open=false] .directory-label {
+	display: none;
+}
+
+.example-sidebar nav {
+	min-height: 0;
+	padding: 0 16px 16px;
 	overflow: auto;
 	scrollbar-color: var(--zenfg-border) transparent;
 	scrollbar-width: thin;
@@ -187,11 +217,15 @@ html, body {
 	width: 100%;
 	max-width: 1100px;
 	margin: 0 auto;
-	padding: 16px 32px 24px;
+	padding: 24px 32px 32px;
 }
 
 .example-intro {
-	margin: 22px 0 20px;
+	margin: 0 0 20px;
+}
+
+.example-details {
+	margin-top: 18px;
 }
 
 .title-row {
@@ -202,7 +236,7 @@ html, body {
 }
 
 .title-row h1 {
-	font-size: var(--zenfg-font-title);
+	font-size: clamp(24px, 2.7cqw, 30px);
 	line-height: 1.3;
 	font-weight: 600;
 	letter-spacing: -.6px;
@@ -230,10 +264,7 @@ html, body {
 .demo-card {
 	display: grid;
 	column-gap: 16px;
-	grid-template-columns: minmax(0, 1fr);
-}
-
-.demo-card[data-has-sidebar=true] {
+	/* Reserve the same control column even for examples without controls or FPS. */
 	grid-template-columns: minmax(0, 1fr) 250px;
 }
 
@@ -243,7 +274,8 @@ html, body {
 	position: relative;
 	min-width: 0;
 	width: 100%;
-	aspect-ratio: 4 / 3;
+	aspect-ratio: 16 / 9;
+	max-height: 460px;
 	overflow: hidden;
 	background: #05090d;
 	border: 1px solid var(--zenfg-divider);
@@ -263,7 +295,7 @@ html, body {
 }
 
 .example-description {
-	margin: 10px 0 0;
+	margin: 0;
 	color: var(--zenfg-secondary);
 	font-size: 13px;
 	line-height: 1.6;
@@ -306,13 +338,6 @@ html, body {
 .runtime-status[open] .runtime-status__toggle .ui-icon { transform: rotate(180deg); }
 .runtime-status[data-has-detail=false] .runtime-status__toggle { display: none; }
 .runtime-status__detail { margin: 6px 0 0; max-width: 360px; max-height: 140px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; user-select: text; }
-
-.graph-hint {
-	margin: 12px 0 0;
-	color: var(--zenfg-secondary);
-	font-size: 13px;
-	line-height: 1.6;
-}
 
 .effect-status {
 	display: inline-flex;
@@ -392,7 +417,7 @@ html, body {
 	grid-template-rows: 46px minmax(0, 1fr);
 	height: clamp(520px, 66.6667cqw, 760px);
 	min-width: 0;
-	margin-top: 10px;
+	margin-top: 24px;
 	border: 1px solid var(--zenfg-divider);
 	border-radius: var(--zenfg-radius-panel);
 	overflow: hidden;
@@ -619,7 +644,7 @@ body:has(.tool-workbench[data-maximized=true]) {
 	.examples-layout {
 		grid-template-columns: 210px minmax(0, 1fr);
 	}
-	.demo-card[data-has-sidebar=true] {
+	.demo-card {
 		grid-template-columns: minmax(0, 1fr) 230px;
 	}
 }
@@ -631,26 +656,40 @@ body:has(.tool-workbench[data-maximized=true]) {
 	.playground-header {
 		padding: 0 12px;
 	}
-	.brand-group, .playground-brand {
+	.playground-brand {
 		gap: 8px;
 	}
 	.playground-brand strong {
 		font-size: 18px;
 	}
-	.examples-layout {
+	.examples-layout, .playground[data-directory-open=false] .examples-layout {
 		grid-template-columns: minmax(0, 1fr);
 	}
 	.example-sidebar {
 		border-right: 0;
 		border-bottom: 1px solid var(--zenfg-divider);
 	}
-	.example-sidebar nav {
+	.directory-shell {
 		position: static;
+		max-height: none;
+	}
+	.directory-toolbar, .playground[data-directory-open=false] .directory-toolbar {
+		justify-content: space-between;
+		min-height: 48px;
+		padding: 4px 12px;
+	}
+	.playground[data-directory-open=false] .directory-label {
+		display: inline;
+	}
+	.example-sidebar nav {
 		max-height: 45svh;
-		padding: 12px;
+		padding: 0 12px 12px;
 	}
 	.example-main {
 		padding: 14px 12px 24px;
+	}
+	.demo-stage {
+		aspect-ratio: 4 / 3;
 	}
 	.title-row {
 		flex-wrap: wrap;
@@ -658,7 +697,7 @@ body:has(.tool-workbench[data-maximized=true]) {
 	.title-row h1 {
 		font-size: 26px;
 	}
-	.demo-card[data-has-sidebar=true] {
+	.demo-card {
 		grid-template-columns: minmax(0, 1fr);
 	}
 	.playground-controls {
@@ -711,12 +750,10 @@ body:has(.tool-workbench[data-maximized=true]) {
 
 .example-description strong { color: var(--zenfg-text); font-weight: 600; }
 .example-description code { font-family: var(--zenfg-font-mono); }
-.example-intro a { color: var(--zenfg-accent); text-underline-offset: 3px; }
-.example-intro a:hover { text-decoration-thickness: 2px; }
-.example-intro a:focus-visible, .example-instructions summary:focus-visible { outline: 2px solid var(--zenfg-accent); outline-offset: 3px; }
-.example-references, .example-instructions { margin: 8px 0; color: var(--zenfg-secondary); font-size: 12px; line-height: 1.6; overflow-wrap: anywhere; }
-.example-instructions summary { cursor: pointer; width: fit-content; }
-.example-instructions p { margin: 6px 0; }
+.example-details a { color: var(--zenfg-accent); text-underline-offset: 3px; }
+.example-details a:hover { text-decoration-thickness: 2px; }
+.example-details a:focus-visible { outline: 2px solid var(--zenfg-accent); outline-offset: 3px; }
+.example-references { margin: 8px 0 0; color: var(--zenfg-secondary); font-size: 12px; line-height: 1.6; overflow-wrap: anywhere; }
 
 .playground-footer {
 	min-height: 12.5svh;

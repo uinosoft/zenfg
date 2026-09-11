@@ -17,8 +17,7 @@ export const typeGpuSlimeMoldExample: PlaygroundExampleDefinition = {
 	tags: ['typegpu', 'compute', 'simulation'],
 	readyState: 'live',
 	references: [{ relation: 'Adapted from', label: "TypeGPU · Slime Mold", href: "https://github.com/software-mansion/TypeGPU/blob/8d923c9f7a170a2bfad15c2de7e3df3914d36f30/apps/typegpu-docs/src/examples/simulation/slime-mold/index.ts" }],
-    description: "Simulate agents that form evolving trails using TypeGPU compute and render pipelines. Inspect how persistent agent and trail resources connect work across frames.",
-    instructions: 'Tune the five simulation parameters',
+    description: "Simulate agents that form evolving trails using TypeGPU compute and render pipelines. Inspect how persistent agent and trail resources connect work across frames. Tune the five simulation parameters.",
 	hasControls: true,
 	entrySourceId: 'typegpu-slime-mold-entry',
 	sourceFiles: [

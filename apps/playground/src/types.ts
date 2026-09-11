@@ -46,10 +46,9 @@ export type PlaygroundExampleDefinition = {
 	readonly group: PlaygroundExampleGroup;
 	readonly tags: readonly ExampleTag[];
 	readonly readyState: 'live' | 'ready';
+	/** Description, gestures, and inspection guidance displayed together below the canvas. */
 	readonly description?: PlaygroundText;
-	readonly instructions?: string;
 	readonly references?: readonly { readonly label: string; readonly href: string; readonly relation: 'Adapted from' | 'Reference' }[];
-	readonly graphHint?: string;
 	readonly loadingNote?: string;
 	readonly hasControls?: boolean;
 	/** The real source file readers should open first, independent of list order. */

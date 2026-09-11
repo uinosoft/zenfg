@@ -13,13 +13,22 @@
 <body>
 <div class="playground" id="page-top" data-playground>
 <header class="playground-header" data-background-region>
-<div class="brand-group"><button class="shell-button" data-directory-toggle aria-controls="example-directory" aria-expanded="false" aria-label="Toggle example directory">☰</button><div class="playground-brand"><a href="../"><strong>ZenFG</strong></a><span>/</span><span>Examples</span></div></div>
+<div class="playground-brand"><a href="../" data-home-link><strong>ZenFG</strong></a><span>/</span><span>Examples</span></div>
 <div class="theme-switch" role="group" aria-label="Appearance"><button class="shell-button" data-theme-mode="dark" aria-pressed="true">Dark</button><button class="shell-button" data-theme-mode="light" aria-pressed="false">Light</button></div>
 </header>
 <div class="examples-layout">
-<aside class="example-sidebar" id="example-directory" data-background-region hidden><nav data-example-directory aria-label="Examples"></nav></aside>
+<aside class="example-sidebar" data-background-region aria-label="Example directory">
+<div class="directory-shell">
+<div class="directory-toolbar"><span class="directory-label">Example directory</span><button class="shell-button" data-directory-toggle aria-controls="example-directory" aria-expanded="false" aria-label="Toggle example directory">☰</button></div>
+<nav id="example-directory" data-example-directory aria-label="Examples" hidden></nav>
+</div>
+</aside>
 <main class="example-main" id="main-content">
 
+<section class="example-intro" data-background-region>
+<div class="title-row"><h1 data-example-title>Examples</h1></div>
+<ul class="example-tags" data-example-tags aria-label="Example topics"></ul>
+</section>
 <section class="demo-card" data-demo-card data-background-region aria-label="Live example">
 <div class="demo-stage">
 <canvas class="effect-stage" data-effect-canvas aria-label="Interactive WebGPU example"></canvas>
@@ -33,12 +42,9 @@
 <div class="playground-parameters" data-controls-host aria-label="Example controls" hidden></div>
 </aside>
 </section>
-<section class="example-intro" data-background-region>
-<div class="title-row"><h1 data-example-title>Examples</h1></div>
+<section class="example-details" data-background-region aria-label="Example description">
 <p class="example-description" data-example-description hidden></p>
 <p class="example-references" data-example-references hidden></p>
-<details class="example-instructions" data-example-instructions hidden><summary>Interaction guide</summary><p></p></details>
-<ul class="example-tags" data-example-tags aria-label="Example topics"></ul>
 </section>
 <section class="tool-workbench" id="workbench" data-workbench role="region" aria-label="Example tools">
 <header class="workbench-header">
@@ -51,10 +57,9 @@
 </div>
 <div class="inspector-workspace" id="inspector-workspace" data-inspector-workspace role="tabpanel" aria-labelledby="inspector-tab" hidden><div class="inspector-loading" data-inspector-loading role="status">Loading FrameGraph Inspector…</div><div class="inspector-host" data-inspector-host></div></div>
 </section>
-<p class="graph-hint" data-graph-hint data-background-region hidden></p>
 <section class="example-error" data-example-error data-background-region hidden><h1>The requested example is not available.</h1><a href="./?example=interactive-background">Open the interactive background</a></section>
 <footer class="playground-footer" data-background-region>
-<div class="playground-footer__row"><a class="playground-footer__brand" href="../">ZenFG <span>Examples</span></a><nav aria-label="Footer"><a href="https://github.com/uinosoft/zenfg/blob/main/docs/README.md" target="_blank" rel="noopener noreferrer">Docs</a><a href="https://github.com/uinosoft/zenfg" target="_blank" rel="noopener noreferrer">GitHub</a><a href="#page-top">Back to top ↑</a></nav></div>
+<div class="playground-footer__row"><a class="playground-footer__brand" href="../" data-home-link aria-label="ZenFG home">ZenFG <span>Home ↗</span></a><nav aria-label="Footer"><a href="https://github.com/uinosoft/zenfg/blob/main/docs/README.md" target="_blank" rel="noopener noreferrer">Docs</a><a href="https://github.com/uinosoft/zenfg" target="_blank" rel="noopener noreferrer">GitHub</a><a href="#page-top">Back to top ↑</a></nav></div>
 </footer>
 </main>
 </div>

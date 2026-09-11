@@ -6,8 +6,7 @@ export const interactiveBackgroundExample: PlaygroundExampleDefinition = {
 	group: 'Showcases',
 	tags: ['webgpu', 'compute', 'render'],
 	readyState: 'live',
-	description: "Build an interactive flow field and bloom effect with five graph passes. Inspect how texture dependencies determine execution order and transient lifetimes.",
-    instructions: 'Move your pointer to disturb the field',
+	description: "Build an interactive flow field and bloom effect with five graph passes. Inspect how texture dependencies determine execution order and transient lifetimes. Move your pointer to disturb the field.",
 	entrySourceId: 'interactive-background-entry',
 	sourceFiles: [
 		{

@@ -9,7 +9,6 @@ export const persistentStateExample: PlaygroundExampleDefinition = {
 	tags: ['webgpu', 'persistent-resources'],
 	readyState: 'ready',
 	description: "Carry resource state across graph executions. Capture again to observe how previously written contents become defined input for the next execution.",
-	graphHint: 'Capture again to see the imported state begin defined',
 	entrySourceId: 'persistent-state-recipe',
 	sourceFiles: [
 		{

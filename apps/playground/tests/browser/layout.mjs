@@ -30,7 +30,9 @@ try {
     assert.equal(await page.locator('[data-example-feedback]').isVisible(), false);
     assert.deepEqual(await page.locator('[data-example-tags] li').allTextContents(), ['WebGPU', 'GPU Culling', 'Indirect Draw']);
     const stageSize = await page.locator('.demo-stage').boundingBox();
-    assert.ok(Math.abs(stageSize.width / stageSize.height - 4 / 3) < .01, 'stable canvas aspect ratio');
+    assert.ok(Math.abs(stageSize.width / stageSize.height - 16 / 9) < .01, 'wide desktop canvas');
+    assert.equal(await page.locator('.playground-footer__brand').getAttribute('href'), await page.locator('.playground-brand a').getAttribute('href'), 'brand links share the home destination');
+    assert.equal(await page.locator('[data-example-instructions]').count(), 0, 'gestures belong to the plain description');
     assert.equal(await page.locator('.breadcrumb').count(), 0);
     assert.ok(await page.evaluate(() => document.querySelector('.zenfg-inspector-graph-canvas')._cyreg.cy.nodes().length > 0), 'real captured graph nodes available');
     await page.locator('[data-controls-host] .tp-ckbv').first().click();
@@ -80,11 +82,12 @@ try {
             const hint = await page.locator('[data-example-description]').boundingBox();
             const intro = await page.locator('.example-intro').boundingBox();
             const demo = await page.locator('.demo-card').boundingBox();
-            assert.ok(intro.y >= demo.y + demo.height && intro.y - demo.y - demo.height <= 24, 'introduction follows the demo');
-            assert.ok(Math.abs(canvas.width / canvas.height - 4 / 3) < .01, 'stable ratio at every viewport');
+            assert.ok(intro.y + intro.height <= demo.y, 'title and tags precede the demo');
+            assert.ok(hint.y >= demo.y + demo.height && hint.y - demo.y - demo.height <= 24, 'description follows the demo');
+            assert.ok(Math.abs(canvas.width / canvas.height - (width <= 800 ? 4 / 3 : 16 / 9)) < .01, 'responsive canvas ratio');
             const title = await page.locator('[data-example-title]').boundingBox();
             const tags = await page.locator('[data-example-tags]').boundingBox();
-            assert.ok(title.y < hint.y && hint.y < tags.y, 'title, description, tags reading order');
+            assert.ok(title.y < tags.y && tags.y < canvas.y && canvas.y < hint.y, 'title, tags, canvas, description reading order');
             assert.equal(await page.locator('.runtime-status').isVisible(), false, 'healthy runtime leaves the canvas clear');
             assert.equal(await page.locator('[data-metrics-host] .tp-rotv_b').isVisible(), false);
             assert.equal(await page.locator('[data-controls-host] .tp-rotv_b').isVisible(), false);
@@ -102,7 +105,7 @@ try {
     for (const viewport of [{ width: 1920, height: 540 }, { width: 820, height: 1200 }, { width: 320, height: 600 }]) {
         await page.setViewportSize(viewport);
         const bounds = await page.locator('.demo-stage').boundingBox();
-        assert.ok(Math.abs(bounds.width / bounds.height - 4 / 3) < .01, 'aspect ratio independent of viewport height');
+        assert.ok(Math.abs(bounds.width / bounds.height - (viewport.width <= 800 ? 4 / 3 : 16 / 9)) < .01, 'aspect ratio independent of viewport height');
         assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), 'no overflow at extreme viewport');
     }
     await page.setViewportSize({ width: 1277, height: 920 });
@@ -169,10 +172,11 @@ try {
     assert.equal(await page.locator('html').getAttribute('data-theme'), 'light');
     assert.equal(await page.locator('[data-controls-host]').isVisible(), false);
     const noControlsStage = await page.locator('.demo-stage').boundingBox();
-    assert.ok(Math.abs(noControlsStage.width / noControlsStage.height - 4 / 3) < .01, 'no-parameter examples retain the same ratio');
+    assert.deepEqual(noControlsStage, stageSize, 'examples without controls retain the same canvas position and size');
     assert.equal(await page.locator('[data-example-description]').isVisible(), true);
     await page.waitForFunction(() => document.querySelector('[data-effect-status-text]').textContent === 'Ready');
-    assert.equal(await page.locator('[data-graph-hint]').isVisible(), true);
+    assert.equal(await page.locator('[data-graph-hint]').count(), 0, 'no separate guidance after Inspector');
+    assert.match(await page.locator('[data-example-description]').textContent(), /presentation output keeps the pass/);
     assert.equal(await page.locator('[data-example-id=minimal-frame]').getAttribute('aria-current'), 'page');
     await page.setViewportSize({ width: 390, height: 844 });
     await page.locator('#example-directory').waitFor({ state: 'hidden' });

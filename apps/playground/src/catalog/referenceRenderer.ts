@@ -7,8 +7,7 @@ export const referenceRendererExample: PlaygroundExampleDefinition = {
     group: 'Showcases',
     tags: ['webgpu', 'gpu-culling', 'indirect-draw'],
     readyState: 'live',
-    description: "Render an instanced 3D scene with culling and selectable depth conventions. Explore how the reference renderer records scene rendering and presentation into a FrameGraph.",
-    instructions: 'Drag to orbit · Scroll to zoom',
+    description: "Render an instanced 3D scene with culling and selectable depth conventions. Explore how the reference renderer records scene rendering and presentation into a FrameGraph. Drag to orbit · Scroll to zoom.",
     hasControls: true,
     entrySourceId: 'reference-renderer-entry',
     sourceFiles: [

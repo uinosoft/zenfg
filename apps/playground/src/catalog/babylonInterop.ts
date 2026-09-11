@@ -16,8 +16,7 @@ export const babylonInteropExample: PlaygroundExampleDefinition = {
     group: 'Showcases',
     tags: ['babylonjs', 'interop', 'shared-resources'],
     readyState: 'live',
-    description: "Combine Babylon.js and the reference renderer in one scene. Explore how external rendering participates in shared color and depth dependencies.",
-    instructions: 'Cyan objects: Babylon.js. Orange objects and gray base: Reference Renderer. Drag to orbit · Scroll to zoom',
+    description: "Combine Babylon.js and the reference renderer in one scene. Explore how external rendering participates in shared color and depth dependencies. Cyan objects: Babylon.js. Orange objects and gray base: Reference Renderer. Drag to orbit · Scroll to zoom.",
     hasControls: true,
     entrySourceId: 'babylon-interop-entry',
     sourceFiles: [

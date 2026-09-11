@@ -16,8 +16,7 @@ export const threeInteropExample: PlaygroundExampleDefinition = {
     group: 'Showcases',
     tags: ['threejs', 'interop', 'shared-resources'],
     readyState: 'live',
-    description: "Combine Three.js and the reference renderer in one scene. Inspect how shared color and depth targets connect rendering across both systems.",
-    instructions: 'Cyan objects: Three.js. Orange objects and gray base: Reference Renderer. Drag to orbit · Scroll to zoom',
+    description: "Combine Three.js and the reference renderer in one scene. Inspect how shared color and depth targets connect rendering across both systems. Cyan objects: Three.js. Orange objects and gray base: Reference Renderer. Drag to orbit · Scroll to zoom.",
     hasControls: true,
     entrySourceId: 'three-interop-entry',
     sourceFiles: [

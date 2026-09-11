@@ -15,6 +15,12 @@ import { disposeHighlighter, highlightSource } from './syntaxHighlighter.ts';
 import type { PlaygroundExampleDefinition, PlaygroundPanel, PlaygroundRuntime } from './types.ts';
 
 const playground = requireElement<HTMLElement>('[data-playground]');
+// The development apps use separate ports; deployed apps share a parent directory.
+if (import.meta.env.DEV) {
+	const home = new URL('/', window.location.href);
+	home.port = '5173';
+	for (const link of document.querySelectorAll<HTMLAnchorElement>('[data-home-link]')) link.href = home.href;
+}
 const effectCanvas = requireElement<HTMLCanvasElement>('[data-effect-canvas]');
 const effectStatus = requireElement<HTMLElement>('[data-effect-status]');
 // Overlay keyboard interaction must not trigger example shortcuts (for example Space).
@@ -27,7 +33,6 @@ effectStatus.addEventListener('toggle', () => {
 const effectStatusText = requireElement<HTMLElement>('[data-effect-status-text]');
 const exampleDirectoryHost = requireElement<HTMLElement>('[data-example-directory]');
 const exampleTags = requireElement<HTMLElement>('[data-example-tags]');
-const graphHint = requireElement<HTMLElement>('[data-graph-hint]');
 const exampleDescription = requireElement<HTMLElement>('[data-example-description]');
 const exampleError = requireElement<HTMLElement>('[data-example-error]');
 const controlsHost = requireElement<HTMLElement>('[data-controls-host]');
@@ -137,15 +142,10 @@ if (example) {
 	renderExampleText(references, (example.references ?? []).flatMap((reference, index) => [
 		(index ? ' · ' : '') + reference.relation + ' ', { text: reference.label, href: reference.href },
 	]));
-	const instructions = requireElement<HTMLElement>('[data-example-instructions]');
-	instructions.hidden = !example.instructions;
-	instructions.querySelector('p')!.textContent = example.instructions ?? '';
 	exampleDescription.hidden = !example.description;
-	graphHint.textContent = example.graphHint ?? '';
 	document.title = example.title + ' · ZenFG Examples';
 	requireElement<HTMLElement>('[data-example-title]').textContent = example.title;
 	const hasSidebar = !!example.hasControls || example.readyState === 'live';
-	requireElement<HTMLElement>('[data-demo-card]').dataset.hasSidebar = String(hasSidebar);
 	controlsPanel.hidden = !hasSidebar;
 	metricsHost.hidden = example.readyState !== 'live';
 	controlsHost.hidden = !example.hasControls;
@@ -268,7 +268,6 @@ async function mountExample(definition: PlaygroundExampleDefinition): Promise<Pl
 function setPanel(panel: PlaygroundPanel, syncUrl = true): void {
 	if (!example) return;
 	currentPanel = panel;
-	graphHint.hidden = panel !== 'inspector' || !graphHint.textContent;
 	playground.dataset.panel = panel;
 	codeWorkspace.hidden = panel !== 'code';
 	inspectorWorkspace.hidden = panel !== 'inspector';
