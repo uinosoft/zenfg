@@ -53,11 +53,31 @@ original editor theme. Render stays green, Compute lavender, resources use
 distinct colors, and selection uses the primary blue. Node shapes and labels
 also convey meaning; color is not the only identifier.
 
-UI fonts use a system stack including Segoe UI and Microsoft YaHei, with no
-font downloads. Code uses the platform monospace stack. Body text is 14px,
-parameter controls 13px, and the page title 28px. Code is 14px on desktop and
-13px at widths up to 800px, always at 1.7 line height. The spacing scale is
-4/8/12/16/24/32px; control and panel radii are 6px and 10px.
+UI fonts use the shared system stack including Segoe UI and Microsoft YaHei,
+with no font downloads. Code and source filenames use the platform monospace
+stack. Typography is role-based; the home hero is a display exception, while
+Inspector preserves its compact component scale.
+
+| Role | Size / line height | Weight |
+| --- | --- | --- |
+| Site body | 14px / 1.5 | 400 |
+| Header navigation and shell controls | 13px / 1.4 | 600 navigation; 400 tools |
+| Captions, directory entries and metadata | 12px / 1.5 (compact controls 1.4) | 400; 600 section labels |
+| Playground page title | 28px / 1.3 at all widths; wraps when needed | 600 |
+| Inspector / parameter controls | 13px; Inspector secondary text 12px | Component-owned |
+| Code | 14px desktop, 13px up to 800px / 1.7 | Syntax-owned |
+| Home display title | Continuous `clamp(66px, 32px + 8.2vw, 150px)` / 1 | 700 |
+| Home lead paragraph | 18-25px / 1.55 | 400 |
+
+Site styles consume the canonical body, control, title and code size tokens.
+Site-only caption and line-height roles live in the shared shell stylesheet;
+these do not extend the published Inspector API. Shell emphasis uses 400/600/700.
+Home eyebrow and footer text use 12px even on mobile; Chinese eyebrows have
+normal letter spacing, while English keeps its uppercase tracking. The header
+brand remains 20px (18px up to 800px), weight 700. Graph labels retain their
+independent zoom-aware sizing. Dark and Light use identical typography.
+
+The spacing scale is 4/8/12/16/24/32px; control and panel radii are 6px and 10px.
 
 References:
 [Tokyo Night palette](https://github.com/tokyo-night/tokyo-night-vscode-theme#color-palette),

@@ -1,6 +1,6 @@
 @import '../../shared/shell/styles.css';
 
-:root { font-family: var(--zenfg-font-ui, system-ui, sans-serif); font-size: 14px; font-synthesis: none; color: var(--zenfg-text, #c0caf5); background: var(--zenfg-canvas, #24283b); }
+:root { color: var(--zenfg-text, #c0caf5); background: var(--zenfg-canvas, #24283b); }
 * { box-sizing: border-box; }
 html, body { min-width: 320px; width: 100%; height: 100%; margin: 0; overflow: hidden; }
 body { display: grid; grid-template-rows: var(--site-header-height) minmax(0, 1fr); }
