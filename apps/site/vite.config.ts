@@ -1,6 +1,7 @@
 import { defineConfig } from 'vite';
 import { fileURLToPath } from 'node:url';
 import typegpuPlugin from 'unplugin-typegpu/vite';
+import { siteShellPlugin } from './shared/shell/plugin.ts';
 
 export default defineConfig(({ mode }) => ({
 	base: './',
@@ -16,6 +17,7 @@ export default defineConfig(({ mode }) => ({
 		},
 	},
 	plugins: [
+		siteShellPlugin(),
 		typegpuPlugin({
 			include: /apps[\\/]site[\\/]examples[\\/]typegpu-(?:slime-mold|monocular-light-injection)[\\/]src[\\/].*\.ts$/,
 		}),

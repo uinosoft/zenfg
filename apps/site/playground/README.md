@@ -1,4 +1,4 @@
-# ZenFG Examples (Site Playground)
+# ZenFG Playground
 
 The Examples page is a private static application deployed at `/playground/`.
 A collapsible grouped directory sits beside a naturally scrolling page:
@@ -31,10 +31,11 @@ example implementations must not import Playground code.
 
 ## Layout and appearance
 
-Dark (Storm-inspired) and Light use the shared visual foundations. The page
-remembers the explicit choice in `zenfg-playground-theme` local storage, defaults
-to Dark, and still switches when storage is unavailable. This preference is
-specific to Examples; system appearance and cross-app synchronization are deferred.
+Dark (Tokyo Night Storm) and Light use the shared visual foundations and site
+header. Home, Inspector and Playground share the `zenfg-theme` preference,
+defaulting to Dark and remaining usable without storage. See the
+[Site shell documentation](../README.md#shared-site-shell) for migration,
+mobile navigation and cross-tab synchronization. System appearance is not used.
 
 The page shell, Code, Tweakpane controls, and Inspector switch themes together. The scoped
 `src/tweakpane.css` adapter maps Tweakpane 4 properties to shared palette tokens,

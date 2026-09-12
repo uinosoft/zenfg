@@ -71,14 +71,18 @@ The formal Examples page now consumes these definitions for its shell, Code,
 and Tweakpane controls, with explicit Dark / Light selection. The scoped
 `apps/site/playground/src/tweakpane.css` adapter inherits palette changes without
 remounting controls. The embedded Inspector and standalone Inspector now share these palettes through
-CSS variables and the pure `@zenfg/inspector/theme` entry. Site theme adoption
-remains separate work. The lab stays independently buildable and excluded
-from Pages output. See the [Examples README](../apps/site/playground/README.md).
+CSS variables and the pure `@zenfg/inspector/theme` entry. Home now shares the
+same palettes, a common site header, and the site-wide Dark / Light preference.
+Its Dark background retains the interactive showcase behind a Storm-colored
+contrast layer; Light uses static grids and gradients without initializing GPU
+resources. See the [Site shell documentation](../apps/site/README.md#shared-site-shell)
+for component ownership, migration and lifecycle behavior. The lab stays
+independently buildable and excluded from Pages output.
 
-## Shared definitions and future integration
+## Shared definitions and site integration
 
 `@zenfg/inspector/theme` owns the pure `visualThemes` and `visualMetrics` data.
-`apps/shared/theme/index.ts` re-exports them and owns
+`apps/site/shared/theme/index.ts` re-exports them and owns
 `themeProperties(mode)`, `ThemeMode = 'dark' | 'light'`, and
 `applyVisualTheme(container, mode)`. The helper sets `data-theme`, `color-scheme`,
 and `--zenfg-*` properties on the supplied container only. It does not touch

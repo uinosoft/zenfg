@@ -7,12 +7,16 @@ import type { FrameGraphInspector } from '@zenfg/inspector';
 import { installAppPageLifecycle } from '../../shared/pageLifecycle.ts';
 import { findPublicExample, publicExamples } from './catalog/catalog.ts';
 import { createExampleDirectory } from './exampleDirectory.ts';
-import { setTheme, getTheme, subscribeTheme } from './theme.ts';
+import { createSiteTheme } from '../../shared/theme/controller.ts';
+import { installSiteHeader } from '../../shared/shell/header.ts';
 import { tokyoNightStorm, tokyoNightLight } from '@zenfg/inspector/theme';
 import { parsePlaygroundRoute, routeSearch } from './routing.ts';
 import { createSourceView } from './sourceView.ts';
 import { disposeHighlighter, highlightSource } from './syntaxHighlighter.ts';
 import type { PlaygroundExampleDefinition, PlaygroundPanel, PlaygroundRuntime } from './types.ts';
+
+const theme = createSiteTheme(window);
+const disposeHeader = installSiteHeader(window, theme);
 
 const playground = requireElement<HTMLElement>('[data-playground]');
 const effectCanvas = requireElement<HTMLCanvasElement>('[data-effect-canvas]');
@@ -49,7 +53,7 @@ const example: PlaygroundExampleDefinition | undefined = findPublicExample(initi
 let runtime: PlaygroundRuntime | undefined;
 let inspector: FrameGraphInspector | undefined;
 const inspectorThemes = { dark: tokyoNightStorm, light: tokyoNightLight };
-const unsubscribeTheme = subscribeTheme(mode => inspector?.setTheme(inspectorThemes[mode]));
+const unsubscribeTheme = theme.subscribe(mode => inspector?.setTheme(inspectorThemes[mode]));
 let inspectorPromise: Promise<void> | undefined;
 let codePromise: Promise<void> | undefined;
 let sourceView: ReturnType<typeof createSourceView> | undefined;
@@ -90,10 +94,6 @@ setDirectoryOpen(!narrowViewport.matches);
 const onViewportChange = (): void => setDirectoryOpen(!narrowViewport.matches);
 narrowViewport.addEventListener('change', onViewportChange);
 directoryToggle.addEventListener('click', () => setDirectoryOpen(directory.hidden === true));
-for (const button of document.querySelectorAll<HTMLButtonElement>('[data-theme-mode]')) {
-	setIconButton(button, button.dataset.themeMode === 'light' ? 'sun' : 'moon', button.dataset.themeMode === 'light' ? 'Light' : 'Dark');
-	button.addEventListener('click', () => setTheme(button.dataset.themeMode === 'light' ? 'light' : 'dark'));
-}
 const maximizeButton = requireElement<HTMLButtonElement>('[data-maximize]');
 setIconButton(maximizeButton, 'maximize', 'Expand tools');
 setIconButton(copySource, 'copy', 'Copy');
@@ -137,7 +137,7 @@ if (example) {
 		(index ? ' · ' : '') + reference.relation + ' ', { text: reference.label, href: reference.href },
 	]));
 	exampleDescription.hidden = !example.description;
-	document.title = example.title + ' · ZenFG Examples';
+	document.title = example.title + ' · ZenFG Playground';
 	requireElement<HTMLElement>('[data-example-title]').textContent = example.title;
 	const hasSidebar = !!example.hasControls || example.readyState === 'live';
 	controlsPanel.hidden = !hasSidebar;
@@ -205,6 +205,8 @@ installAppPageLifecycle(window, {
 		narrowViewport.removeEventListener('change', onViewportChange);
 		sourceView?.destroy();
 		unsubscribeTheme();
+		disposeHeader();
+		theme.destroy();
 		inspector?.destroy();
 		runtime?.dispose();
 		frameRateMonitor?.dispose();
@@ -323,7 +325,7 @@ async function initializeInspectorWorkspace(): Promise<void> {
 		const { mountFrameGraphInspector } = await import('@zenfg/inspector');
 		if (disposed) return;
 		inspector = mountFrameGraphInspector(inspectorHost, {
-			theme: inspectorThemes[getTheme()],
+			theme: inspectorThemes[theme.get()],
 			branding: false,
 			captureSnapshot: () => mounted.captureSnapshot(),
 		});

@@ -19,8 +19,8 @@ page.on('pageerror', error => errors.push(String(error)));
 const report = { layouts: [], interactions: [], errors };
 try {
     await page.goto(base + '?example=reference-renderer&panel=none');
-    assert.equal(await page.locator('.playground-brand a').innerText(), 'ZenFG');
-    assert.equal(await page.locator('.playground-brand').getByText('Examples', { exact: true }).evaluate(el => el.closest('a') === null), true);
+    assert.equal(await page.locator('.site-brand').innerText(), 'ZenFG');
+    assert.equal(await page.locator('.site-page-links [aria-current=page]').innerText(), 'Playground');
     await page.waitForFunction(() => document.querySelector('[data-playground]').dataset.effectState === 'ready');
     await page.locator('.zenfg-inspector-graph-canvas canvas').first().waitFor();
     await page.locator('.zenfg-inspector-graph-status').waitFor({ state: 'hidden' });
@@ -31,7 +31,7 @@ try {
     assert.deepEqual(await page.locator('[data-example-tags] li').allTextContents(), ['WebGPU', 'GPU Culling', 'Indirect Draw']);
     const stageSize = await page.locator('.demo-stage').boundingBox();
     assert.ok(Math.abs(stageSize.width / stageSize.height - 16 / 9) < .01, 'wide desktop canvas');
-    assert.equal(await page.locator('.playground-footer__brand').getAttribute('href'), await page.locator('.playground-brand a').getAttribute('href'), 'brand links share the home destination');
+    assert.equal(await page.locator('.playground-footer__brand').getAttribute('href'), await page.locator('.site-brand').getAttribute('href'), 'brand links share the home destination');
     assert.equal(await page.locator('[data-example-instructions]').count(), 0, 'gestures belong to the plain description');
     assert.equal(await page.locator('.breadcrumb').count(), 0);
     assert.ok(await page.evaluate(() => document.querySelector('.zenfg-inspector-graph-canvas')._cyreg.cy.nodes().length > 0), 'real captured graph nodes available');

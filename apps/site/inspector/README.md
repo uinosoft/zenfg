@@ -2,8 +2,8 @@
 
 This private Site page mounts the embeddable `@zenfg/inspector`
 workbench directly into a full-viewport host. The component itself provides
-branding, file selection, drag-and-drop, legacy migration feedback, and
-validation errors, so the page adds no duplicate header or controls.
+file selection, drag-and-drop, legacy migration feedback, and validation errors.
+The page hides component branding and supplies the shared site navigation header.
 
 ```sh
 npm run dev
@@ -22,10 +22,11 @@ not part of this repository.
 
 ## Appearance
 
-The 60px host header matches Examples: a linked ZenFG brand, an Inspector label,
-and moon/sun buttons selecting Dark (Tokyo Night Storm) or Light. The app stores
-its own preference under `zenfg-inspector-theme`; first use defaults to Dark.
-The embedded component neither reads browser storage nor changes global appearance.
+The shared 60px site header links Home, Inspector and Playground and selects
+Dark (Tokyo Night Storm) or Light. Appearance uses the site-wide `zenfg-theme`
+preference, defaulting to Dark. See the [Site shell documentation](../README.md#shared-site-shell)
+for migration, mobile navigation and cross-tab synchronization. The embedded
+component neither reads browser storage nor changes global appearance.
 
 See [Inspector theming](../../../packages/inspector/THEMING.md) for the component API.
 

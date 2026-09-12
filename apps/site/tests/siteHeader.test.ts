@@ -1,0 +1,50 @@
+import assert from 'node:assert/strict';
+import test from 'node:test';
+import { Window } from 'happy-dom';
+import { renderSiteHeader, type SitePage } from '../shared/shell/template.ts';
+import { installSiteHeader } from '../shared/shell/header.ts';
+import { createSiteTheme } from '../shared/theme/controller.ts';
+
+test('every static header has all destinations and resolves under a deployment prefix', () => {
+	for (const page of ['home', 'inspector', 'playground'] as SitePage[]) {
+		const window = new Window({ url: `https://example.org/zenfg/${page === 'home' ? '' : page + '/'}` });
+		window.document.body.innerHTML = renderSiteHeader(page);
+		const links = [...window.document.querySelectorAll('.site-page-links a')];
+		assert.deepEqual(links.map(link => link.getAttribute('href')).map(href => new URL(href!, window.location.href).pathname), ['/zenfg/', '/zenfg/inspector/', '/zenfg/playground/']);
+		assert.equal(window.document.querySelectorAll('[aria-current=page]').length, 1);
+		assert.equal(window.document.querySelector('[aria-current=page]')?.textContent, { home: 'Home', inspector: 'Inspector', playground: 'Playground' }[page]);
+		assert.equal(!!window.document.querySelector('[data-language-toggle]'), page === 'home');
+		window.happyDOM.abort();
+	}
+});
+
+test('mobile menu exposes real navigation, supports Escape, breakpoint changes and disposal', t => {
+	const window = new Window();
+	window.document.body.innerHTML = renderSiteHeader('home');
+	const media = new EventTarget() as EventTarget & { matches: boolean };
+	media.matches = true;
+	window.matchMedia = (() => media) as unknown as typeof window.matchMedia;
+	const theme = createSiteTheme(window as unknown as globalThis.Window);
+	const dispose = installSiteHeader(window as unknown as globalThis.Window, theme);
+	t.after(() => { dispose(); theme.destroy(); window.happyDOM.abort(); });
+	const menu = window.document.querySelector<HTMLButtonElement>('[data-site-menu]')!;
+	const nav = window.document.querySelector<HTMLElement>('#site-navigation')!;
+	assert.equal(nav.inert, true);
+	menu.click();
+	assert.equal(menu.getAttribute('aria-expanded'), 'true');
+	assert.equal(nav.inert, false);
+	const home = nav.querySelector<HTMLAnchorElement>('a')!;
+	assert.equal(window.document.activeElement, home);
+	home.focus();
+	home.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+	assert.equal(nav.inert, true);
+	assert.equal(window.document.activeElement, menu);
+	media.matches = false;
+	media.dispatchEvent(new Event('change'));
+	assert.equal(nav.inert, false);
+	window.document.querySelector<HTMLButtonElement>('[data-theme-mode=light]')!.click();
+	assert.equal(theme.get(), 'light');
+	dispose();
+	window.document.querySelector<HTMLButtonElement>('[data-theme-mode=dark]')!.click();
+	assert.equal(theme.get(), 'light');
+});

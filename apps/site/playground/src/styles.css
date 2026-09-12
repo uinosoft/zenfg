@@ -1,3 +1,4 @@
+@import '../../shared/shell/styles.css';
 @import './tweakpane.css';
 
 :root {
@@ -48,59 +49,13 @@ html, body {
 	cursor: default;
 }
 
-.shell-button:focus-visible, .playground-brand a:focus-visible, .example-sidebar :is(a, summary):focus-visible, .source-files button:focus-visible, .source-view__content:focus-visible {
+.shell-button:focus-visible, .example-sidebar :is(a, summary):focus-visible, .source-files button:focus-visible, .source-view__content:focus-visible {
 	outline: 2px solid var(--zenfg-accent);
 	outline-offset: 2px;
 }
 
 .shell-button[aria-pressed=true], .shell-button[aria-selected=true] {
 	color: var(--zenfg-accent);
-	background: var(--zenfg-accent-soft);
-}
-
-.playground-header {
-	position: sticky;
-	top: 0;
-	z-index: 20;
-	display: flex;
-	align-items: center;
-	justify-content: space-between;
-	gap: 12px;
-	height: 60px;
-	padding: 0 24px;
-	border-bottom: 1px solid var(--zenfg-divider);
-	background: var(--zenfg-canvas);
-}
-
-.playground-brand, .theme-switch {
-	display: flex;
-	align-items: center;
-	gap: 12px;
-}
-
-.playground-brand {
-	color: var(--zenfg-secondary);
-}
-.playground-brand a { text-decoration: none; }
-
-.playground-brand strong {
-	color: var(--zenfg-text);
-	font-size: 20px;
-}
-
-.theme-switch {
-	gap: 3px;
-	padding: 3px;
-	border: 1px solid var(--zenfg-divider);
-	border-radius: 8px;
-}
-
-.theme-switch .shell-button {
-	border: 0;
-	background: transparent;
-}
-
-.theme-switch .shell-button[aria-pressed=true] {
 	background: var(--zenfg-accent-soft);
 }
 
@@ -120,10 +75,10 @@ html, body {
 
 .directory-shell {
 	position: sticky;
-	top: 60px;
+	top: var(--site-header-height);
 	display: flex;
 	flex-direction: column;
-	max-height: calc(100svh - 60px);
+	max-height: calc(100svh - var(--site-header-height));
 }
 
 .directory-toolbar {
@@ -653,15 +608,6 @@ body:has(.tool-workbench[data-maximized=true]) {
 	.tool-workbench {
 		height: 70svh;
 	}
-	.playground-header {
-		padding: 0 12px;
-	}
-	.playground-brand {
-		gap: 8px;
-	}
-	.playground-brand strong {
-		font-size: 18px;
-	}
 	.examples-layout, .playground[data-directory-open=false] .examples-layout {
 		grid-template-columns: minmax(0, 1fr);
 	}
@@ -742,10 +688,8 @@ body:has(.tool-workbench[data-maximized=true]) {
 	}
 }
 
-.ui-icon { width: 16px; height: 16px; flex-shrink: 0; vertical-align: middle; }
 .shell-button.icon-button { display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; padding: 0; }
 .shell-button.icon-button:hover:not(:disabled) { color: var(--zenfg-accent); }
-.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }
 @media (pointer: coarse) { .shell-button.icon-button { width: 40px; height: 40px; } }
 
 .example-description strong { color: var(--zenfg-text); font-weight: 600; }
