@@ -15,6 +15,7 @@ const defaultTestRoots = [
 	resolve(rootDir, 'apps', 'site', 'inspector', 'tests'),
 	resolve(rootDir, 'apps', 'site', 'playground', 'tests'),
 	resolve(rootDir, 'apps', 'site', 'examples', 'interactive-background', 'tests'),
+	resolve(rootDir, 'apps', 'site', 'examples', 'refractive-flow', 'tests'),
 	resolve(rootDir, 'apps', 'site', 'examples', 'reference-renderer', 'tests'),
 	resolve(rootDir, 'apps', 'site', 'examples', 'reference-renderer-demo', 'tests'),
 	resolve(rootDir, 'apps', 'site', 'examples', 'three-interop', 'tests'),

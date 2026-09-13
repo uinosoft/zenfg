@@ -229,6 +229,7 @@ async function mountExample(definition: PlaygroundExampleDefinition): Promise<Pl
 			frameRateMonitor = createFrameRateMonitor(metricsHost);
 		}
 		const mounted = await definition.mount({
+			theme,
 			signal: mountAbort.signal,
 			onFrame: () => { if (!disposed) runtimeStatus.frame(performance.now()); },
 			onPaused: (paused) => { if (!disposed) runtimeStatus.pause(paused); },

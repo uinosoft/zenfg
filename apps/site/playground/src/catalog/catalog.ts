@@ -1,3 +1,4 @@
+import { refractiveFlowExample } from './refractiveFlow.ts';
 import { orderedSourceFiles } from '../sourceView.ts';
 import { interactiveBackgroundExample } from './interactiveBackground.ts';
 import { referenceRendererExample } from './referenceRenderer.ts';
@@ -19,6 +20,7 @@ import type { PlaygroundExampleDefinition } from '../types.ts';
 
 export const publicExamples = [
 	interactiveBackgroundExample,
+	refractiveFlowExample,
 	referenceRendererExample,
 	threeInteropExample,
 	babylonInteropExample,

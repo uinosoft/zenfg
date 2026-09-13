@@ -42,23 +42,14 @@
   <link rel="stylesheet" href="./src/styles.css">
 </head>
 <body>
-  <canvas class="zen-background" data-zenfg-background aria-hidden="true"></canvas>
-  <div class="site-contrast-layer" aria-hidden="true"></div>
   <!-- site-header:home -->
   <main>
     <section class="hero" id="site-content" aria-labelledby="site-title">
-      <a class="cover-story-marker" href="./playground/?example=interactive-background&amp;panel=inspector" aria-label="Explore the cover story" data-i18n-aria="coverStory">
-        <span class="cover-story-marker__dot" aria-hidden="true"></span>
-        <span class="cover-story-marker__label" data-i18n="coverStory">Explore the cover story</span>
-      </a>
       <div class="intro">
         <p class="eyebrow" data-i18n="eyebrow">FrameGraph for WebGPU &amp; wgpu</p>
         <h1 id="site-title">ZenFG</h1>
-        <p class="summary" data-i18n="summary">
-          An independent, composable FrameGraph toolchain for WebGPU and wgpu—with
-          TypeScript and Rust runtimes, portable Snapshots, built-in validation, and
-          an embeddable Inspector.
-        </p>
+        <p class="summary" data-i18n="summary">An independent, composable FrameGraph toolchain for WebGPU and wgpu.</p>
+        <p class="value" data-i18n="value">Organize rendering. Validate resource dependencies. Inspect every frame.</p>
         <nav class="hero-actions" aria-label="Project links" data-i18n-aria="projectLinks">
           <a class="primary" href="./playground/">
             <span data-i18n="openPlayground">Open Playground</span>
@@ -70,19 +61,36 @@
               <path d="M15 3h6v6M10 14 21 3M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
             </svg>
           </a>
-          <a href="https://github.com/uinosoft/zenfg" target="_blank" rel="noreferrer">
-            <span class="link-content">
-              <svg class="github-icon" data-icon="bootstrap-github" viewBox="0 0 16 16" aria-hidden="true">
-                <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82A7.6 7.6 0 0 1 8 3.58c.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8"></path>
-              </svg>
-              <span data-i18n="github">GitHub</span>
-            </span>
-            <svg class="external-icon" data-icon="lucide-external-link" viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M15 3h6v6M10 14 21 3M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
-            </svg>
-          </a>
         </nav>
       </div>
+      <div class="cover">
+        <div class="cover-art" data-cover-art>
+          <div class="cover-fallback" data-cover-fallback aria-hidden="true"></div>
+          <canvas class="zen-background" data-zenfg-background aria-hidden="true"></canvas>
+        </div>
+        <a class="cover-story-marker" href="./playground/?example=refractive-flow&amp;panel=inspector" aria-label="Explore the cover story" data-i18n-aria="coverStory">
+          <span class="cover-story-marker__orb" aria-hidden="true"><span class="cover-story-marker__dot"></span></span>
+          <span class="cover-story-marker__label"><span class="cover-story-marker__long" data-i18n="coverStory">Explore the cover story</span><span class="cover-story-marker__short" data-i18n="explore">Explore</span></span>
+          <svg class="cover-story-marker__arrow" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 17 17 7M7 7h10v10"/></svg>
+        </a>
+      </div>
+    </section>
+    <section class="capabilities" aria-label="Capabilities" data-i18n-aria="capabilities">
+      <article>
+        <span class="capability-index" aria-hidden="true">01 /</span>
+        <h2 data-i18n="runtimeTitle">TypeScript / Rust</h2>
+        <p data-i18n="runtimeDescription">Compose rendering workflows for WebGPU and wgpu with dedicated runtimes.</p>
+      </article>
+      <article>
+        <span class="capability-index" aria-hidden="true">02 /</span>
+        <h2 data-i18n="validationTitle">Resource validation</h2>
+        <p data-i18n="validationDescription">Declare resource access and validate dependencies before execution.</p>
+      </article>
+      <article>
+        <span class="capability-index" aria-hidden="true">03 /</span>
+        <h2 data-i18n="inspectionTitle">Snapshot &amp; Inspector</h2>
+        <p data-i18n="inspectionDescription">Capture portable Snapshots and explore each frame with an embeddable Inspector.</p>
+      </article>
     </section>
     <footer class="site-footer">
       <p class="note" data-i18n="note">Open source / MIT licensed</p>

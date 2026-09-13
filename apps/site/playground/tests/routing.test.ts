@@ -29,6 +29,9 @@ test('playground routes default missing and invalid values safely', () => {
 
 test('playground panel controls are mutually exclusive and serializable', () => {
 	assert.equal(routeSearch({ exampleId: 'interactive-background', panel: 'inspector' }), '?example=interactive-background&panel=inspector');
+	assert.equal(routeSearch({ exampleId: 'refractive-flow', panel: 'inspector' }), '?example=refractive-flow&panel=inspector');
+	assert.equal(findPublicExample('refractive-flow')?.title, 'Refractive Flow');
+	assert.equal(defaultExampleId, 'interactive-background');
 });
 
 test('the production catalog is explicit, grouped, and keeps canonical sources first', () => {
@@ -49,6 +52,7 @@ test('the production catalog is explicit, grouped, and keeps canonical sources f
 		publicExamples.map((example) => [example.id, example.group]),
 		[
 			['interactive-background', 'Showcases'],
+			['refractive-flow', 'Showcases'],
 			['reference-renderer', 'Showcases'],
 			['three-interop', 'Showcases'],
 			['babylon-interop', 'Showcases'],
@@ -116,7 +120,7 @@ test('the production catalog is explicit, grouped, and keeps canonical sources f
 });
 
 test('every example declares a real reading entry with a source introduction', () => {
-	assert.equal(publicExamples.length, 16);
+	assert.equal(publicExamples.length, 17);
 	for (const example of publicExamples) {
 		const ordered = orderedSourceFiles(example);
 		assert.equal(ordered[0]!.id, example.entrySourceId);

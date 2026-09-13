@@ -1,3 +1,4 @@
+import type { SiteThemeController } from '../../shared/theme/controller.ts';
 import type { ExampleTag } from './exampleTags.ts';
 import type { FrameGraphSnapshot } from '@zenfg/inspector';
 
@@ -27,6 +28,7 @@ export type PlaygroundRuntime = {
 };
 
 export type PlaygroundMountContext = {
+	readonly theme?: Pick<SiteThemeController, 'get' | 'subscribe'>;
 	readonly signal?: AbortSignal;
 	readonly onLoading?: (message: string) => void;
 	/** Optional telemetry from a successfully submitted example frame. */

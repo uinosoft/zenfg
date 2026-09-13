@@ -28,6 +28,12 @@ test('Home language updates content, shared navigation, metadata and accessible 
 	assert.equal(toggle.getAttribute('aria-label'), '切换到英文');
 	assert.match(window.document.title, /面向/);
 	assert.match(window.document.querySelector('meta[name=description]')!.getAttribute('content')!, /面向/);
+	assert.equal(window.document.querySelector('[data-i18n=value]')?.textContent, '组织渲染流程，验证资源依赖，检查每一帧。');
+	assert.equal(window.document.querySelector('[data-i18n=validationTitle]')?.textContent, '资源验证');
+	assert.match(window.document.querySelector('[data-i18n=inspectionDescription]')!.textContent, /可嵌入/);
+	assert.equal(window.document.querySelector('.cover-story-marker')?.getAttribute('href'), './playground/?example=refractive-flow&panel=inspector');
+	assert.equal(window.document.querySelector('.cover-story-marker')?.getAttribute('aria-label'), '探索封面故事');
+	assert.equal(window.document.querySelector('[data-i18n=explore]')?.textContent, '探索');
 	assert.equal(window.localStorage.getItem('zenfg-language'), 'zh-CN');
 	language.restore();
 	assert.equal(window.document.documentElement.lang, 'zh-CN');
@@ -35,6 +41,8 @@ test('Home language updates content, shared navigation, metadata and accessible 
 	assert.equal(window.document.documentElement.lang, 'en');
 	assert.equal(window.document.querySelector('[aria-current=page]')?.textContent, 'Home');
 	assert.match(window.document.querySelector('[data-i18n=summary]')!.textContent, /independent/);
+	assert.equal(window.document.querySelector('[data-i18n=explore]')?.textContent, 'Explore');
+	assert.equal(window.document.querySelector('[data-i18n=validationTitle]')?.textContent, 'Resource validation');
 	language.destroy();
 	toggle.click();
 	assert.equal(window.document.documentElement.lang, 'en');
