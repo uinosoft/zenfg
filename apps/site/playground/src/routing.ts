@@ -1,6 +1,6 @@
 import type { PlaygroundPanel } from './types.ts';
 
-export const defaultExampleId = 'interactive-background';
+export const defaultExampleId = 'reference-renderer';
 
 export type PlaygroundRoute = {
 	readonly exampleId: string;

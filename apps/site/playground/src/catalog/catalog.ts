@@ -19,8 +19,6 @@ import { transientToPresentExample } from './webgpu/transientToPresent.ts';
 import type { PlaygroundExampleDefinition } from '../types.ts';
 
 export const publicExamples = [
-	interactiveBackgroundExample,
-	refractiveFlowExample,
 	referenceRendererExample,
 	threeInteropExample,
 	babylonInteropExample,
@@ -28,6 +26,8 @@ export const publicExamples = [
 	typeGpuSlimeMoldExample,
 	typeGpuMonocularLightInjectionExample,
 	particles4AllExample,
+	interactiveBackgroundExample,
+	refractiveFlowExample,
 	minimalFrameExample,
 	transientToPresentExample,
 	importedResourceExample,

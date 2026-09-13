@@ -29,6 +29,7 @@ try {
     assert.equal(await page.locator('[data-effect-status-text]').textContent(), 'Live');
     assert.equal(await page.locator('[data-example-feedback]').isVisible(), false);
     assert.deepEqual(await page.locator('[data-example-tags] li').allTextContents(), ['WebGPU', 'GPU Culling', 'Indirect Draw']);
+    await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' }));
     const stageSize = await page.locator('.demo-stage').boundingBox();
     assert.ok(Math.abs(stageSize.width / stageSize.height - 16 / 9) < .01, 'wide desktop canvas');
     assert.equal(await page.locator('.site-footer .site-brand').getAttribute('href'), await page.locator('.site-header .site-brand').getAttribute('href'), 'brand links share the home destination');
@@ -167,10 +168,11 @@ try {
     await page.locator('[data-controls-host] .tp-rotv').waitFor();
     assert.equal(await page.locator('[data-controls-host] .tp-rotv').evaluate(el => getComputedStyle(el).backgroundColor),
         'rgb(255, 255, 255)', 'new pane inherits persisted Light theme');
-    await page.locator('[data-example-directory] details').nth(1).locator('summary').click();
+    await page.locator('[data-example-directory] details').filter({ has: page.locator('[data-example-id=minimal-frame]') }).locator('summary').click();
     await page.locator('[data-example-id=minimal-frame]').click();
     assert.equal(await page.locator('html').getAttribute('data-theme'), 'light');
     assert.equal(await page.locator('[data-controls-host]').isVisible(), false);
+    await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' }));
     const noControlsStage = await page.locator('.demo-stage').boundingBox();
     assert.deepEqual(noControlsStage, stageSize, 'examples without controls retain the same canvas position and size');
     assert.equal(await page.locator('[data-example-description]').isVisible(), true);

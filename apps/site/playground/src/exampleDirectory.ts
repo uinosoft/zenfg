@@ -12,6 +12,20 @@ export function createExampleDirectory(options: {
 	const document = host.ownerDocument;
 	host.replaceChildren();
 	const links = new Map<string, HTMLAnchorElement>();
+	const search = document.createElement('input');
+	search.type = 'search';
+	search.className = 'directory-search';
+	search.placeholder = 'Filter examples…';
+	search.setAttribute('aria-label', 'Filter examples');
+	const empty = document.createElement('p');
+	empty.className = 'directory-empty';
+	empty.textContent = 'No matching examples.';
+	empty.setAttribute('role', 'status');
+	empty.hidden = true;
+	host.append(search);
+	const sections: HTMLDetailsElement[] = [];
+	const previousOpen = new Map<HTMLDetailsElement, boolean>();
+	let filtering = false;
 	for (const group of new Set(examples.map(example => example.group))) {
 		const entries = examples.filter(example => example.group === group);
 		const section = document.createElement('details');
@@ -32,10 +46,36 @@ export function createExampleDirectory(options: {
 		}
 		section.append(summary, list);
 		host.append(section);
+		sections.push(section);
 	}
+	host.append(empty);
+	const filter = () => {
+		const terms = search.value.trim().toLowerCase().split(/\s+/).filter(Boolean);
+		const active = terms.length > 0;
+		if (active && !filtering) for (const section of sections) previousOpen.set(section, section.open);
+		let count = 0;
+		for (const example of examples) {
+			const text = [example.title, example.id, example.group].join(' ').toLowerCase();
+			const match = terms.every(term => text.includes(term));
+			links.get(example.id)!.hidden = !match;
+			if (match) count++;
+		}
+		for (const section of sections) {
+			section.hidden = ![...section.querySelectorAll('a')].some(link => !link.hidden);
+			if (active) section.open = !section.hidden;
+			else if (filtering) section.open = previousOpen.get(section) ?? section.open;
+		}
+		empty.hidden = count !== 0;
+		filtering = active;
+	};
+	const keydown = (event: KeyboardEvent) => {
+		if (event.key === 'Escape' && search.value) { event.preventDefault(); search.value = ''; filter(); }
+	};
+	search.addEventListener('input', filter);
+	search.addEventListener('keydown', keydown);
 	function setPanel(panel: PlaygroundPanel): void {
 		for (const [exampleId, link] of links) link.href = routeSearch({ exampleId, panel });
 	}
 	setPanel(options.panel);
-	return { setPanel, destroy: () => host.replaceChildren() };
+	return { setPanel, destroy: () => { search.removeEventListener('input', filter); search.removeEventListener('keydown', keydown); host.replaceChildren(); } };
 }

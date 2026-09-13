@@ -31,7 +31,7 @@ test('playground panel controls are mutually exclusive and serializable', () => 
 	assert.equal(routeSearch({ exampleId: 'interactive-background', panel: 'inspector' }), '?example=interactive-background&panel=inspector');
 	assert.equal(routeSearch({ exampleId: 'refractive-flow', panel: 'inspector' }), '?example=refractive-flow&panel=inspector');
 	assert.equal(findPublicExample('refractive-flow')?.title, 'Refractive Flow');
-	assert.equal(defaultExampleId, 'interactive-background');
+	assert.equal(defaultExampleId, 'reference-renderer');
 });
 
 test('the production catalog is explicit, grouped, and keeps canonical sources first', () => {
@@ -51,8 +51,6 @@ test('the production catalog is explicit, grouped, and keeps canonical sources f
 	assert.deepEqual(
 		publicExamples.map((example) => [example.id, example.group]),
 		[
-			['interactive-background', 'Showcases'],
-			['refractive-flow', 'Showcases'],
 			['reference-renderer', 'Showcases'],
 			['three-interop', 'Showcases'],
 			['babylon-interop', 'Showcases'],
@@ -60,6 +58,8 @@ test('the production catalog is explicit, grouped, and keeps canonical sources f
 			['typegpu-slime-mold', 'Showcases'],
 			['typegpu-monocular-light-injection', 'Showcases'],
 			['particles4all-framegraph', 'Showcases'],
+			['interactive-background', 'Showcases'],
+			['refractive-flow', 'Showcases'],
 			['minimal-frame', '@zenfg/webgpu basics'],
 			['transient-to-present', '@zenfg/webgpu basics'],
 			['imported-resource', '@zenfg/webgpu basics'],
