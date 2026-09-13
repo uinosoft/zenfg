@@ -206,6 +206,10 @@ export abstract class BackgroundBrowserHost implements ZenBackgroundController {
             this.coarsePointer.matches,
             fieldDownsample,
         );
+        // Retire previous backing sizes before recording the next frame.
+        if (this.width !== dimensions.width || this.height !== dimensions.height) {
+            this.resources.graph.clearResourcePool();
+        }
         this.width = dimensions.width;
         this.height = dimensions.height;
         this.fieldWidth = dimensions.fieldWidth;

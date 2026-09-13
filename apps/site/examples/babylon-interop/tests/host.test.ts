@@ -65,6 +65,11 @@ test('host renders continuously, switches on the same device, and destroys borro
         }
         assert.equal(create.mock.callCount(), 1);
         host.resize(500, 200); host.flushFrame();
+        assert.ok(host.trace.destroyedTextures.some(texture => texture.label === 'babylon-interop.color'), 'resize destroys the previous pooled color attachment');
+        const destroyedAfterResize = host.trace.destroyedTextures.length;
+        host.resize(500, 200); host.flushFrame();
+        assert.equal(host.trace.destroyedTextures.length, destroyedAfterResize, 'same-size notifications preserve pooled resources');
+
         assert.equal(stub.bridge.getAttachments().depth.width, 500);
         assert.equal(host.trace.deviceDestroys, 0);
         const destroy = t.mock.method(stub.bridge, 'destroy', () => {

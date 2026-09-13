@@ -102,6 +102,11 @@ test('host renders continuously, captures real frames, resizes, and switches dep
         assert.equal(host.canvas.height, 200);
         assert.equal(host.trace.renderPasses.findLast(pass => pass.depthStencilAttachment)?.depthStencilAttachment?.depthClearValue, 1);
         assert.equal(host.trace.submits, 5);
+        assert.ok(host.trace.destroyedTextures.some(texture => texture.label === 'reference.scene-color'), 'resize destroys the previous pooled color attachment');
+        const destroyedAfterResize = host.trace.destroyedTextures.length;
+        host.resize(500, 200); host.flushFrame();
+        assert.equal(host.trace.destroyedTextures.length, destroyedAfterResize, 'same-size notifications preserve pooled resources');
+
         assert.equal(ready, 1);
         assert.deepEqual(errors, []);
         assert.throws(() => controller.setSettings({ instanceCount: 10_001 }), /instanceCount/);

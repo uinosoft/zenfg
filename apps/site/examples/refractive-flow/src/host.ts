@@ -292,6 +292,10 @@ export abstract class SurfaceBrowserHost implements RefractiveFlowController {
 			window.devicePixelRatio,
 			this.coarsePointer.matches,
 		);
+		// Retire previous backing sizes before recording the next frame.
+		if (this.width !== dimensions.width || this.height !== dimensions.height) {
+			this.resources.graph.clearResourcePool();
+		}
 		this.width = dimensions.width;
 		this.height = dimensions.height;
 		if (this.canvas.width !== this.width) this.canvas.width = this.width;

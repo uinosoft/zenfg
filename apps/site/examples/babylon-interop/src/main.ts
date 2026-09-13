@@ -68,6 +68,8 @@ function createHost(canvas: HTMLCanvasElement, device: GPUDevice, context: GPUCa
         if (state.disposed || state.suspended || state.switching) return;
         try {
             const size = resolveCanvasBackingSize(canvas, window.devicePixelRatio, device.limits.maxTextureDimension2D);
+            // Release transient attachments for the previous backing size.
+            if (canvas.width !== size.width || canvas.height !== size.height) graph.clearResourcePool();
             if (canvas.width !== size.width) canvas.width = size.width;
             if (canvas.height !== size.height) canvas.height = size.height;
             state.bridge.resize(size.width, size.height);
