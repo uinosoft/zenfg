@@ -3,7 +3,7 @@ import type { Plugin } from 'vite';
 import { visualThemes, visualMetrics } from '../../../../packages/inspector/src/themePalette.ts';
 import { cssThemeProperties } from '../theme/properties.ts';
 import { readThemePreference, themePreferenceKey } from '../theme/preference.ts';
-import { renderSiteHeader, type SitePage } from './template.ts';
+import { renderSiteFooter, renderSiteHeader, type SitePage } from './template.ts';
 
 /** Generate both palettes and bootstrap from the same data/functions used at runtime. */
 export function renderThemeBootstrap(): string {
@@ -23,7 +23,8 @@ export function siteShellPlugin(): Plugin {
 				const match = html.match(/<!-- site-header:(home|inspector|playground) -->/);
 				if (!match) return html; // Visual Lab remains an isolated consumer of the palette.
 				return html.replace(match[0], renderSiteHeader(match[1] as SitePage))
-					.replace('<!-- site-theme -->', renderThemeBootstrap());
+					.replace('<!-- site-theme -->', renderThemeBootstrap())
+					.replace(/<!-- site-footer:(home|playground) -->/, (_, page: 'home' | 'playground') => renderSiteFooter(page));
 			},
 		},
 	};

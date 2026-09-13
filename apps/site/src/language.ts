@@ -9,8 +9,7 @@ const translations: Record<Language, Record<string, string>> = {
 		title: 'ZenFG | FrameGraph for WebGPU and wgpu',
 		home: 'Home',
 		docs: 'Docs',
-		eyebrow: 'FrameGraph for WebGPU & wgpu',
-		summary: 'An independent, composable FrameGraph toolchain.',
+		summary: 'An independent, composable FrameGraph toolchain for WebGPU and wgpu.',
 		value: 'Organize rendering. Inspect every frame.',
 		capabilities: 'Capabilities',
 		runtimeTitle: 'TypeScript / Rust',
@@ -29,8 +28,7 @@ const translations: Record<Language, Record<string, string>> = {
 		github: 'GitHub',
 		note: 'Open source / MIT licensed',
 		projectLinks: 'Project resources',
-		languageLabel: '中文',
-		languageAction: 'Switch to Simplified Chinese',
+		languageAction: 'Choose language',
 		coverStory: 'Explore the cover story',
 		explore: 'Explore',
 	},
@@ -40,8 +38,7 @@ const translations: Record<Language, Record<string, string>> = {
 		title: 'ZenFG | 面向 WebGPU 与 wgpu 的 FrameGraph 工具链',
 		home: '首页',
 		docs: '文档',
-		eyebrow: '面向 WebGPU 与 wgpu 的 FrameGraph',
-		summary: '独立、可组合的 FrameGraph 工具链。',
+		summary: '面向 WebGPU 与 wgpu 的独立、可组合 FrameGraph 工具链。',
 		value: '组织渲染，洞察每一帧。',
 		capabilities: '核心能力',
 		runtimeTitle: 'TypeScript / Rust',
@@ -60,8 +57,7 @@ const translations: Record<Language, Record<string, string>> = {
 		github: 'GitHub',
 		note: '开源 / 采用 MIT 许可证',
 		projectLinks: '项目资源',
-		languageLabel: 'EN',
-		languageAction: '切换到英文',
+		languageAction: '选择语言',
 		coverStory: '探索封面故事',
 		explore: '探索',
 	},
@@ -94,26 +90,71 @@ function applyLanguage(language: Language): void {
 	}
 
 	const toggle = document.querySelector<HTMLButtonElement>('[data-language-toggle]');
-	const label = document.querySelector<HTMLElement>('[data-language-label]');
+
 	if (toggle) {
 		toggle.dataset.language = language;
 		toggle.setAttribute('aria-label', content.languageAction);
 		toggle.title = content.languageAction;
 	}
-	if (label) label.textContent = content.languageLabel;
+	for (const choice of document.querySelectorAll<HTMLButtonElement>('[data-language-choice]')) {
+		choice.setAttribute('aria-checked', String(choice.dataset.languageChoice === language));
+	}
+	document.querySelector('[role="menu"][id="site-language-menu"]')?.setAttribute('aria-label', content.languageAction);
 	document.documentElement.removeAttribute('data-language-pending');
 }
 
 /** Homepage-only language preference; shared navigation labels use data attributes. */
 export function installHomeLanguage(): { restore(): void; destroy(): void } {
-	const toggle = document.querySelector<HTMLButtonElement>('[data-language-toggle]');
+	const root = document.querySelector<HTMLElement>('[data-language-root]')!;
+	const toggle = root.querySelector<HTMLButtonElement>('[data-language-toggle]')!;
+	const menu = root.querySelector<HTMLElement>('[role=menu]')!;
+	const choices = [...root.querySelectorAll<HTMLButtonElement>('[data-language-choice]')];
 	let language: Language = document.documentElement.lang === 'zh-CN' ? 'zh-CN' : 'en';
 	applyLanguage(language);
-	const onClick = () => {
-		language = language === 'en' ? 'zh-CN' : 'en';
+	const close = (returnFocus = false) => {
+		menu.hidden = true;
+		toggle.setAttribute('aria-expanded', 'false');
+		if (returnFocus) toggle.focus();
+	};
+	const open = (index = choices.findIndex(choice => choice.dataset.languageChoice === language)) => {
+		menu.hidden = false;
+		toggle.setAttribute('aria-expanded', 'true');
+		choices[index]?.focus();
+	};
+	const click = (event: MouseEvent) => {
+		const target = event.target as Element;
+		if (toggle.contains(target)) { if (menu.hidden) open(); else close(true); return; }
+		const choice = target.closest<HTMLButtonElement>('[data-language-choice]');
+		if (!choice || !choices.includes(choice)) return;
+		language = choice.dataset.languageChoice === 'zh-CN' ? 'zh-CN' : 'en';
 		setStoredLanguage(language);
 		applyLanguage(language);
+		close(true);
 	};
-	toggle?.addEventListener('click', onClick);
-	return { restore: () => applyLanguage(language), destroy: () => toggle?.removeEventListener('click', onClick) };
+	const keydown = (event: KeyboardEvent) => {
+		if (event.key === 'Escape' && !menu.hidden) { event.preventDefault(); event.stopPropagation(); close(true); return; }
+		if (event.key === 'Tab') { close(true); return; }
+		if (!['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) return;
+		event.preventDefault();
+		if (menu.hidden) { open(event.key === 'ArrowUp' || event.key === 'End' ? choices.length - 1 : 0); return; }
+		const index = choices.indexOf(document.activeElement as HTMLButtonElement);
+		const next = event.key === 'Home' ? 0 : event.key === 'End' ? choices.length - 1 : (index + (event.key === 'ArrowDown' ? 1 : -1) + choices.length) % choices.length;
+		choices[next]?.focus();
+	};
+	const outside = (event: PointerEvent) => { if (!event.composedPath().includes(root)) close(); };
+	const focusout = (event: FocusEvent) => { if (!root.contains(event.relatedTarget as Node | null)) close(); };
+	root.addEventListener('click', click);
+	root.addEventListener('keydown', keydown);
+	root.addEventListener('focusout', focusout);
+	window.addEventListener('pointerdown', outside);
+	return {
+		restore() { close(); applyLanguage(language); },
+		destroy() {
+			close();
+			root.removeEventListener('click', click);
+			root.removeEventListener('keydown', keydown);
+			root.removeEventListener('focusout', focusout);
+			window.removeEventListener('pointerdown', outside);
+		},
+	};
 }

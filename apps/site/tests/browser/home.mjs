@@ -10,7 +10,7 @@ await mkdir(out, { recursive: true });
 const browser = await chromium.launch({ ...(process.env.GPU_TEST_BROWSER ? { executablePath: process.env.GPU_TEST_BROWSER } : process.platform === 'win32' ? { channel: 'msedge' } : {}), headless: true, args: ['--enable-unsafe-webgpu'] });
 const report = [];
 async function paintedContrast(page) {
-	const text = await page.evaluate(() => [...document.querySelectorAll('.summary,.value,.eyebrow')].map(el => {
+	const text = await page.evaluate(() => [...document.querySelectorAll('.summary,.value')].map(el => {
 		const range = document.createRange(); range.selectNodeContents(el);
 		return { color: getComputedStyle(el).color, rects: [...range.getClientRects()].map(r => ({ x: r.x, y: r.y, width: r.width, height: r.height })) };
 	}));
@@ -61,7 +61,10 @@ try {
 		for (const mode of ['dark', 'light']) {
 			if (await page.locator('html').getAttribute('data-theme') !== mode) await page.locator('[data-theme-toggle]').click();
 			for (const language of ['en', 'zh-CN']) {
-				if (await page.locator('html').getAttribute('lang') !== language) await page.locator('[data-language-toggle]').click();
+				if (await page.locator('html').getAttribute('lang') !== language) {
+					await page.locator('[data-language-toggle]').click();
+					await page.locator(`[data-language-choice="${language}"]`).click();
+				}
 				await page.evaluate(() => scrollTo(0, 0));
 				assert.deepEqual(await page.locator('h1,.site-brand').allTextContents(), ['ZenFG', 'ZenFG', 'ZenFG']);
 				assert.ok(await page.locator('.brand-accent').evaluateAll(elements => { const probe = document.createElement('span'); probe.style.color = 'var(--zenfg-accent)'; document.body.append(probe); const color = getComputedStyle(probe).color; probe.remove(); return elements.every(el => getComputedStyle(el).color === color); }));
@@ -76,7 +79,7 @@ try {
 					const content = document.querySelector('main').getBoundingClientRect();
 					const canvas = document.querySelector('[data-zenfg-background]');
 					const marker = document.querySelector('.cover-story-marker').getBoundingClientRect();
-					const copyRects = [...document.querySelectorAll('.eyebrow,h1,.summary,.value')].flatMap(el => { const range = document.createRange(); range.selectNodeContents(el); return [...range.getClientRects()]; });
+					const copyRects = [...document.querySelectorAll('h1,.summary,.value')].flatMap(el => { const range = document.createRange(); range.selectNodeContents(el); return [...range.getClientRects()]; });
 					const markerClearsCopy = copyRects.every(rect => marker.right <= rect.left || marker.left >= rect.right || marker.bottom <= rect.top || marker.top >= rect.bottom);
 					const toRgb = value => value.match(/[\d.]+/g).slice(0, 3).map(Number);
 					const luminance = rgb => rgb.map(v => { const s = v / 255; return s <= .04045 ? s / 12.92 : ((s + .055) / 1.055) ** 2.4; }).reduce((s, v, i) => s + v * [.2126, .7152, .0722][i], 0);

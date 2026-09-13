@@ -34,7 +34,7 @@ const updateCoverLayout = () => {
 			(Math.max(...rects.map(r => r.right)) - left + 4) / width,
 			(Math.max(...rects.map(r => r.bottom)) - top + 4) / height];
 	};
-	readingRegions = [region('.eyebrow,h1'), region('.summary'), region('.value')];
+	readingRegions = [region('h1'), region('.summary'), region('.value')];
 	for (const listener of readingListeners) listener();
 	fallback.innerHTML = surfaceFallbackSvg(width, height, readingRegions);
 	positionMarker(projectPoint(coverFocus, width / height, width < 600));

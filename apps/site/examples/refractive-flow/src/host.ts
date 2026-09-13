@@ -335,8 +335,8 @@ export abstract class SurfaceBrowserHost implements RefractiveFlowController {
 		this.uniformData.set([
 			this.width,
 			this.height,
-			this.parallaxX * 24 / this.cssWidth,
-			-this.parallaxY * 18 / this.cssHeight,
+			-this.parallaxX * 36 / this.cssWidth,
+			this.parallaxY * 27 / this.cssHeight,
 			this.pointerX,
 			this.pointerY,
 			this.velocityX,

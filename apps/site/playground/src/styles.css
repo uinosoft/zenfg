@@ -693,27 +693,7 @@ body:has(.tool-workbench[data-maximized=true]) {
 .example-details a:focus-visible { outline: 2px solid var(--zenfg-accent); outline-offset: 3px; }
 .example-references { margin: 8px 0 0; color: var(--zenfg-secondary); font-size: var(--site-font-caption); line-height: 1.6; overflow-wrap: anywhere; }
 
-.playground-footer {
-	min-height: 12.5svh;
-	display: flex;
-	align-items: flex-end;
-	padding-top: 24px;
-	color: var(--zenfg-secondary);
-	font-size: var(--site-font-caption);
-}
-.playground-footer__row {
-	width: 100%;
-	display: flex;
-	align-items: center;
-	justify-content: space-between;
-	flex-wrap: wrap;
-	gap: 18px;
-	border-top: 1px solid var(--zenfg-divider);
-	padding-top: 20px;
-}
-.playground-footer a { color: inherit; text-decoration: none; }
-.playground-footer a:hover { color: var(--zenfg-accent); }
-.playground-footer a:focus-visible { outline: 2px solid var(--zenfg-accent); outline-offset: 4px; }
-.playground-footer__brand { font-weight: 600; }
-.playground-footer__brand span { margin-left: 8px; font-weight: 400; }
-.playground-footer nav { display: flex; align-items: center; gap: 20px; }
+.back-to-top-row { display: flex; justify-content: flex-end; padding: 24px 0 20px; }
+.back-to-top { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 10px; color: var(--zenfg-secondary); font-size: var(--site-font-caption); text-decoration: none; border-radius: var(--zenfg-radius-small); }
+.back-to-top:hover { color: var(--zenfg-accent); background: var(--zenfg-hover); }
+.back-to-top:focus-visible { outline: 2px solid var(--zenfg-accent); outline-offset: 3px; }

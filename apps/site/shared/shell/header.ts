@@ -9,7 +9,7 @@ export function installSiteHeader(window: Window, theme: SiteThemeController): (
 	const navigation = header.querySelector<HTMLElement>('#site-navigation')!;
 	const narrow = window.matchMedia('(max-width: 800px)');
 	let open = false;
-	for (const placeholder of header.querySelectorAll<HTMLElement>('[data-site-icon]')) {
+	for (const placeholder of window.document.querySelectorAll<HTMLElement>('[data-site-icon]')) {
 		placeholder.replaceChildren(createIcon(window.document, placeholder.dataset.siteIcon as IconName));
 	}
 	const setOpen = (value: boolean, returnFocus = false): void => {

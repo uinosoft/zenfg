@@ -17,6 +17,14 @@ import type { PlaygroundExampleDefinition, PlaygroundPanel, PlaygroundRuntime } 
 
 const theme = createSiteTheme(window);
 const disposeHeader = installSiteHeader(window, theme);
+const backToTop = requireElement<HTMLAnchorElement>('.back-to-top');
+const returnToTop = (event: MouseEvent) => {
+	if (event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
+	event.preventDefault();
+	document.querySelector<HTMLAnchorElement>('.site-header .site-brand')?.focus({ preventScroll: true });
+	window.scrollTo({ top: 0, behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth' });
+};
+backToTop.addEventListener('click', returnToTop);
 
 const playground = requireElement<HTMLElement>('[data-playground]');
 const effectCanvas = requireElement<HTMLCanvasElement>('[data-effect-canvas]');
@@ -206,6 +214,7 @@ installAppPageLifecycle(window, {
 		sourceView?.destroy();
 		unsubscribeTheme();
 		disposeHeader();
+		backToTop.removeEventListener('click', returnToTop);
 		theme.destroy();
 		inspector?.destroy();
 		runtime?.dispose();

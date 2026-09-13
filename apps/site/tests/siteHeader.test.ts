@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { Window } from 'happy-dom';
-import { renderSiteHeader, type SitePage } from '../shared/shell/template.ts';
+import { renderSiteFooter, renderSiteHeader, type SitePage } from '../shared/shell/template.ts';
 import { installSiteHeader } from '../shared/shell/header.ts';
 import { createSiteTheme } from '../shared/theme/controller.ts';
 
@@ -75,4 +75,20 @@ test('single theme button follows external theme and language changes and unsubs
 	window.document.documentElement.lang = 'en';
 	await window.happyDOM.whenAsyncComplete();
 	assert.equal(button.title, '切换到亮色主题');
+});
+
+test('shared footers retain home destinations and accessible icon-only GitHub links', () => {
+	for (const page of ['home', 'playground'] as const) {
+		const window = new Window();
+		window.document.body.innerHTML = renderSiteHeader(page) + renderSiteFooter(page);
+		assert.equal(window.document.querySelector('.site-footer .site-brand')?.getAttribute('href'), page === 'home' ? './' : '../');
+		assert.equal(window.document.querySelector('.site-footer .note')?.textContent, 'Open source / MIT licensed');
+		for (const link of window.document.querySelectorAll('.site-github')) {
+			assert.equal(link.getAttribute('aria-label'), 'GitHub');
+			assert.equal(link.getAttribute('title'), 'GitHub');
+			assert.equal(link.textContent, '');
+			assert.ok(link.querySelector('[data-site-icon=github]'));
+		}
+		window.happyDOM.abort();
+	}
 });
