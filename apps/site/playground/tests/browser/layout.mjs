@@ -25,7 +25,7 @@ try {
     await page.locator('.zenfg-inspector-graph-canvas canvas').first().waitFor();
     await page.locator('.zenfg-inspector-graph-status').waitFor({ state: 'hidden' });
     assert.equal(await page.locator('[data-panel-button=inspector]').getAttribute('aria-selected'), 'true');
-    assert.equal(await page.locator('[data-example-directory] a').count(), 16);
+    assert.equal(await page.locator('[data-example-directory] a').count(), 17);
     assert.equal(await page.locator('[data-effect-status-text]').textContent(), 'Live');
     assert.equal(await page.locator('[data-example-feedback]').isVisible(), false);
     assert.deepEqual(await page.locator('[data-example-tags] li').allTextContents(), ['WebGPU', 'GPU Culling', 'Indirect Draw']);
@@ -53,7 +53,7 @@ try {
         return [s.color, s.backgroundColor, s.colorScheme];
     }));
     const darkStyles = await embeddedStyles();
-    await page.locator('[data-theme-mode=light]').click();
+    if (await page.locator('html').getAttribute('data-theme') !== 'light') await page.locator('[data-theme-toggle]').click();
     const lightStyles = await embeddedStyles();
     assert.notDeepEqual(lightStyles[0], darkStyles[0], 'Inspector follows the selected theme');
     assert.equal(lightStyles[0][2], 'light');
@@ -62,7 +62,7 @@ try {
     for (const width of [1440, 1277, 1024, 390]) {
         await page.setViewportSize({ width, height: width === 390 ? 844 : 920 });
         for (const mode of ['dark', 'light']) {
-            await page.locator('[data-theme-mode=' + mode + ']').click();
+            if (await page.locator('html').getAttribute('data-theme') !== mode) await page.locator('[data-theme-toggle]').click();
             const paneStyles = await page.locator('[data-controls-host] .tp-rotv').evaluate(el => {
                 const style = getComputedStyle(el);
                 const input = getComputedStyle(el.querySelector('.tp-txtv_i'));
@@ -117,7 +117,7 @@ try {
     const scroll = await page.locator('[data-source-content]').evaluate(el => [el.scrollTop, el.scrollLeft]);
     const selected = await page.locator('[data-source-files] .active').getAttribute('data-source-id');
     const darkCode = await page.locator('.shiki .line span').first().evaluate(el => getComputedStyle(el).color);
-    await page.locator('[data-theme-mode=dark]').click();
+    if (await page.locator('html').getAttribute('data-theme') !== 'dark') await page.locator('[data-theme-toggle]').click();
     const newCode = await page.locator('.shiki .line span').first().evaluate(el => getComputedStyle(el).color);
     assert.notEqual(darkCode, newCode, 'actual code colors change with theme');
     assert.deepEqual(await page.locator('[data-source-content]').evaluate(el => [el.scrollTop, el.scrollLeft]), scroll);
@@ -162,7 +162,7 @@ try {
     assert.equal(await page.locator('[data-overlay-close]').count(), 0);
     assert.equal(await page.locator('[data-playground]').getAttribute('data-panel'), 'code');
     await page.locator('[data-panel-button=inspector]').click();
-    await page.locator('[data-theme-mode=light]').click();
+    if (await page.locator('html').getAttribute('data-theme') !== 'light') await page.locator('[data-theme-toggle]').click();
     await page.reload();
     await page.locator('[data-controls-host] .tp-rotv').waitFor();
     assert.equal(await page.locator('[data-controls-host] .tp-rotv').evaluate(el => getComputedStyle(el).backgroundColor),
@@ -217,7 +217,7 @@ try {
     const noStorage = await browser.newPage();
     await noStorage.addInitScript(() => Object.defineProperty(window, 'localStorage', { get() { throw new Error('blocked storage'); } }));
     await noStorage.goto(base + '?example=minimal-frame&panel=code');
-    await noStorage.locator('[data-theme-mode=light]').click();
+    if (await noStorage.locator('html').getAttribute('data-theme') !== 'light') await noStorage.locator('[data-theme-toggle]').click();
     assert.equal(await noStorage.locator('html').getAttribute('data-theme'), 'light');
     await noStorage.close();
     report.interactions.push('theme works without storage');

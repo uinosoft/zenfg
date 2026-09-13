@@ -104,7 +104,7 @@ try {
    }));
    const beforeTheme = await paneState();
    for (const mode of ['light', 'dark']) {
-    await page.locator('[data-theme-mode=' + mode + ']').click();
+    if (await page.locator('html').getAttribute('data-theme') !== mode) await page.locator('[data-theme-toggle]').click();
     assert.deepEqual(await paneState(), beforeTheme, 'theme preserves values, folds and host scroll');
     const monitor = await folder.locator('input').first().evaluate(el => {
      const s = getComputedStyle(el); return [s.color, s.backgroundColor];
@@ -147,7 +147,7 @@ try {
   for (const width of [1277, 390]) {
    await page.setViewportSize({ width, height: 920 });
    for (const mode of ['dark','light']) {
-    await page.locator('[data-theme-mode=' + mode + ']').click();
+    if (await page.locator('html').getAttribute('data-theme') !== mode) await page.locator('[data-theme-toggle]').click();
     await page.evaluate(async () => { window.scrollTo({top:0,behavior:'instant'}); await new Promise(requestAnimationFrame); await new Promise(requestAnimationFrame); });
     assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
     const stage = await page.locator('.demo-stage').boundingBox();

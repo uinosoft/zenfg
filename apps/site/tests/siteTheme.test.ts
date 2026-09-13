@@ -54,7 +54,7 @@ test('generated pre-paint script selects theme and browser chrome before page mo
 test('runtime sync preserves mounted content and supports storage events and BFCache restore', t => {
 	const window = new Window({ url: 'http://localhost/inspector/' });
 	window.document.head.innerHTML = '<meta name="theme-color">';
-	window.document.body.innerHTML = renderSiteHeader('inspector') + '<input value="retained"><div data-workspace></div>';
+	window.document.body.innerHTML = renderSiteHeader('inspector') + '<input value="retained"><div data-workspace></div><button data-theme-mode="light">Light</button>';
 	const input = window.document.querySelector('input');
 	const workspace = window.document.querySelector('[data-workspace]');
 	const theme = createSiteTheme(window as unknown as globalThis.Window);

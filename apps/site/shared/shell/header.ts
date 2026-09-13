@@ -21,13 +21,20 @@ export function installSiteHeader(window: Window, theme: SiteThemeController): (
 		if (returnFocus) menu.focus();
 	};
 	const cleanup: Array<() => void> = [];
-	for (const button of header.querySelectorAll<HTMLButtonElement>('[data-theme-mode]')) {
-		const mode = button.dataset.themeMode === 'light' ? 'light' : 'dark';
-		setIconButton(button, mode === 'light' ? 'sun' : 'moon', mode === 'light' ? 'Light' : 'Dark');
-		const select = () => theme.set(mode);
-		button.addEventListener('click', select);
-		cleanup.push(() => button.removeEventListener('click', select));
-	}
+	const themeButton = header.querySelector<HTMLButtonElement>('[data-theme-toggle]')!;
+	const localized = Boolean(header.querySelector('[data-language-toggle]'));
+	const syncTheme = () => {
+		const dark = theme.get() === 'dark';
+		const chinese = localized && window.document.documentElement.lang.startsWith('zh');
+		const label = chinese ? (dark ? '切换到亮色主题' : '切换到暗色主题') : (dark ? 'Switch to light theme' : 'Switch to dark theme');
+		setIconButton(themeButton, dark ? 'moon' : 'sun', label);
+	};
+	const switchTheme = () => theme.set(theme.get() === 'dark' ? 'light' : 'dark');
+	themeButton.addEventListener('click', switchTheme);
+	const languageObserver = new (window as unknown as typeof globalThis).MutationObserver(syncTheme);
+	languageObserver.observe(window.document.documentElement, { attributes: true, attributeFilter: ['lang'] });
+	cleanup.push(theme.subscribe(syncTheme), () => languageObserver.disconnect(), () => themeButton.removeEventListener('click', switchTheme));
+	syncTheme();
 	const toggle = () => {
 		setOpen(!open);
 		if (open) navigation.querySelector<HTMLAnchorElement>('a')?.focus();

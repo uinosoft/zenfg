@@ -59,10 +59,15 @@ try {
 	for (const width of [2560, 1920, 1440, 1024, 768, 390, 360, 320]) {
 		await page.setViewportSize({ width, height: 1000 });
 		for (const mode of ['dark', 'light']) {
-			await page.locator(`[data-theme-mode=${mode}]`).click();
+			if (await page.locator('html').getAttribute('data-theme') !== mode) await page.locator('[data-theme-toggle]').click();
 			for (const language of ['en', 'zh-CN']) {
 				if (await page.locator('html').getAttribute('lang') !== language) await page.locator('[data-language-toggle]').click();
 				await page.evaluate(() => scrollTo(0, 0));
+				assert.deepEqual(await page.locator('h1,.site-brand').allTextContents(), ['ZenFG', 'ZenFG', 'ZenFG']);
+				assert.ok(await page.locator('.brand-accent').evaluateAll(elements => { const probe = document.createElement('span'); probe.style.color = 'var(--zenfg-accent)'; document.body.append(probe); const color = getComputedStyle(probe).color; probe.remove(); return elements.every(el => getComputedStyle(el).color === color); }));
+				assert.equal(await page.locator('[data-theme-toggle] svg').getAttribute('data-icon'), mode === 'dark' ? 'moon' : 'sun');
+				assert.equal(await page.locator('[data-theme-toggle]').getAttribute('title'), language === 'zh-CN' ? (mode === 'dark' ? '切换到亮色主题' : '切换到暗色主题') : (mode === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'));
+				assert.equal(await page.locator('.footer-links a').count(), 2);
 				await page.waitForTimeout(150);
 				const layout = await page.evaluate(() => {
 					const intro = document.querySelector('.intro').getBoundingClientRect();
@@ -128,7 +133,7 @@ try {
 	await page.evaluate(() => window.gpuAudit.devices[0].destroy());
 	await page.waitForFunction(() => document.documentElement.dataset.webgpuBackground === 'failed');
 	assert.equal(await page.locator('.cover-fallback').evaluate(el => getComputedStyle(el).visibility), 'visible');
-	await page.locator('[data-theme-mode=dark]').click();
+	if (await page.locator('html').getAttribute('data-theme') !== 'dark') await page.locator('[data-theme-toggle]').click();
 	assert.equal(await page.evaluate(() => window.gpuAudit.devices.length), 1);
 	await page.locator('.hero-actions a').last().focus();
 	await page.keyboard.press('Tab');
@@ -181,6 +186,7 @@ try {
 	await touch.waitForFunction(() => document.documentElement.dataset.webgpuBackground === 'ready');
 	assert.ok(await touch.locator('[data-zenfg-background]').evaluate(el => el.width * el.height <= 300000));
 	assert.equal(await touch.locator('[data-zenfg-background]').evaluate(el => getComputedStyle(el).touchAction), 'pan-y');
+	assert.ok(await touch.locator('.site-header .site-control').evaluateAll(elements => elements.every(el => { const rect = el.getBoundingClientRect(); return rect.width >= 44 && rect.height >= 44; })));
 	const cdp = await touch.context().newCDPSession(touch);
 	await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: 370, y: 420 }] });
 	for (const y of [390, 350, 310, 270, 230, 190]) {

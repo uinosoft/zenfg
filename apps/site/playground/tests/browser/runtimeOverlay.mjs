@@ -16,7 +16,7 @@ try {
  await loading.goto(base + '?example=minimal-frame&panel=code');
  await loading.locator('[data-status-preview]').waitFor();
  const overlayColor = await loading.locator('[data-status-preview]').evaluate(el => getComputedStyle(el).color);
- await loading.locator('[data-theme-mode=light]').click();
+ if (await loading.locator('html').getAttribute('data-theme') !== 'light') await loading.locator('[data-theme-toggle]').click();
  assert.equal(await loading.locator('[data-status-preview]').evaluate(el => getComputedStyle(el).color), overlayColor, 'dark overlay stays readable in the light theme');
  assert.equal(await loading.locator('.demo-card > [data-example-feedback]').count(), 0);
  const intro = await loading.locator('.example-intro').boundingBox();
