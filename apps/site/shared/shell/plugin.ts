@@ -21,7 +21,7 @@ export function siteShellPlugin(): Plugin {
 			order: 'pre',
 			handler(html) {
 				const match = html.match(/<!-- site-header:(home|inspector|playground) -->/);
-				if (!match) return html; // Visual Lab remains an isolated consumer of the palette.
+				if (!match) return html;
 				return html.replace(match[0], renderSiteHeader(match[1] as SitePage))
 					.replace('<!-- site-theme -->', renderThemeBootstrap())
 					.replace(/<!-- site-footer:(home|playground) -->/, (_, page: 'home' | 'playground') => renderSiteFooter(page));

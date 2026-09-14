@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { runInNewContext } from 'node:vm';
 import { Window } from 'happy-dom';
+import { applyVisualTheme, visualThemes } from '../shared/theme/index.ts';
 import { readThemePreference, themePreferenceKey } from '../shared/theme/preference.ts';
 import { createSiteTheme } from '../shared/theme/controller.ts';
 import { renderThemeBootstrap } from '../shared/shell/plugin.ts';
@@ -109,4 +110,37 @@ test('failed persistence does not revert the local selection on BFCache restorat
 	Object.defineProperty(show, 'persisted', { value: true });
 	window.dispatchEvent(show);
 	assert.equal(theme.get(), 'light');
+});
+
+
+test('shared theme application isolates owned containers from siblings and the document', t => {
+    const dom = new Window();
+    t.after(() => dom.happyDOM.abort());
+    const first = dom.document.createElement('section');
+    const second = dom.document.createElement('section');
+    dom.document.body.append(first, second);
+    applyVisualTheme(first as unknown as HTMLElement, 'dark');
+    applyVisualTheme(second as unknown as HTMLElement, 'light');
+    applyVisualTheme(first as unknown as HTMLElement, 'light');
+    assert.equal(second.style.getPropertyValue('--zenfg-canvas'), visualThemes.light.canvas);
+    assert.equal(first.style.getPropertyValue('--zenfg-canvas'), visualThemes.light.canvas);
+    assert.equal(dom.document.documentElement.getAttribute('style'), null);
+    assert.equal(dom.document.body.getAttribute('data-theme'), null);
+});
+
+test('shared palettes retain readable UI and code token contrast', () => {
+    const luminance = (hex: string) => hex.slice(1).match(/../g)!.map(channel => parseInt(channel, 16) / 255)
+        .map(value => value <= .04045 ? value / 12.92 : ((value + .055) / 1.055) ** 2.4)
+        .reduce((sum, value, index) => sum + value * [.2126, .7152, .0722][index]!, 0);
+    const contrast = (a: string, b: string) => (Math.max(luminance(a), luminance(b)) + .05) / (Math.min(luminance(a), luminance(b)) + .05);
+    for (const [mode, palette] of Object.entries(visualThemes)) {
+        for (const token of ['text', 'secondary', 'muted', 'accent', 'purple', 'cyan', 'success', 'warning', 'danger', 'comment', 'keyword', 'string', 'number', 'function', 'type', 'property', 'render', 'compute', 'copy', 'clear', 'command', 'external', 'declaration', 'output', 'texture', 'buffer'] as const) {
+            for (const surface of ['canvas', 'sidebar', 'panel', 'inset', 'hover', 'accentSoft'] as const) {
+                if (['text', 'secondary', 'muted', 'accent'].includes(token) || surface === 'canvas' || surface === 'panel') {
+                    assert.ok(contrast(palette[token], palette[surface]) >= 4.5, mode + ' ' + token + '/' + surface);
+                }
+            }
+        }
+        assert.ok(contrast(palette.onAccent, palette.accent) >= 4.5, mode + ' primary button contrast');
+    }
 });

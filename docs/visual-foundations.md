@@ -1,33 +1,8 @@
 # ZenFG visual foundations — Storm & Light
 
-This local visual lab establishes the first shared visual vocabulary. It does
-not itself migrate production pages, and it adds no
-published API or Snapshot fields.
 
-## Preview and build
-
-From the repository root, with the existing dependencies installed:
-
-```sh
-npm run dev:visual-lab
-# http://127.0.0.1:5176/visual-lab/
-
-npm run build:visual-lab
-# .test-dist/visual-lab/visual-lab/index.html
-```
-
-To preview the standalone build, serve the **output root**, not just its HTML
-subdirectory, so relative assets resolve:
-
-```sh
-node node_modules/vite/bin/vite.js preview --outDir .test-dist/visual-lab --host 127.0.0.1 --port 5178 --strictPort
-# http://127.0.0.1:5178/visual-lab/
-```
-
-The visual-lab Vite mode uses a separate HTML input and output directory. The
-normal `npm run build` and Pages assembly do not include the lab. Build artifacts
-and QA images are disposable; the repository test runner clears `.test-dist`,
-so rebuild the lab after running that runner.
+These shared design foundations define the production Home, Inspector, and
+Playground appearance. Validate visual changes on those pages.
 
 ## Direction
 
@@ -96,8 +71,7 @@ same palettes, a common site header, and the site-wide Dark / Light preference.
 Its Dark background retains the interactive showcase behind a Storm-colored
 contrast layer; Light uses static grids and gradients without initializing GPU
 resources. See the [Site shell documentation](../apps/site/README.md#shared-site-shell)
-for component ownership, migration and lifecycle behavior. The lab stays
-independently buildable and excluded from Pages output.
+for component ownership, migration and lifecycle behavior.
 
 ## Shared definitions and site integration
 
@@ -114,11 +88,9 @@ import { applyVisualTheme } from '../shared/theme/index.ts';
 applyVisualTheme(ownedContainer, 'dark');
 ```
 
-The lab's CSS, Tweakpane custom properties, SVG graph, color swatches, and
-custom Shiki theme registrations consume these definitions. Shiki generates
-both themes once; changing the container's theme changes colors without
-recreating source markup or losing its scroll position. Parameters and graph
-selection similarly remain mounted during theme changes.
+The Playground CSS, Tweakpane adapter, and Shiki theme registrations consume
+these definitions. Both code themes are generated together, so switching the
+container theme preserves source markup and scroll position.
 
 The published Inspector remains independent of `apps/`. Its pure theme entry
 exports official preset objects, and its optional `themes.css` is generated from
@@ -126,49 +98,15 @@ the same definitions. The public `--zfgi-*` variables customize both DOM and
 graph styles; dynamic external CSS changes use `refreshTheme()`. Host preference
 selection and storage remain app-owned. See [Inspector theming](../packages/inspector/THEMING.md).
 
-## What the sample does
-
-- The example-page layout has a collapsible directory, fixed geometric
-  illustration, real Tweakpane controls, Inspector/Code tabs with a short graph note,
-  and a component gallery. Mobile navigation starts collapsed, and parameters
-  move below the illustration. The graph and code scroll inside their regions.
-- The illustration and SVG graph are labeled samples, not live GPU results.
-  Parameters change local sample values only; reset restores their defaults.
-  Other catalog titles are static directory references, not links to missing
-  pages in the standalone build; the active sample and foundations anchors work.
-- The Code tab displays the exact `minimal-frame.ts` recipe, including its
-  introduction. It is explicitly a separate code sample, not the implementation
-  of the illustrative Reference Renderer scene. Copy uses the original source.
-- The lab starts in Dark (Storm-inspired), with an explicit Light switch. It does not follow
-  system appearance or store preferences. Theme changes retain selected graph
-  nodes, parameter values, tabs, inputs, and scroll positions.
-- The example heading is compact, and the scene directly precedes the tools.
-  Desktop scene height adapts to the viewport (340–440px, about 423px at 920px
-  tall). Mobile uses 260–340px. The 1277×920 review viewport shows actual graph
-  nodes in its first screen. The longer explanation follows the graph.
-- Thin scrollbars follow the palette in the directory, code, graph, and page
-  viewport. The standalone entry explicitly owns the document's scrollbar
-  colors and color scheme; the shared container helper remains isolated.
-- The component gallery exercises focus, hover, selection, disabled controls,
-  feedback, input, status, and graph colors. Its controls are sample interactions.
-
 ## Validation
 
 ```sh
-npm run typecheck --workspace @zenfg/site-app
-npm run build
-npm run build:visual-lab
-node apps/site/playground/tests/browser/visualLab.mjs
+npm run typecheck
+npm test
+npm run build:site
 ```
 
-The browser script uses an existing Playwright installation. Set
-`PLAYWRIGHT_MODULE` to its absolute `index.mjs` path when it is not installed in
-this workspace. It uses Edge on Windows and bundled Chromium elsewhere.
-`VISUAL_LAB_URL` can point to the standalone build's URL for production QA.
-
-The script checks both themes at 1440, 1277, 1024, and 390px, page overflow, code
-typography and actual code colors, semantic token contrast, exact clipboard
-content, keyboard tabs and graph selection, real parameter controls/reset,
-theme state and scroll preservation, and mobile directory behavior. It writes
-full-page and code screenshots plus `report.json` to `.test-dist/visual-lab-qa`.
-It needs no WebGPU adapter, model downloads, or external image assets.
+Node tests cover shared theme isolation, palette contrast, preference handling,
+and page lifecycle behavior. Review the production Home, Inspector, and
+Playground in both themes for layout, focus, code readability, and responsive
+behavior using the [Site validation guidance](../apps/site/README.md#shared-site-shell).

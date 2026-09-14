@@ -17,7 +17,6 @@
 		"shared/**/*",
 		"inspector/src/**/*",
 		"playground/src/**/*",
-		"visual-lab/**/*",
 		"examples/*/src/**/*",
 		"vite.config.ts",
 		"tests/**/*.ts",

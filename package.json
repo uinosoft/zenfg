@@ -22,8 +22,6 @@
     "cargo:package-check": "node ./scripts/check-cargo-packages.mjs",
     "cargo:release-check": "node ./scripts/check-cargo-release.mjs",
     "dev": "npm run dev --workspace @zenfg/site-app",
-    "dev:visual-lab": "npm run dev --workspace @zenfg/site-app -- --mode visual-lab --port 5176 --strictPort --base /",
-    "build:visual-lab": "npm run build --workspace @zenfg/site-app -- --mode visual-lab",
     "docs:check": "node ./scripts/check-public-docs.mjs",
     "test:cross-language": "npm run build:packages && node ./scripts/run-cross-language-conformance.mjs",
     "typecheck:examples": "tsc --noEmit -p packages/webgpu/examples/tsconfig.json",

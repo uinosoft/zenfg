@@ -6,10 +6,8 @@ canvas and parameters with runtime status first, then the title, optional brief
 description and topic tags, followed by the Inspector / Code workbench.
 The public route and example IDs retain their existing names.
 
-The local Storm / Light visual prototype is available with
-`npm run dev:visual-lab` at `http://127.0.0.1:5176/visual-lab/`. It is excluded
-from normal production builds. See [visual foundations](../../../docs/visual-foundations.md)
-for the independent build, shared tokens, and browser acceptance workflow.
+See [visual foundations](../../../docs/visual-foundations.md) for the shared
+Storm / Light design tokens and validation workflow.
 
 ```sh
 npm install
@@ -103,7 +101,7 @@ frame rates.
 Frame callbacks feed both calculations. A shared 250ms timer publishes the average
 and clears stale readings; it never appends graph history.
 
-Code uses the same Shiki theme definitions as the visual lab, registering both
+Code uses the shared Shiki theme definitions, registering both
 TypeScript and JavaScript. Dual-theme markup changes colors without remounting;
 failed highlighting leaves the exact source readable and copyable.
 

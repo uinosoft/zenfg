@@ -3,7 +3,7 @@ import { fileURLToPath } from 'node:url';
 import typegpuPlugin from 'unplugin-typegpu/vite';
 import { siteShellPlugin } from './shared/shell/plugin.ts';
 
-export default defineConfig(({ mode }) => ({
+export default defineConfig({
 	base: './',
 	resolve: {
 		tsconfigPaths: true,
@@ -25,20 +25,12 @@ export default defineConfig(({ mode }) => ({
 	build: {
 		target: 'es2022',
 		sourcemap: true,
-		...(mode === 'visual-lab' ? {
-			outDir: '../../.test-dist/visual-lab',
-			emptyOutDir: true,
-			rolldownOptions: {
-				input: fileURLToPath(new URL('./visual-lab/index.html', import.meta.url)),
+		rolldownOptions: {
+			input: {
+				home: fileURLToPath(new URL('./index.html', import.meta.url)),
+				inspector: fileURLToPath(new URL('./inspector/index.html', import.meta.url)),
+				playground: fileURLToPath(new URL('./playground/index.html', import.meta.url)),
 			},
-		} : {
-			rolldownOptions: {
-				input: {
-					home: fileURLToPath(new URL('./index.html', import.meta.url)),
-					inspector: fileURLToPath(new URL('./inspector/index.html', import.meta.url)),
-					playground: fileURLToPath(new URL('./playground/index.html', import.meta.url)),
-				},
-			},
-		}),
+		},
 	},
-}));
+});
