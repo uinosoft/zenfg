@@ -58,6 +58,28 @@ perform its runtime transformation during `npm test`. Pinned upstream JavaScript
 keeps its existing explicit import boundaries rather than enabling JavaScript
 checking across third-party source.
 
+## TypeScript formatting and static rules
+
+Keep the current TypeScript checks and test/build gates; no additional formatter
+or linter is required at present. TypeScript strict and unused-symbol checks
+cover type errors, while runtime tests cover asynchronous ownership and cleanup.
+Neither TypeScript nor EditorConfig proves that every Promise rejection is handled.
+Review detached async work for an explicit owner and failure path; `void` alone
+is not error handling. Keep type-only dependencies as `import type`.
+
+Use EditorConfig for new files. Preserve surrounding formatting for small edits
+to existing files, and avoid whole-file or repository-wide formatting changes
+mixed with functional fixes. Existing indentation is inconsistent; EditorConfig
+is an editor preference, not an enforced formatting gate.
+
+Reassess tooling when formatting repeatedly causes review or merge overhead,
+when confirmed unhandled Promises recur despite tests/review, or when a concrete
+import/API boundary repeatedly regresses. Trial one tool against that specific
+problem, measure false positives and local/CI cost on Windows, and initially
+scope enforcement to an agreed directory or new code. Keep formatting-only
+migration separate. Preserve explicit TypeGPU shader transformation boundaries
+and exclude pinned upstream code from automatic rewriting.
+
 ## Website development
 
 Start the complete project site from a clean checkout with:
