@@ -35,14 +35,14 @@ function createLayout(initialWidth = 1400) {
 	};
 }
 
-test('detail docking starts at 340px and keyboard endpoints respect the 300–480px range', () => {
+test('detail docking starts at 300px and keyboard endpoints respect the 300–480px range', () => {
 	const window = installDom();
 	const view = createLayout();
 	try {
 		view.layout.update(true);
-		assert.equal(view.width(), 340);
+		assert.equal(view.width(), 300);
 		assert.equal(view.divider.hidden, false);
-		assert.equal(view.divider.getAttribute('aria-valuenow'), '340');
+		assert.equal(view.divider.getAttribute('aria-valuenow'), '300');
 		for (const [key, expected] of [['Home', 300], ['End', 480], ['ArrowRight', 460], ['ArrowLeft', 480]] as const) {
 			const event = new window.KeyboardEvent('keydown', { key, bubbles: true, cancelable: true });
 			view.divider.dispatchEvent(event as unknown as KeyboardEvent);
@@ -55,22 +55,23 @@ test('detail docking starts at 340px and keyboard endpoints respect the 300–48
 	} finally { view.destroy(); window.close(); }
 });
 
-test('docking preserves 640px of main content and switches to a drawer below 948px', () => {
+test('docking preserves 520px of main content and switches to a drawer below 828px', () => {
 	const window = installDom();
-	const view = createLayout(980);
+	const view = createLayout(860);
 	try {
 		view.layout.update(true);
-		assert.equal(view.width(), 332);
-		assert.equal(980 - view.width() - 8, 640);
+		assert.equal(view.width(), 300);
+		assert.equal(860 - view.width() - 8, 552);
 		assert.equal(view.divider.getAttribute('aria-valuemax'), '332');
 		view.divider.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'End', bubbles: true }) as unknown as KeyboardEvent);
 		assert.equal(view.width(), 332);
 		assert.equal(view.layout.isDrawer, false);
-		view.resize(948);
+		assert.equal(860 - view.width() - 8, 520);
+		view.resize(828);
 		assert.equal(view.width(), 300);
 		assert.equal(view.layout.isDrawer, false);
 		assert.equal(view.divider.hidden, false);
-		view.resize(947);
+		view.resize(827);
 		assert.equal(view.layout.isDrawer, true);
 		assert.equal(view.workspace.classList.contains('detail-drawer'), true);
 		assert.equal(view.divider.hidden, true);
@@ -91,7 +92,7 @@ test('detail width preferences belong to one layout instance', () => {
 		first.layout.update(true); second.layout.update(true);
 		first.divider.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'End', bubbles: true }) as unknown as KeyboardEvent);
 		assert.equal(first.width(), 480);
-		assert.equal(second.width(), 340);
+		assert.equal(second.width(), 300);
 		second.divider.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Home', bubbles: true }) as unknown as KeyboardEvent);
 		assert.equal(second.width(), 300);
 		assert.equal(first.width(), 480);
@@ -116,12 +117,12 @@ test('pointer resizing clamps to the same bounds and stops after pointer release
 		assert.equal(view.width(), 480);
 		pointer('pointermove', 1300);
 		assert.equal(view.width(), 300);
-		view.resize(980);
+		view.resize(860);
 		pointer('pointermove', 0);
 		assert.equal(view.width(), 332);
 		assert.equal(view.divider.getAttribute('aria-valuenow'), '332');
 		pointer('pointerup', 0);
-		pointer('pointermove', 980);
+		pointer('pointermove', 860);
 		assert.equal(view.width(), 332);
 	} finally { view.destroy(); window.close(); }
 });

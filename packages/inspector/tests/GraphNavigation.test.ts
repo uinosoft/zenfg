@@ -146,3 +146,80 @@ function tab(panel: FrameGraphInspector, label: string): HTMLButtonElement {
 function groupRow(panel: FrameGraphInspector, label: string): HTMLElement {
 	return button(panel.dom.querySelector('.zenfg-inspector-passes-view')!, label).closest('tr')!;
 }
+
+
+test('Declarations preserves selection and projection across toggles, views and captures', () => {
+    const source = fixture();
+    const env = mount(source, 1);
+    try {
+        const control = button(env.graph.toolbar, 'Declarations');
+        assert.equal(control.getAttribute('aria-pressed'), 'true');
+        const vm = createDebugViewModel(source);
+        const resource = vm.resources.find((entry) => vm.accessEdges.some((access) => access.resource.id === entry.id))!;
+        const selection = { kind: 'resource' as const, id: resource.id };
+        const internal = env.panel as unknown as {
+            selected: typeof selection; hovered: typeof selection | undefined;
+            handleSelect(target: typeof selection): void;
+            handleHover(target: typeof selection): void;
+        };
+        internal.handleSelect(selection);
+        internal.handleHover(selection);
+        const expanded = [...env.graph.expandedGroupPaths];
+        const shown = resolveGraphScene(env.graph, vm);
+        env.graph.revealOnNextRender = { selection, revision: 1 };
+        env.graph.anchorElementIdOnNextRender = 'old-anchor';
+        control.click();
+        assert.equal(control.getAttribute('aria-pressed'), 'false');
+        assert.equal(internal.hovered, undefined);
+        assert.deepEqual(internal.selected, selection);
+        assert.equal(env.graph.revealOnNextRender, undefined);
+        assert.equal(env.graph.anchorElementIdOnNextRender, undefined);
+        assert.equal(env.graph.fitOnNextRender, true);
+        assert.deepEqual([...env.graph.expandedGroupPaths], expanded);
+        const hidden = resolveGraphScene(env.graph, vm);
+        assert.notEqual(hidden, shown);
+        assert.equal(resolveGraphScene(env.graph, vm), hidden);
+        assert.ok(!hidden.nodes.some((node) => node.kind === 'resource'));
+        assert.ok(!env.graph.legend!.textContent!.includes('Declaration'));
+        tab(env.panel, 'Resources').click();
+        assert.match(env.panel.dom.querySelector('.zenfg-inspector-inspector > header strong')!.textContent!, new RegExp(resource.label!));
+        tab(env.panel, 'Graph').click();
+        env.panel.setSnapshot({ ...source, capture: { ...source.capture, frameIndex: 42 } });
+        assert.equal(env.graph.showResourceDeclarations, false);
+        assert.equal(control.getAttribute('aria-pressed'), 'false');
+        control.click();
+        assert.equal(control.getAttribute('aria-pressed'), 'true');
+        assert.deepEqual(resolveGraphScene(env.graph, vm), shown);
+        assert.deepEqual(internal.selected, selection);
+    } finally { env.close(); }
+});
+
+test('resource search restores declarations and failed explicit location rolls the setting back', () => {
+    const source = fixture();
+    const unused = { id: 'resource:unused', label: 'Unused navigation buffer', kind: 'buffer' as const, origin: 'transient' as const,
+        initialContents: 'undefined' as const, usageFlags: [], groupId: 'group:main' };
+    const env = mount({ ...source, graph: { ...source.graph, resources: [...source.graph.resources, unused] } }, 1);
+    try {
+        const control = button(env.graph.toolbar, 'Declarations');
+        control.click();
+        const resource = source.graph.resources.find((entry) => source.graph.accesses.some((access) => access.resourceId === entry.id && source.graph.nodes.some((node) => node.id === access.nodeId && node.compileState.status === 'retained')))!;
+        button(env.graph.toolbar, 'Search').click();
+        const query = env.panel.dom.querySelector<HTMLInputElement>('input[aria-label="Find in graph"]')!;
+        query.value = resource.id;
+        query.dispatchEvent(new Event('input'));
+        button(env.panel.dom.querySelector('.zenfg-inspector-graph-search-results')!, 'Resource · ' + resource.label).click();
+        assert.equal(control.getAttribute('aria-pressed'), 'true');
+        assert.equal(env.graph.showResourceDeclarations, true);
+        assert.deepEqual(env.graph.revealOnNextRender?.selection, { kind: 'resource', id: resource.id });
+        control.click();
+        const expanded = [...env.graph.expandedGroupPaths];
+        tab(env.panel, 'Resources').click();
+        button(env.panel.dom.querySelector('.zenfg-inspector-resources-view')!, unused.label).click();
+        button(env.panel.dom.querySelector('.zenfg-inspector-inspector')!, 'Locate in Graph').click();
+        assert.equal(env.graph.showResourceDeclarations, false);
+        assert.equal(control.getAttribute('aria-pressed'), 'false');
+        assert.deepEqual([...env.graph.expandedGroupPaths], expanded);
+        assert.equal(tab(env.panel, 'Resources').getAttribute('aria-selected'), 'true');
+        assert.match(env.panel.dom.querySelector('.zenfg-inspector-feedback')!.textContent!, /no representation in Frame Flow/);
+    } finally { env.close(); }
+});

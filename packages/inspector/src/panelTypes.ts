@@ -30,6 +30,7 @@ export type GraphViewState = {
     readonly legend?: HTMLElement;
 	readonly layoutElementBudget?: number;
     groupsEnabled: boolean;
+    showResourceDeclarations?: boolean;
     readonly expandedGroupPaths: Set<string>;
     renderer?: GraphRenderer;
     fitOnNextRender: boolean;

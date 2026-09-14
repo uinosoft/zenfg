@@ -99,6 +99,7 @@ export type GraphScene = {
 
 export type CreateGraphSceneOptions = {
     readonly groupsEnabled: boolean;
+    readonly showResourceDeclarations?: boolean;
     readonly expandedGroupPaths: ReadonlySet<string>;
 };
 
@@ -114,7 +115,7 @@ export function createGraphScene(
     snapshot: FrameGraphDebugViewModel,
     options: CreateGraphSceneOptions,
 ): GraphScene {
-    return createFrameFlowScene(snapshot, options.groupsEnabled, options.expandedGroupPaths);
+    return createFrameFlowScene(snapshot, options.groupsEnabled, options.expandedGroupPaths, options.showResourceDeclarations ?? true);
 }
 
 export function graphGroupElementId(pathKey: string): GraphSceneElementId {
@@ -144,6 +145,7 @@ function createFrameFlowScene(
     snapshot: FrameGraphDebugViewModel,
     groupsEnabled: boolean,
     expandedGroupPaths: ReadonlySet<string>,
+    showResourceDeclarations: boolean,
 ): GraphScene {
     const interaction = createMutableInteractionIndex();
     const segmentByNodeId = executionSegmentByNodeId(snapshot);
@@ -158,7 +160,7 @@ function createFrameFlowScene(
         ...snapshot.accessEdges.filter((access) => retainedIds.has(access.nodeId)).map((access) => access.resource.id),
         ...snapshot.roots.flatMap((root) => root.resource ? [root.resource.id] : []),
     ]);
-    const resources = snapshot.resources.filter((resource) => usedResourceIds.has(resource.id));
+    const resources = showResourceDeclarations ? snapshot.resources.filter((resource) => usedResourceIds.has(resource.id)) : [];
     const populatedGroupIds = new Set<string>();
     for (const item of [...snapshot.nodes, ...resources]) {
         for (const id of groupsById.get(item.debugGroupId ?? '')?.ancestorIds ?? []) populatedGroupIds.add(id);
@@ -270,7 +272,7 @@ function createFrameFlowScene(
     }
     if (useGroups) {
         for (const group of snapshot.debugGroups) {
-            if (includedGroupIds.has(group.id)) continue;
+            if (includedGroupIds.has(group.id) || !populatedGroupIds.has(group.id)) continue;
             const collapsedAncestorId = group.ancestorIds.find((id) => !isExpanded(groupsById.get(id)!));
             if (collapsedAncestorId !== undefined) {
                 const representative = graphGroupElementId(groupsById.get(collapsedAncestorId)!.pathKey);
@@ -312,7 +314,7 @@ function createFrameFlowScene(
         addRelation(representativeByNodeId.get(dependency.fromNodeId)!, representativeByNodeId.get(dependency.toNodeId)!, dependency.resource.id,
             { role: dependency.kind, nodeIds: [dependency.fromNodeId, dependency.toNodeId], dependency });
     }
-    for (const access of declarationEntrances(snapshot.nodes, snapshot.accessEdges, snapshot.edges)) {
+    for (const access of showResourceDeclarations ? declarationEntrances(snapshot.nodes, snapshot.accessEdges, snapshot.edges) : []) {
         addRelation(representativeByResourceId.get(access.resource.id)!, representativeByNodeId.get(access.nodeId)!, access.resource.id,
             { role: 'declaration', nodeIds: [access.nodeId] });
     }
@@ -344,11 +346,13 @@ function createFrameFlowScene(
             : rangeLabel;
         const reasonLabel = root.reason.split('-').map((word) => word[0]!.toUpperCase() + word.slice(1)).join(' ');
         const disambiguate = rangesByRootFamily.get(JSON.stringify([resource.id, root.reason]))!.size > 1;
+        const initialLabel = !showResourceDeclarations && root.resolution?.usesInitialContents
+            ? '\n' + (root.resolution.producerNodeIds.length ? 'With initial contents' : 'Initial contents only') : '';
         rootNodes.push({
             id, kind: 'root', rootKey: root.key, resourceId: resource.id, resourceKind: resource.kind,
             label: reasonLabel + '\n' + formatGraphResourceLabel(labelResource(resource))
-                + (disambiguate ? '\n' + formatGraphResourceLabel(rangeSummary, 1) : ''),
-            overviewLabel: reasonLabel + '\n' + formatGraphResourceLabel(shortGraphLabel(labelResource(resource)), 1),
+                + (disambiguate ? '\n' + formatGraphResourceLabel(rangeSummary, 1) : '') + initialLabel,
+            overviewLabel: reasonLabel + '\n' + formatGraphResourceLabel(shortGraphLabel(labelResource(resource)), 1) + initialLabel,
             title: labelResource(resource) + '\n' + root.reason + '\n' + rangeLabel
                 + (root.resolution ? '\nProducers: ' + (root.resolution.producerNodeIds.join(', ') || 'none') + '\nInitial contents: ' + root.resolution.usesInitialContents : '\nOutput sources unavailable in Legacy capture.'),
         });
@@ -357,7 +361,7 @@ function createFrameFlowScene(
         for (const nodeId of root.resolution?.producerNodeIds ?? []) {
             addRelation(representativeByNodeId.get(nodeId)!, id, resource.id, { role: 'output-producer', nodeIds: [nodeId], rootKey: root.key });
         }
-        if (root.resolution?.usesInitialContents) addRelation(representativeByResourceId.get(resource.id)!, id, resource.id,
+        if (showResourceDeclarations && root.resolution?.usesInitialContents) addRelation(representativeByResourceId.get(resource.id)!, id, resource.id,
             { role: 'output-initial', nodeIds: [], rootKey: root.key });
     }
     const edges: GraphSceneEdge[] = [...aggregates.entries()].map(([key, entry]) => {

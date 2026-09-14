@@ -24,7 +24,7 @@ export function renderGraphView(
 ): void {
     const scene = resolveGraphScene(graphView, snapshot);
     if (!graphView.theme) graphView.refreshTheme?.();
-    renderGraphLegend(graphView.legend, snapshot, graphView.theme);
+    renderGraphLegend(graphView.legend, snapshot, graphView.theme, graphView.showResourceDeclarations);
 	const elementCount = scene.nodes.length + scene.edges.length;
 	const layoutElementBudget = graphView.layoutElementBudget ?? Number.MAX_SAFE_INTEGER;
 	if (elementCount > layoutElementBudget) {
@@ -64,12 +64,14 @@ export function resolveGraphScene(
 ): GraphScene {
     const optionsKey = JSON.stringify([
         graphView.groupsEnabled,
+        graphView.showResourceDeclarations ?? true,
         [...graphView.expandedGroupPaths].sort(),
     ]);
     const cached = graphSceneCache.get(graphView);
     if (cached?.snapshot === snapshot && cached.optionsKey === optionsKey) return cached.scene;
     const scene = createGraphScene(snapshot, {
         groupsEnabled: graphView.groupsEnabled,
+        showResourceDeclarations: graphView.showResourceDeclarations,
         expandedGroupPaths: graphView.expandedGroupPaths,
     });
     graphSceneCache.set(graphView, { snapshot, optionsKey, scene });
@@ -91,9 +93,9 @@ export function destroyGraph(graphView: GraphViewState): void {
     graphSceneCache.delete(graphView);
 }
 
-export function renderGraphLegend(host: HTMLElement | undefined, snapshot: FrameGraphDebugViewModel, theme = GRAPH_VISUAL_THEME): void {
+export function renderGraphLegend(host: HTMLElement | undefined, snapshot: FrameGraphDebugViewModel, theme = GRAPH_VISUAL_THEME, showResourceDeclarations = true): void {
     if (!host) return;
-    const entries = createGraphLegend(snapshot, theme);
+    const entries = createGraphLegend(snapshot, theme, showResourceDeclarations);
     const key = JSON.stringify(entries);
     if (host.dataset.legendKey === key) return;
     host.dataset.legendKey = key;

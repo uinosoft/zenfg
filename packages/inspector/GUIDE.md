@@ -50,10 +50,10 @@ imports explicitly identify their migrated canonical data. IDs can be copied
 without their presentation labels.
 
 Selecting an object opens its details on object views. Overview uses the full
-width while retaining selection. The pane defaults to 340px and can be resized
-from 300px to 480px while leaving at least 640px for the main view. Smaller hosts
-use a modal drawer with a backdrop, keyboard focus containment, and focus
-restoration when closed. The main content width determines table and information
+width while retaining selection. The pane defaults to 300px and can be resized
+from 300px to 480px while leaving at least 520px for the main view. Workspaces narrower than
+828px use a modal drawer capped at 340px, with at least a 24px outside strip,
+a backdrop, keyboard focus containment, and focus restoration when closed. The main content width determines table and information
 layout; auxiliary table columns move into details when space is limited.
 Arrow keys and Home/End switch tabs. Escape first dismisses the innermost active
 menu or detail pane; the Examples host respects handled key events.
@@ -92,6 +92,16 @@ declaration groups; output roots remain top-level and use compiler-supplied fina
 producers and initial-content contributions. Culled passes remain in lists and
 details, not in the graph. Collapsed groups aggregate relationships without
 discarding their underlying semantics.
+The **Declarations** toolbar toggle shows resource declaration entrances by default.
+Turn it off to focus on pass dependencies and outputs: declaration entrances,
+their relationships (including initial-content output edges), and resource-only
+groups leave the layout. Pass dependencies and producer-to-output edges remain.
+Outputs with known initial-content contributions show **With initial contents**
+or **Initial contents only**; unavailable Legacy sources are not inferred.
+The toggle persists across views and captures within this Inspector instance.
+Changing it fits the updated graph while preserving selection and group expansion.
+Resources, details, memory, and Snapshot data remain complete.
+
 All nodes use single-line borders. Ordinary passes are rounded rectangles,
 external submissions are cut-corner rectangles, resource entrances are ellipses,
 and output roots are right-pointing tags. Declarations and outputs each have a
@@ -105,7 +115,7 @@ available on hover and in details. Output ranges appear only to distinguish
 different ranges of the same resource and purpose. Exact ranges and final sources
 remain in hover/details. Semantic zoom hides auxiliary types and range summaries.
 The grouped legend describes the whole snapshot's Frame Flow, including collapsed
-objects, and remains stable while groups expand/collapse. Culled-only categories
+objects, respects the Declarations toggle, and remains stable while groups expand/collapse. Culled-only categories
 and unused resources do not add legend entries.
 
 Category fills are opaque sRGB tints over the canvas: 18% in Storm and 8% in
@@ -151,7 +161,9 @@ resolution remain visible but have no inferred source edges.
 Explicit **Show in …** actions perform navigation: they switch views, clear
 blocking filters, expand necessary ancestors, and scroll or center the target.
 They close a narrow-host drawer so the target is visible. Graph search uses the
-same explicit location behavior. Objects absent from Frame Flow show an
+same explicit location behavior. Explicit resource location also turns Declarations
+on; ordinary selection and hover never change the toggle. Failed location restores
+the previous declaration and group settings. Objects absent from Frame Flow show an
 explanation and a list-view action; locating an object does not bypass the graph
 element budget. Ordinary selection and hover retain the behavior above.
 

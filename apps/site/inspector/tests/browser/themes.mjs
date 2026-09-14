@@ -5,6 +5,7 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { checkGraphPointer } from './graphPointer.mjs';
+import { checkDeclarations } from './declarations.mjs';
 import { checkDrawerBackdrop } from './drawerBackdrop.mjs';
 
 const root = resolve(import.meta.dirname, '../../../../../');
@@ -53,6 +54,7 @@ try {
     assert.equal(fill, 'rgb(233,231,241)');
     await page.evaluate(() => { themeQA.host.style.removeProperty('--zfgi-graph-text'); delete themeQA.host.dataset.zfgiTheme; });
     await page.getByRole('button', { name: 'Close inspector', exact: true }).click();
+    await checkDeclarations(page, output);
     for (const width of [1277, 1024, 390]) {
         await page.setViewportSize({ width, height: width === 390 ? 844 : 920 });
         for (const mode of ['dark', 'light']) {

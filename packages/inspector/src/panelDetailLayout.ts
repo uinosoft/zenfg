@@ -1,3 +1,8 @@
+const MIN_DETAIL_WIDTH = 300;
+const MAX_DETAIL_WIDTH = 480;
+const MIN_MAIN_WIDTH = 520;
+const DIVIDER_WIDTH = 8;
+
 /** Owns the dock/drawer geometry and modal keyboard boundary for one workbench. */
 export class DetailLayout {
 	private readonly backdrop = document.createElement('button');
@@ -5,7 +10,7 @@ export class DetailLayout {
 	private readonly resizeObserver: ResizeObserver | undefined;
 	private readonly abort = new AbortController();
 	private open = false;
-	private preferredWidth = 340;
+	private preferredWidth = MIN_DETAIL_WIDTH;
 	private previousFocus: HTMLElement | undefined;
 	private dragging = false;
 	private modal = false;
@@ -47,7 +52,7 @@ export class DetailLayout {
 			if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
 			event.preventDefault();
 			event.stopPropagation();
-			this.preferredWidth = this.clampWidth(event.key === 'Home' ? 300 : event.key === 'End' ? 480
+			this.preferredWidth = this.clampWidth(event.key === 'Home' ? MIN_DETAIL_WIDTH : event.key === 'End' ? MAX_DETAIL_WIDTH
 				: this.preferredWidth + (event.key === 'ArrowLeft' ? 20 : -20));
 			this.applyGeometry();
 		});
@@ -89,21 +94,21 @@ export class DetailLayout {
 
 	private clampWidth(width: number): number {
 		const available = this.workspace.getBoundingClientRect().width || 1024;
-		return Math.max(300, Math.min(480, available - 648, width));
+		return Math.max(MIN_DETAIL_WIDTH, Math.min(MAX_DETAIL_WIDTH, available - MIN_MAIN_WIDTH - DIVIDER_WIDTH, width));
 	}
 
 	private applyGeometry(): void {
 		const wasModal = this.modal;
 		const available = this.workspace.getBoundingClientRect().width || 1024;
-		this.modal = available < 948;
+		this.modal = available < MIN_MAIN_WIDTH + DIVIDER_WIDTH + MIN_DETAIL_WIDTH;
 		if (this.modal && !wasModal && this.open && !this.aside.contains(document.activeElement)) this.previousFocus = this.workspace.ownerDocument.activeElement as HTMLElement | undefined;
 		const width = this.clampWidth(this.preferredWidth);
 		this.workspace.style.setProperty('--fgd-detail-width', `${width}px`);
 		this.workspace.classList.toggle('detail-drawer', this.modal);
 		this.workspace.classList.toggle('inspector-open', this.open);
 		this.divider.hidden = !this.open || this.modal;
-		this.divider.setAttribute('aria-valuemin', '300');
-		this.divider.setAttribute('aria-valuemax', String(Math.max(300, Math.min(480, available - 648))));
+		this.divider.setAttribute('aria-valuemin', String(MIN_DETAIL_WIDTH));
+		this.divider.setAttribute('aria-valuemax', String(Math.max(MIN_DETAIL_WIDTH, Math.min(MAX_DETAIL_WIDTH, available - MIN_MAIN_WIDTH - DIVIDER_WIDTH))));
 		this.divider.setAttribute('aria-valuenow', String(Math.round(width)));
 		this.backdrop.hidden = !this.open || !this.modal;
 		this.main.inert = this.open && this.modal;

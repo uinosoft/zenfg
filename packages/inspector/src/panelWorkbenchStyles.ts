@@ -6,7 +6,7 @@ export const PANEL_WORKBENCH_CSS = `
 .zenfg-inspector-feedback { flex: 0 0 auto; }
 .zenfg-inspector-workspace { flex: 1 1 0; gap: 0; }
 .zenfg-inspector-main { container-name: zenfg-inspector-main; container-type: inline-size; }
-.zenfg-inspector-workspace.inspector-open { grid-template-columns: minmax(0, 1fr) 8px var(--fgd-detail-width, 340px); }
+.zenfg-inspector-workspace.inspector-open { grid-template-columns: minmax(0, 1fr) 8px var(--fgd-detail-width, 300px); }
 .zenfg-inspector-workspace.inspector-open::after { display: none; }
 .zenfg-inspector-workspace:not(.detail-drawer) .zenfg-inspector-inspector {
   position: static; width: auto; grid-column: 3; box-shadow: none;
@@ -14,7 +14,7 @@ export const PANEL_WORKBENCH_CSS = `
 .zenfg-inspector-workspace.detail-drawer { grid-template-columns: minmax(0, 1fr); }
 .zenfg-inspector-workspace.detail-drawer .zenfg-inspector-inspector {
   position: absolute; z-index: 20; top: 0; right: 0; bottom: 0;
-  width: min(380px, calc(100% - 24px)); box-shadow: var(--fgd-shadow);
+  width: min(340px, calc(100% - 24px)); box-shadow: var(--fgd-shadow);
 }
 .zenfg-inspector-detail-divider {
   grid-column: 2; cursor: col-resize; touch-action: none; align-self: stretch; border-radius: var(--fgd-radius-sm);

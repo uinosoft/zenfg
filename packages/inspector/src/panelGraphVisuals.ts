@@ -35,7 +35,7 @@ export type GraphLegendEntry = {
     readonly hollowArrow?: boolean;
 };
 
-export function createGraphLegend(snapshot: FrameGraphDebugViewModel, theme: GraphVisualTheme = GRAPH_VISUAL_THEME): readonly GraphLegendEntry[] {
+export function createGraphLegend(snapshot: FrameGraphDebugViewModel, theme: GraphVisualTheme = GRAPH_VISUAL_THEME, showResourceDeclarations = true): readonly GraphLegendEntry[] {
     const nodeEntries = {
         render: nodeLegend('render', 'Render', theme.render.stroke),
         compute: nodeLegend('compute', 'Compute', theme.compute.stroke),
@@ -55,15 +55,15 @@ export function createGraphLegend(snapshot: FrameGraphDebugViewModel, theme: Gra
         ...snapshot.accessEdges.filter((access) => retained.has(access.nodeId)).map((access) => access.resource.id),
         ...snapshot.roots.flatMap((root) => root.resource ? [root.resource.id] : []),
     ]);
-    const resources = snapshot.resources.filter((resource) => used.has(resource.id));
+    const resources = showResourceDeclarations ? snapshot.resources.filter((resource) => used.has(resource.id)) : [];
     if (resources.length) entries.push({ group: 'Resources', key: 'declaration', label: 'Declaration', color: theme.declaration.stroke, shape: 'ellipse' });
     if (snapshot.roots.some((root) => root.resource)) entries.push({ group: 'Resources', key: 'output', label: 'Output', color: theme.output.stroke, shape: 'tag' });
     if ([...snapshot.nodes, ...resources].some((item) => item.debugGroupId !== undefined)) {
         entries.push({ group: 'Relationships', key: 'group', label: 'Group', color: theme.group.stroke, shape: 'group' });
     }
     if (snapshot.edges.some((edge) => edge.kind === 'value')
-        || declarationEntrances(snapshot.nodes, snapshot.accessEdges, snapshot.edges).length
-        || snapshot.roots.some((root) => root.resource && root.resolution && (root.resolution.usesInitialContents || root.resolution.producerNodeIds.length))) {
+        || (showResourceDeclarations && declarationEntrances(snapshot.nodes, snapshot.accessEdges, snapshot.edges).length)
+        || snapshot.roots.some((root) => root.resource && root.resolution && ((showResourceDeclarations && root.resolution.usesInitialContents) || root.resolution.producerNodeIds.length))) {
         entries.push(edgeLegend('flow', 'Resource Flow', theme.dependency.value, 'solid'));
     }
     if (snapshot.edges.some((edge) => edge.kind === 'ordering')) {

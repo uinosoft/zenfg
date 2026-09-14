@@ -2,6 +2,21 @@ import assert from 'node:assert/strict';
 import { resolve } from 'node:path';
 
 export async function checkDrawerBackdrop(page, output) {
+    // Medium-width hosts keep the compact dock instead of opening a modal.
+    await page.setViewportSize({ width: 900, height: 700 });
+    for (const mode of ['dark', 'light']) {
+        await page.evaluate(mode => {
+            themeQA.inspector.setTheme(mode === 'dark' ? themeQA.tokyoNightStorm : themeQA.tokyoNightLight);
+            document.querySelector('.zenfg-inspector-graph-canvas')._cyreg.cy.nodes('[kind="pass"]').first().emit('tap');
+        }, mode);
+        await page.waitForFunction(() => !document.querySelector('.zenfg-inspector-workspace').classList.contains('detail-drawer'));
+        const aside = page.locator('.zenfg-inspector-inspector');
+        assert.equal((await aside.boundingBox()).width, 300);
+        assert.equal(await aside.getAttribute('aria-modal'), null);
+        assert.ok((await page.locator('.zenfg-inspector-main').boundingBox()).width >= 520);
+        await page.screenshot({ path: resolve(output, mode + '-900-compact-dock.png'), animations: 'disabled' });
+        await page.getByRole('button', { name: 'Close inspector', exact: true }).click();
+    }
     await page.setViewportSize({ width: 800, height: 700 });
     const backdrop = page.locator('.zenfg-inspector-detail-backdrop');
     const canvas = page.locator('.zenfg-inspector-graph-canvas');
@@ -15,6 +30,7 @@ export async function checkDrawerBackdrop(page, output) {
             document.querySelector('.zenfg-inspector-graph-canvas')._cyreg.cy.nodes('[kind="pass"]').first().emit('tap');
         }, mode);
         await page.waitForFunction(() => document.querySelector('.zenfg-inspector-inspector').getAttribute('aria-modal') === 'true');
+        assert.equal((await page.locator('.zenfg-inspector-inspector').boundingBox()).width, 340);
         const bounds = await backdrop.boundingBox();
         await page.mouse.move(bounds.x + 30, bounds.y + 90);
         const background = await backdrop.evaluate(el => getComputedStyle(el).backgroundColor);

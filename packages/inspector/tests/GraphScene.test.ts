@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { nodeDimensions } from '../src/panelGraphVisuals.ts';
+import { createGraphLegend, nodeDimensions } from '../src/panelGraphVisuals.ts';
 import { createDebugViewModel, rootKey } from '../src/debugCaptureModel.ts';
 import type { FrameGraphSnapshotGpuTimings, FrameGraphSnapshotNodeKind } from '@zenfg/snapshot';
 import { resolveSelectedDetail, selectionExists } from '../src/panelSelection.ts';
@@ -538,3 +538,82 @@ function createGroupedCapture(): LegacyFrameGraphCapture {
         },
     };
 }
+
+
+test('hiding declarations preserves dependencies across projections and removes resource-only ancestors', () => {
+    const capture = createGroupedCapture();
+    const base = createLegacyDebugViewModel({ ...capture, compilation: { ...capture.compilation,
+        debugGroups: [...capture.compilation.debugGroups!, { id: 5, label: 'Resource parent' }, { id: 4, parentId: 5, label: 'Declarations' }],
+        resources: capture.compilation.resources.map((resource) => resource.id === 3 ? { ...resource, debugGroupId: 4 } : resource),
+        dependencies: [...capture.compilation.dependencies, { fromNodeId: 2, toNodeId: 3, resourceId: 1, kind: 'ordering' }],
+    } });
+    const resource = base.resources[2]!;
+    const snapshot = { ...base, roots: [{ key: 'initial-only', reason: 'output' as const, resourceId: resource.id, resource,
+        resolution: { producerNodeIds: [], usesInitialContents: true } }] };
+    for (const groupsEnabled of [false, true]) {
+        for (const expandedGroupPaths of [new Set<string>(), new Set(base.debugGroups.map((group) => group.pathKey))]) {
+            const options = { groupsEnabled, expandedGroupPaths };
+            const shown = createGraphScene(snapshot, options);
+            const hidden = createGraphScene(snapshot, { ...options, showResourceDeclarations: false });
+            const dependencies = (scene: typeof shown) => scene.edges.filter((edge) => edge.underlyingDependencyCount)
+                .map((edge) => [edge.from, edge.to, edge.resourceId, edge.underlyingDependencies]);
+            assert.deepEqual(dependencies(hidden), dependencies(shown));
+            assert.deepEqual(hidden.nodes.filter((node) => node.kind === 'pass'), shown.nodes.filter((node) => node.kind === 'pass'));
+            assert.ok(!hidden.nodes.some((node) => node.kind === 'resource'));
+            assert.ok(!hidden.nodes.some((node) => node.kind === 'group' && ['group:4', 'group:5'].includes(node.groupId)));
+            assert.ok(hidden.nodes.some((node) => node.kind === 'root' && node.label.endsWith('Initial contents only')));
+            assert.notEqual(hidden.topologyKey, shown.topologyKey);
+            const ids = new Set(hidden.nodes.map((node) => node.id));
+            for (const node of hidden.nodes) {
+                if (node.parentId) assert.ok(ids.has(node.parentId));
+                if (node.kind === 'group') {
+                    assert.ok(node.representedNodeIds.length);
+                    assert.ok(node.childNodeIds.every((id) => ids.has(id)));
+                }
+            }
+            for (const edge of hidden.edges) {
+                assert.ok(ids.has(edge.from) && ids.has(edge.to));
+                assert.ok(edge.relations.length);
+                assert.ok(edge.relations.every((relation) => !['declaration', 'output-initial'].includes(relation.role)));
+            }
+            const elementIds = new Set([...ids, ...hidden.edges.map((edge) => edge.id)]);
+            for (const elements of hidden.interaction.primaryElementIdsBySelection.values()) {
+                assert.ok(elements.every((id) => elementIds.has(id)));
+            }
+            for (const resource of snapshot.resources) {
+                const expected = hidden.edges.filter((edge) => edge.resourceId === resource.id).map((edge) => edge.id);
+                assert.deepEqual(hidden.interaction.resourceElementIdsByResourceId.get(resource.id) ?? [], expected);
+                assert.deepEqual(hidden.interaction.primaryElementIdsBySelection.get(selectionKey({ kind: 'resource', id: resource.id })) ?? [], expected);
+                assert.deepEqual(hidden.interaction.hoverElementIdsBySelection.get(selectionKey({ kind: 'resource', id: resource.id })) ?? [], expected);
+            }
+        }
+    }
+});
+
+test('hidden declarations explain known initial sources without inferring legacy producers', () => {
+    const base = createLegacyDebugViewModel(createGroupedCapture());
+    const resource = base.resources[0]!;
+    const roots = [
+        { key: 'mixed', reason: 'output' as const, resourceId: resource.id, resource, resolution: { producerNodeIds: ['node:1'], usesInitialContents: true } },
+        { key: 'initial', reason: 'output' as const, resourceId: resource.id, resource, resolution: { producerNodeIds: [], usesInitialContents: true } },
+        { key: 'producer', reason: 'output' as const, resourceId: resource.id, resource, resolution: { producerNodeIds: ['node:1'], usesInitialContents: false } },
+        { key: 'legacy', reason: 'output' as const, resourceId: resource.id, resource },
+    ];
+    const scene = createGraphScene({ ...base, roots }, { groupsEnabled: false, expandedGroupPaths: new Set(), showResourceDeclarations: false });
+    const output = (key: string) => scene.nodes.find((node) => node.id === 'root:' + key)!;
+    for (const label of ['label', 'overviewLabel'] as const) {
+        assert.match(output('mixed')[label], /With initial contents/);
+        assert.match(output('initial')[label], /Initial contents only/);
+        assert.doesNotMatch(output('producer')[label], /initial contents/i);
+        assert.doesNotMatch(output('legacy')[label], /initial contents/i);
+    }
+    assert.deepEqual(scene.edges.filter((edge) => edge.to.startsWith('root:')).map((edge) => [edge.from, edge.to, edge.relations.map((r) => r.role)]),
+        [['pass:node:1', 'root:mixed', ['output-producer']], ['pass:node:1', 'root:producer', ['output-producer']]]);
+    const onlyInitial = { ...base, nodes: [], edges: [], accessEdges: [], roots: [roots[1]!] };
+    const onlyScene = createGraphScene(onlyInitial, { groupsEnabled: true, expandedGroupPaths: new Set(), showResourceDeclarations: false });
+    assert.equal(onlyScene.nodes.length, 1);
+    assert.equal(onlyScene.edges.length, 0);
+    assert.deepEqual(createGraphLegend(onlyInitial, undefined, false).map((entry) => entry.key), ['output']);
+    assert.ok(createGraphLegend(onlyInitial).some((entry) => entry.key === 'declaration'));
+    assert.ok(!createGraphLegend(base, undefined, false).some((entry) => entry.key === 'declaration'));
+});

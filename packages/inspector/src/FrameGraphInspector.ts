@@ -85,6 +85,7 @@ export class FrameGraphInspector {
 	private readonly content = document.createElement('div');
 	private readonly dropOverlay = document.createElement('div');
 	private readonly groupsButton: HTMLButtonElement;
+	private readonly declarationsButton: HTMLButtonElement;
 	private readonly collapseGroupsButton: HTMLButtonElement;
 	private readonly graphView: GraphViewState;
 	private readonly workbench: FrameGraphDebugWorkbench;
@@ -168,6 +169,7 @@ export class FrameGraphInspector {
 			refreshTheme: () => this.refreshTheme(),
 			layoutElementBudget: normalizeLimit(options.maxGraphElements, DEFAULT_MAX_GRAPH_ELEMENTS, 'maxGraphElements'),
 			groupsEnabled: true,
+			showResourceDeclarations: true,
 			expandedGroupPaths: new Set(),
 			fitOnNextRender: true,
 		};
@@ -176,12 +178,14 @@ export class FrameGraphInspector {
 		this.graphView.toolbar.setAttribute('role', 'toolbar');
 		this.graphView.toolbar.setAttribute('aria-label', 'Frame graph view controls');
 
+		this.declarationsButton = createToolbarButton('Declarations', 'Show resource declaration nodes', () => this.toggleDeclarations());
 		this.groupsButton = createToolbarButton('Groups', 'Toggle diagnostic group projection', () => this.toggleGroups());
 		this.collapseGroupsButton = createToolbarButton('Collapse All', 'Collapse every diagnostic group', () => this.collapseAllGroups());
 
 		const actionControls = document.createElement('div');
 		actionControls.className = 'zenfg-inspector-graph-action-controls';
 		actionControls.append(
+			this.declarationsButton,
 			this.groupsButton,
 			this.collapseGroupsButton,
 			createToolbarButton('Fit', 'Fit graph to view', () => fitGraph(this.graphView)),
@@ -237,7 +241,7 @@ export class FrameGraphInspector {
         const theme = resolveGraphTheme(this.dom);
         this.graphView.theme = theme;
         this.graphView.renderer?.setTheme?.(theme);
-        if (this.viewModel) renderGraphLegend(this.graphView.legend, this.viewModel, theme);
+        if (this.viewModel) renderGraphLegend(this.graphView.legend, this.viewModel, theme, this.graphView.showResourceDeclarations);
     }
 
 	/**
@@ -504,6 +508,8 @@ export class FrameGraphInspector {
 		if (tab === 'graph') {
 			const expanded = new Set(this.graphView.expandedGroupPaths);
 			const groupsEnabled = this.graphView.groupsEnabled;
+			const showResourceDeclarations = this.graphView.showResourceDeclarations;
+			if (selection.kind === 'resource') this.graphView.showResourceDeclarations = true;
 			if (selection.kind === 'group') this.graphView.groupsEnabled = true;
 			let groupId: string | undefined;
 			if (selection.kind === 'node') groupId = snapshot.nodeById.get(selection.id)?.debugGroupId;
@@ -519,6 +525,7 @@ export class FrameGraphInspector {
 			const availableIds = new Set([...scene.nodes, ...scene.edges].map((entry) => entry.id));
 			if (!(scene.interaction.primaryElementIdsBySelection.get(selectionKey(selection))?.some((id) => availableIds.has(id)))) {
 				this.graphView.groupsEnabled = groupsEnabled;
+				this.graphView.showResourceDeclarations = showResourceDeclarations;
 				this.graphView.expandedGroupPaths.clear();
 				for (const path of expanded) this.graphView.expandedGroupPaths.add(path);
 				this.workbench.showNavigationIssue(selection.kind === 'culled' ? 'Culled passes are not part of Frame Flow.' : 'This object has no representation in Frame Flow.', selection);
@@ -538,6 +545,9 @@ export class FrameGraphInspector {
 	}
 
 	private updateGraphControls(): void {
+		const showDeclarations = this.graphView.showResourceDeclarations ?? true;
+		this.declarationsButton.classList.toggle('active', showDeclarations);
+		this.declarationsButton.setAttribute('aria-pressed', String(showDeclarations));
 		const hasGroups = (this.viewModel?.debugGroups.length ?? 0) > 0;
 		this.groupsButton.disabled = !hasGroups;
 		this.groupsButton.hidden = !hasGroups;
@@ -546,6 +556,17 @@ export class FrameGraphInspector {
 		this.groupsButton.setAttribute('aria-pressed', hasGroups && this.graphView.groupsEnabled ? 'true' : 'false');
 		const hasExpanded = this.viewModel?.debugGroups.some((group) => this.graphView.expandedGroupPaths.has(group.pathKey)) ?? false;
 		this.collapseGroupsButton.disabled = !hasGroups || !this.graphView.groupsEnabled || !hasExpanded;
+	}
+
+	private toggleDeclarations(): void {
+		this.handleHover(undefined);
+		this.graphView.showResourceDeclarations = !(this.graphView.showResourceDeclarations ?? true);
+		this.graphView.renderer?.cancelReveal?.();
+		this.graphView.revealOnNextRender = undefined;
+		this.graphView.anchorElementIdOnNextRender = undefined;
+		this.graphView.fitOnNextRender = true;
+		this.updateGraphControls();
+		this.workbench.refreshGraphStructure();
 	}
 
 	private toggleGroups(): void {
