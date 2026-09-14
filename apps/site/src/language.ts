@@ -29,7 +29,7 @@ const translations: Record<Language, Record<string, string>> = {
 		note: 'Open source / MIT licensed',
 		projectLinks: 'Project resources',
 		languageAction: 'Choose language',
-		coverStory: 'Explore the cover story',
+		coverStory: 'Explore this example',
 		explore: 'Explore',
 	},
 	'zh-CN': {
@@ -58,7 +58,7 @@ const translations: Record<Language, Record<string, string>> = {
 		note: '开源 / 采用 MIT 许可证',
 		projectLinks: '项目资源',
 		languageAction: '选择语言',
-		coverStory: '探索封面故事',
+		coverStory: '探索此示例',
 		explore: '探索',
 	},
 };

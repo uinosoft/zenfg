@@ -90,7 +90,9 @@ try {
 					return {
 						overflow: document.documentElement.scrollWidth > innerWidth,
 						bounded: art.top >= hero.top - 1 && art.bottom <= hero.bottom + 1,
-						contentBounded: art.left >= content.left && Math.abs(art.right - content.right) < 1 && content.width <= 1200,
+						contentBounded: innerWidth <= 900
+                            ? Math.abs(art.left) < 1 && Math.abs(art.right - document.documentElement.clientWidth) < 1
+                            : art.left >= content.left && Math.abs(art.right - content.right) < 1 && content.width <= 1200,
 						overlaps: art.left < intro.right && art.top < intro.bottom,
 						markerFits: marker.left >= art.left + 6 && marker.right <= art.right - 6 && marker.top >= art.top + 6 && marker.bottom <= art.bottom - 6, markerClearsCopy,
 						composition: { width: canvas.width, height: canvas.height, anchorX: marker.right - content.left, anchorY: marker.top - content.top },
@@ -98,7 +100,7 @@ try {
 					};
 				});
 				assert.equal(layout.overflow, false); assert.equal(layout.bounded, true); assert.equal(layout.overlaps, true);
-				assert.equal(layout.contentBounded, true, 'canvas ends at the content edge, including on ultrawide screens');
+				assert.equal(layout.contentBounded, true, 'canvas fills narrow screens and stays content-bounded on wide screens');
 				if (width >= 1440) {
 					const key = mode + language;
 					if (wideComposition.has(key)) assert.deepEqual(layout.composition, wideComposition.get(key), 'page margins do not change render size or the local anchor');

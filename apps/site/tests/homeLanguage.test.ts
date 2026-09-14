@@ -38,7 +38,7 @@ test('Home language updates content, shared navigation, metadata and accessible 
 	assert.equal(window.document.querySelector('[data-i18n=validationTitle]')?.textContent, '资源管理');
 	assert.match(window.document.querySelector('[data-i18n=inspectionDescription]')!.textContent, /看清每一帧/);
 	assert.equal(window.document.querySelector('.cover-story-marker')?.getAttribute('href'), './playground/?example=refractive-flow&panel=inspector');
-	assert.equal(window.document.querySelector('.cover-story-marker')?.getAttribute('aria-label'), '探索封面故事');
+	assert.equal(window.document.querySelector('.cover-story-marker')?.getAttribute('aria-label'), '探索此示例');
 	assert.equal(window.document.querySelector('[data-i18n=explore]')?.textContent, '探索');
 	assert.equal(window.localStorage.getItem('zenfg-language'), 'zh-CN');
 	language.restore();
