@@ -235,3 +235,42 @@ The live Inspector follows the page Dark/Light selection using the official
 Tokyo Night presets. Theme changes retain graph instances, pan/zoom, selection,
 group state, and view state. Lazy initialization reads the latest appearance.
 The Inspector loading region also follows the page palette.
+
+
+## Catalog loading boundary
+
+The catalog keeps metadata, source manifests, validation, and mount factories
+together. Static adapter imports do not imply eager engine imports: type-only
+imports disappear, source text uses dynamic `?raw` loaders, and mount factories
+load their runtime and controls on demand. Startup validation checks manifest
+identities without invoking source loaders or mount factories.
+
+A production Vite module-graph audit on 2026-09-14 (commit `76cc76d`, 17 examples)
+found three JS chunks in the Playground entry's static import closure:
+
+| Chunk role | Bytes | Gzip bytes |
+| --- | ---: | ---: |
+| Playground entry and catalog | 80,015 | 21,134 |
+| Shared shell, palette, icons, and preload helpers | 10,888 | 4,646 |
+| Inspector theme definitions | 3,230 | 1,225 |
+| Total | 94,133 | 27,005 |
+
+Sizes were measured from final emitted files; gzip is summed per file. This
+counts entry scripts and static module preloads, excluding CSS, source maps,
+and subsequent dynamic loads. The initial closure contains no raw source text,
+showcase runtime, Babylon, Three, TypeGPU, Tweakpane, Shiki/WASM, Cytoscape, or
+ELK modules. Inspected showcase runtime closures retain their respective engine
+boundaries. A large lazy Babylon chunk is not an initial catalog download.
+
+The default route immediately mounts Reference Renderer, then loads Inspector
+when that runtime is ready. Selecting Code additionally loads source and syntax
+highlighting. Those intentional dynamic requests are separate from the static
+entry budget; the figures above are not a complete page-load or startup-latency
+measurement.
+
+Keep the current architecture. Adapter factory code still grows with the catalog,
+but this audit found no unintended engine coupling requiring a split. When
+adding examples, compare final entry/static-preload sizes and the emitted
+chunk `imports`, `dynamicImports`, and `modules` graph. Split metadata from lazy
+factories only if that evidence shows a meaningful initial-bundle increase or
+an unrelated runtime entering the selected example's dependency closure.
