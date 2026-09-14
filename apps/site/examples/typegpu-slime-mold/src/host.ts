@@ -1,8 +1,9 @@
+import type { FrameGraphCaptureRequest } from '@zenfg/inspector';
 import type { FrameGraphSnapshot } from '@zenfg/snapshot';
 import {
     FrameGraph,
     type FrameGraphCompilationReport,
-    type FrameGraphGpuTimingReport,
+    type FrameGraphExecutionTiming,
 } from '@zenfg/webgpu';
 import { TypeGpuSlimeMold } from './slimeMold.ts';
 import type {
@@ -14,6 +15,7 @@ import type {
 const MAX_DEVICE_PIXEL_RATIO = 2;
 
 interface PendingCapture {
+    readonly timing: FrameGraphCaptureRequest['timing'];
     readonly promise: Promise<FrameGraphSnapshot | undefined>;
     readonly resolve: (snapshot: FrameGraphSnapshot | undefined) => void;
 }
@@ -106,7 +108,7 @@ export abstract class SlimeMoldBrowserHost implements TypeGpuSlimeMoldController
         this.resources.simulation.setSettings(settings);
     }
 
-    captureSnapshot(): Promise<FrameGraphSnapshot | undefined> {
+    captureSnapshot(request: FrameGraphCaptureRequest = { timing: 'both' }): Promise<FrameGraphSnapshot | undefined> {
         if (this.disposed) return Promise.resolve(undefined);
         if (this.pendingCapture) return this.pendingCapture.promise;
 
@@ -114,7 +116,7 @@ export abstract class SlimeMoldBrowserHost implements TypeGpuSlimeMoldController
         const promise = new Promise<FrameGraphSnapshot | undefined>((resolve) => {
             resolveCapture = resolve;
         });
-        this.pendingCapture = { promise, resolve: resolveCapture };
+        this.pendingCapture = { timing: request.timing, promise, resolve: resolveCapture };
         this.requestFrame();
         return promise;
     }
@@ -209,18 +211,19 @@ export abstract class SlimeMoldBrowserHost implements TypeGpuSlimeMoldController
     protected async finishCapture(
         capture: PendingCapture,
         compilation: FrameGraphCompilationReport,
-        gpuTiming: Promise<FrameGraphGpuTimingReport>,
+        executionTiming: FrameGraphExecutionTiming,
     ): Promise<void> {
+        const resourcePool = { ...this.resources.graph.getResourcePoolStats() };
         try {
             const [timing, { createFrameGraphSnapshot }] = await Promise.all([
-                gpuTiming,
+                executionTiming.gpu,
                 import('@zenfg/webgpu/snapshot'),
             ]);
             if (this.disposed || this.pendingCapture !== capture) return;
-            capture.resolve(createFrameGraphSnapshot({
+            capture.resolve(createFrameGraphSnapshot({ frameIndex: executionTiming.frameIndex, cpuTiming: executionTiming.cpu,
                 compilation,
                 gpuTiming: timing,
-                resourcePool: this.resources.graph.getResourcePoolStats(),
+                resourcePool,
             }));
         } catch {
             if (!this.disposed && this.pendingCapture === capture) {

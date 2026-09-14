@@ -1,3 +1,4 @@
+import type { FrameGraphCaptureRequest } from '@zenfg/inspector';
 import type { ExamplesExampleDefinition } from '../../types.ts';
 import type { RecipeCanvasSize } from './recipeHost.ts';
 import { recipeHostSourceFile, recipeShaderSourceFile } from './sources.ts';
@@ -75,7 +76,7 @@ export const persistentStateExample: ExamplesExampleDefinition = {
 			context.onReady();
 		});
 		return {
-			async captureSnapshot() {
+			async captureSnapshot(request: FrameGraphCaptureRequest = { timing: 'both' }) {
 				const history = ensureHistory(host.size());
 				const initialContentsDefined = hasPreviousValue;
 				const snapshot = await host.capture((recorder) => {
@@ -85,7 +86,7 @@ export const persistentStateExample: ExamplesExampleDefinition = {
 						hasPreviousValue: initialContentsDefined,
 						encodeUpdate,
 					});
-				});
+				}, request);
 				hasPreviousValue = true;
 				return snapshot;
 			},

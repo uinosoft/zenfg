@@ -233,7 +233,7 @@ test('reports stable parse, format, and version failures', () => {
 	assert.equal(wrongFormat.ok, false);
 	if (!wrongFormat.ok) assert.deepEqual(wrongFormat.issues.map((issue) => [issue.code, issue.path]), [['unsupported-format', '/format']]);
 
-	for (const version of [{ major: 2, minor: 0 }, { major: 1, minor: 0 }, { major: 1, minor: 2 }]) {
+	for (const version of [{ major: 2, minor: 0 }, { major: 1, minor: 0 }, { major: 1, minor: 3 }]) {
 		const future = clone(readJson('../fixtures/minimal.fgsnapshot.json')) as any;
 		future.version = version;
 		const result = decodeFrameGraphSnapshot(future);
@@ -818,3 +818,35 @@ function sortIssues(issues: readonly { readonly code: string; readonly path: str
 		.map(({ code, path, message }) => ({ code, path, message }))
 		.sort((a, b) => a.path.localeCompare(b.path) || a.code.localeCompare(b.code) || a.message.localeCompare(b.message));
 }
+
+
+test('strictly migrates 1.1 without changing input or losing earlier provenance', () => {
+ const old: any = readJson('fixtures/snapshot-1.1.json');
+ const saved=JSON.stringify(old);
+ const result=decodeFrameGraphSnapshot(old);
+ assert.equal(result.ok,true); if(!result.ok)return;
+ assert.equal(result.source,'snapshot-v1.1'); assert.equal(result.migrated,true);
+ assert.equal(result.snapshot.version.minor,2);
+ assert.deepEqual(result.snapshot.timings.cpu,{status:'unavailable',reason:'not-collected'});
+ assert.equal(JSON.stringify(old),saved);
+ assert.ok(validateFrameGraphSnapshot(old).length);
+ const bad=clone(old); bad.timings.cpu={status:'unavailable',reason:'injected'};
+ assert.equal(decodeFrameGraphSnapshot(bad).ok,false);
+ const badReference=clone(old); badReference.timings.gpu={status:'available',frameSpanMicros:0,nodes:[{nodeId:'node:missing',durationMicros:0}]};
+ assert.equal(decodeFrameGraphSnapshot(badReference).ok,false);
+ old.capture.migration={sourceFormat:'legacy-v0',unavailableFacts:[]};
+ const legacy=decodeFrameGraphSnapshot(old); assert.equal(legacy.ok,true);
+ if(legacy.ok)assert.deepEqual(legacy.snapshot.capture.migration,old.capture.migration);
+});
+
+test('CPU wire timing accepts every retained kind and rejects invalid references and numbers', () => {
+ const base: any=readJson('../fixtures/full-webgpu.fgsnapshot.json');
+ const retained=base.graph.nodes.filter((n:any)=>n.compileState.status==='retained');
+ base.timings.cpu={status:'available',executionDurationMicros:0,nodes:retained.map((n:any)=>({nodeId:n.id,durationMicros:0}))};
+ assert.deepEqual(validateFrameGraphSnapshot(base),[]);assert.equal(validateSchema(base),true);
+ for(const value of [-1,NaN,Infinity]){const bad=clone(base);bad.timings.cpu.nodes[0].durationMicros=value;assert.ok(validateFrameGraphSnapshot(bad).length);}
+ const duplicate=clone(base);duplicate.timings.cpu.nodes.push(duplicate.timings.cpu.nodes[0]);
+ assert.ok(validateFrameGraphSnapshot(duplicate).some(i=>i.code==='duplicate-timing'));
+ const culled=clone(base);culled.timings.cpu.nodes[0].nodeId=base.graph.nodes.find((n:any)=>n.compileState.status==='culled').id;
+ assert.ok(validateFrameGraphSnapshot(culled).some(i=>i.code==='reference-state'));
+});

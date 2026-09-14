@@ -1,5 +1,6 @@
+import type { FrameGraphCaptureRequest } from '@zenfg/inspector';
 import type { FrameGraphSnapshot } from '@zenfg/snapshot';
-import { FrameGraph, type FrameGraphCompilationReport, type FrameGraphGpuTimingReport } from '@zenfg/webgpu';
+import { FrameGraph, type FrameGraphCompilationReport, type FrameGraphExecutionTiming } from '@zenfg/webgpu';
 import environmentUrl from './assets/quarry_cloudy_1k.hdr?url';
 import { Particles4All } from './Particles4AllFeature.ts';
 import type { Particles4AllSettings } from './particles4allTypes.ts';
@@ -34,10 +35,11 @@ export interface StartParticles4AllOptions {
 export interface Particles4AllController extends Omit<Workload, 'recordFrameGraph' | 'resize'> {
     getState(): Particles4AllState;
     importSettings(text: string): ReturnType<typeof parseImportedSettings>;
-    captureSnapshot(): Promise<FrameGraphSnapshot | undefined>;
+    captureSnapshot(request?: FrameGraphCaptureRequest): Promise<FrameGraphSnapshot | undefined>;
 }
 
 interface PendingCapture {
+    readonly timing: FrameGraphCaptureRequest['timing'];
     readonly promise: Promise<FrameGraphSnapshot | undefined>;
     readonly resolve: (snapshot: FrameGraphSnapshot | undefined) => void;
 }
@@ -139,11 +141,11 @@ export function createHostSupport(canvas: HTMLCanvasElement, device: GPUDevice, 
         graph.clearResourcePool();
     };
     const finishCapture = async (capture: PendingCapture, compilation: FrameGraphCompilationReport,
-        timing: Promise<FrameGraphGpuTimingReport>) => {
+        timing: FrameGraphExecutionTiming) => {
         const resourcePool = graph.getResourcePoolStats();
         try {
-            const [gpuTiming, { createFrameGraphSnapshot }] = await Promise.all([timing, import('@zenfg/webgpu/snapshot')]);
-            if (!frameState.disposed && frameState.pendingCapture === capture) capture.resolve(createFrameGraphSnapshot({ compilation, gpuTiming, resourcePool }));
+            const [gpuTiming, { createFrameGraphSnapshot }] = await Promise.all([timing.gpu, import('@zenfg/webgpu/snapshot')]);
+            if (!frameState.disposed && frameState.pendingCapture === capture) capture.resolve(createFrameGraphSnapshot({ frameIndex: timing.frameIndex, cpuTiming: timing.cpu, compilation, gpuTiming, resourcePool }));
         } catch {
             if (frameState.pendingCapture === capture) capture.resolve(undefined);
         } finally {
@@ -216,12 +218,12 @@ export function createHostSupport(canvas: HTMLCanvasElement, device: GPUDevice, 
             active(); ++environmentRevision;
             workload.clearEnvironment(); setWarning(); frameState.status = 'Procedural sky'; changed();
         },
-        captureSnapshot() {
+        captureSnapshot(request: FrameGraphCaptureRequest = { timing: 'both' }) {
             if (frameState.disposed || suspended()) return Promise.resolve(undefined);
             if (frameState.pendingCapture) return frameState.pendingCapture.promise;
             let resolve!: PendingCapture['resolve'];
             const promise = new Promise<FrameGraphSnapshot | undefined>((done) => { resolve = done; });
-            frameState.pendingCapture = { promise, resolve };
+            frameState.pendingCapture = { timing: request.timing, promise, resolve };
             requestFrame();
             return promise;
         },

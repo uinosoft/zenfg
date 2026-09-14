@@ -1,10 +1,10 @@
 /**
  * Converts a full `@zenfg/webgpu` compilation report, execution timing result,
- * and resource-pool snapshot into the portable ZenFG Snapshot 1.1 wire model.
+ * and resource-pool snapshot into the portable ZenFG Snapshot 1.2 wire model.
  *
  * Capture inputs from the same compiled frame: compile with `{ report: true }`,
- * execute with `{ gpuTiming: true }`, await that timing result, and read pool
- * statistics after execution before calling {@link createFrameGraphSnapshot}.
+ * execute with explicit timing, and save CPU results and pool statistics before
+ * awaiting GPU readback and calling {@link createFrameGraphSnapshot}.
  * Report provenance is a caller-owned convention because independently supplied
  * report values do not carry a shared compiled-frame identity.
  *
@@ -31,6 +31,7 @@ import type {
 import type {
 	FrameGraphCompilationReport,
 	FrameGraphGpuTimingReport,
+	FrameGraphCpuTimingReport,
 	FrameGraphResourcePoolStats,
 } from './types.ts';
 
@@ -38,15 +39,15 @@ import type {
 export type CreateFrameGraphSnapshotOptions = {
 	/**
 	 * Full immutable report returned by `recorder.compile({ report: true })`.
-	 * It must describe the same compiled frame represented by `gpuTiming`.
+	 * It must describe the same compiled frame as all provided timing reports.
 	 */
 	readonly compilation: FrameGraphCompilationReport;
-	/**
-	 * Timing result returned by `compiled.execute({ gpuTiming: true })`.
-	 * Its frame index becomes `snapshot.capture.frameIndex`; unavailable timing
-	 * remains an explicit unavailable timing record.
-	 */
-	readonly gpuTiming: FrameGraphGpuTimingReport;
+	/** Caller-defined identity; every supplied timing report must match it. */
+	readonly frameIndex: number;
+	/** Optional resolved GPU result from the same execution, including unavailability. */
+	readonly gpuTiming?: FrameGraphGpuTimingReport;
+	/** Optional synchronous CPU result from the same execution. */
+	readonly cpuTiming?: FrameGraphCpuTimingReport;
 	/**
 	 * Aggregate pool counters to record with the capture. Read them after frame
 	 * execution when the snapshot should include that execution's releases.
@@ -88,7 +89,7 @@ const BUFFER_USAGE_FLAGS: readonly [number, FrameGraphSnapshotBufferUsageFlag][]
 ];
 
 /**
- * Creates an independent canonical Snapshot 1.1 value from one executed frame.
+ * Creates an independent canonical Snapshot 1.2 value from one executed frame.
  *
  * @remarks The conversion preserves retained and culled nodes, normalized
  * accesses and dependencies, execution segments, allocation planning, GPU
@@ -96,9 +97,9 @@ const BUFFER_USAGE_FLAGS: readonly [number, FrameGraphSnapshotBufferUsageFlag][]
  * deep JSON clone and does not retain references to the supplied reports.
  *
  * @throws {@link @zenfg/snapshot!index.FrameGraphSnapshotValidationError | FrameGraphSnapshotValidationError} if the projected draft does
- * not satisfy Snapshot 1.1, or if an available timing kind disagrees with its
+ * not satisfy Snapshot 1.2, or if an available timing kind disagrees with its
  * compilation node. Also throws if a compilation resource contains WebGPU usage
- * bits that Snapshot 1.1 cannot represent.
+ * bits that Snapshot 1.2 cannot represent.
  *
  * @example
  * ```ts
@@ -113,17 +114,32 @@ const BUFFER_USAGE_FLAGS: readonly [number, FrameGraphSnapshotBufferUsageFlag][]
  *   sideEffect: true,
  * });
  * const compiled = recorder.compile({ report: true });
- * const gpuTiming = await compiled.execute({ frameIndex: 7, gpuTiming: true });
+ * const timing = compiled.executeWithTiming({ frameIndex: 7, timing: 'both' });
+ * const resourcePool = graph.getResourcePoolStats();
+ * const gpuTiming = await timing.gpu;
  * const snapshot = createFrameGraphSnapshot({
+ *   frameIndex: timing.frameIndex, cpuTiming: timing.cpu,
  *   compilation: compiled.compilationReport,
  *   gpuTiming,
- *   resourcePool: graph.getResourcePoolStats(),
+ *   resourcePool,
  * });
  * ```
  */
 export function createFrameGraphSnapshot(options: CreateFrameGraphSnapshotOptions): FrameGraphSnapshot {
-	const { compilation, gpuTiming, resourcePool } = options;
+	const { compilation, cpuTiming, resourcePool, frameIndex } = options;
+	const gpuTiming: FrameGraphGpuTimingReport = options.gpuTiming ?? { status: 'unavailable', frameIndex, reason: 'unsupported' };
+	for (const report of [options.gpuTiming, cpuTiming]) {
+		if (report && report.frameIndex !== frameIndex) throw new FrameGraphSnapshotValidationError([{ severity: 'error', code: 'timing-frame-mismatch', path: '/capture/frameIndex', message: 'Timing frame must match capture frame.' }]);
+	}
 	validateGpuTimingCoherence(compilation, gpuTiming);
+	if (cpuTiming) {
+		const nodes = new Map(compilation.nodes.map(node => [node.id, node]));
+		const issues: FrameGraphSnapshotIssue[] = [];
+		cpuTiming.nodes.forEach((timing, index) => {
+			if (nodes.has(timing.nodeId) && nodes.get(timing.nodeId)!.kind !== timing.kind) issues.push({ severity: 'error', code: 'timing-kind-mismatch', path: '/timings/cpu/nodes/' + index, message: 'CPU timing kind must match compilation node kind.' });
+		});
+		if (issues.length) throw new FrameGraphSnapshotValidationError(issues);
+	}
 	const executionOrderByNodeId = new Map(compilation.nodes.map((node, order) => [node.id, order]));
 	const nodes = [...compilation.nodes, ...compilation.culledNodes]
 		.sort((a, b) => a.recordingOrder - b.recordingOrder)
@@ -198,7 +214,7 @@ export function createFrameGraphSnapshot(options: CreateFrameGraphSnapshotOption
 			},
 		},
 		capture: {
-			frameIndex: gpuTiming.frameIndex,
+			frameIndex,
 			capturedAt: options.capturedAt ?? new Date().toISOString(),
 		},
 		graph: {
@@ -256,6 +272,7 @@ export function createFrameGraphSnapshot(options: CreateFrameGraphSnapshotOption
 			},
 		},
 		timings: {
+			cpu: cpuTiming ? { status: 'available', executionDurationMicros: cpuTiming.executionDurationMicros, nodes: cpuTiming.nodes.map(timing => ({ nodeId: nodeId(timing.nodeId), durationMicros: timing.durationMicros })) } : { status: 'unavailable', reason: 'not-requested' },
 			gpu: gpuTiming.status === 'available'
 				? {
 					status: 'available',
@@ -267,7 +284,7 @@ export function createFrameGraphSnapshot(options: CreateFrameGraphSnapshotOption
 				}
 				: {
 					status: 'unavailable',
-					reason: gpuTiming.reason,
+					reason: options.gpuTiming ? gpuTiming.reason : 'not-requested',
 				},
 		},
 		diagnostics: [],

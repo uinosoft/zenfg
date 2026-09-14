@@ -190,19 +190,21 @@ impl<'frame> CompiledFrame<'frame> {
         crate::execution::execute(self, queue, options)
     }
 
-    /// Executes once and starts a non-blocking GPU timestamp readback.
+    /// Executes once with immediate CPU timings and/or a non-blocking GPU readback.
     ///
     /// Timing is best-effort: unsupported timestamp queries, a busy prior
     /// readback, readback failure, or too many timed nodes produce an
     /// [`GpuTimingReport::Unavailable`](crate::GpuTimingReport::Unavailable)
-    /// result while graph execution still succeeds. Only retained render and
-    /// compute nodes are timed.
-    pub fn execute_with_gpu_timing(
+    /// result while graph execution still succeeds. GPU timing covers retained
+    /// render/compute nodes; CPU elapsed timing covers all executed node kinds.
+    /// Execution failure returns no partial CPU report.
+    pub fn execute_with_timing(
         self,
         queue: &wgpu::Queue,
         options: ExecutionOptions,
-    ) -> Result<crate::GpuTimingReadback, FrameGraphError> {
-        crate::execution::execute_with_gpu_timing(self, queue, options)
+        timing: crate::TimingMode,
+    ) -> Result<crate::ExecutionTiming, FrameGraphError> {
+        crate::execution::execute_with_timing(self, queue, options, timing)
     }
 }
 

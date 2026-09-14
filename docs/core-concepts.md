@@ -256,13 +256,25 @@ still required when the CPU must wait for GPU completion.
 
 ## Diagnostics boundary
 
-Compilation reports, optional GPU timing, and resource-pool statistics are
+Compilation reports, optional CPU/GPU timing, and resource-pool statistics are
 independent observations. Requesting reports does not change the execution plan.
+Normal execution collects no timing. Explicit timed execution selects CPU, GPU,
+or both; CPU reports are returned synchronously and GPU readback is independent.
+CPU timing covers all retained node kinds. It measures synchronous elapsed time,
+including node-local preparation and cleanup, not thread CPU usage. External
+nodes include synchronous submission in their callbacks. Execution total also
+includes shared preparation, submission and transient release. It excludes
+recording, compilation, GPU waiting, report projection and Inspector updates.
+Only successful execution produces a CPU report. CPU and GPU durations must not
+be added to infer frame time. Clock precision and preemption affect readings.
+Resource/view preparation remains runtime-specific, so per-node CPU readings are
+not strict cross-language benchmarks.
+
 Runtime report types may contain implementation-oriented details and can evolve
 with that runtime.
 
 Snapshot adapters explicitly project compatible report data into the portable
-Snapshot 1.1 model. Snapshot contains graph structure, diagnostics, allocation
+Snapshot 1.2 model. Snapshot contains graph structure, diagnostics, allocation
 facts, and optional timing or pool facts; it does not contain GPU commands or
 resource contents and cannot replay a frame.
 
@@ -275,5 +287,5 @@ naming, transport, and retention policy remain caller-owned.
 
 - [`@zenfg/webgpu` quick start and API task map](../packages/webgpu/README.md)
 - [`zenfg` quick start and API task map](../crates/zenfg/README.md)
-- [Snapshot 1.1 specification](../packages/snapshot/SPEC.md)
+- [Snapshot 1.2 specification](../packages/snapshot/SPEC.md)
 - [Compatibility](compatibility.md)

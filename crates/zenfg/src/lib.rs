@@ -2,6 +2,7 @@
 #![warn(missing_docs)]
 
 mod compiler;
+mod cpu_timing;
 mod error;
 mod execution;
 mod gpu_timing;
@@ -19,6 +20,7 @@ mod types;
 #[cfg(feature = "snapshot")]
 pub mod snapshot;
 pub use compiler::CompiledFrame;
+pub use cpu_timing::{CpuTimingNodeReport, CpuTimingReport, ExecutionTiming, TimingMode};
 pub use error::FrameGraphError;
 pub use execution::{
     CommandContext, ComputePassContext, ExecutionResources, ExternalSubmissionContext,

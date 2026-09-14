@@ -324,7 +324,7 @@ function ensureInspectorWorkspace(): Promise<void> {
 			return mounted => {
 				inspector = mountFrameGraphInspector(inspectorHost, {
 					theme: inspectorThemes[theme.get()], branding: false,
-					captureSnapshot: () => mounted.captureSnapshot(),
+					captureSnapshot: (request) => mounted.captureSnapshot(request),
 				});
 			};
 		},

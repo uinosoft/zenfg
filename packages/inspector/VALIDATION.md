@@ -82,7 +82,7 @@ duplicates, unavailable/partial/zero timing and allocations, nonzero and missing
 lifetimes, adjacent/overlapping slots, independent expansion, async Graph reveal
 cancellation, drawer geometry/focus, and large-capture deferred rendering.
 
-Snapshot 1.1, Inspector public exports and export format are unchanged. There is
+Snapshot 1.2, Inspector public exports and export format are unchanged. There is
 no cross-session UI persistence, virtual scrolling, new UI framework or new JSON
 editor dependency. Production builds retain the existing large-chunk advisory
 for ELK and other heavy dependencies; builds complete successfully.

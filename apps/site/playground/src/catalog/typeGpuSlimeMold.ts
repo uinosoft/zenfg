@@ -98,7 +98,7 @@ export const typeGpuSlimeMoldExample: ExamplesExampleDefinition = {
 
 		let disposed = false;
 		return {
-			captureSnapshot: () => controller.captureSnapshot(),
+			captureSnapshot: (request) => controller.captureSnapshot(request),
 			dispose() {
 				if (disposed) return;
 				disposed = true;

@@ -8,12 +8,16 @@
 
 `@zenfg/snapshot` owns the portable, versioned diagnostic contract used to move
 one compiled FrameGraph frame between producers and viewers. It provides the
-Snapshot 1.1 wire types, codec, validator, JSON Schema, fixtures, migration, and
+Snapshot 1.2 wire types, codec, validator, JSON Schema, fixtures, migration, and
 conformance corpus without depending on DOM, WebGPU, or a FrameGraph runtime.
 
 Snapshot files contain graph structure and diagnostics, not GPU commands or
 resource contents, and cannot replay a frame. Snapshot wire-format versioning is
 independent from this package's beta API version.
+
+Snapshot 1.1 inputs are validated before migration to 1.2; their CPU timing is
+marked `not-collected`. Writers and standalone validators accept canonical 1.2
+only. Existing Legacy provenance and extensions are preserved.
 
 ## Installation
 
@@ -30,7 +34,7 @@ DOM or GPU objects. Call `normalizeSnapshot(jsonText)` with captured Snapshot JS
 a valid input returns formatted canonical JSON, and an invalid input reports its issues.
 
 Use `parseFrameGraphSnapshot()` for untrusted JSON text. Supported legacy
-formats are migrated to a detached canonical Snapshot 1.1 value:
+formats are migrated to a detached canonical Snapshot 1.2 value:
 
 ```ts
 import {
@@ -72,7 +76,7 @@ are documented by the TSDoc preserved in the packaged source and declarations.
 ## Consumer and producer boundaries
 
 - Consumers should use `parseFrameGraphSnapshot()` for text or
-  `decodeFrameGraphSnapshot()` for unknown values. Both accept canonical 1.1 and
+  `decodeFrameGraphSnapshot()` for unknown values. Both accept canonical 1.2 and
   supported historical formats, perform migration, and return a discriminated
   result.
 - Producers assembling an in-memory draft should use
@@ -121,7 +125,7 @@ JavaScript safe integers.
 
 ## Further reading
 
-- [Snapshot 1.1 specification](./SPEC.md)
+- [Snapshot 1.2 specification](./SPEC.md)
 - [ZenFG Core concepts](https://github.com/uinosoft/zenfg/blob/npm/snapshot/v0.1.0-beta.3/docs/core-concepts.md)
 - [`@zenfg/webgpu` Snapshot producer](https://github.com/uinosoft/zenfg/blob/npm/snapshot/v0.1.0-beta.3/packages/webgpu/README.md#diagnostics-and-snapshot)
 - [`zenfg-snapshot`](https://github.com/uinosoft/zenfg/blob/npm/snapshot/v0.1.0-beta.3/crates/zenfg-snapshot/README.md)

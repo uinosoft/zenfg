@@ -36,16 +36,17 @@ export const gpuTimingExample: ExamplesExampleDefinition = {
 		const host = await createWebGpuRecipeHost(context);
 		if (!host) return undefined;
 		const stopResize = host.renderOnResize(async () => {
-			const timing = await recipe.measureClearPass(host.graph, host.context, host.nextFrameIndex());
+			const execution = recipe.measureClearPass(host.graph, host.context, host.nextFrameIndex());
+			const timing = await execution.gpu!;
 			context.onReady(timing.status === 'available'
-				? `GPU time: ${timing.frameDurationMicros.toFixed(1)} µs` : undefined);
+				? `CPU execute: ${execution.cpu!.executionDurationMicros.toFixed(1)} µs · GPU: ${timing.frameDurationMicros.toFixed(1)} µs` : undefined);
 			context.onWarning?.(timing.status === 'available'
 				? undefined : 'GPU timing is unavailable (' + timing.reason + '). Rendering and capture remain available.');
 		});
 		return {
-			captureSnapshot: () => host.capture((recorder) => {
+			captureSnapshot: (request = { timing: 'both' }) => host.capture((recorder) => {
 				recipe.recordTimedClearPass(recorder, host.context.getCurrentTexture());
-			}),
+			}, request),
 			dispose() {
 				stopResize();
 				host.dispose();

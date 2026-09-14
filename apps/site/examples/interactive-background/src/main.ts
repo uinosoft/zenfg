@@ -111,9 +111,9 @@ class ZenBackground extends BackgroundBrowserHost {
         }
 
         this.captureInFlight = true;
-        const timing = compiled.execute({
+        const timing = compiled.executeWithTiming({
             frameIndex: this.frameIndex,
-            gpuTiming: true,
+            timing: capture.timing,
         });
         void this.finishCapture(capture, compiled.compilationReport, timing);
     }

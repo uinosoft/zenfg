@@ -61,6 +61,7 @@ export interface FrameGraphCompileBenchmarkResult {
 	readonly scenario: FrameGraphCompileBenchmarkScenario;
 	readonly mode: FrameGraphCompileBenchmarkMode;
 	readonly operation: FrameGraphCompileBenchmarkOperation;
+	readonly cpuTiming: boolean;
 	readonly bodyNodeCount: number;
 	readonly warmupCount: number;
 	readonly statistics: FrameGraphCompileBenchmarkStatistics;
@@ -357,6 +358,7 @@ export function runFrameGraphCompileBenchmarkCase(options: {
 	readonly scenario: FrameGraphCompileBenchmarkScenario;
 	readonly mode: FrameGraphCompileBenchmarkMode;
 	readonly operation?: FrameGraphCompileBenchmarkOperation;
+	readonly cpuTiming?: boolean;
 	readonly bodyNodeCount: number;
 	readonly warmupCount: number;
 	readonly sampleCount: number;
@@ -382,11 +384,15 @@ export function runFrameGraphCompileBenchmarkCase(options: {
 	};
 	const run = (prepared: Prepared): void => {
 		if (operation === 'execute-repeated') {
-			(prepared as CompiledFrame).execute();
+			if (options.cpuTiming) (prepared as CompiledFrame).executeWithTiming({ timing: 'cpu' });
+			else (prepared as CompiledFrame).execute();
 			return;
 		}
 		const compiled = compile(prepared as FrameGraphRecorder);
-		if (operation !== 'compile-only') compiled.execute();
+		if (operation !== 'compile-only') {
+			if (options.cpuTiming) compiled.executeWithTiming({ timing: 'cpu' });
+			else compiled.execute();
+		}
 	};
 	const preparationTiming: FrameGraphBenchmarkPreparationTiming = operation === 'execute-repeated'
 		? 'once'
@@ -414,6 +420,7 @@ export function runFrameGraphCompileBenchmarkCase(options: {
 		operation,
 		bodyNodeCount,
 		warmupCount,
+		cpuTiming: operation !== 'compile-only' && options.cpuTiming === true,
 		statistics: calculateFrameGraphCompileStatistics(durationsMicros),
 		structure,
 	};

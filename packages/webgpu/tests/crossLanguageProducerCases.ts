@@ -35,8 +35,10 @@ const CASE_BUILDERS: Record<CrossLanguageProducerCase, () => FrameGraphCompilati
 export function createTypeScriptProducerSnapshots(): ReadonlyMap<CrossLanguageProducerCase, FrameGraphSnapshot> {
 	const snapshots = new Map<CrossLanguageProducerCase, FrameGraphSnapshot>();
 	for (const name of CROSS_LANGUAGE_PRODUCER_CASES) {
-		const snapshot = createFrameGraphSnapshot({
-			compilation: CASE_BUILDERS[name](),
+		const compilation = CASE_BUILDERS[name]();
+		const snapshot = createFrameGraphSnapshot({ frameIndex: 0,
+			compilation,
+			cpuTiming: { frameIndex: 0, executionDurationMicros: 1000, nodes: compilation.nodes.map((node, index) => ({ nodeId: node.id, kind: node.kind, label: node.label, durationMicros: index + 1 })) },
 			gpuTiming: { status: 'unavailable', frameIndex: 0, reason: 'unsupported' },
 			resourcePool: {
 				acquireCount: 0,

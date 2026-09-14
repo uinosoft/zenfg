@@ -86,7 +86,7 @@ function createHost(canvas: HTMLCanvasElement, device: GPUDevice, context: GPUCa
                 canvas.dataset.frameGraphPasses = String(compiled.compilationReport.nodes.length);
                 if (pending) {
                     state.captureInFlight = pending;
-                    void host.finishCapture(pending, compiled.compilationReport, compiled.execute({ frameIndex: state.frameIndex++, gpuTiming: true }));
+                    void host.finishCapture(pending, compiled.compilationReport, compiled.executeWithTiming({ frameIndex: state.frameIndex++, timing: pending.timing }));
                 } else compiled.execute({ frameIndex: state.frameIndex++ });
             } else frame.compile().execute({ frameIndex: state.frameIndex++ });
             try { options.onFrame?.(); } catch { /* Telemetry must not interrupt rendering. */ }

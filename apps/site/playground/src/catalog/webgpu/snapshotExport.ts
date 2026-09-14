@@ -1,3 +1,4 @@
+import type { FrameGraphCaptureRequest } from '@zenfg/inspector';
 import type { FrameGraphSnapshot } from '@zenfg/snapshot';
 import type { ExamplesExampleDefinition } from '../../types.ts';
 import { recipeHostSourceFile } from './sources.ts';
@@ -38,10 +39,12 @@ export const snapshotExportExample: ExamplesExampleDefinition = {
 		const host = await createWebGpuRecipeHost(context);
 		if (!host) return undefined;
 		let captureTail: Promise<void> = Promise.resolve();
-		const capture = (): Promise<FrameGraphSnapshot> => {
+		const capture = (request: FrameGraphCaptureRequest = { timing: 'both' }): Promise<FrameGraphSnapshot> => {
+			const timing = request.timing;
 			const result = captureTail.then(async () => {
 				const json = await recipe.captureSnapshotJson({
 					graph: host.graph,
+					timing,
 					context: host.context,
 					frameIndex: host.nextFrameIndex(),
 					producerVersion: '0.1.0-beta.3',

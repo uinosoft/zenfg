@@ -1,3 +1,4 @@
+import { cpuClock } from './cpuTiming.ts';
 import {
 	BufferAccess,
 	type BufferDesc,
@@ -20,7 +21,8 @@ import {
 	type ExternalSubmissionNodeDesc,
 	type FrameGraphRecorder,
 	type FrameGraphCompilationReport,
-	type FrameGraphGpuTimingReport,
+	type FrameGraphTimingMode,
+	type FrameGraphExecutionTiming,
 	type FrameGraphResourcePoolStats,
 	type GraphRootReason,
 	type NodeKind,
@@ -331,11 +333,13 @@ class CompiledFrameImpl implements CompiledFrame {
 		protected readonly recorder: FrameGraphRecorderImpl,
 	) {}
 
-	execute(options?: CompiledFrameExecuteOptions & { readonly gpuTiming?: false }): void;
-	execute(options: CompiledFrameExecuteOptions & { readonly gpuTiming: true }): Promise<FrameGraphGpuTimingReport>;
-	execute(options: CompiledFrameExecuteOptions & { readonly gpuTiming?: boolean }): void | Promise<FrameGraphGpuTimingReport>;
-	execute(options: CompiledFrameExecuteOptions & { readonly gpuTiming?: boolean } = {}): void | Promise<FrameGraphGpuTimingReport> {
-		return this.recorder.executeCompiled(options);
+	execute(options: CompiledFrameExecuteOptions = {}): void {
+		this.recorder.executeCompiled(options);
+	}
+
+	executeWithTiming(options: CompiledFrameExecuteOptions & { readonly timing: FrameGraphTimingMode }): FrameGraphExecutionTiming {
+		if (!['cpu', 'gpu', 'both'].includes(options.timing)) throw new TypeError('Invalid execution timing mode.');
+		return this.recorder.executeCompiled(options, options.timing)!;
 	}
 }
 
@@ -1398,10 +1402,7 @@ class FrameGraphRecorderImpl implements FrameGraphRecorder {
 	 *
 	 * @beta
 	 */
-	executeCompiled(options?: CompiledFrameExecuteOptions & { readonly gpuTiming?: false }): void;
-	executeCompiled(options: CompiledFrameExecuteOptions & { readonly gpuTiming: true }): Promise<FrameGraphGpuTimingReport>;
-	executeCompiled(options: CompiledFrameExecuteOptions & { readonly gpuTiming?: boolean }): void | Promise<FrameGraphGpuTimingReport>;
-	executeCompiled(options: CompiledFrameExecuteOptions & { readonly gpuTiming?: boolean } = {}): void | Promise<FrameGraphGpuTimingReport> {
+	executeCompiled(options: CompiledFrameExecuteOptions = {}, timing?: FrameGraphTimingMode): FrameGraphExecutionTiming | undefined {
 		this.assertNotDestroyed('execute');
 		this.assertNotExecuting('execute');
 		const plan = this.compiledPlan;
@@ -1414,6 +1415,9 @@ class FrameGraphRecorderImpl implements FrameGraphRecorder {
 		}
 		const frameIndex = options.frameIndex ?? 0;
 		assertNonNegativeSafeInteger(frameIndex, 'CompiledFrame.execute() frameIndex');
+		const cpuDurations = timing === 'cpu' || timing === 'both' ? new Float64Array(plan.nodes.length) : undefined;
+		let cpuIndex = 0;
+		const cpuStart = cpuDurations ? cpuClock.now() : 0;
 		const resourceByLogicalId = new Map<number, GPUTexture | GPUBuffer>();
 		const resourceByAllocationId = new Map<number, GPUTexture | GPUBuffer>();
 		const textureViewCache = new Map<string, GPUTextureView>();
@@ -1423,7 +1427,7 @@ class FrameGraphRecorderImpl implements FrameGraphRecorder {
 
 		this.runtime.isExecuting = true;
 		try {
-			gpuTiming = options.gpuTiming === true
+			gpuTiming = timing === 'gpu' || timing === 'both'
 				? beginGpuTimingFrame(this.gpuProfiler, plan.nodes, frameIndex)
 				: undefined;
 			for (const compiledResource of plan.resources) {
@@ -1474,12 +1478,14 @@ class FrameGraphRecorderImpl implements FrameGraphRecorder {
 					const nodeId = segment.nodeIds[0];
 					const node = nodeById.get(nodeId);
 					if (node) {
+						const start = cpuDurations ? cpuClock.now() : 0;
 						this.executeExternalSubmission(node, {
 							frameIndex,
 							device: this.device,
 							resourceByLogicalId,
 							textureViewCache,
 						});
+						if (cpuDurations) cpuDurations[cpuIndex++] = Math.max(0, cpuClock.now() - start) * 1000;
 					}
 					continue;
 				}
@@ -1499,6 +1505,7 @@ class FrameGraphRecorderImpl implements FrameGraphRecorder {
 							groupId === undefined ? [] : gpuDebugGroups.pathByGroupId.get(groupId) ?? [],
 						);
 					}
+					const start = cpuDurations ? cpuClock.now() : 0;
 					this.executeNode(node, {
 						frameIndex,
 						device: this.device,
@@ -1507,6 +1514,7 @@ class FrameGraphRecorderImpl implements FrameGraphRecorder {
 						textureViewCache,
 						gpuTimingQuery: gpuTiming?.frame?.queryByNodeId.get(node.id),
 					});
+					if (cpuDurations) cpuDurations[cpuIndex++] = Math.max(0, cpuClock.now() - start) * 1000;
 				}
 				if (gpuDebugGroups) {
 					this.syncGpuDebugGroups(commandEncoder, activeDebugGroupPath, []);
@@ -1539,7 +1547,16 @@ class FrameGraphRecorderImpl implements FrameGraphRecorder {
 				this.runtime.isExecuting = false;
 			}
 		}
-		return gpuTiming?.promise;
+		const executionDurationMicros = cpuDurations ? Math.max(0, cpuClock.now() - cpuStart) * 1000 : 0;
+		if (!timing) return undefined;
+		return {
+			frameIndex,
+			cpu: cpuDurations ? {
+				frameIndex, executionDurationMicros,
+				nodes: plan.nodes.map((node, index) => ({ nodeId: node.id, kind: node.kind, label: node.label, durationMicros: cpuDurations[index]! })),
+			} : undefined,
+			gpu: gpuTiming?.promise,
+		};
 	}
 
 	private syncGpuDebugGroups(

@@ -80,7 +80,7 @@ export const babylonLiteInteropExample: ExamplesExampleDefinition = {
         };
         context.signal?.addEventListener('abort', cleanup, { once: true });
         return {
-            captureSnapshot: () => controller.captureSnapshot(),
+            captureSnapshot: (request) => controller.captureSnapshot(request),
             dispose: cleanup,
         };
     },

@@ -127,7 +127,7 @@ export const typeGpuMonocularLightInjectionExample: ExamplesExampleDefinition = 
                 upload.value = '';
             }, { signal: abort.signal });
             sync(active.getState());
-            return { captureSnapshot: () => active.captureSnapshot(), dispose: cleanup };
+            return { captureSnapshot: (request) => active.captureSnapshot(request), dispose: cleanup };
         } catch (error) { cleanup(); throw error; }
     },
 };

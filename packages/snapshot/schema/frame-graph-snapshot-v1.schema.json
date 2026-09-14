@@ -14,7 +14,7 @@
       "required": ["major", "minor"],
       "properties": {
         "major": { "const": 1 },
-        "minor": { "const": 1 }
+        "minor": { "const": 2 }
       }
     },
     "producer": { "$ref": "#/$defs/producer" },
@@ -24,8 +24,8 @@
     "timings": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["gpu"],
-      "properties": { "gpu": { "$ref": "#/$defs/gpuTimings" } }
+      "required": ["gpu", "cpu"],
+      "properties": { "gpu": { "$ref": "#/$defs/gpuTimings" }, "cpu": { "$ref": "#/$defs/cpuTimings" } }
     },
     "diagnostics": {
       "type": "array",
@@ -755,7 +755,7 @@
       "additionalProperties": false,
       "required": ["sourceFormat", "unavailableFacts"],
       "properties": {
-        "sourceFormat": { "enum": ["legacy-v0", "legacy-candidate-v1"] },
+        "sourceFormat": { "enum": ["legacy-v0", "legacy-candidate-v1", "snapshot-v1.1"] },
         "unavailableFacts": {
           "type": "array",
           "uniqueItems": true,
@@ -1315,6 +1315,49 @@
         "status": { "const": "unavailable" },
         "reason": { "type": "string", "minLength": 1 }
       }
+    },
+    "cpuTimings": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "status",
+            "executionDurationMicros",
+            "nodes"
+          ],
+          "properties": {
+            "status": {
+              "const": "available"
+            },
+            "nodes": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "nodeId",
+                  "durationMicros"
+                ],
+                "properties": {
+                  "nodeId": {
+                    "$ref": "#/$defs/nodeId"
+                  },
+                  "durationMicros": {
+                    "$ref": "#/$defs/finiteNumber"
+                  }
+                }
+              }
+            },
+            "executionDurationMicros": {
+              "$ref": "#/$defs/finiteNumber"
+            }
+          }
+        },
+        {
+          "$ref": "#/$defs/unavailable"
+        }
+      ]
     },
     "gpuTimings": {
       "oneOf": [

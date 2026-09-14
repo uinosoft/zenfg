@@ -98,7 +98,7 @@ export const referenceRendererExample: ExamplesExampleDefinition = {
             throw error;
         }
         return {
-            captureSnapshot: () => controller.captureSnapshot(),
+            captureSnapshot: (request) => controller.captureSnapshot(request),
             dispose() {
                 pane?.dispose();
                 pane = undefined;

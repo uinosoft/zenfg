@@ -1,3 +1,4 @@
+import type { FrameGraphCaptureRequest } from '@zenfg/inspector';
 import type { FrameGraphSnapshot } from '@zenfg/snapshot';
 import { FrameGraph, type FrameGraphRecorder } from '@zenfg/webgpu';
 import { createFrameGraphSnapshot } from '@zenfg/webgpu/snapshot';
@@ -25,6 +26,7 @@ export type WebGpuRecipeHost = {
 	readonly renderOnResize: (render: (size: RecipeCanvasSize) => void | Promise<void>) => () => void;
 	readonly capture: (
 		record: (recorder: FrameGraphRecorder, frameIndex: number) => void,
+		request?: FrameGraphCaptureRequest,
 	) => Promise<FrameGraphSnapshot>;
 	readonly dispose: () => void;
 };
@@ -114,20 +116,21 @@ export async function createWebGpuRecipeHost(
 			resizeCleanups.add(stop);
 			return stop;
 		},
-		capture(record) {
+		capture(record, request = { timing: 'both' }) {
+			const mode = request.timing;
 			const result = captureTail.then(async () => {
 				if (disposed) throw new Error('The WebGPU recipe host has been disposed.');
 				const capturedFrameIndex = frameIndex++;
 				const recorder = graph.beginFrame();
 				record(recorder, capturedFrameIndex);
 				const compiled = recorder.compile({ report: true });
-				const timingPromise = compiled.execute({
+				const executionTiming = compiled.executeWithTiming({
 					frameIndex: capturedFrameIndex,
-					gpuTiming: true,
+					timing: mode,
 				});
 				const resourcePool = graph.getResourcePoolStats();
-				const gpuTiming = await timingPromise;
-				return createFrameGraphSnapshot({
+				const gpuTiming = await executionTiming.gpu;
+				return createFrameGraphSnapshot({ frameIndex: executionTiming.frameIndex, cpuTiming: executionTiming.cpu,
 					compilation: compiled.compilationReport,
 					gpuTiming,
 					resourcePool,

@@ -123,7 +123,7 @@ export const babylonInteropExample: ExamplesExampleDefinition = {
             throw error;
         }
         return {
-            captureSnapshot: () => controller.captureSnapshot(),
+            captureSnapshot: (request) => controller.captureSnapshot(request),
             dispose: cleanup,
         };
     },

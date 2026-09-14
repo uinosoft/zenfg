@@ -290,7 +290,7 @@ export function migrateLegacyFrameGraphCapture(value: unknown): LegacyMigrationR
 			allocationReport: { status: 'available', allocations: mappedAllocations },
 			poolReport: { status: 'available', acquireCount, reuseCount, createdCount, retainedCount, estimatedRetainedBytes },
 		},
-		timings: { gpu },
+		timings: { gpu, cpu: { status: 'unavailable', reason: 'not-collected' } },
 		diagnostics: [],
 		extensions: {},
 	};
@@ -301,7 +301,7 @@ export function migrateLegacyFrameGraphCapture(value: unknown): LegacyMigrationR
 			severity: 'warning',
 			code: 'legacy-v0-migrated',
 			path: '',
-			message: 'The unversioned debug capture was migrated to FrameGraph Snapshot 1.1.',
+			message: 'The unversioned debug capture was migrated to FrameGraph Snapshot 1.2.',
 		}],
 	};
 }

@@ -40,9 +40,9 @@ export const minimalFrameExample: ExamplesExampleDefinition = {
 			context.onReady();
 		});
 		return {
-			captureSnapshot: () => host.capture((recorder) => {
+			captureSnapshot: (request = { timing: 'both' }) => host.capture((recorder) => {
 				recipe.recordMinimalFrame(recorder, host.context.getCurrentTexture());
-			}),
+			}, request),
 			dispose() {
 				stopResize();
 				host.dispose();

@@ -1,3 +1,4 @@
+import type { FrameGraphCaptureRequest } from '@zenfg/inspector';
 import type { SiteThemeController } from '../../shared/theme/controller.ts';
 import type { ExampleTag } from './exampleTags.ts';
 import type { FrameGraphSnapshot } from '@zenfg/inspector';
@@ -23,7 +24,7 @@ export type ExamplesSourceFile = {
 
 export type ExamplesRuntime = {
 	/** Requests the next real frame, waiting through preparation. Failure, suspension, or disposal must settle the request. */
-	readonly captureSnapshot: () => Promise<FrameGraphSnapshot | undefined>;
+	readonly captureSnapshot: (request?: FrameGraphCaptureRequest) => Promise<FrameGraphSnapshot | undefined>;
 	readonly dispose: () => void;
 };
 

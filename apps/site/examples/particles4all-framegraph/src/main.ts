@@ -80,7 +80,7 @@ export function createParticles4AllHost(canvas: HTMLCanvasElement, device: GPUDe
             if (capture && !frameState.capturing) {
                 const compiled = recording.compile({ report: true });
                 frameState.capturing = capture;
-                const timing = compiled.execute({ frameIndex: frameState.frameIndex, afterSubmit, gpuTiming: true });
+                const timing = compiled.executeWithTiming({ frameIndex: frameState.frameIndex, afterSubmit, timing: capture.timing });
                 void host.finishCapture(capture, compiled.compilationReport, timing);
             } else {
                 recording.compile().execute({ frameIndex: frameState.frameIndex, afterSubmit });

@@ -122,7 +122,7 @@ export const particles4AllExample: ExamplesExampleDefinition = {
                 });
             }
             timer = setInterval(() => { if (!disposed) Object.assign(stats, active.getStats()); }, 250);
-            return { captureSnapshot: () => active.captureSnapshot(), dispose: cleanup };
+            return { captureSnapshot: (request) => active.captureSnapshot(request), dispose: cleanup };
         } catch (error) { cleanup(); throw error; }
     },
 };

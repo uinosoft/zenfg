@@ -1,3 +1,4 @@
+use crate::cpu_timing::now as cpu_now;
 use std::collections::HashMap;
 
 use crate::{
@@ -297,16 +298,26 @@ pub(crate) fn execute(
     queue: &wgpu::Queue,
     options: ExecutionOptions,
 ) -> Result<(), FrameGraphError> {
-    execute_internal(frame, queue, options, false).map(|_| ())
+    execute_internal(frame, queue, options, false, false).map(|_| ())
 }
 
-pub(crate) fn execute_with_gpu_timing(
+pub(crate) fn execute_with_timing(
     frame: CompiledFrame<'_>,
     queue: &wgpu::Queue,
     options: ExecutionOptions,
-) -> Result<crate::GpuTimingReadback, FrameGraphError> {
-    execute_internal(frame, queue, options, true)?.ok_or_else(|| FrameGraphError::Internal {
-        message: "timed execution completed without a GPU timing readback".into(),
+    timing: crate::TimingMode,
+) -> Result<crate::ExecutionTiming, FrameGraphError> {
+    let (cpu, gpu) = execute_internal(
+        frame,
+        queue,
+        options,
+        matches!(timing, crate::TimingMode::Gpu | crate::TimingMode::Both),
+        matches!(timing, crate::TimingMode::Cpu | crate::TimingMode::Both),
+    )?;
+    Ok(crate::ExecutionTiming {
+        frame_index: options.frame_index,
+        cpu,
+        gpu,
     })
 }
 
@@ -315,7 +326,14 @@ fn execute_internal(
     queue: &wgpu::Queue,
     options: ExecutionOptions,
     gpu_timing: bool,
-) -> Result<Option<crate::GpuTimingReadback>, FrameGraphError> {
+    cpu_timing: bool,
+) -> Result<
+    (
+        Option<crate::CpuTimingReport>,
+        Option<crate::GpuTimingReadback>,
+    ),
+    FrameGraphError,
+> {
     let CompiledFrame {
         graph,
         plan,
@@ -329,6 +347,8 @@ fn execute_internal(
         .clone()
         .ok_or(FrameGraphError::MissingGpuDevice)?;
 
+    let mut cpu_durations = cpu_timing.then(|| Vec::with_capacity(plan.retained_nodes.len()));
+    let cpu_start = cpu_timing.then(cpu_now);
     preflight(
         &plan.retained_nodes,
         &plan.usages,
@@ -436,6 +456,7 @@ fn execute_internal(
                                 pass: *pass,
                                 expected: executor_name(node.kind),
                             })?;
+                    let node_start = cpu_timing.then(cpu_now);
                     let resources = ExecutionResources {
                         pass: *pass,
                         accesses: &access_map,
@@ -578,6 +599,9 @@ fn execute_internal(
                             });
                         }
                     }
+                    if let (Some(durations), Some(start)) = (&mut cpu_durations, node_start) {
+                        durations.push(cpu_now().saturating_duration_since(start));
+                    }
                 }
                 while open_debug_groups.pop().is_some() {
                     encoder.pop_debug_group();
@@ -618,6 +642,7 @@ fn execute_internal(
                         actual: node.kind,
                     });
                 };
+                let node_start = cpu_timing.then(cpu_now);
                 callback(ExternalSubmissionContext {
                     device: &device,
                     queue,
@@ -629,14 +654,38 @@ fn execute_internal(
                     },
                     frame_index: options.frame_index,
                 })?;
+                if let (Some(durations), Some(start)) = (&mut cpu_durations, node_start) {
+                    durations.push(cpu_now().saturating_duration_since(start));
+                }
             }
         }
     }
-    if let Some(mut timing) = active_timing.take() {
+    let gpu = if let Some(mut timing) = active_timing.take() {
         timing.begin_readback();
-        return Ok(Some(timing.take_readback()));
-    }
-    Ok(immediate_readback)
+        Some(timing.take_readback())
+    } else {
+        immediate_readback
+    };
+    drop(transient_lease);
+    let execution_duration = cpu_start.map(|start| cpu_now().saturating_duration_since(start));
+    let cpu = cpu_durations
+        .zip(execution_duration)
+        .map(|(durations, execution_duration)| crate::CpuTimingReport {
+            frame_index: options.frame_index,
+            execution_duration,
+            nodes: plan
+                .retained_nodes
+                .iter()
+                .zip(durations)
+                .map(|(node, duration)| crate::CpuTimingNodeReport {
+                    pass: node.id,
+                    kind: node.kind,
+                    label: node.label.clone(),
+                    duration,
+                })
+                .collect(),
+        });
+    Ok((cpu, gpu))
 }
 
 fn timestamp_indices(timing: &Option<Box<ActiveGpuTiming>>, pass: PassId) -> Option<(u32, u32)> {

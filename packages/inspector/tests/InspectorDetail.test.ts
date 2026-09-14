@@ -137,12 +137,12 @@ test('Summary differentiates missing, partial, zero and opaque timing and presen
 	try {
 		const source = fixture();
 		const view = detailView();
-		const unavailable = createDebugViewModel({ ...source, timings: { gpu: { status: 'unavailable', reason: 'disabled' } } });
+		const unavailable = createDebugViewModel({ ...source, timings: { cpu: { status: 'unavailable', reason: 'not-requested' }, gpu: { status: 'unavailable', reason: 'disabled' } } });
 		view.setSnapshot(unavailable);
 		view.setSelection({ kind: 'group', pathKey: unavailable.debugGroups[0]!.pathKey });
 		assert.match(view.root.textContent!, /Not collected/);
 		assert.doesNotMatch(view.root.textContent!, /0\.000 ms/);
-		view.setSnapshot(createDebugViewModel({ ...source, timings: { gpu: { status: 'available', frameSpanMicros: 10, nodes: [{ nodeId: 'node:scene', durationMicros: 0 }] } } }));
+		view.setSnapshot(createDebugViewModel({ ...source, timings: { cpu: { status: 'unavailable', reason: 'not-requested' }, gpu: { status: 'available', frameSpanMicros: 10, nodes: [{ nodeId: 'node:scene', durationMicros: 0 }] } } }));
 		assert.match(view.root.textContent!, /Partial.*1\/2 timed/);
 		assert.match(view.root.textContent!, /0\.000 ms/);
 		view.setSelection({ kind: 'node', id: 'node:external' });

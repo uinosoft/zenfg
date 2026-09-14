@@ -1251,3 +1251,18 @@ function installDom(): Window {
     Reflect.set(globalThis, 'Event', testWindow.Event);
     return testWindow;
 }
+
+
+test('capture mode is fixed per request and controls are disabled during capture', async () => {
+ const win=installDom();
+ const modes:string[]=[];let finish!:(value:ReturnType<typeof toSnapshot>)=>void;
+ const panel=new FrameGraphInspector({captureSnapshot:request=>{modes.push(request.timing);return new Promise(resolve=>{finish=resolve;});}});
+ document.body.append(panel.dom);
+ const select=panel.dom.querySelector<HTMLSelectElement>('select[aria-label="Capture timing"]')!;
+ assert.equal(select.value,'both');select.value='cpu';
+ const capturing=panel.captureSnapshot();assert.equal(select.disabled,true);assert.deepEqual(modes,['cpu']);
+ select.value='gpu';await panel.captureSnapshot();assert.deepEqual(modes,['cpu']);
+ finish(toSnapshot(createEmptyCapture()));await capturing;assert.equal(select.disabled,false);
+ panel.setCaptureSnapshotProvider(undefined);assert.equal(select.hidden,true);
+ panel.destroy();win.close();
+});

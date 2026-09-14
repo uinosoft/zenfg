@@ -11,7 +11,7 @@ pub struct SnapshotVersion {
     pub minor: u32,
 }
 
-/// Canonical, strongly typed ZenFG FrameGraph Snapshot 1.1 document.
+/// Canonical, strongly typed ZenFG FrameGraph Snapshot 1.2 document.
 ///
 /// This structure mirrors the portable JSON wire model. Prefer
 /// [`crate::parse_frame_graph_snapshot`] or [`crate::decode_frame_graph_snapshot`]
@@ -86,6 +86,8 @@ pub struct SnapshotMigration {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum SnapshotMigrationSourceFormat {
+    #[serde(rename = "snapshot-v1.1")]
+    SnapshotV1_1,
     LegacyV0,
     LegacyCandidateV1,
 }
@@ -528,7 +530,9 @@ pub enum SnapshotRootReason {
 /// Input wire shape recognized by a successful decode.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum SnapshotDecodeSource {
-    /// Canonical ZenFG Snapshot 1.1.
+    /// Canonical 1.1 explicitly migrated to 1.2.
+    SnapshotV1_1,
+    /// Canonical ZenFG Snapshot 1.2.
     V1,
     /// Historical unversioned debug-capture shape.
     LegacyV0,
@@ -539,7 +543,7 @@ pub enum SnapshotDecodeSource {
 /// Canonical snapshot plus provenance and non-fatal migration diagnostics.
 #[derive(Clone, Debug, PartialEq)]
 pub struct SnapshotDecodeResult {
-    /// Validated canonical ZenFG Snapshot 1.1 value.
+    /// Validated canonical ZenFG Snapshot 1.2 value.
     pub snapshot: FrameGraphSnapshotV1,
     /// Original input format recognized by the decoder.
     pub source: SnapshotDecodeSource,
@@ -633,7 +637,32 @@ pub enum SnapshotPoolReport {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SnapshotTimings {
+    pub cpu: SnapshotCpuTimings,
     pub gpu: SnapshotGpuTimings,
+}
+
+/// CPU synchronous elapsed timings, independent of GPU completion.
+#[allow(missing_docs)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(tag = "status", rename_all = "kebab-case")]
+pub enum SnapshotCpuTimings {
+    Available {
+        #[serde(rename = "executionDurationMicros")]
+        execution_duration_micros: f64,
+        nodes: Vec<SnapshotCpuNodeTiming>,
+    },
+    Unavailable {
+        reason: String,
+    },
+}
+
+/// CPU duration in microseconds associated with one retained node of any kind.
+#[allow(missing_docs)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SnapshotCpuNodeTiming {
+    pub node_id: String,
+    pub duration_micros: f64,
 }
 
 /// Available GPU pass timings or an explicit unavailability reason.

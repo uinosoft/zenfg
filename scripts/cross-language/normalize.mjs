@@ -183,6 +183,14 @@ export function normalizeProducerSnapshot(caseName, snapshot) {
             segments,
         },
         memory: { allocationEquivalenceClasses },
+        cpuTiming: snapshot.timings.cpu.status === 'available' ? {
+            status: 'available',
+            executionDurationMicros: snapshot.timings.cpu.executionDurationMicros,
+            nodes: snapshot.timings.cpu.nodes.map(timing => ({
+                node: lookup(nodeLabels, timing.nodeId, 'node'),
+                durationMicros: timing.durationMicros,
+            })),
+        } : snapshot.timings.cpu,
     };
 }
 

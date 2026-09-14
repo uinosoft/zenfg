@@ -65,7 +65,7 @@ export const transientToPresentExample: ExamplesExampleDefinition = {
 			context.onReady();
 		});
 		return {
-			captureSnapshot: () => host.capture(record),
+			captureSnapshot: (request = { timing: 'both' }) => host.capture(record, request),
 			dispose() {
 				stopResize();
 				host.dispose();

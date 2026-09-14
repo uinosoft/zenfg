@@ -30,3 +30,14 @@ mode does not.
 Results are stable JSON written to stdout. They are local observations, not a
 committed baseline or CI performance gate. The generated runner exists only
 temporarily under the ignored `.benchmark-dist/` directory.
+
+Use `--cpu-timing off|on` to compare ordinary execution with synchronous CPU
+collection. This flag has no effect on `compile-only`. Keep GPU waiting, UI and
+serialization outside execution samples. The Rust counterpart is
+`cargo run --release --example cpu-timing-bench -p zenfg`; it uses a noop device.
+
+The [CPU timing acceptance review](timing-review-2026-09-14.md) records the
+five-round baseline, off/on results and hardware browser observations.
+`compare-timing.mjs <baseline-ref>` compares old/current disabled runtimes without
+changing the checkout. `browser-timing.mjs` uses the site server at port 5174
+(or `TIMING_URL`) and saves JSON to `TIMING_OUTPUT` or a temporary directory.

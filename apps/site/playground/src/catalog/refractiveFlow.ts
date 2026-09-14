@@ -25,6 +25,6 @@ export const refractiveFlowExample: ExamplesExampleDefinition = {
 		if (context.signal?.aborted) { surface.dispose(); return undefined; }
 		surface.setTheme(context.theme?.get() ?? 'dark');
 		const unsubscribe = context.theme?.subscribe(mode => surface.setTheme(mode));
-		return { captureSnapshot: () => surface.captureSnapshot(), dispose() { unsubscribe?.(); surface.dispose(); } };
+		return { captureSnapshot: (request) => surface.captureSnapshot(request), dispose() { unsubscribe?.(); surface.dispose(); } };
 	},
 };

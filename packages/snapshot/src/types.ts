@@ -84,7 +84,7 @@ export type FrameGraphSnapshotUnavailableFact =
 
 /** Migration provenance retained on a canonicalized legacy capture. */
 export type FrameGraphSnapshotMigration = {
-	readonly sourceFormat: 'legacy-v0' | 'legacy-candidate-v1';
+	readonly sourceFormat: 'legacy-v0' | 'legacy-candidate-v1' | 'snapshot-v1.1';
 	readonly unavailableFacts: readonly FrameGraphSnapshotUnavailableFact[];
 };
 
@@ -322,6 +322,11 @@ export type FrameGraphSnapshotMemory = {
 		};
 };
 
+/** CPU-side synchronous elapsed timings, independent of GPU completion. */
+export type FrameGraphSnapshotCpuTimings =
+	| { readonly status: 'available'; readonly executionDurationMicros: number; readonly nodes: readonly { readonly nodeId: FrameGraphSnapshotEntityId; readonly durationMicros: number }[] }
+	| { readonly status: 'unavailable'; readonly reason: string };
+
 /** Available per-node GPU timestamps or the reason timing was unavailable. */
 export type FrameGraphSnapshotGpuTimings =
 	| {
@@ -346,7 +351,7 @@ export type FrameGraphSnapshotDiagnostic = {
 	readonly resourceId?: FrameGraphSnapshotEntityId;
 };
 
-/** Canonical, portable ZenFG FrameGraph Snapshot 1.1 document. */
+/** Canonical, portable ZenFG FrameGraph Snapshot 1.2 document. */
 export type FrameGraphSnapshotV1 = {
 	readonly format: typeof FRAME_GRAPH_SNAPSHOT_FORMAT;
 	readonly version: typeof FRAME_GRAPH_SNAPSHOT_VERSION;
@@ -356,6 +361,7 @@ export type FrameGraphSnapshotV1 = {
 	readonly memory: FrameGraphSnapshotMemory;
 	readonly timings: {
 		readonly gpu: FrameGraphSnapshotGpuTimings;
+		readonly cpu: FrameGraphSnapshotCpuTimings;
 	};
 	readonly diagnostics: readonly FrameGraphSnapshotDiagnostic[];
 	readonly extensions: Readonly<Record<string, JsonValue>>;
@@ -382,7 +388,7 @@ export type FrameGraphSnapshotDecodeResult =
 	| {
 		readonly ok: true;
 		readonly snapshot: FrameGraphSnapshot;
-		readonly source: 'v1' | 'legacy-v0' | 'legacy-candidate-v1';
+		readonly source: 'v1' | 'legacy-v0' | 'legacy-candidate-v1' | 'snapshot-v1.1';
 		readonly migrated: boolean;
 		readonly issues: readonly FrameGraphSnapshotIssue[];
 	}

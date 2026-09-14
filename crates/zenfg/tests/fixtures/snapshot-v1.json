@@ -2,7 +2,7 @@
   "format": "zenfg.frame-graph-snapshot",
   "version": {
     "major": 1,
-    "minor": 1
+    "minor": 2
   },
   "producer": {
     "name": "zenfg",
@@ -415,7 +415,7 @@
       "estimatedRetainedBytes": 1280
     }
   },
-  "timings": {
+  "timings": { "cpu": { "status": "unavailable", "reason": "not-requested" },
     "gpu": {
       "status": "available",
       "frameSpanMicros": 1500,

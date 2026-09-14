@@ -4,7 +4,7 @@ use std::{
 };
 
 use crate::{
-    AccessMode, AccessRole, CompilationReport, CulledNodeReason, DependencyKind,
+    AccessMode, AccessRole, CompilationReport, CpuTimingReport, CulledNodeReason, DependencyKind,
     DiagnosticSeverity, ExecutionSegmentKind, FullCompilationReport, GpuTimingNodeKind,
     GpuTimingReport, GpuTimingUnavailableReason, NodeKind, PassId, ResourceDescriptor, ResourceId,
     ResourceKind, ResourceOrigin, ResourcePoolStats, ResourceRange, ResourceUsage, RootReason,
@@ -13,11 +13,11 @@ use crate::{
 use super::{
     FRAME_GRAPH_SNAPSHOT_FORMAT, FRAME_GRAPH_SNAPSHOT_VERSION, FrameGraphSnapshotV1,
     SnapshotAccess, SnapshotAccessKind, SnapshotAccessMode, SnapshotAllocation,
-    SnapshotAllocationReport, SnapshotBufferRange, SnapshotCapture, SnapshotDependency,
-    SnapshotDependencyKind, SnapshotDiagnostic, SnapshotDiagnosticSeverity, SnapshotExportError,
-    SnapshotGpuNodeTiming, SnapshotGpuTimings, SnapshotGraph, SnapshotGroup,
-    SnapshotInitialContents, SnapshotLifetime, SnapshotMemory, SnapshotNode,
-    SnapshotNodeCompileState, SnapshotNodeKind, SnapshotPoolReport, SnapshotProducer,
+    SnapshotAllocationReport, SnapshotBufferRange, SnapshotCapture, SnapshotCpuNodeTiming,
+    SnapshotCpuTimings, SnapshotDependency, SnapshotDependencyKind, SnapshotDiagnostic,
+    SnapshotDiagnosticSeverity, SnapshotExportError, SnapshotGpuNodeTiming, SnapshotGpuTimings,
+    SnapshotGraph, SnapshotGroup, SnapshotInitialContents, SnapshotLifetime, SnapshotMemory,
+    SnapshotNode, SnapshotNodeCompileState, SnapshotNodeKind, SnapshotPoolReport, SnapshotProducer,
     SnapshotResource, SnapshotResourceDescriptor, SnapshotResourceKind, SnapshotResourceOrigin,
     SnapshotResourceRange, SnapshotResourceRoot, SnapshotRoot, SnapshotRootResolution,
     SnapshotRuntime, SnapshotSegment, SnapshotSegmentKind, SnapshotTextureRegion,
@@ -39,6 +39,8 @@ pub struct CreateFrameGraphSnapshotOptions<'a> {
     pub backend: Option<&'a str>,
     /// Optional timing result for the same frame index.
     pub gpu_timing: Option<&'a GpuTimingReport>,
+    /// Optional synchronous CPU timings from the same frame.
+    pub cpu_timing: Option<&'a CpuTimingReport>,
     /// Optional cross-frame transient pool counters.
     pub pool_stats: Option<ResourcePoolStats>,
 }
@@ -51,17 +53,18 @@ impl<'a> CreateFrameGraphSnapshotOptions<'a> {
             captured_at: None,
             backend: None,
             gpu_timing: None,
+            cpu_timing: None,
             pool_stats: None,
         }
     }
 }
 
-/// Converts a full native compilation report into the Snapshot 1.1 wire model.
+/// Converts a full native compilation report into the Snapshot 1.2 wire model.
 ///
 /// The returned value is entirely in memory; file naming and persistence remain
 /// caller-owned. The report must come from [`CompileOptions::full_report`](crate::CompileOptions::full_report).
 /// Optional timing data must carry the same frame index as `options`. A successful
-/// result has passed the complete Snapshot 1.1 typed validation pipeline.
+/// result has passed the complete Snapshot 1.2 typed validation pipeline.
 pub fn create_frame_graph_snapshot(
     report: &CompilationReport,
     options: CreateFrameGraphSnapshotOptions<'_>,
@@ -94,6 +97,7 @@ pub fn create_frame_graph_snapshot(
         graph: context.graph()?,
         memory: context.memory(options.pool_stats)?,
         timings: SnapshotTimings {
+            cpu: context.cpu_timings(options.frame_index, options.cpu_timing)?,
             gpu: context.gpu_timings(options.frame_index, options.gpu_timing)?,
         },
         diagnostics: context.diagnostics()?,
@@ -808,12 +812,62 @@ impl<'a> ExportContext<'a> {
                 }
             }
             None => SnapshotPoolReport::Unavailable {
-                reason: "not-captured".into(),
+                reason: "not-requested".into(),
             },
         };
         Ok(SnapshotMemory {
             allocation_report: SnapshotAllocationReport::Available { allocations },
             pool_report,
+        })
+    }
+
+    fn cpu_timings(
+        &self,
+        frame_index: u64,
+        timing: Option<&CpuTimingReport>,
+    ) -> Result<SnapshotCpuTimings, SnapshotExportError> {
+        let Some(timing) = timing else {
+            return Ok(SnapshotCpuTimings::Unavailable {
+                reason: "not-requested".into(),
+            });
+        };
+        safe_integer("timings.cpu.frameIndex", timing.frame_index)?;
+        if timing.frame_index != frame_index {
+            return Err(SnapshotExportError::TimingFrameMismatch {
+                capture_frame: frame_index,
+                timing_frame: timing.frame_index,
+            });
+        }
+        let mut seen = HashSet::new();
+        let mut nodes = Vec::with_capacity(timing.nodes.len());
+        for node in &timing.nodes {
+            if !self.retained.contains(&node.pass)
+                || !seen.insert(node.pass)
+                || !self
+                    .full
+                    .nodes
+                    .iter()
+                    .any(|report| report.id == node.pass && report.kind == node.kind)
+            {
+                return invalid(format!(
+                    "invalid, duplicate or mismatched CPU timed node {}",
+                    node.pass
+                ));
+            }
+            nodes.push(SnapshotCpuNodeTiming {
+                node_id: node_id(node.pass.get()),
+                duration_micros: duration_micros(
+                    "timings.cpu.nodes[].durationMicros",
+                    node.duration,
+                )?,
+            });
+        }
+        Ok(SnapshotCpuTimings::Available {
+            execution_duration_micros: duration_micros(
+                "timings.cpu.executionDurationMicros",
+                timing.execution_duration,
+            )?,
+            nodes,
         })
     }
 
@@ -824,7 +878,7 @@ impl<'a> ExportContext<'a> {
     ) -> Result<SnapshotGpuTimings, SnapshotExportError> {
         let Some(timing) = timing else {
             return Ok(SnapshotGpuTimings::Unavailable {
-                reason: "not-captured".into(),
+                reason: "not-requested".into(),
             });
         };
         let timing_frame = match timing {

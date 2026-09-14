@@ -181,7 +181,7 @@ model.
 
 ## Diagnostics and Snapshot
 
-Compilation reports, GPU timing, and pool statistics are opt-in and independent.
+Compilation reports, CPU/GPU timing, and pool statistics are opt-in and independent.
 Requesting them does not change the execution plan. Convert matching reports to
 the portable protocol through `@zenfg/webgpu/snapshot`; ordinary compile and
 execute paths do not create Snapshot data.
@@ -190,6 +190,13 @@ Snapshot export produces an in-memory value only. Capture naming, filesystem
 storage, transport, and retention policy remain caller-owned. The language-
 neutral wire contract is defined by the
 [`@zenfg/snapshot` specification](https://github.com/uinosoft/zenfg/blob/npm/webgpu/v0.1.0-beta.3/packages/snapshot/SPEC.md).
+
+Use `compiled.executeWithTiming({ frameIndex, timing: 'cpu' })`, choosing
+`'cpu'`, `'gpu'` or `'both'`. The returned `cpu` report is immediately
+available; consume `gpu` as a Promise only when requested. Ordinary `execute()`
+remains synchronous and does not collect timing. CPU duration is elapsed time,
+not thread CPU usage, and covers every executed node kind. Keep compilation,
+frame identity and pool counters from the same execution when exporting.
 
 ## Common mistakes
 

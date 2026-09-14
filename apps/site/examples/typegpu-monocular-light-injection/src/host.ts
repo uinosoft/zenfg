@@ -1,5 +1,6 @@
+import type { FrameGraphCaptureRequest } from '@zenfg/inspector';
 import type { FrameGraphSnapshot } from '@zenfg/snapshot';
-import { FrameGraph, type FrameGraphCompilationReport, type FrameGraphGpuTimingReport } from '@zenfg/webgpu';
+import { FrameGraph, type FrameGraphCompilationReport, type FrameGraphExecutionTiming } from '@zenfg/webgpu';
 import { MonocularCameraSession, type CameraFacing, type MonocularCameraFrame } from './camera-session.ts';
 import { LatestTransition } from './latest-transition.ts';
 import { setupLightInput } from './light-input.ts';
@@ -44,7 +45,7 @@ export interface MonocularController {
     setCacheEnabled(enabled: boolean): void;
     clearDownloads(): Promise<void>;
     /** Waits for the next capturable frame, including asynchronous preparation; settles on failure or suspension. */
-    captureSnapshot(): Promise<FrameGraphSnapshot | undefined>;
+    captureSnapshot(request?: FrameGraphCaptureRequest): Promise<FrameGraphSnapshot | undefined>;
     dispose(): void;
 }
 
@@ -69,7 +70,7 @@ export function createHostSupport(canvas: HTMLCanvasElement, device: GPUDevice, 
         reportedReady: false,
         sourceBusy: false,
         capturesInFlight: new Set<(value: FrameGraphSnapshot | undefined) => void>(),
-        capture: undefined as { promise: Promise<FrameGraphSnapshot | undefined>; resolve: (value: FrameGraphSnapshot | undefined) => void } | undefined,
+        capture: undefined as { timing: FrameGraphCaptureRequest['timing']; promise: Promise<FrameGraphSnapshot | undefined>; resolve: (value: FrameGraphSnapshot | undefined) => void } | undefined,
         state: {
             model: 'small', source: 'demo', camera: 'user', busy: false, ready: false,
             status: 'Preparing', cacheModels: cachingEnabled(), cached: false, shaderF16: device.features.has('shader-f16'),
@@ -245,12 +246,12 @@ export function createHostSupport(canvas: HTMLCanvasElement, device: GPUDevice, 
             const variant = modelVariant(frameState.state.model, frameState.state.shaderF16)!;
             publish({ cached: await isModelCached(variant) });
         },
-        captureSnapshot() {
+        captureSnapshot(request: FrameGraphCaptureRequest = { timing: 'both' }) {
             if (frameState.disposed || frameState.pageHidden || document.visibilityState === 'hidden' || !canAwaitFrame()) return Promise.resolve(undefined);
             if (frameState.capture) return frameState.capture.promise;
             let resolve!: (value: FrameGraphSnapshot | undefined) => void;
             const promise = new Promise<FrameGraphSnapshot | undefined>((done) => { resolve = done; });
-            frameState.capture = { promise, resolve };
+            frameState.capture = { timing: request.timing, promise, resolve };
             requestStatic();
             return promise;
         },
@@ -298,11 +299,12 @@ export function createHostSupport(canvas: HTMLCanvasElement, device: GPUDevice, 
         if (!canAwaitFrame()) settleCapture();
     });
     function finishCapture(requested: NonNullable<typeof frameState.capture>,
-        compilation: FrameGraphCompilationReport, timing: Promise<FrameGraphGpuTimingReport>): Promise<void> {
-        return Promise.all([timing, import('@zenfg/webgpu/snapshot')]).then(([gpuTiming, { createFrameGraphSnapshot }]) => {
+        compilation: FrameGraphCompilationReport, timing: FrameGraphExecutionTiming): Promise<void> {
+        const resourcePool = { ...graph.getResourcePoolStats() };
+        return Promise.all([timing.gpu, import('@zenfg/webgpu/snapshot')]).then(([gpuTiming, { createFrameGraphSnapshot }]) => {
             if (!frameState.capturesInFlight.has(requested.resolve)) return;
-            requested.resolve(frameState.disposed ? undefined : createFrameGraphSnapshot({
-                compilation: compilation, gpuTiming, resourcePool: graph.getResourcePoolStats(),
+            requested.resolve(frameState.disposed ? undefined : createFrameGraphSnapshot({ frameIndex: timing.frameIndex, cpuTiming: timing.cpu,
+                compilation: compilation, gpuTiming, resourcePool,
             }));
         }).catch(() => requested.resolve(undefined)).finally(() => frameState.capturesInFlight.delete(requested.resolve));
     }

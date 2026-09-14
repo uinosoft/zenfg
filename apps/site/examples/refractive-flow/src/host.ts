@@ -1,6 +1,7 @@
+import type { FrameGraphCaptureRequest } from '@zenfg/inspector';
 import { visualThemes, type ThemeMode } from '../../../shared/theme/index.ts';
 import type { FrameGraphSnapshot } from '@zenfg/snapshot';
-import { type FrameGraphCompilationReport, type FrameGraphGpuTimingReport } from '@zenfg/webgpu';
+import { type FrameGraphCompilationReport, type FrameGraphExecutionTiming } from '@zenfg/webgpu';
 import { resolvePointerPressure } from '../../interactive-background/src/backgroundInteraction.ts';
 import { resolveFlowDimensions, projectPoint, coverFocus } from './curves.ts';
 import { frameParamsFloatCount, type SurfaceResources } from './resources.ts';
@@ -32,11 +33,12 @@ export type RefractiveFlowOptions = {
 export type RefractiveFlowController = {
 	readonly setTheme: (theme: ThemeMode) => void;
 	readonly setActive: (active: boolean) => void;
-	readonly captureSnapshot: () => Promise<FrameGraphSnapshot | undefined>;
+	readonly captureSnapshot: (request?: FrameGraphCaptureRequest) => Promise<FrameGraphSnapshot | undefined>;
 	readonly dispose: () => void;
 };
 
 type PendingCapture = {
+    readonly timing: FrameGraphCaptureRequest['timing'];
 	readonly promise: Promise<FrameGraphSnapshot | undefined>;
 	readonly resolve: (snapshot: FrameGraphSnapshot | undefined) => void;
 };
@@ -160,7 +162,7 @@ export abstract class SurfaceBrowserHost implements RefractiveFlowController {
 		this.velocityX = this.velocityY = 0;
 	};
 
-	captureSnapshot(): Promise<FrameGraphSnapshot | undefined> {
+	captureSnapshot(request: FrameGraphCaptureRequest = { timing: 'both' }): Promise<FrameGraphSnapshot | undefined> {
 		if (this.disposed || !this.active || document.visibilityState === 'hidden') return Promise.resolve(undefined);
 		if (this.pendingCapture) return this.pendingCapture.promise;
 
@@ -168,7 +170,7 @@ export abstract class SurfaceBrowserHost implements RefractiveFlowController {
 		const promise = new Promise<FrameGraphSnapshot | undefined>((resolve) => {
 			resolveCapture = resolve;
 		});
-		this.pendingCapture = { promise, resolve: resolveCapture };
+		this.pendingCapture = { timing: request.timing, promise, resolve: resolveCapture };
 		this.dirty = true;
 		this.requestFrame();
 		return promise;
@@ -360,18 +362,19 @@ export abstract class SurfaceBrowserHost implements RefractiveFlowController {
 	protected async finishCapture(
 		capture: PendingCapture,
 		compilation: FrameGraphCompilationReport,
-		gpuTiming: Promise<FrameGraphGpuTimingReport>,
+		executionTiming: FrameGraphExecutionTiming,
 	): Promise<void> {
+        const resourcePool = { ...this.resources.graph.getResourcePoolStats() };
 		try {
 			const [timing, { createFrameGraphSnapshot }] = await Promise.all([
-				gpuTiming,
+				executionTiming.gpu,
 				import('@zenfg/webgpu/snapshot'),
 			]);
 			if (this.disposed || this.pendingCapture !== capture) return;
-			capture.resolve(createFrameGraphSnapshot({
+			capture.resolve(createFrameGraphSnapshot({ frameIndex: executionTiming.frameIndex, cpuTiming: executionTiming.cpu,
 				compilation,
 				gpuTiming: timing,
-				resourcePool: this.resources.graph.getResourcePoolStats(),
+				resourcePool,
 			}));
 		}
 		catch {

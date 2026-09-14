@@ -1052,7 +1052,31 @@ export type FrameGraphResourcePoolStats = {
 	readonly estimatedRetainedBytes: number;
 };
 
-/** GPU timing result returned by `execute({ gpuTiming: true })`. */
+/** Timing families collected by one explicit timed execution. */
+export type FrameGraphTimingMode = 'cpu' | 'gpu' | 'both';
+
+/** Synchronous elapsed time, not thread CPU usage or GPU completion. */
+export type FrameGraphCpuTimingReport = {
+	readonly frameIndex: number;
+	/** Includes preparation, submission and transient resource release. */
+	readonly executionDurationMicros: number;
+	/** All executed node kinds in execution order; culled nodes are absent. */
+	readonly nodes: readonly {
+		readonly nodeId: number;
+		readonly kind: NodeKind;
+		readonly label?: string;
+		readonly durationMicros: number;
+	}[];
+};
+
+/** CPU results are immediately available; GPU readback is independent. */
+export type FrameGraphExecutionTiming = {
+	readonly frameIndex: number;
+	readonly cpu?: FrameGraphCpuTimingReport;
+	readonly gpu?: Promise<FrameGraphGpuTimingReport>;
+};
+
+/** GPU timing result returned by executeWithTiming. */
 export type FrameGraphGpuTimingReport =
 	| {
 		readonly status: 'available';
@@ -1262,23 +1286,14 @@ export interface FrameGraphRecording {
  * its captured callbacks and borrowed GPU resources remain valid.
  */
 export interface CompiledFrame {
+	/** Executes synchronously without timing. Throws on execution or callback failure. */
+	execute(options?: CompiledFrameExecuteOptions): void;
 	/**
-	 * Executes synchronously without GPU timestamp readback.
-	 *
-	 * @throws If encoding, submission, or a callback fails; the runtime was
-	 * destroyed; or another compiled frame is executing.
+	 * Executes synchronously with explicitly selected timing families.
+	 * CPU results do not await GPU completion. GPU unavailability is non-fatal.
+	 * Throws synchronously on execution failure; no partial CPU report is returned.
 	 */
-	execute(options?: CompiledFrameExecuteOptions & { readonly gpuTiming?: false }): void;
-	/**
-	 * Executes synchronously and returns a promise for GPU timestamp readback.
-	 *
-	 * @remarks An unsupported or busy timestamp implementation resolves to an
-	 * `unavailable` report rather than rejecting solely for that condition.
-	 * @throws Synchronously if encoding, submission, or a callback fails; the
-	 * runtime was destroyed; or another compiled frame is executing.
-	 */
-	execute(options: CompiledFrameExecuteOptions & { readonly gpuTiming: true }): Promise<FrameGraphGpuTimingReport>;
-	execute(options: CompiledFrameExecuteOptions & { readonly gpuTiming?: boolean }): void | Promise<FrameGraphGpuTimingReport>;
+	executeWithTiming(options: CompiledFrameExecuteOptions & { readonly timing: FrameGraphTimingMode }): FrameGraphExecutionTiming;
 }
 
 /** Compiled frame carrying an opt-in readonly diagnostic snapshot. */

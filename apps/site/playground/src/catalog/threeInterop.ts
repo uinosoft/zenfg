@@ -118,7 +118,7 @@ export const threeInteropExample: ExamplesExampleDefinition = {
             throw error;
         }
         return {
-            captureSnapshot: () => controller.captureSnapshot(),
+            captureSnapshot: (request) => controller.captureSnapshot(request),
             dispose: cleanup,
         };
     },

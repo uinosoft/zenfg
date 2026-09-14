@@ -45,7 +45,7 @@ test('maps a compilation report into canonical prefixed Snapshot V1 data', () =>
 	recorder.markPresent(backbuffer);
 	const compilation = recorder.compile({ report: true }).compilationReport;
 
-	const snapshot = createFrameGraphSnapshot({
+	const snapshot = createFrameGraphSnapshot({ frameIndex: 7,
 		compilation,
 		gpuTiming: { status: 'unavailable', frameIndex: 7, reason: 'unsupported' },
 		resourcePool: {
@@ -91,7 +91,7 @@ test('maps a compilation report into canonical prefixed Snapshot V1 data', () =>
 			: 0)
 		.map((node) => node.id));
 	assert.ok(snapshot.graph.resources.every((resource) => resource.initialContents !== undefined));
-	assert.deepEqual(createFrameGraphSnapshot({
+	assert.deepEqual(createFrameGraphSnapshot({ frameIndex: 7,
 		compilation,
 		gpuTiming: { status: 'unavailable', frameIndex: 7, reason: 'unsupported' },
 		resourcePool: {
@@ -122,7 +122,7 @@ test('maps GPU timing and rejects unknown WebGPU usage bits', () => {
 	});
 	const compilation = recorder.compile({ report: true }).compilationReport;
 	const nodeId = compilation.nodes[0]!.id;
-	const snapshot = createFrameGraphSnapshot({
+	const snapshot = createFrameGraphSnapshot({ frameIndex: 3,
 		compilation,
 		gpuTiming: {
 			status: 'available',
@@ -150,7 +150,7 @@ test('maps GPU timing and rejects unknown WebGPU usage bits', () => {
 			? { ...resource, usage: resource.usage | 0x20 }
 			: resource),
 	};
-	assert.throws(() => createFrameGraphSnapshot({
+	assert.throws(() => createFrameGraphSnapshot({ frameIndex: 3,
 		compilation: invalidCompilation,
 		gpuTiming: { status: 'unavailable', frameIndex: 3, reason: 'unsupported' },
 		resourcePool: { acquireCount: 0, reuseCount: 0, createdCount: 0, retainedCount: 0, estimatedRetainedBytes: 0 },
@@ -192,7 +192,7 @@ test('rejects Snapshot-invalid producer inputs and incoherent GPU timing kinds',
 		const options = structuredClone(validOptions);
 		mutate(options);
 		assert.throws(
-			() => createFrameGraphSnapshot(options),
+			() => createFrameGraphSnapshot({ ...options, frameIndex: options.gpuTiming.frameIndex }),
 			(error: unknown) => error instanceof FrameGraphSnapshotValidationError
 				&& error.issues.some((issue) => issue.path === path),
 		);
@@ -207,4 +207,18 @@ test('rejects Snapshot-invalid producer inputs and incoherent GPU timing kinds',
 	expectValidationError((options) => { options.gpuTiming.nodes.push({ nodeId, kind: 'render', durationMicros: 1 }); }, '/timings/gpu/nodes/1/nodeId');
 	expectValidationError((options) => { options.resourcePool.createdCount = -1; }, '/memory/poolReport/createdCount');
 	expectValidationError((options) => { options.gpuTiming.nodes[0].kind = 'compute'; }, '/timings/gpu/nodes/0');
+});
+
+
+test('CPU-only snapshots use explicit frame identity and validate CPU coherence', () => {
+ const graph=new FrameGraph(mockDevice());const frame=graph.beginFrame();
+ frame.command({label:'cpu-command',sideEffect:true});const compiled=frame.compile({report:true});
+ const timing=compiled.executeWithTiming({timing:'cpu',frameIndex:9});
+ const options={frameIndex:9,compilation:compiled.compilationReport,cpuTiming:timing.cpu!,resourcePool:graph.getResourcePoolStats()};
+ const snapshot=createFrameGraphSnapshot(options);
+ assert.equal(snapshot.timings.cpu.status,'available');assert.deepEqual(snapshot.timings.gpu,{status:'unavailable',reason:'not-requested'});
+ assert.throws(()=>createFrameGraphSnapshot({...options,frameIndex:10}),FrameGraphSnapshotValidationError);
+ assert.throws(()=>createFrameGraphSnapshot({...options,cpuTiming:{...options.cpuTiming,nodes:options.cpuTiming.nodes.map(n=>({...n,kind:'compute'}))}}),FrameGraphSnapshotValidationError);
+ const noTiming=createFrameGraphSnapshot({frameIndex:9,compilation:compiled.compilationReport,resourcePool:graph.getResourcePoolStats()});
+ assert.equal(noTiming.timings.cpu.status,'unavailable');
 });

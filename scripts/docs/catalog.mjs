@@ -59,6 +59,7 @@ export const pages = [
     { source: 'packages/inspector/THEMING.md', route: 'guides/themes', title: 'Inspector themes', group: 'Guides & examples' },
     { source: 'packages/snapshot/SPEC.md', route: 'reference/snapshot', title: 'Snapshot specification', group: 'Reference' },
     { source: 'docs/compatibility.md', route: 'compatibility', title: 'Compatibility', group: 'Compatibility & migration' },
+    { source: 'docs/migration-timing-snapshot-1.2.md', route: 'migration/timing-snapshot-1-2', title: 'Unified timing and Snapshot 1.2', group: 'Compatibility & migration' },
     { source: 'docs/migration-0.1.0-beta.3.md', route: 'migration/beta-3', title: 'Migrating to beta.3', group: 'Compatibility & migration' },
     { source: 'CHANGELOG.md', route: 'changelog', title: 'Changelog', group: 'Compatibility & migration' },
 ];

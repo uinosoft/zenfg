@@ -1,3 +1,4 @@
+import type { FrameGraphCaptureRequest } from './capture.ts';
 import type { FrameGraphDebugViewModel } from './debugCaptureModel.ts';
 import {
 	formatBytes,
@@ -66,6 +67,10 @@ export class FrameGraphDebugWorkbench {
 	private readonly dirtyViews = new Set<WorkbenchTab>();
 	private readonly captureDetails = document.createElement('details');
 	private readonly inspectorOpenButton = document.createElement('button');
+	private readonly captureTiming = document.createElement('select');
+	get captureTimingMode(): FrameGraphCaptureRequest['timing'] {
+		return this.captureTiming.value as FrameGraphCaptureRequest['timing'];
+	}
 	private readonly captureButton = document.createElement('button');
 	private readonly importButton = document.createElement('button');
 	private readonly importInput = document.createElement('input');
@@ -169,6 +174,13 @@ export class FrameGraphDebugWorkbench {
 		this.inspectorOpenButton.title = 'Open selection inspector';
 		this.inspectorOpenButton.addEventListener('click', () => this.inspector.setOpen(true));
 
+		this.captureTiming.className = 'zenfg-inspector-capture-timing';
+		this.captureTiming.setAttribute('aria-label', 'Capture timing');
+		this.captureTiming.title = 'Timing collected on the next capture only';
+		for (const [value, label] of [['cpu', 'CPU'], ['gpu', 'GPU'], ['both', 'CPU + GPU']]) {
+			const option = document.createElement('option'); option.value = value!; option.textContent = label!; this.captureTiming.append(option);
+		}
+		this.captureTiming.value = 'both';
 		this.captureButton.type = 'button';
 		this.captureButton.className = 'zenfg-inspector-capture-action';
 		this.captureButton.addEventListener('click', actions.onCapture);
@@ -215,6 +227,7 @@ export class FrameGraphDebugWorkbench {
 
 		this.commandActions.append(
 			this.inspectorOpenButton,
+			this.captureTiming,
 			this.captureButton,
 			this.importButton,
 			this.exportButton,
@@ -289,6 +302,8 @@ export class FrameGraphDebugWorkbench {
 		setPanelButtonContent(this.captureButton, state.capturing ? 'spinner' : 'capture', captureLabel);
 		this.captureButton.disabled = state.capturing || !state.providerAvailable;
 		this.captureButton.hidden = !state.providerAvailable;
+		this.captureTiming.hidden = !state.providerAvailable;
+		this.captureTiming.disabled = state.capturing || !state.providerAvailable;
 		this.captureButton.classList.toggle('active', state.capturing);
 		this.captureButton.setAttribute('aria-busy', state.capturing ? 'true' : 'false');
 		this.captureButton.dataset.tone = state.capturing ? 'pending' : 'accent';
@@ -424,9 +439,12 @@ export class FrameGraphDebugWorkbench {
 			this.createSummaryGroup('Diagnostics', [
 				['Errors', String(counts.error)], ['Warnings', String(counts.warning)], ['Information', String(counts.info)],
 			], () => this.setActiveTab('diagnostics')),
-			this.createSummaryGroup('GPU', [
+			this.createSummaryGroup('Execution timing', [
+				['CPU execute', snapshot.cpuProfiling.status === 'available' ? (snapshot.cpuProfiling.executionDurationMicros / 1000).toFixed(3) + ' ms' : 'Not collected'],
+				['CPU pass sum', snapshot.metrics.cpuTimedNodeCount ? (snapshot.metrics.cpuWorkDurationMicros / 1000).toFixed(3) + ' ms' : 'Not collected'],
+				['CPU coverage', formatTimingCoverage(snapshot.metrics.cpuTimedNodeCount, snapshot.nodes.length)],
 				['GPU span', snapshot.profiling.status === 'available' ? `${formatGpuFrameDuration(snapshot)} ms` : 'Not collected'],
-				['Coverage', coverage],
+				['GPU coverage', coverage],
 				['Slowest', slowest],
 			], () => metrics.slowestNode ? this.callbacks.onReveal?.({ kind: 'node', id: metrics.slowestNode.id }, 'passes') : this.setActiveTab('passes')),
 			this.createSummaryGroup('Work', [

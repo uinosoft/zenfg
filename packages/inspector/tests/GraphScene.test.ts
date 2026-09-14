@@ -181,7 +181,7 @@ test('group graph labels and tooltips distinguish uncollected, partial, complete
         { timings: { status: 'available', frameSpanMicros: 6000, nodes: [1, 2, 3].map((id) => ({ nodeId: `node:${id}`, durationMicros: id * 1000 })) }, expected: '6.000 ms · Complete · 3/3 timed' },
     ];
     for (const { timings, expected } of cases) {
-        const snapshot = createDebugViewModel({ ...source, graph, timings: { gpu: timings } });
+        const snapshot = createDebugViewModel({ ...source, graph, timings: { cpu: { status: 'unavailable', reason: 'not-requested' }, gpu: timings } });
         for (const expanded of [false, true]) {
             const scene = createGraphScene(snapshot, { groupsEnabled: true,
                 expandedGroupPaths: new Set(expanded ? snapshot.debugGroups.map((group) => group.pathKey) : []),
@@ -195,12 +195,12 @@ test('group graph labels and tooltips distinguish uncollected, partial, complete
     }
     const noEligible = createDebugViewModel({ ...source, graph: { ...graph,
         nodes: graph.nodes.map((node) => ({ ...node, kind: 'copy' })),
-    }, timings: { gpu: { status: 'unavailable', reason: 'not applicable' } } });
+    }, timings: { cpu: { status: 'unavailable', reason: 'not-requested' }, gpu: { status: 'unavailable', reason: 'not applicable' } } });
     const group = createGraphScene(noEligible, { groupsEnabled: true, expandedGroupPaths: new Set() })
         .nodes.find((node) => node.kind === 'group' && node.groupId === 'group:1')!;
     assert.ok(group.label.endsWith('Measured pass sum: Not applicable'));
     assert.ok(group.title.endsWith('Measured pass sum: Not applicable'));
-    assert.doesNotMatch(group.label + group.title, /0\.000 ms|Not collected/);
+    assert.doesNotMatch(group.label + group.title, /Measured pass sum: (?:0\.000 ms|Not collected)/);
 });
 
 test('group graph tooltips distinguish missing allocation reports from a valid empty report', () => {
@@ -228,7 +228,7 @@ test('pass graph tooltips distinguish GPU eligibility, opaque work, missing meas
     for (const [kind, duration, expected] of cases) {
         const nodes = source.graph.nodes.map((node) => node.id === 'node:1' ? { ...node, kind } : node);
         const snapshot = createDebugViewModel({ ...source, graph: { ...source.graph, nodes },
-            timings: { gpu: duration === undefined ? { status: 'unavailable', reason: 'not captured' }
+            timings: { cpu: { status: 'unavailable', reason: 'not-requested' }, gpu: duration === undefined ? { status: 'unavailable', reason: 'not captured' }
                 : { status: 'available', frameSpanMicros: duration, nodes: [{ nodeId: 'node:1', durationMicros: duration }] } },
         });
         const node = createGraphScene(snapshot, { groupsEnabled: false, expandedGroupPaths: new Set() })

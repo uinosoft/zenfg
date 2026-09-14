@@ -1,3 +1,5 @@
+import { FrameGraph, type FrameGraphGpuTimingReport } from '@zenfg/webgpu';
+import { createHostSupport } from '../src/host.ts';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import type { ThreeInteropController } from '../src/host.ts';
@@ -46,11 +48,15 @@ test('host renders continuously, captures real frames, and preserves its device 
         assert.ok(controller);
         assert.equal(host.trace.submits, 0);
         assert.equal(host.pendingFrames, 1);
-        const first = controller.captureSnapshot();
-        assert.equal(controller.captureSnapshot(), first);
+        const request = { timing: 'cpu' as 'cpu' | 'gpu' | 'both' };
+        const first = controller.captureSnapshot(request);
+        request.timing = 'gpu';
+        assert.equal(controller.captureSnapshot({ timing: 'gpu' }), first);
         host.flushFrame();
         const snapshot = await first;
         assert.ok(snapshot);
+        assert.equal(snapshot.timings.cpu.status, 'available');
+        assert.deepEqual(snapshot.timings.gpu, { status: 'unavailable', reason: 'not-requested' });
         assert.ok(snapshot.graph.nodes.some(node => node.label === 'three-interop.three-render'));
         assert.equal(snapshot.graph.nodes.at(-1)?.label, 'three-interop.present');
         assert.equal(host.pendingFrames, 1);
@@ -254,3 +260,38 @@ function installHost() {
         },
     };
 }
+
+
+test('capture freezes CPU, frame index and pool counters before asynchronous GPU delivery', async t => {
+    const host = installHost();
+    const graph = new FrameGraph(host.device);
+    const bridge = stubBridge(host.device, 320, 180, true);
+    const support = createHostSupport(host.canvas, host.device, graph, bridge.bridge, {}, () => {}, () => {});
+    try {
+        const frame = graph.beginFrame();
+        frame.command({ label: 'captured', sideEffect: true });
+        const compiled = frame.compile({ report: true });
+        const timing = compiled.executeWithTiming({ frameIndex: 17, timing: 'cpu' });
+        const pool = { ...graph.getResourcePoolStats(), acquireCount: 17 };
+        t.mock.method(graph, 'getResourcePoolStats', () => pool);
+        let resolveGpu!: (report: FrameGraphGpuTimingReport) => void;
+        const gpu = new Promise<FrameGraphGpuTimingReport>(resolve => { resolveGpu = resolve; });
+        const capture = support.controller.captureSnapshot({ timing: 'both' });
+        const delivery = support.finishCapture(support.state.capture!, compiled.compilationReport, { ...timing, gpu });
+        pool.acquireCount = 99;
+        support.state.frameIndex = 99;
+        resolveGpu({ status: 'unavailable', frameIndex: 17, reason: 'unsupported' });
+        await delivery;
+        const snapshot = await capture;
+        assert.ok(snapshot);
+        assert.equal(snapshot.capture.frameIndex, 17);
+        assert.equal(snapshot.timings.cpu.status, 'available');
+        assert.equal(snapshot.memory.poolReport.status, 'available');
+        if (snapshot.memory.poolReport.status === 'available') assert.equal(snapshot.memory.poolReport.acquireCount, 17);
+    } finally {
+        support.controller.dispose();
+        graph.destroy();
+        bridge.bridge.destroy();
+        host.restore();
+    }
+});

@@ -1171,7 +1171,12 @@ fn timed_execution_reports_only_retained_render_and_compute_nodes() {
     let mut readback = frame
         .compile(CompileOptions::default())
         .unwrap()
-        .execute_with_gpu_timing(&queue, ExecutionOptions::default().with_frame_index(42))
+        .execute_with_timing(
+            &queue,
+            ExecutionOptions::default().with_frame_index(42),
+            zenfg::TimingMode::Gpu,
+        )
+        .map(|timing| timing.gpu.expect("GPU timing requested"))
         .unwrap();
     assert_eq!(readback.frame_index(), 42);
 
@@ -1218,7 +1223,15 @@ fn timed_execution_is_non_fatal_when_timestamps_are_unsupported() {
     let mut readback = frame
         .compile(CompileOptions::default())
         .unwrap()
-        .execute_with_gpu_timing(&queue, ExecutionOptions::default().with_frame_index(9))
+        .execute_with_timing(
+            &queue,
+            ExecutionOptions::default().with_frame_index(9),
+            zenfg::TimingMode::Both,
+        )
+        .map(|timing| {
+            assert_eq!(timing.cpu.as_ref().unwrap().nodes.len(), 1);
+            timing.gpu.expect("GPU timing requested")
+        })
         .unwrap();
     assert!(*called.lock().unwrap());
     assert_eq!(
@@ -1243,7 +1256,11 @@ fn a_second_timing_request_is_busy_until_mapping_completes() {
     let mut first = first_frame
         .compile(CompileOptions::default())
         .unwrap()
-        .execute_with_gpu_timing(&queue, ExecutionOptions::default())
+        .execute_with_timing(&queue, ExecutionOptions::default(), zenfg::TimingMode::Both)
+        .map(|timing| {
+            assert_eq!(timing.cpu.as_ref().unwrap().nodes.len(), 1);
+            timing.gpu.expect("GPU timing requested")
+        })
         .unwrap();
 
     let mut second_frame = graph.begin_frame();
@@ -1253,7 +1270,15 @@ fn a_second_timing_request_is_busy_until_mapping_completes() {
     let mut second = second_frame
         .compile(CompileOptions::default())
         .unwrap()
-        .execute_with_gpu_timing(&queue, ExecutionOptions::default().with_frame_index(2))
+        .execute_with_timing(
+            &queue,
+            ExecutionOptions::default().with_frame_index(2),
+            zenfg::TimingMode::Both,
+        )
+        .map(|timing| {
+            assert_eq!(timing.cpu.as_ref().unwrap().nodes.len(), 1);
+            timing.gpu.expect("GPU timing requested")
+        })
         .unwrap();
     assert_eq!(
         second.try_take(),
@@ -1283,7 +1308,12 @@ fn timed_execution_without_render_or_compute_is_immediately_available() {
     let mut readback = frame
         .compile(CompileOptions::default())
         .unwrap()
-        .execute_with_gpu_timing(&queue, ExecutionOptions::default().with_frame_index(11))
+        .execute_with_timing(
+            &queue,
+            ExecutionOptions::default().with_frame_index(11),
+            zenfg::TimingMode::Gpu,
+        )
+        .map(|timing| timing.gpu.expect("GPU timing requested"))
         .unwrap();
     assert_eq!(
         readback.try_take(),
@@ -1334,7 +1364,12 @@ fn timing_resolves_across_an_external_submission_boundary() {
     let mut readback = frame
         .compile(CompileOptions::default())
         .unwrap()
-        .execute_with_gpu_timing(&queue, ExecutionOptions::default().with_frame_index(23))
+        .execute_with_timing(
+            &queue,
+            ExecutionOptions::default().with_frame_index(23),
+            zenfg::TimingMode::Gpu,
+        )
+        .map(|timing| timing.gpu.expect("GPU timing requested"))
         .unwrap();
     assert_eq!(*calls.lock().unwrap(), ["first", "external", "second"]);
     let GpuTimingReport::Available { nodes, .. } = take_timing(&mut readback) else {
@@ -1367,7 +1402,8 @@ fn callback_error_clears_the_profiler_pending_state() {
         failing_frame
             .compile(CompileOptions::default())
             .unwrap()
-            .execute_with_gpu_timing(&queue, ExecutionOptions::default())
+            .execute_with_timing(&queue, ExecutionOptions::default(), zenfg::TimingMode::Gpu)
+            .map(|timing| timing.gpu.expect("GPU timing requested"))
             .is_err()
     );
 
@@ -1378,7 +1414,8 @@ fn callback_error_clears_the_profiler_pending_state() {
     let mut readback = next_frame
         .compile(CompileOptions::default())
         .unwrap()
-        .execute_with_gpu_timing(&queue, ExecutionOptions::default())
+        .execute_with_timing(&queue, ExecutionOptions::default(), zenfg::TimingMode::Gpu)
+        .map(|timing| timing.gpu.expect("GPU timing requested"))
         .unwrap();
     assert!(matches!(
         take_timing(&mut readback),
@@ -1397,7 +1434,12 @@ fn dropping_the_graph_completes_a_pending_readback_as_failed() {
     let mut readback = frame
         .compile(CompileOptions::default())
         .unwrap()
-        .execute_with_gpu_timing(&queue, ExecutionOptions::default().with_frame_index(77))
+        .execute_with_timing(
+            &queue,
+            ExecutionOptions::default().with_frame_index(77),
+            zenfg::TimingMode::Gpu,
+        )
+        .map(|timing| timing.gpu.expect("GPU timing requested"))
         .unwrap();
     drop(graph);
     assert_eq!(
@@ -1421,7 +1463,9 @@ fn callback_panic_does_not_leave_gpu_timing_busy() {
         .unwrap();
     let compiled = panicking_frame.compile(CompileOptions::default()).unwrap();
     let panic = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-        let _ = compiled.execute_with_gpu_timing(&queue, ExecutionOptions::default());
+        let _ = compiled
+            .execute_with_timing(&queue, ExecutionOptions::default(), zenfg::TimingMode::Gpu)
+            .map(|timing| timing.gpu.expect("GPU timing requested"));
     }));
     assert!(panic.is_err());
 
@@ -1432,7 +1476,8 @@ fn callback_panic_does_not_leave_gpu_timing_busy() {
     let mut readback = next_frame
         .compile(CompileOptions::default())
         .unwrap()
-        .execute_with_gpu_timing(&queue, ExecutionOptions::default())
+        .execute_with_timing(&queue, ExecutionOptions::default(), zenfg::TimingMode::Gpu)
+        .map(|timing| timing.gpu.expect("GPU timing requested"))
         .unwrap();
     assert!(matches!(
         take_timing(&mut readback),
@@ -1453,7 +1498,12 @@ fn too_many_timed_nodes_is_non_fatal_and_immediately_reported() {
     let mut readback = frame
         .compile(CompileOptions::default())
         .unwrap()
-        .execute_with_gpu_timing(&queue, ExecutionOptions::default().with_frame_index(88))
+        .execute_with_timing(
+            &queue,
+            ExecutionOptions::default().with_frame_index(88),
+            zenfg::TimingMode::Gpu,
+        )
+        .map(|timing| timing.gpu.expect("GPU timing requested"))
         .unwrap();
     assert_eq!(
         readback.try_take(),

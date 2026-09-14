@@ -37,12 +37,12 @@ Mount one Inspector into a host element and provide an optional live-capture
 callback:
 
 ```ts
-import { mountFrameGraphInspector } from '@zenfg/inspector';
+import { mountFrameGraphInspector, type FrameGraphCaptureRequest } from '@zenfg/inspector';
 import type { FrameGraphSnapshot } from '@zenfg/snapshot';
 
 export function mountInspector(
 	host: HTMLElement,
-	capture: () => FrameGraphSnapshot | Promise<FrameGraphSnapshot>,
+	capture: (request: FrameGraphCaptureRequest) => FrameGraphSnapshot | Promise<FrameGraphSnapshot>,
 ): () => void {
 	const inspector = mountFrameGraphInspector(host, {
 		captureSnapshot: capture,
@@ -125,3 +125,12 @@ This README describes **@zenfg/inspector 0.1.0-beta.3**. Registry badges show th
 - [Plain Markdown documentation index (development branch)](https://uinosoft.github.io/zenfg/docs/llms.txt).
 - Local guides: [workbench](./GUIDE.md) and [themes](./THEMING.md).
 <!-- generated:documentation:end -->
+
+## CPU and GPU capture
+
+The live capture selector requests CPU, GPU or both (default). Providers receive
+a `FrameGraphCaptureRequest` and must forward its timing mode to the runtime.
+The selection affects only the next capture, not imported data or normal frames.
+CPU columns, sorting, group sums and coverage include all retained node kinds.
+CPU execute total and GPU span remain separate. Missing, culled and real zero
+readings are distinct; zero does not guarantee zero CPU cost.

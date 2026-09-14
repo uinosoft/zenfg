@@ -6,7 +6,7 @@
  * Read next: README.md for inputs and related recipes. The Examples adapter
  * and recipeHost.ts provide browser setup and snapshot capture.
  */
-import { FrameGraph, type FrameGraphRecording } from '@zenfg/webgpu';
+import { FrameGraph, type FrameGraphTimingMode, type FrameGraphRecording } from '@zenfg/webgpu';
 import { createFrameGraphSnapshot } from '@zenfg/webgpu/snapshot';
 
 export type SnapshotExportOptions = {
@@ -14,6 +14,7 @@ export type SnapshotExportOptions = {
 	readonly context: GPUCanvasContext;
 	readonly frameIndex: number;
 	readonly producerVersion: string;
+	readonly timing?: FrameGraphTimingMode;
 };
 
 /** Declares the frame used by the Snapshot export workflow. */
@@ -43,13 +44,13 @@ export async function captureSnapshotJson(options: SnapshotExportOptions): Promi
 	recordSnapshotFrame(recorder, options.context.getCurrentTexture());
 
 	const compiled = recorder.compile({ report: true });
-	const timingPromise = compiled.execute({
+	const executionTiming = compiled.executeWithTiming({
 		frameIndex: options.frameIndex,
-		gpuTiming: true,
+		timing: options.timing ?? 'both',
 	});
 	const resourcePool = options.graph.getResourcePoolStats();
-	const gpuTiming = await timingPromise;
-	const snapshot = createFrameGraphSnapshot({
+	const gpuTiming = await executionTiming.gpu;
+	const snapshot = createFrameGraphSnapshot({ frameIndex: executionTiming.frameIndex, cpuTiming: executionTiming.cpu,
 		compilation: compiled.compilationReport,
 		gpuTiming,
 		resourcePool,

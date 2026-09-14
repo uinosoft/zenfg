@@ -6,7 +6,7 @@
 [![MIT license](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/uinosoft/zenfg/blob/cargo/zenfg-snapshot/v0.1.0-beta.3/LICENSE)
 <!-- generated:badges:end -->
 
-`zenfg-snapshot` provides portable, wgpu-independent Snapshot 1.1 wire types,
+`zenfg-snapshot` provides portable, wgpu-independent Snapshot 1.2 wire types,
 JSON codec, validation, and legacy migration. It is the Rust counterpart of the
 normative `@zenfg/snapshot` package and depends only on Serde, `serde_json`, and
 `thiserror`.
@@ -14,6 +14,10 @@ normative `@zenfg/snapshot` package and depends only on Serde, `serde_json`, and
 Snapshot documents contain graph structure and diagnostics, not GPU commands or
 resource contents, and cannot replay a frame. Wire-format versioning is
 independent from this crate's beta API version.
+
+Snapshot 1.1 inputs are validated before migration to 1.2; their CPU timing is
+marked `not-collected`. Writers and standalone validators accept canonical 1.2
+only. Existing Legacy provenance and extensions are preserved.
 
 ## Installation
 
@@ -71,7 +75,7 @@ assert!(canonical_json.contains("zenfg.frame-graph-snapshot"));
 # Ok::<(), Box<dyn std::error::Error>>(())
 ```
 
-Successful decoding returns a canonical Snapshot 1.1 value and explicit
+Successful decoding returns a canonical Snapshot 1.2 value and explicit
 migration provenance when historical input was upgraded. Unknown formats and
 versions are rejected.
 
@@ -94,7 +98,7 @@ The crate exports `FrameGraphSnapshotV1` and all wire types with `Serialize` and
 
 ## Consumer and producer boundaries
 
-- Use parse or decode for untrusted input. Canonical Snapshot 1.1, Legacy V0,
+- Use parse or decode for untrusted input. Canonical Snapshot 1.2, Legacy V0,
   and Legacy Candidate V1 are accepted; supported historical data is migrated
   explicitly.
 - Use `validate_typed_frame_graph_snapshot()` before returning a typed producer
@@ -109,7 +113,7 @@ The crate exports `FrameGraphSnapshotV1` and all wire types with `Serialize` and
 
 The normative Schema, specification, fixtures, and conformance manifest are
 published by `@zenfg/snapshot`. See the
-[Snapshot 1.1 specification](https://github.com/uinosoft/zenfg/blob/cargo/zenfg-snapshot/v0.1.0-beta.3/packages/snapshot/SPEC.md)
+[Snapshot 1.2 specification](https://github.com/uinosoft/zenfg/blob/cargo/zenfg-snapshot/v0.1.0-beta.3/packages/snapshot/SPEC.md)
 for the complete structural and cross-field contract.
 
 ## Common mistakes
@@ -131,7 +135,7 @@ normative `@zenfg/snapshot` conformance corpus.
 
 ## Further reading
 
-- [Snapshot 1.1 specification](https://github.com/uinosoft/zenfg/blob/cargo/zenfg-snapshot/v0.1.0-beta.3/packages/snapshot/SPEC.md)
+- [Snapshot 1.2 specification](https://github.com/uinosoft/zenfg/blob/cargo/zenfg-snapshot/v0.1.0-beta.3/packages/snapshot/SPEC.md)
 - [ZenFG Core concepts](https://github.com/uinosoft/zenfg/blob/cargo/zenfg-snapshot/v0.1.0-beta.3/docs/core-concepts.md)
 - [`@zenfg/snapshot`](https://github.com/uinosoft/zenfg/blob/cargo/zenfg-snapshot/v0.1.0-beta.3/packages/snapshot/README.md)
 - [`zenfg`](https://github.com/uinosoft/zenfg/blob/cargo/zenfg-snapshot/v0.1.0-beta.3/crates/zenfg/README.md)

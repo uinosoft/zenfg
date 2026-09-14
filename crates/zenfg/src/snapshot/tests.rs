@@ -33,7 +33,7 @@ fn golden_snapshot_covers_v1_wire_mapping() {
 
     assert_eq!(snapshot.format, "zenfg.frame-graph-snapshot");
     assert_eq!(snapshot.version.major, 1);
-    assert_eq!(snapshot.version.minor, 1);
+    assert_eq!(snapshot.version.minor, 2);
     assert_eq!(
         snapshot.graph.groups[1].parent_id.as_deref(),
         Some("group:0")
@@ -886,4 +886,41 @@ fn fixture_report() -> (CompilationReport, GpuTimingReport, ResourcePoolStats) {
         estimated_retained_bytes: 1_280,
     };
     (report, timing, pool)
+}
+
+#[test]
+fn cpu_snapshot_is_independent_and_checks_frame_and_node_kind() {
+    let (report, _, pool) = fixture_report();
+    let mut cpu = crate::CpuTimingReport {
+        frame_index: 7,
+        execution_duration: std::time::Duration::from_micros(100),
+        nodes: report
+            .full
+            .as_ref()
+            .unwrap()
+            .nodes
+            .iter()
+            .map(|node| crate::CpuTimingNodeReport {
+                pass: node.id,
+                kind: node.kind,
+                label: node.label.clone(),
+                duration: std::time::Duration::from_micros(1),
+            })
+            .collect(),
+    };
+    let mut options = CreateFrameGraphSnapshotOptions::new(7);
+    options.cpu_timing = Some(&cpu);
+    options.pool_stats = Some(pool);
+    let snapshot = create_frame_graph_snapshot(&report, options).unwrap();
+    assert!(matches!(
+        snapshot.timings.cpu,
+        zenfg_snapshot::SnapshotCpuTimings::Available { .. }
+    ));
+    cpu.frame_index = 8;
+    let mut options = CreateFrameGraphSnapshotOptions::new(7);
+    options.cpu_timing = Some(&cpu);
+    assert!(matches!(
+        create_frame_graph_snapshot(&report, options),
+        Err(SnapshotExportError::TimingFrameMismatch { .. })
+    ));
 }

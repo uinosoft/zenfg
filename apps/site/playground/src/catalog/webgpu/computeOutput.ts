@@ -1,3 +1,4 @@
+import type { FrameGraphCaptureRequest } from '@zenfg/inspector';
 import type { ExamplesExampleDefinition } from '../../types.ts';
 import { recipeHostSourceFile, recipeShaderSourceFile } from './sources.ts';
 
@@ -71,7 +72,7 @@ export const computeOutputExample: ExamplesExampleDefinition = {
 		};
 		const stopResize = host.renderOnResize(render);
 		return {
-			async captureSnapshot() {
+			async captureSnapshot(request: FrameGraphCaptureRequest = { timing: 'both' }) {
 				const snapshot = await host.capture((recorder) => {
 					recipe.recordComputeOutput({
 						recorder,
@@ -80,7 +81,7 @@ export const computeOutputExample: ExamplesExampleDefinition = {
 						outputSize,
 						workgroupCount: 1,
 					});
-				});
+				}, request);
 				presentStorageBuffer(host, presentationPipeline, outputBuffer);
 				return snapshot;
 			},

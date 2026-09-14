@@ -2,7 +2,7 @@
   "format": "zenfg.frame-graph-snapshot",
   "version": {
     "major": 1,
-    "minor": 1
+    "minor": 2
   },
   "producer": {
     "name": "conformance"
@@ -41,7 +41,7 @@
       "reason": "not-captured"
     }
   },
-  "timings": {
+  "timings": { "cpu": { "status": "unavailable", "reason": "not-requested" },
     "gpu": {
       "status": "unavailable",
       "reason": "not-captured"

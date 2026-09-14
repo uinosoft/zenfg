@@ -402,7 +402,7 @@ function renderJsonPath(path: JsonPathNode | undefined): string {
 	return `/${tokens.join('/')}`;
 }
 
-export function validateSnapshotV1(value: unknown): readonly FrameGraphSnapshotIssue[] {
+export function validateSnapshotV1(value: unknown, minor: 1 | 2 = 2): readonly FrameGraphSnapshotIssue[] {
 	const issues: Issues = [];
 	const root = record(value, '', issues);
 	if (!root) return issues;
@@ -413,13 +413,13 @@ export function validateSnapshotV1(value: unknown): readonly FrameGraphSnapshotI
 	if (version) {
 		keys(version, '/version', ['major', 'minor'], [], issues);
 		literal(version.major, FRAME_GRAPH_SNAPSHOT_VERSION.major, '/version/major', issues);
-		literal(version.minor, FRAME_GRAPH_SNAPSHOT_VERSION.minor, '/version/minor', issues);
+		literal(version.minor, minor, '/version/minor', issues);
 	}
 	validateProducer(root.producer, issues);
-	validateCapture(root.capture, issues);
+	validateCapture(root.capture, issues, minor);
 	const graph = validateGraph(root.graph, issues);
 	const memory = validateMemory(root.memory, issues);
-	const timings = validateTimings(root.timings, issues);
+	const timings = validateTimings(root.timings, issues, minor);
 	validateDiagnostics(root.diagnostics, issues);
 	validateExtensions(root.extensions, issues);
 	if (graph && memory && timings && issues.length === 0) validateReferences(value as FrameGraphSnapshot, issues);
@@ -444,7 +444,7 @@ function validateProducer(value: unknown, issues: Issues): void {
 	}
 }
 
-function validateCapture(value: unknown, issues: Issues): void {
+function validateCapture(value: unknown, issues: Issues, minor: 1 | 2): void {
 	const capture = record(value, '/capture', issues);
 	if (!capture) return;
 	keys(capture, '/capture', ['frameIndex'], ['capturedAt', 'migration'], issues);
@@ -454,7 +454,7 @@ function validateCapture(value: unknown, issues: Issues): void {
 		const migration = record(capture.migration, '/capture/migration', issues);
 		if (migration) {
 			keys(migration, '/capture/migration', ['sourceFormat', 'unavailableFacts'], [], issues);
-			enumValue(migration.sourceFormat, ['legacy-v0', 'legacy-candidate-v1'], '/capture/migration/sourceFormat', issues);
+			enumValue(migration.sourceFormat, minor === 1 ? ['legacy-v0', 'legacy-candidate-v1'] : ['legacy-v0', 'legacy-candidate-v1', 'snapshot-v1.1'], '/capture/migration/sourceFormat', issues);
 			stringArray(migration.unavailableFacts, '/capture/migration/unavailableFacts', issues, false, UNAVAILABLE_FACTS);
 		}
 	}
@@ -706,10 +706,22 @@ function validateMemory(value: unknown, issues: Issues): UnknownRecord | undefin
 	return memory;
 }
 
-function validateTimings(value: unknown, issues: Issues): UnknownRecord | undefined {
+function validateTimings(value: unknown, issues: Issues, minor: 1 | 2): UnknownRecord | undefined {
 	const timings = record(value, '/timings', issues);
 	if (!timings) return undefined;
-	keys(timings, '/timings', ['gpu'], [], issues);
+	keys(timings, '/timings', minor === 1 ? ['gpu'] : ['gpu', 'cpu'], [], issues);
+	if (minor === 2) {
+		const cpu = record(timings.cpu, '/timings/cpu', issues);
+		if (cpu?.status === 'available') {
+			keys(cpu, '/timings/cpu', ['status', 'executionDurationMicros', 'nodes'], [], issues);
+			finiteNumber(cpu.executionDurationMicros, '/timings/cpu/executionDurationMicros', issues);
+			forEachRecord(cpu.nodes, '/timings/cpu/nodes', issues, (timing, path) => {
+				keys(timing, path, ['nodeId', 'durationMicros'], [], issues);
+				entityId(timing.nodeId, path + '/nodeId', issues, 'node');
+				finiteNumber(timing.durationMicros, path + '/durationMicros', issues);
+			});
+		} else if (cpu) validateUnavailable(cpu, '/timings/cpu', issues);
+	}
 	const gpu = record(timings.gpu, '/timings/gpu', issues);
 	if (!gpu) return timings;
 	if (gpu.status === 'available') {
@@ -945,6 +957,17 @@ function validateReferences(snapshot: FrameGraphSnapshot, issues: Issues): void 
 	if (segmentedSequence.length === expectedSequence.length && segmentedSequence.some((id, index) => id !== expectedSequence[index])) {
 		issues.push(issue('invalid-segment-sequence', '/graph/segments', 'Concatenated segment nodes must follow retained execution order.'));
 	}
+	if (snapshot.timings.cpu?.status === 'available') {
+		const timed = new Set<string>();
+		for (const [index, timing] of snapshot.timings.cpu.nodes.entries()) {
+			const path = '/timings/cpu/nodes/' + index + '/nodeId';
+			const node = nodeById.get(timing.nodeId);
+			if (!node) missing(path, 'node', timing.nodeId, issues);
+			else if (node.compileState.status !== 'retained') issues.push(issue('reference-state', path, 'CPU timing must reference a retained node.'));
+			if (timed.has(timing.nodeId)) issues.push(issue('duplicate-timing', path, 'A node may have only one CPU timing.'));
+			timed.add(timing.nodeId);
+		}
+	}
 	if (snapshot.timings.gpu.status === 'available') {
 		const timed = new Set<string>();
 		for (let index = 0; index < snapshot.timings.gpu.nodes.length; index++) {
@@ -1044,7 +1067,7 @@ function keys(value: UnknownRecord, path: string, required: readonly string[], o
 		if (!(key in value)) issues.push(issue('missing-property', `${path}/${pointer(key)}`, `Required property "${key}" is missing.`));
 	}
 	for (const key of Object.keys(value)) {
-		if (!allowed.has(key)) issues.push(issue('unexpected-property', `${path}/${pointer(key)}`, `Property "${key}" is not part of Snapshot 1.1.`));
+		if (!allowed.has(key)) issues.push(issue('unexpected-property', `${path}/${pointer(key)}`, `Property "${key}" is not part of Snapshot 1.2.`));
 	}
 }
 

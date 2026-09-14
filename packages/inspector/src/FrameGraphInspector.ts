@@ -1,3 +1,4 @@
+import type { FrameGraphCaptureRequest } from './capture.ts';
 import type { InspectorTheme } from './theme.ts';
 import { InspectorThemeController, resolveGraphTheme } from './panelTheme.ts';
 import {
@@ -41,7 +42,7 @@ export type FrameGraphInspectorOptions = {
 	 * Produces a live snapshot when capture is requested. The inspector awaits
 	 * promises and displays thrown or rejected errors in its status area.
 	 */
-	captureSnapshot?: () => FrameGraphSnapshot | undefined | Promise<FrameGraphSnapshot | undefined>;
+	captureSnapshot?: (request: FrameGraphCaptureRequest) => FrameGraphSnapshot | undefined | Promise<FrameGraphSnapshot | undefined>;
 	/**
 	 * Maximum accepted import size in bytes.
 	 *
@@ -280,7 +281,8 @@ export class FrameGraphInspector {
 		if (!this.viewModel) this.workbench.showEmptyState('capturing', 'Capturing the next rendered frame…');
 		this.updateCaptureActions();
 		try {
-			const snapshot = await this.captureSnapshotCallback();
+			const request: FrameGraphCaptureRequest = { timing: this.workbench.captureTimingMode };
+			const snapshot = await this.captureSnapshotCallback(request);
 			if (this.destroyed || revision !== this.operationRevision) return;
 			if (!snapshot) {
 				this.reportCaptureIssue('No snapshot was produced. Capture again when rendering is active.');

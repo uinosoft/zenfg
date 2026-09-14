@@ -78,3 +78,7 @@ path = "examples/compute_output.rs"
 name = "cross_language_producers"
 path = "tests/cross_language_producers.rs"
 required-features = ["snapshot"]
+
+[[example]]
+name = "cpu-timing-bench"
+path = "examples/cpu_timing_bench.rs"

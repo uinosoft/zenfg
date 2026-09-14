@@ -21,3 +21,5 @@ export { ZENFG_INSPECTOR_QUERY_PARAM, isZenFGInspectorRequested } from './query.
 export { ensureFrameGraphInspectorStyles } from './styles.ts';
 
 export type { InspectorTheme, InspectorThemeVariables } from './theme.ts';
+
+export type { FrameGraphCaptureRequest } from './capture.ts';

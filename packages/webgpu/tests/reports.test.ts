@@ -407,7 +407,7 @@ test('GPU timing is asynchronous while ordinary execution is synchronous', async
 	recordTimedGraph(recorder);
 	const compiled = recorder.compile();
 	assert.equal(compiled.execute({ frameIndex: 6 }), undefined);
-	const result = compiled.execute({ frameIndex: 7, gpuTiming: true });
+	const result = compiled.executeWithTiming({ frameIndex: 7, timing: 'gpu' }).gpu!;
 	assert.ok(result instanceof Promise);
 	assert.deepEqual(await result, {
 		status: 'available', frameIndex: 7, frameDurationMicros: 5,
@@ -423,8 +423,8 @@ test('concurrent GPU timing requests execute and report busy', async () => {
 	const recorder = runtime.beginFrame();
 	recordTimedGraph(recorder, () => executeCount++);
 	const compiled = recorder.compile();
-	const first = compiled.execute({ frameIndex: 1, gpuTiming: true });
-	const second = compiled.execute({ frameIndex: 2, gpuTiming: true });
+	const first = compiled.executeWithTiming({ frameIndex: 1, timing: 'gpu' }).gpu!;
+	const second = compiled.executeWithTiming({ frameIndex: 2, timing: 'gpu' }).gpu!;
 	assert.deepEqual(await second, { status: 'unavailable', frameIndex: 2, reason: 'busy' });
 	assert.equal(executeCount, 2);
 	finishMap();
@@ -440,7 +440,7 @@ test('timing reports unsupported and readback failures without blocking executio
 		const runtime = new FrameGraph(scenario.device);
 		const recorder = runtime.beginFrame();
 		recordTimedGraph(recorder, () => executeCount++);
-		const report = await recorder.compile().execute({ frameIndex: 4, gpuTiming: true });
+		const report = await recorder.compile().executeWithTiming({ frameIndex: 4, timing: 'gpu' }).gpu!;
 		assert.deepEqual(report, { status: 'unavailable', frameIndex: 4, reason: scenario.reason });
 		assert.equal(executeCount, 1);
 	}
@@ -450,7 +450,22 @@ test('destroy rejects a pending timing readback', async () => {
 	const runtime = new FrameGraph(timingDevice({ mapAsync: () => new Promise<void>(() => {}) }));
 	const recorder = runtime.beginFrame();
 	recordTimedGraph(recorder);
-	const report: Promise<FrameGraphGpuTimingReport> = recorder.compile().execute({ gpuTiming: true });
+	const report: Promise<FrameGraphGpuTimingReport> = recorder.compile().executeWithTiming({ timing: 'gpu' }).gpu!;
 	runtime.destroy();
 	await assert.rejects(report, /destroyed before GPU timing readback/);
+});
+
+
+test('CPU result remains immediate while GPU is pending or busy', async () => {
+ let finish!: () => void;
+ const pending = new Promise<void>(resolve => { finish = resolve; });
+ const graph = new FrameGraph(timingDevice({mapAsync: () => pending}));
+ const frame = graph.beginFrame(); recordTimedGraph(frame); const compiled=frame.compile();
+ const first=compiled.executeWithTiming({timing:'both',frameIndex:1});
+ assert.equal(first.cpu!.nodes.length,1);
+ const second=compiled.executeWithTiming({timing:'both',frameIndex:2});
+ assert.equal(second.cpu!.frameIndex,2);
+ assert.equal((await second.gpu!).status,'unavailable');
+ const cpuOnly=compiled.executeWithTiming({timing:'cpu'}); assert.equal(cpuOnly.gpu,undefined);
+ finish(); assert.equal((await first.gpu!).status,'available');
 });

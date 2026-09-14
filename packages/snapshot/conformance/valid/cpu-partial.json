@@ -1,0 +1,167 @@
+{
+  "format": "zenfg.frame-graph-snapshot",
+  "version": {
+    "major": 1,
+    "minor": 2
+  },
+  "producer": {
+    "name": "fixture",
+    "version": "1.0.0",
+    "language": "TypeScript"
+  },
+  "capture": {
+    "frameIndex": 0,
+    "capturedAt": "2026-01-01T00:00:00.000Z"
+  },
+  "graph": {
+    "groups": [],
+    "nodes": [
+      {
+        "id": "node:0",
+        "recordingOrder": 0,
+        "kind": "render",
+        "label": "render",
+        "sideEffect": true,
+        "compileState": {
+          "status": "retained",
+          "executionOrder": 0
+        }
+      },
+      {
+        "id": "node:1",
+        "recordingOrder": 1,
+        "kind": "compute",
+        "label": "compute",
+        "sideEffect": true,
+        "compileState": {
+          "status": "retained",
+          "executionOrder": 1
+        }
+      },
+      {
+        "id": "node:2",
+        "recordingOrder": 2,
+        "kind": "copy",
+        "label": "copy",
+        "sideEffect": true,
+        "compileState": {
+          "status": "retained",
+          "executionOrder": 2
+        }
+      },
+      {
+        "id": "node:3",
+        "recordingOrder": 3,
+        "kind": "clear-buffer",
+        "label": "clear-buffer",
+        "sideEffect": true,
+        "compileState": {
+          "status": "retained",
+          "executionOrder": 3
+        }
+      },
+      {
+        "id": "node:4",
+        "recordingOrder": 4,
+        "kind": "command",
+        "label": "command",
+        "sideEffect": true,
+        "compileState": {
+          "status": "retained",
+          "executionOrder": 4
+        }
+      },
+      {
+        "id": "node:5",
+        "recordingOrder": 5,
+        "kind": "external-submission",
+        "label": "external-submission",
+        "sideEffect": true,
+        "compileState": {
+          "status": "retained",
+          "executionOrder": 5
+        }
+      }
+    ],
+    "resources": [],
+    "textureViews": [],
+    "accesses": [],
+    "dependencies": [],
+    "roots": [
+      {
+        "reason": "side-effect",
+        "nodeId": "node:0"
+      },
+      {
+        "reason": "side-effect",
+        "nodeId": "node:1"
+      },
+      {
+        "reason": "side-effect",
+        "nodeId": "node:2"
+      },
+      {
+        "reason": "side-effect",
+        "nodeId": "node:3"
+      },
+      {
+        "reason": "side-effect",
+        "nodeId": "node:4"
+      },
+      {
+        "reason": "side-effect",
+        "nodeId": "node:5"
+      }
+    ],
+    "segments": [
+      {
+        "id": "segment:0",
+        "order": 0,
+        "kind": "frame-graph",
+        "nodeIds": [
+          "node:0",
+          "node:1",
+          "node:2",
+          "node:3",
+          "node:4"
+        ]
+      },
+      {
+        "id": "segment:1",
+        "order": 1,
+        "kind": "external-submission",
+        "nodeIds": [
+          "node:5"
+        ]
+      }
+    ]
+  },
+  "memory": {
+    "allocationReport": {
+      "status": "unavailable",
+      "reason": "not-requested"
+    },
+    "poolReport": {
+      "status": "unavailable",
+      "reason": "not-requested"
+    }
+  },
+  "timings": {
+    "cpu": {
+      "status": "available",
+      "executionDurationMicros": 20,
+      "nodes": [
+        {
+          "nodeId": "node:0",
+          "durationMicros": 0
+        }
+      ]
+    },
+    "gpu": {
+      "status": "unavailable",
+      "reason": "unsupported"
+    }
+  },
+  "diagnostics": [],
+  "extensions": {}
+}

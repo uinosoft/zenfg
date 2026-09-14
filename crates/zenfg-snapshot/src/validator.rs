@@ -5,8 +5,9 @@ use serde_json::{Map, Value};
 use crate::{
     FRAME_GRAPH_SNAPSHOT_FORMAT, FRAME_GRAPH_SNAPSHOT_MAX_EXTENSION_DEPTH,
     FRAME_GRAPH_SNAPSHOT_VERSION, FrameGraphSnapshotV1, SnapshotAccessKind,
-    SnapshotAllocationReport, SnapshotGpuTimings, SnapshotIssue, SnapshotNodeCompileState,
-    SnapshotNodeKind, SnapshotResourceKind, SnapshotSegmentKind, SnapshotUnavailableFact,
+    SnapshotAllocationReport, SnapshotCpuTimings, SnapshotGpuTimings, SnapshotIssue,
+    SnapshotNodeCompileState, SnapshotNodeKind, SnapshotResourceKind, SnapshotSegmentKind,
+    SnapshotUnavailableFact,
 };
 
 const MAX_SAFE_INTEGER: u64 = 9_007_199_254_740_991;
@@ -73,7 +74,7 @@ const UNAVAILABLE_FACTS: &[&str] = &[
     "graph.roots.resolution",
 ];
 
-/// Validates an arbitrary JSON value against Snapshot 1.1.
+/// Validates an arbitrary JSON value against Snapshot 1.2.
 ///
 /// The validator checks the wire shape as well as cross-record invariants such
 /// as unique IDs, references, resource/access compatibility, retained state,
@@ -84,6 +85,10 @@ const UNAVAILABLE_FACTS: &[&str] = &[
 /// This function does not migrate legacy formats. Use
 /// [`crate::decode_frame_graph_snapshot`] when migration is desired.
 pub fn validate_frame_graph_snapshot(value: &Value) -> Vec<SnapshotIssue> {
+    validate_version(value, 2)
+}
+
+pub(crate) fn validate_version(value: &Value, minor: u64) -> Vec<SnapshotIssue> {
     let mut issues = Vec::new();
     let Some(root) = record(Some(value), "", &mut issues) else {
         return issues;
@@ -119,22 +124,21 @@ pub fn validate_frame_graph_snapshot(value: &Value) -> Vec<SnapshotIssue> {
             "/version/major",
             &mut issues,
         );
-        literal_u64(
-            version.get("minor"),
-            FRAME_GRAPH_SNAPSHOT_VERSION.minor.into(),
-            "/version/minor",
-            &mut issues,
-        );
+        literal_u64(version.get("minor"), minor, "/version/minor", &mut issues);
     }
     validate_producer(root.get("producer"), &mut issues);
-    validate_capture(root.get("capture"), &mut issues);
+    validate_capture(root.get("capture"), &mut issues, minor);
     let graph = validate_graph(root.get("graph"), &mut issues);
     let memory = validate_memory(root.get("memory"), &mut issues);
-    let timings = validate_timings(root.get("timings"), &mut issues);
+    let timings = validate_timings(root.get("timings"), &mut issues, minor);
     validate_diagnostics(root.get("diagnostics"), &mut issues);
     validate_extensions(root.get("extensions"), &mut issues);
     if graph && memory && timings && issues.is_empty() {
         let mut canonical = value.clone();
+        if minor == 1 {
+            canonical["timings"]["cpu"] =
+                serde_json::json!({"status":"unavailable","reason":"not-collected"});
+        }
         canonicalize_integral_numbers(&mut canonical);
         match serde_json::from_value::<FrameGraphSnapshotV1>(canonical) {
             Ok(snapshot) => validate_references(&snapshot, &mut issues),
@@ -182,7 +186,7 @@ fn validate_producer(value: Option<&Value>, issues: &mut Vec<SnapshotIssue>) {
     }
 }
 
-fn validate_capture(value: Option<&Value>, issues: &mut Vec<SnapshotIssue>) {
+fn validate_capture(value: Option<&Value>, issues: &mut Vec<SnapshotIssue>, minor: u64) {
     let Some(capture) = record(value, "/capture", issues) else {
         return;
     };
@@ -207,7 +211,11 @@ fn validate_capture(value: Option<&Value>, issues: &mut Vec<SnapshotIssue>) {
         );
         enum_value(
             migration.get("sourceFormat"),
-            &["legacy-v0", "legacy-candidate-v1"],
+            if minor == 1 {
+                &["legacy-v0", "legacy-candidate-v1"]
+            } else {
+                &["legacy-v0", "legacy-candidate-v1", "snapshot-v1.1"]
+            },
             "/capture/migration/sourceFormat",
             issues,
         );
@@ -1302,11 +1310,60 @@ fn validate_memory(value: Option<&Value>, issues: &mut Vec<SnapshotIssue>) -> bo
     true
 }
 
-fn validate_timings(value: Option<&Value>, issues: &mut Vec<SnapshotIssue>) -> bool {
+fn validate_timings(value: Option<&Value>, issues: &mut Vec<SnapshotIssue>, minor: u64) -> bool {
     let Some(timings) = record(value, "/timings", issues) else {
         return false;
     };
-    keys(timings, "/timings", &["gpu"], &[], issues);
+    keys(
+        timings,
+        "/timings",
+        if minor == 1 {
+            &["gpu"]
+        } else {
+            &["gpu", "cpu"]
+        },
+        &[],
+        issues,
+    );
+    if minor == 2
+        && let Some(cpu) = record(timings.get("cpu"), "/timings/cpu", issues)
+    {
+        if cpu.get("status").and_then(Value::as_str) == Some("available") {
+            keys(
+                cpu,
+                "/timings/cpu",
+                &["status", "executionDurationMicros", "nodes"],
+                &[],
+                issues,
+            );
+            finite_number(
+                cpu.get("executionDurationMicros"),
+                "/timings/cpu/executionDurationMicros",
+                issues,
+            );
+            for_each_record(
+                cpu.get("nodes"),
+                "/timings/cpu/nodes",
+                issues,
+                |timing, path, issues| {
+                    keys(timing, path, &["nodeId", "durationMicros"], &[], issues);
+                    entity_id(
+                        timing.get("nodeId"),
+                        &format!("{path}/nodeId"),
+                        issues,
+                        Some("node"),
+                    );
+                    finite_number(
+                        timing.get("durationMicros"),
+                        &format!("{path}/durationMicros"),
+                        issues,
+                    );
+                },
+            );
+        } else {
+            validate_unavailable(cpu, "/timings/cpu", issues);
+        }
+    }
     let Some(gpu) = record(timings.get("gpu"), "/timings/gpu", issues) else {
         return true;
     };
@@ -1919,6 +1976,35 @@ fn validate_references(snapshot: &FrameGraphSnapshotV1, issues: &mut Vec<Snapsho
         ));
     }
 
+    if let SnapshotCpuTimings::Available { nodes, .. } = &snapshot.timings.cpu {
+        let mut timed = HashSet::new();
+        for (index, timing) in nodes.iter().enumerate() {
+            let path = format!("/timings/cpu/nodes/{index}/nodeId");
+            match node_by_id.get(timing.node_id.as_str()) {
+                None => missing(&path, "node", &timing.node_id, issues),
+                Some(node)
+                    if !matches!(
+                        node.compile_state,
+                        SnapshotNodeCompileState::Retained { .. }
+                    ) =>
+                {
+                    issues.push(error(
+                        "reference-state",
+                        &path,
+                        "CPU timing must reference a retained node.",
+                    ))
+                }
+                _ => {}
+            }
+            if !timed.insert(&timing.node_id) {
+                issues.push(error(
+                    "duplicate-timing",
+                    &path,
+                    "A node may have only one CPU timing.",
+                ));
+            }
+        }
+    }
     if let SnapshotGpuTimings::Available { nodes, .. } = &snapshot.timings.gpu {
         let mut timed = HashSet::new();
         for (index, timing) in nodes.iter().enumerate() {
@@ -2169,7 +2255,7 @@ fn keys(
             issues.push(error(
                 "unexpected-property",
                 format!("{path}/{}", pointer(key)),
-                format!("Property \"{key}\" is not part of Snapshot 1.1."),
+                format!("Property \"{key}\" is not part of Snapshot 1.2."),
             ));
         }
     }

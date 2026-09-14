@@ -116,7 +116,7 @@ function largeSnapshot(count: number): FrameGraphSnapshot {
 			segments: [{ id: 'segment:0', order: 0, kind: 'frame-graph', nodeIds: nodes.map((node) => node.id) }],
 		},
 		memory: { allocationReport: { status: 'available', allocations: [] }, poolReport: { status: 'unavailable', reason: 'Synthetic capture' } },
-		timings: { gpu: { status: 'unavailable', reason: 'Synthetic capture' } }, diagnostics: [], extensions: {},
+		timings: { cpu: { status: 'unavailable', reason: 'not-requested' }, gpu: { status: 'unavailable', reason: 'Synthetic capture' } }, diagnostics: [], extensions: {},
 	};
 }
 

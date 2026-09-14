@@ -1,9 +1,9 @@
-# FrameGraph Snapshot 1.1 Specification
+# FrameGraph Snapshot 1.2 Specification
 
 ## 1. Status and terminology
 
 This document is the language-neutral normative definition of FrameGraph
-Snapshot 1.1. The key words MUST, MUST NOT, REQUIRED, SHOULD, SHOULD NOT, and
+Snapshot 1.2. The key words MUST, MUST NOT, REQUIRED, SHOULD, SHOULD NOT, and
 MAY are requirements on producers and consumers.
 
 A Snapshot is a diagnostic description of one compiled FrameGraph frame. It
@@ -18,9 +18,9 @@ semantics. A Snapshot is valid only when it satisfies both layers.
 
 - Files MUST be UTF-8 JSON and conventionally use `.fgsnapshot.json`.
 - `format` MUST be `zenfg.frame-graph-snapshot`.
-- Version 1.1 is `{ "major": 1, "minor": 1 }`. Canonical 1.0 is no longer accepted.
-- Readers MUST reject unknown major or minor versions and MUST NOT guess that
-  an unknown version is compatible.
+- Version 1.2 is `{ "major": 1, "minor": 2 }`. Canonical 1.0 is no longer accepted.
+- Readers MUST explicitly migrate canonical 1.1 as specified below. Readers MUST
+  reject all other unsupported versions and MUST NOT guess compatibility.
 - Canonical V1 means the current V1 data model. It does not prescribe object-key
   order, insignificant whitespace, or byte-for-byte canonical JSON.
 - Every count, byte size, frame index, ordering index, offset, and length MUST
@@ -201,6 +201,18 @@ Allocation and pool reports, and GPU timings, use explicit `available` or
 `unavailable` variants. An unavailable reason is non-empty. An available GPU
 timing references each retained render or compute node at most once.
 
+Both `timings.cpu` and `timings.gpu` are required and independent.
+An available CPU report contains `executionDurationMicros` and `nodes` with
+`nodeId` and `durationMicros`. All durations MUST be finite non-negative numbers.
+Each CPU timing MUST reference a retained node at most once; all node kinds are
+eligible. Partial coverage is permitted. Node sums need not equal execution time.
+CPU measures synchronous elapsed time, including local node setup and cleanup;
+it is neither thread CPU usage nor GPU completion. Shared preparation, submission
+and transient release belong to execution total, not a forced pass allocation.
+A zero readout does not guarantee zero cost or microsecond clock precision.
+Unrequested timing uses `unavailable` with reason `not-requested`; historical
+CPU data uses `not-collected`.
+
 Diagnostic codes are non-empty. Optional node/resource references MUST resolve.
 
 Extension names match `^.+\..+$`. Extension values MUST be JSON values: no
@@ -218,6 +230,16 @@ message is `Extension JSON nesting depth must not exceed 64 container levels.`
 Consumers MUST preserve extensions they do not understand.
 
 ## 9. Historical migration
+
+Canonical 1.1 MUST first pass its own structural and semantic validation,
+including rejection of a `timings.cpu` property. Migration changes the version
+to 1.2 and adds CPU `unavailable` / `not-collected`. Earlier migration provenance,
+unknown facts and extensions MUST be preserved; otherwise record
+`sourceFormat: "snapshot-v1.1"` with an empty unavailable-facts array.
+Decode reports the immediate source as `snapshot-v1.1` and emits a migration
+warning. Canonical validation and serialization accept only 1.2. Canonical 1.0
+remains unsupported. Legacy inputs below also migrate to 1.2 with CPU unavailable.
+
 
 Readers recognize the unversioned `{ compilation, gpuTiming, resourcePool }`
 Legacy V0 capture and the `zenfg.frame-graph-snapshot-candidate` Legacy

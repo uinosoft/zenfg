@@ -1,5 +1,6 @@
+import type { FrameGraphCaptureRequest } from '@zenfg/inspector';
 import type { FrameGraphSnapshot } from '@zenfg/snapshot';
-import { type FrameGraphCompilationReport, type FrameGraphGpuTimingReport } from '@zenfg/webgpu';
+import { type FrameGraphCompilationReport, type FrameGraphExecutionTiming } from '@zenfg/webgpu';
 import { resolvePointerPressure } from './backgroundInteraction.ts';
 import { resolveCanvasDimensions } from './backgroundLayout.ts';
 import { frameParamsFloatCount, type BackgroundResources } from './resources.ts';
@@ -21,11 +22,12 @@ export type ZenBackgroundOptions = {
 };
 
 export type ZenBackgroundController = {
-    readonly captureSnapshot: () => Promise<FrameGraphSnapshot | undefined>;
+    readonly captureSnapshot: (request?: FrameGraphCaptureRequest) => Promise<FrameGraphSnapshot | undefined>;
     readonly dispose: () => void;
 };
 
 type PendingCapture = {
+    readonly timing: FrameGraphCaptureRequest['timing'];
     readonly promise: Promise<FrameGraphSnapshot | undefined>;
     readonly resolve: (snapshot: FrameGraphSnapshot | undefined) => void;
 };
@@ -102,7 +104,7 @@ export abstract class BackgroundBrowserHost implements ZenBackgroundController {
         this.requestFrame();
     }
 
-    captureSnapshot(): Promise<FrameGraphSnapshot | undefined> {
+    captureSnapshot(request: FrameGraphCaptureRequest = { timing: 'both' }): Promise<FrameGraphSnapshot | undefined> {
         if (this.disposed) return Promise.resolve(undefined);
         if (this.pendingCapture) return this.pendingCapture.promise;
 
@@ -110,7 +112,7 @@ export abstract class BackgroundBrowserHost implements ZenBackgroundController {
         const promise = new Promise<FrameGraphSnapshot | undefined>((resolve) => {
             resolveCapture = resolve;
         });
-        this.pendingCapture = { promise, resolve: resolveCapture };
+        this.pendingCapture = { timing: request.timing, promise, resolve: resolveCapture };
         this.dirty = true;
         this.requestFrame();
         return promise;
@@ -263,18 +265,19 @@ export abstract class BackgroundBrowserHost implements ZenBackgroundController {
     protected async finishCapture(
         capture: PendingCapture,
         compilation: FrameGraphCompilationReport,
-        gpuTiming: Promise<FrameGraphGpuTimingReport>,
+        executionTiming: FrameGraphExecutionTiming,
     ): Promise<void> {
+        const resourcePool = { ...this.resources.graph.getResourcePoolStats() };
         try {
             const [timing, { createFrameGraphSnapshot }] = await Promise.all([
-                gpuTiming,
+                executionTiming.gpu,
                 import('@zenfg/webgpu/snapshot'),
             ]);
             if (this.disposed || this.pendingCapture !== capture) return;
-            capture.resolve(createFrameGraphSnapshot({
+            capture.resolve(createFrameGraphSnapshot({ frameIndex: executionTiming.frameIndex, cpuTiming: executionTiming.cpu,
                 compilation,
                 gpuTiming: timing,
-                resourcePool: this.resources.graph.getResourcePoolStats(),
+                resourcePool,
             }));
         }
         catch {

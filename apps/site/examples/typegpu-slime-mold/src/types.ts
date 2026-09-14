@@ -1,3 +1,4 @@
+import type { FrameGraphCaptureRequest } from '@zenfg/inspector';
 import type { FrameGraphRecording, TextureHandle } from '@zenfg/webgpu';
 import type { FrameGraphSnapshot } from '@zenfg/snapshot';
 
@@ -33,7 +34,7 @@ export interface PendingSlimeMoldFrame {
 export interface TypeGpuSlimeMoldController {
     getSettings(): Readonly<SlimeMoldSettings>;
     setSettings(settings: Partial<SlimeMoldSettings>): void;
-    captureSnapshot(): Promise<FrameGraphSnapshot | undefined>;
+    captureSnapshot(request?: FrameGraphCaptureRequest): Promise<FrameGraphSnapshot | undefined>;
     dispose(): void;
 }
 

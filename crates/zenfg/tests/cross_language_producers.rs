@@ -68,7 +68,26 @@ fn mirror_producers_are_deterministic_and_cross_validate_typescript_output() {
 
 fn produce_snapshot_json(producer: fn() -> CompilationReport) -> String {
     let report = producer();
+    let cpu = zenfg::CpuTimingReport {
+        frame_index: 0,
+        execution_duration: std::time::Duration::from_micros(1000),
+        nodes: report
+            .full
+            .as_ref()
+            .unwrap()
+            .nodes
+            .iter()
+            .enumerate()
+            .map(|(index, node)| zenfg::CpuTimingNodeReport {
+                pass: node.id,
+                kind: node.kind,
+                label: node.label.clone(),
+                duration: std::time::Duration::from_micros(index as u64 + 1),
+            })
+            .collect(),
+    };
     let mut options = CreateFrameGraphSnapshotOptions::new(0);
+    options.cpu_timing = Some(&cpu);
     options.captured_at = Some("2026-08-30T00:00:00.000Z");
     options.backend = Some("noop");
     let snapshot = create_frame_graph_snapshot(&report, options)

@@ -86,7 +86,7 @@ function createBrowserHost(canvas: HTMLCanvasElement, device: GPUDevice, context
                 canvas.dataset.frameGraphPasses = String(compiled.compilationReport.nodes.length);
                 if (requested) {
                     frameState.capturesInFlight.add(requested.resolve);
-                    const timing = compiled.execute({ frameIndex: frameState.frameIndex++, afterSubmit, gpuTiming: true });
+                    const timing = compiled.executeWithTiming({ frameIndex: frameState.frameIndex++, afterSubmit, timing: requested.timing });
                     frameState.capture = undefined;
                     void host.finishCapture(requested, compiled.compilationReport, timing);
                 } else compiled.execute({ frameIndex: frameState.frameIndex++, afterSubmit });

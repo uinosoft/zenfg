@@ -21,7 +21,7 @@ import {
 } from './validator.ts';
 
 /**
- * Error thrown when a value cannot be serialized as a valid Snapshot 1.1
+ * Error thrown when a value cannot be serialized as a valid Snapshot 1.2
  * document.
  *
  * Decode and parse failures are returned as {@link FrameGraphSnapshotIssue}
@@ -38,7 +38,7 @@ export class FrameGraphSnapshotValidationError extends Error {
 }
 
 /**
- * Validates an unknown value against the canonical Snapshot 1.1 semantic model.
+ * Validates an unknown value against the canonical Snapshot 1.2 semantic model.
  *
  * @remarks This first creates an independent JSON-safe clone by inspecting own
  * property descriptors, so getters and `toJSON` hooks are never invoked. It
@@ -52,13 +52,13 @@ export function validateFrameGraphSnapshot(value: unknown): readonly FrameGraphS
 }
 
 /**
- * Finalizes a producer-owned Snapshot draft into a canonical Snapshot 1.1 value.
+ * Finalizes a producer-owned Snapshot draft into a canonical Snapshot 1.2 value.
  *
  * @remarks Object properties whose value is `undefined` are omitted to support
  * producer drafts assembled from optional fields. The result is detached from
  * the draft and has passed JSON-safety and semantic validation.
  * @throws {@link FrameGraphSnapshotValidationError} when the draft cannot be
- * finalized as a valid Snapshot 1.1 document.
+ * finalized as a valid Snapshot 1.2 document.
  */
 export function finalizeFrameGraphSnapshot(draft: unknown): FrameGraphSnapshot {
 	const cloned = cloneGeneratedSnapshotJsonValue(draft);
@@ -69,9 +69,10 @@ export function finalizeFrameGraphSnapshot(draft: unknown): FrameGraphSnapshot {
 }
 
 /**
- * Decodes an already-parsed value into a canonical Snapshot 1.1 document.
+ * Decodes an already-parsed value into a canonical Snapshot 1.2 document.
  *
- * @remarks Supported Legacy V0 and Legacy Candidate V1 captures are migrated
+ * @remarks Snapshot 1.1 is strictly validated before upgrading. Supported
+ * Legacy V0 and Legacy Candidate V1 captures are migrated
  * before validation. Successful results identify the source format and carry
  * migration warnings; unsupported, malformed, or semantically invalid values
  * return `{ ok: false, issues }` and do not throw. Decoding and migration do
@@ -114,6 +115,18 @@ export function decodeFrameGraphSnapshot(value: unknown): FrameGraphSnapshotDeco
 		return failure('unsupported-format', '/format', `Expected FrameGraph Snapshot format "${FRAME_GRAPH_SNAPSHOT_FORMAT}".`);
 	}
 	const version = asRecord(root.version);
+	if (version?.major === 1 && version.minor === 1) {
+		const issues = validateSnapshotV1(safeValue, 1);
+		if (issues.length) return { ok: false, issues };
+		const capture = asRecord(root.capture)!;
+		const upgraded = { ...root, version: FRAME_GRAPH_SNAPSHOT_VERSION,
+			capture: { ...capture, migration: capture.migration ?? { sourceFormat: 'snapshot-v1.1', unavailableFacts: [] } },
+			timings: { ...asRecord(root.timings), cpu: { status: 'unavailable', reason: 'not-collected' } } };
+		const validationIssues = validateSnapshotV1(upgraded);
+		if (validationIssues.length) return { ok: false, issues: validationIssues };
+		return { ok: true, snapshot: upgraded as FrameGraphSnapshot, source: 'snapshot-v1.1', migrated: true,
+			issues: [{ severity: 'warning', code: 'snapshot-v1.1-migrated', path: '', message: 'Snapshot 1.1 was migrated to ZenFG Snapshot 1.2; CPU timing was not collected.' }] };
+	}
 	if (
 		!version
 		|| version.major !== FRAME_GRAPH_SNAPSHOT_VERSION.major
@@ -123,7 +136,7 @@ export function decodeFrameGraphSnapshot(value: unknown): FrameGraphSnapshotDeco
 		return failure(
 			'unsupported-version',
 			'/version',
-			`Snapshot version ${actual} is not supported; this Viewer supports 1.1.`,
+			`Snapshot version ${actual} is not supported; this Viewer supports 1.2.`,
 		);
 	}
 	const issues = validateSnapshotV1(safeValue);
@@ -141,17 +154,17 @@ function migrateLegacyCandidateV1(value: Record<string, unknown>): FrameGraphSna
 	const version = asRecord(value.version);
 	if (!version || version.major !== 1 || version.minor !== 0) {
 		const actual = version ? `${String(version.major)}.${String(version.minor)}` : 'missing';
-		return failure('unsupported-version', '/version', `Snapshot version ${actual} is not supported; this Viewer supports 1.1.`);
+		return failure('unsupported-version', '/version', `Snapshot version ${actual} is not supported; this Viewer supports 1.2.`);
 	}
 	const candidate: Record<string, unknown> = {
 		...value,
 		format: FRAME_GRAPH_SNAPSHOT_FORMAT,
-		version: FRAME_GRAPH_SNAPSHOT_VERSION,
+		version: { major: 1, minor: 1 },
 	};
 	const capture = asRecord(value.capture);
 	const graph = asRecord(value.graph);
 	if (!capture || !graph || !Array.isArray(graph.resources)) {
-		const issues = validateSnapshotV1(candidate);
+		const issues = validateSnapshotV1(candidate, 1);
 		return { ok: false, issues };
 	}
 	candidate.capture = {
@@ -170,8 +183,12 @@ function migrateLegacyCandidateV1(value: Record<string, unknown>): FrameGraphSna
 		return migratedResource;
 	});
 	candidate.graph = { ...graph, resources };
-	const issues = validateSnapshotV1(candidate);
+	const issues = validateSnapshotV1(candidate, 1);
 	if (issues.length > 0) return { ok: false, issues };
+	candidate.version = FRAME_GRAPH_SNAPSHOT_VERSION;
+	candidate.timings = { ...asRecord(candidate.timings), cpu: { status: 'unavailable', reason: 'not-collected' } };
+	const upgradedIssues = validateSnapshotV1(candidate);
+	if (upgradedIssues.length) return { ok: false, issues: upgradedIssues };
 	return {
 		ok: true,
 		snapshot: candidate as FrameGraphSnapshot,
@@ -181,7 +198,7 @@ function migrateLegacyCandidateV1(value: Record<string, unknown>): FrameGraphSna
 			severity: 'warning',
 			code: 'legacy-candidate-v1-migrated',
 			path: '',
-			message: 'Legacy Candidate V1 was migrated to ZenFG Snapshot 1.1.',
+			message: 'Legacy Candidate V1 was migrated to ZenFG Snapshot 1.2.',
 		}],
 	};
 }
@@ -209,7 +226,7 @@ export function parseFrameGraphSnapshot(text: string): FrameGraphSnapshotDecodeR
 }
 
 /**
- * Validates and serializes a canonical Snapshot 1.1 document.
+ * Validates and serializes a canonical Snapshot 1.2 document.
  *
  * @remarks The input is cloned through own data-property descriptors before
  * validation and serialization, so getters and `toJSON` hooks are never

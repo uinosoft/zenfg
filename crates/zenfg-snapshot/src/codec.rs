@@ -79,7 +79,7 @@ pub fn decode_frame_graph_snapshot(
             vec![SnapshotIssue::warning(
                 "legacy-v0-migrated",
                 "",
-                "The unversioned debug capture was migrated to FrameGraph Snapshot 1.1.",
+                "The unversioned debug capture was migrated to FrameGraph Snapshot 1.2.",
             )],
         );
     }
@@ -95,12 +95,12 @@ pub fn decode_frame_graph_snapshot(
             if root
                 .get("version")
                 .and_then(|v| v.get("major"))
-                .and_then(Value::as_u64)
+                .and_then(|v| numeric_safe_integer(Some(v)))
                 != Some(1)
                 || root
                     .get("version")
                     .and_then(|v| v.get("minor"))
-                    .and_then(Value::as_u64)
+                    .and_then(|v| numeric_safe_integer(Some(v)))
                     != Some(0)
             {
                 return failure(
@@ -116,11 +116,45 @@ pub fn decode_frame_graph_snapshot(
                 vec![SnapshotIssue::warning(
                     "legacy-candidate-v1-migrated",
                     "",
-                    "Legacy Candidate V1 was migrated to ZenFG Snapshot 1.1.",
+                    "Legacy Candidate V1 was migrated to ZenFG Snapshot 1.2.",
                 )],
             )
         }
         Some(FRAME_GRAPH_SNAPSHOT_FORMAT) => {
+            if root
+                .get("version")
+                .and_then(|v| v.get("major"))
+                .and_then(|v| numeric_safe_integer(Some(v)))
+                == Some(1)
+                && root
+                    .get("version")
+                    .and_then(|v| v.get("minor"))
+                    .and_then(|v| numeric_safe_integer(Some(v)))
+                    == Some(1)
+            {
+                let issues = crate::validator::validate_version(&value, 1);
+                if !issues.is_empty() {
+                    return Err(SnapshotDecodeError::new(issues));
+                }
+                let mut upgraded = value;
+                upgraded["version"] = json!({"major":1,"minor":2});
+                upgraded["timings"]["cpu"] =
+                    json!({"status":"unavailable","reason":"not-collected"});
+                if upgraded["capture"].get("migration").is_none() {
+                    upgraded["capture"]["migration"] =
+                        json!({"sourceFormat":"snapshot-v1.1","unavailableFacts":[]});
+                }
+                return finish(
+                    upgraded,
+                    SnapshotDecodeSource::SnapshotV1_1,
+                    true,
+                    vec![SnapshotIssue::warning(
+                        "snapshot-v1.1-migrated",
+                        "",
+                        "Snapshot 1.1 was migrated to ZenFG Snapshot 1.2; CPU timing was not collected.",
+                    )],
+                );
+            }
             check_version(root)?;
             finish(value, SnapshotDecodeSource::V1, false, vec![])
         }
@@ -138,6 +172,23 @@ fn finish(
     migrated: bool,
     warnings: Vec<SnapshotIssue>,
 ) -> Result<SnapshotDecodeResult, SnapshotDecodeError> {
+    if source == SnapshotDecodeSource::LegacyCandidateV1 {
+        let mut legacy = value.clone();
+        legacy["version"]["minor"] = json!(1);
+        let issues = crate::validator::validate_version(&legacy, 1);
+        if !issues.is_empty() {
+            return Err(SnapshotDecodeError::new(issues));
+        }
+    }
+    if migrated
+        && source != SnapshotDecodeSource::SnapshotV1_1
+        && let Some(timings) = value.get_mut("timings").and_then(Value::as_object_mut)
+    {
+        timings.insert(
+            "cpu".into(),
+            json!({"status":"unavailable","reason":"not-collected"}),
+        );
+    }
     let issues = validate_frame_graph_snapshot(&value);
     if !issues.is_empty() {
         return Err(SnapshotDecodeError::new(issues));
@@ -177,13 +228,13 @@ fn check_version(root: &Map<String, Value>) -> Result<(), SnapshotDecodeError> {
     failure(
         "unsupported-version",
         "/version",
-        format!("Snapshot version {actual} is not supported; this Viewer supports 1.1."),
+        format!("Snapshot version {actual} is not supported; this Viewer supports 1.2."),
     )
 }
 
 fn migrate_legacy_candidate_v1(mut value: Value) -> Value {
     let root = value.as_object_mut().expect("checked object");
-    root.insert("version".into(), json!({ "major": 1, "minor": 1 }));
+    root.insert("version".into(), json!({ "major": 1, "minor": 2 }));
     let unavailable = if root
         .get("graph")
         .and_then(|g| g.get("roots"))
@@ -707,7 +758,7 @@ fn migrate_legacy_v0(value: &Value) -> Result<Value, SnapshotDecodeError> {
             .insert("estimatedRetainedBytes".into(), Value::from(estimated));
     }
     Ok(json!({
-        "format": FRAME_GRAPH_SNAPSHOT_FORMAT, "version": { "major": 1, "minor": 1 },
+        "format": FRAME_GRAPH_SNAPSHOT_FORMAT, "version": { "major": 1, "minor": 2 },
         "producer": { "name": "legacy-unversioned" },
         "capture": { "frameIndex": frame_index.unwrap(), "migration": { "sourceFormat": "legacy-v0", "unavailableFacts": unavailable } },
         "graph": { "groups": mapped_groups, "nodes": mapped_nodes, "resources": mapped_resources, "textureViews": [], "accesses": mapped_accesses, "dependencies": mapped_dependencies, "roots": mapped_roots, "segments": mapped_segments },

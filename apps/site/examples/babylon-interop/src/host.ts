@@ -1,5 +1,6 @@
+import type { FrameGraphCaptureRequest } from '@zenfg/inspector';
 import type { FrameGraphSnapshot } from '@zenfg/snapshot';
-import { FrameGraph, type FrameGraphCompilationReport, type FrameGraphGpuTimingReport } from '@zenfg/webgpu';
+import { FrameGraph, type FrameGraphCompilationReport, type FrameGraphExecutionTiming } from '@zenfg/webgpu';
 import { BabylonBridge } from './bridge.ts';
 
 export interface BabylonInteropSettings { readonly reverseZ: boolean; }
@@ -15,11 +16,12 @@ export interface StartBabylonInteropOptions {
 export interface BabylonInteropController {
     getSettings(): Readonly<BabylonInteropSettings>;
     setSettings(settings: Partial<BabylonInteropSettings>): Promise<void>;
-    captureSnapshot(): Promise<FrameGraphSnapshot | undefined>;
+    captureSnapshot(request?: FrameGraphCaptureRequest): Promise<FrameGraphSnapshot | undefined>;
     dispose(): void;
 }
 
 interface PendingCapture {
+    readonly timing: FrameGraphCaptureRequest['timing'];
     readonly promise: Promise<FrameGraphSnapshot | undefined>;
     readonly resolve: (snapshot: FrameGraphSnapshot | undefined) => void;
 }
@@ -89,10 +91,11 @@ export function createHostSupport(canvas: HTMLCanvasElement,
         controller.dispose();
     }
     function uncapturedError(event: GPUUncapturedErrorEvent): void { fail(event.error); }
-    async function finishCapture(pending: PendingCapture, compilation: FrameGraphCompilationReport, timing: Promise<FrameGraphGpuTimingReport>): Promise<void> {
+    async function finishCapture(pending: PendingCapture, compilation: FrameGraphCompilationReport, timing: FrameGraphExecutionTiming): Promise<void> {
+        const resourcePool = { ...graph.getResourcePoolStats() };
         try {
-            const [gpuTiming, { createFrameGraphSnapshot }] = await Promise.all([timing, import('@zenfg/webgpu/snapshot')]);
-            if (!state.disposed && state.capture === pending) pending.resolve(createFrameGraphSnapshot({ compilation, gpuTiming, resourcePool: graph.getResourcePoolStats() }));
+            const [gpuTiming, { createFrameGraphSnapshot }] = await Promise.all([timing.gpu, import('@zenfg/webgpu/snapshot')]);
+            if (!state.disposed && state.capture === pending) pending.resolve(createFrameGraphSnapshot({ frameIndex: timing.frameIndex, cpuTiming: timing.cpu, compilation, gpuTiming, resourcePool }));
         } catch {
             if (state.capture === pending) pending.resolve(undefined);
         } finally {
@@ -131,12 +134,12 @@ export function createHostSupport(canvas: HTMLCanvasElement,
                 requestFrame();
             }
         },
-        captureSnapshot() {
+        captureSnapshot(request: FrameGraphCaptureRequest = { timing: 'both' }) {
             if (state.disposed || state.suspended || state.switching) return Promise.resolve(undefined);
             if (state.capture) return state.capture.promise;
             let resolveCapture: PendingCapture['resolve'] = () => undefined;
             const promise = new Promise<FrameGraphSnapshot | undefined>(resolve => { resolveCapture = resolve; });
-            state.capture = { promise, resolve: resolveCapture };
+            state.capture = { timing: request.timing, promise, resolve: resolveCapture };
             requestFrame();
             return promise;
         },

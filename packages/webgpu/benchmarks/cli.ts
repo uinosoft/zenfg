@@ -24,6 +24,7 @@ export interface FrameGraphCompileBenchmarkCliOptions {
 	readonly operations: readonly FrameGraphCompileBenchmarkOperation[];
 	readonly warmupCount: number;
 	readonly sampleCount: number;
+	readonly cpuTiming?: boolean;
 }
 
 export interface FrameGraphCompileBenchmarkCliReport {
@@ -88,10 +89,14 @@ export function parseFrameGraphCompileBenchmarkCliArgs(
 	let operations: readonly FrameGraphCompileBenchmarkOperation[] = FRAME_GRAPH_COMPILE_BENCHMARK_OPERATIONS;
 	let warmupCount = 20;
 	let sampleCount = 100;
+	let cpuTiming = false;
 
 	for (let index = 0; index < args.length; index++) {
 		const argument = args[index]!;
 		switch (argument) {
+			case '--cpu-timing':
+				cpuTiming = enumValue(args[++index], ['off', 'on'], 'cpu timing') === 'on';
+				break;
 			case '--profile':
 				profile = enumValue(args[++index], FRAME_GRAPH_COMPILE_BENCHMARK_PROFILES, 'profile');
 				break;
@@ -121,11 +126,11 @@ export function parseFrameGraphCompileBenchmarkCliArgs(
 			default:
 				throw new Error(
 					`Unknown FrameGraph compile benchmark argument: ${argument}. `
-					+ 'Supported arguments are --profile, --scenario, --mode, --operation, --warmup, and --samples.',
+					+ 'Supported arguments are --profile, --scenario, --mode, --operation, --warmup, --samples, and --cpu-timing off|on.',
 				);
 		}
 	}
-	return Object.freeze({ profile, scenarios, modes, operations, warmupCount, sampleCount });
+	return Object.freeze({ profile, scenarios, modes, operations, warmupCount, sampleCount, ...(cpuTiming ? { cpuTiming } : {}) });
 }
 
 function resolveCommit(rootDir: string): string {
@@ -158,6 +163,7 @@ export function runFrameGraphCompileBenchmarkCli(
 			bodyNodeCount,
 			warmupCount: options.warmupCount,
 			sampleCount: options.sampleCount,
+			cpuTiming: options.cpuTiming,
 		}))
 	)));
 	const report: FrameGraphCompileBenchmarkCliReport = {

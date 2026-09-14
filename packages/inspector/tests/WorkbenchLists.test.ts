@@ -70,7 +70,7 @@ test('Passes includes retained and culled work with composable state, kind, ID s
 	const view = new PassesView(log.handlers, 'passes');
 	view.setSnapshot(createDebugViewModel(fixture()));
 	assert.deepEqual(listRows(view).map((row) => row.dataset.selectionKey), ['node:node:scene', 'node:node:external', 'node:node:present', 'culled:node:unused']);
-	assert.match(listRows(view)[3]!.textContent!, /CulledNot applicablecomputeNot applicable/);
+	assert.match(listRows(view)[3]!.textContent!, /CulledNot applicablecomputeNot executedNot applicable/);
 	assert.match(view.root.querySelector('.zenfg-inspector-result-count')!.textContent!, /4 \/ 4 passes/);
 	search(view.root, 'Search pass, ID or group', 'node:unused');
 	assert.equal(listRows(view).length, 1);
@@ -142,19 +142,19 @@ test('Pass and group GPU values distinguish missing, partial, zero and ineligibl
 	const win = installDom(); t.after(() => win.close());
 	const snapshot = fixture();
 	const view = new PassesView(callbacks().handlers, 'timing');
-	view.setSnapshot(createDebugViewModel({ ...snapshot, timings: { gpu: {
+	view.setSnapshot(createDebugViewModel({ ...snapshot, timings: { cpu: { status: 'unavailable', reason: 'not-requested' }, gpu: {
 		status: 'available', frameSpanMicros: 0, nodes: [{ nodeId: 'node:scene', durationMicros: 0 }],
 	} } }));
-	assert.equal(listRows(view)[0]!.cells[4]!.textContent, '0.000');
-	assert.equal(listRows(view)[2]!.cells[4]!.textContent, 'Not collected');
+	assert.equal(listRows(view)[0]!.cells[5]!.textContent, '0.000');
+	assert.equal(listRows(view)[2]!.cells[5]!.textContent, 'Not collected');
 	assert.match(view.root.querySelector('.zenfg-inspector-list-context')!.textContent!, /Partial.*1\/2/);
 	assert.match(view.root.querySelector('[id$="group-list-panel"] tbody tr')!.textContent!, /0\.000 ms.*Partial.*1\/2/);
-	view.setSnapshot(createDebugViewModel({ ...snapshot, timings: { gpu: { status: 'unavailable', reason: 'disabled' } } }));
+	view.setSnapshot(createDebugViewModel({ ...snapshot, timings: { cpu: { status: 'unavailable', reason: 'not-requested' }, gpu: { status: 'unavailable', reason: 'disabled' } } }));
 	assert.doesNotMatch(view.root.querySelector('[id$="group-list-panel"]')!.textContent!, /0\.000/);
 	assert.match(view.root.querySelector('[id$="group-list-panel"]')!.textContent!, /Not collected/);
 	view.setSnapshot(createDebugViewModel({ ...snapshot,
 		graph: { ...snapshot.graph, nodes: snapshot.graph.nodes.map((node) => ({ ...node, kind: 'copy' })) },
-		timings: { gpu: { status: 'unavailable', reason: 'disabled' } },
+		timings: { cpu: { status: 'unavailable', reason: 'not-requested' }, gpu: { status: 'unavailable', reason: 'disabled' } },
 	}));
 	assert.match(view.root.querySelector('[id$="group-list-panel"]')!.textContent!, /Not applicable/);
 });
@@ -267,4 +267,18 @@ test('Diagnostics empty state and collapsible compile explanations keep list nav
 	assert.match(segment.querySelector('summary')!.textContent!, /Opaque interval.*1 passes/);
 	button(segment, 'Inspect segment').click();
 	assert.deepEqual(log.selections, [{ kind: 'segment', index: 1 }]);
+});
+
+
+test('CPU sort preserves real zero and puts uncollected nodes last', t => {
+ const win=installDom();t.after(()=>win.close());
+ const snapshot=fixture();
+ const model=createDebugViewModel({...snapshot,timings:{...snapshot.timings,cpu:{status:'available',executionDurationMicros:100,nodes:[{nodeId:'node:scene',durationMicros:0},{nodeId:'node:external',durationMicros:80}]}}});
+ assert.equal(model.metrics.cpuTimedNodeCount,2);assert.equal(model.metrics.cpuWorkDurationMicros,80);
+ const view=new PassesView(callbacks().handlers,'cpu');view.setSnapshot(model);
+ setSelect(view.root,'Sort passes','cpu');
+ assert.deepEqual(listRows(view).slice(0,2).map(r=>r.dataset.selectionKey),['node:node:external','node:node:scene']);
+ assert.match(listRows(view)[1]!.textContent!,/0.000/);
+ for(const group of model.debugGroups){const ids=new Set(model.nodes.filter(n=>n.debugGroupId&&model.groupById.get(n.debugGroupId)?.ancestorIds.includes(group.id)).map(n=>n.id));
+  assert.equal(group.summary.cpuWorkDurationMicros,model.nodes.filter(n=>ids.has(n.id)).reduce((sum,n)=>sum+(n.cpuDurationMicros??0),0));}
 });

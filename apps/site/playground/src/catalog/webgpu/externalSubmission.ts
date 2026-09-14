@@ -71,7 +71,7 @@ export const externalSubmissionExample: ExamplesExampleDefinition = {
 			context.onReady();
 		});
 		return {
-			captureSnapshot: () => host.capture((recorder) => {
+			captureSnapshot: (request = { timing: 'both' }) => host.capture((recorder) => {
 				const size = host.size();
 				recipe.recordExternalSubmission({
 					recorder,
@@ -81,7 +81,7 @@ export const externalSubmissionExample: ExamplesExampleDefinition = {
 					...size,
 					renderAndSubmit,
 				});
-			}),
+			}, request),
 			dispose() {
 				stopResize();
 				host.dispose();

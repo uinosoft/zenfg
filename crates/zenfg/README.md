@@ -109,9 +109,9 @@ runtime       recording         retained CPU plan        optional, one-shot
 | Retain observable values | `mark_present()`, `mark_buffer_root()`, `mark_texture_root()`, `mark_readback()` |
 | Compile compact or full diagnostics | `compile(CompileOptions::default())`, `compile(CompileOptions::full_report())` |
 | Execute retained work | `execute()`, `execute_with_options()` |
-| Request GPU timing | `execute_with_gpu_timing()` |
+| Request CPU/GPU timing | `execute_with_timing()` |
 | Inspect or clear retained allocations | `resource_pool_stats()`, `clear_resource_pool()` |
-| Export Snapshot 1.1 | `snapshot::create_frame_graph_snapshot()` with feature `snapshot` |
+| Export Snapshot 1.2 | `snapshot::create_frame_graph_snapshot()` with feature `snapshot` |
 
 Exact signatures, fields, defaults, and structured `FGxxxx` errors are
 documented on [docs.rs](https://docs.rs/zenfg).
@@ -230,3 +230,12 @@ This README describes **zenfg 0.1.0-beta.3**. Registry badges show the current p
 - [Plain Markdown documentation index (development branch)](https://uinosoft.github.io/zenfg/docs/llms.txt).
 - Complete Cargo recipes are included in `examples/`.
 <!-- generated:documentation:end -->
+
+## Execution timing
+
+Use `execute_with_timing(&queue, options, TimingMode::Cpu)`,
+`TimingMode::Gpu`, or `TimingMode::Both`. The result owns an optional synchronous
+CPU report and optional GPU readback. Poll the latter with `try_take()`; CPU-only
+execution never waits for a GPU result. Ordinary execution collects no timing.
+CPU is synchronous elapsed time for all executed node kinds, not thread CPU
+usage. Execution total includes preparation, submission and transient release.

@@ -59,6 +59,7 @@ export type FrameGraphDebugNode = {
 	readonly sideEffect: boolean;
 	readonly debugGroupId?: string;
     readonly gpuDurationMicros?: number;
+    readonly cpuDurationMicros?: number;
     readonly reads: readonly FrameGraphDebugAccess[];
     readonly writes: readonly FrameGraphDebugAccess[];
 };
@@ -121,6 +122,8 @@ export type FrameGraphDebugGroupSummary = {
 	readonly externalSubmissionCount: number;
 	readonly gpuWorkDurationMicros: number;
 	readonly timedNodeCount: number;
+	readonly cpuTimedNodeCount: number;
+	readonly cpuWorkDurationMicros: number;
 	readonly timingEligibleNodeCount: number;
 };
 
@@ -140,6 +143,8 @@ export type FrameGraphDebugGroup = {
 export type FrameGraphDebugMetrics = {
 	readonly timingEligibleNodeCount: number;
 	readonly timedNodeCount: number;
+	readonly cpuTimedNodeCount: number;
+	readonly cpuWorkDurationMicros: number;
 	readonly slowestNode?: FrameGraphDebugNode;
 	readonly transientEstimatedByteSize?: number;
 	readonly logicalCapacityBytes?: number;
@@ -189,6 +194,7 @@ export type FrameGraphDebugViewModel = {
 	readonly segmentByNodeId: ReadonlyMap<string, FrameGraphDebugExecutionSegment>;
 	readonly segmentByIndex: ReadonlyMap<number, FrameGraphDebugExecutionSegment>;
 	readonly metrics: FrameGraphDebugMetrics;
+    readonly cpuProfiling: FrameGraphSnapshot['timings']['cpu'];
     readonly profiling:
         | {
             readonly status: 'available';
@@ -227,6 +233,7 @@ export function createDebugViewModel(
 		? { ...source, migratedFromLegacy: true }
 		: source;
 	const gpuTiming = snapshot.timings.gpu;
+	const cpuTimings = new Map(snapshot.timings.cpu.status === 'available' ? snapshot.timings.cpu.nodes.map(node => [node.nodeId, node.durationMicros]) : []);
 	const resourcePool = snapshot.memory.poolReport;
 	const normalizedGroups = normalizeDebugGroups(compilation);
 	const knownGroupIds = new Set(normalizedGroups.map((group) => group.id));
@@ -289,6 +296,7 @@ export function createDebugViewModel(
 		sideEffect: node.sideEffect,
 		debugGroupId: node.groupId,
 		gpuDurationMicros: timings.get(node.id),
+		cpuDurationMicros: cpuTimings.get(node.id),
 		reads: nodeAccesses(node.id, 'read'),
 		writes: nodeAccesses(node.id, 'write'),
 	}));
@@ -395,6 +403,8 @@ export function createDebugViewModel(
 	const metrics: FrameGraphDebugMetrics = {
 		timingEligibleNodeCount: timingEligibleNodes.length,
 		timedNodeCount: timedNodes.length,
+		cpuTimedNodeCount: nodes.filter(node => node.cpuDurationMicros !== undefined).length,
+		cpuWorkDurationMicros: nodes.reduce((sum, node) => sum + (node.cpuDurationMicros ?? 0), 0),
 		slowestNode,
 		transientEstimatedByteSize,
 		logicalCapacityBytes,
@@ -438,6 +448,7 @@ export function createDebugViewModel(
 		segmentByNodeId,
 		segmentByIndex,
 		metrics,
+        cpuProfiling: snapshot.timings.cpu,
         profiling: gpuTiming.status === 'available'
             ? {
                 status: 'available',
@@ -639,6 +650,8 @@ function buildDebugGroupSummaries(input: {
 				externalSubmissionCount: retained.filter((node) => node.kind === 'external-submission').length,
 				gpuWorkDurationMicros: timed.reduce((sum, node) => sum + node.gpuDurationMicros!, 0),
 				timedNodeCount: timed.length,
+				cpuTimedNodeCount: retained.filter(node => node.cpuDurationMicros !== undefined).length,
+				cpuWorkDurationMicros: retained.reduce((sum, node) => sum + (node.cpuDurationMicros ?? 0), 0),
 				timingEligibleNodeCount: timingEligible.length,
 			},
 		};

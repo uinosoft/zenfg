@@ -45,10 +45,10 @@ execution 模型请参阅英文 [Core concepts](docs/core-concepts.md)。
 | 包 | 用途 | 发布版本 | 文档 |
 | --- | --- | --- | --- |
 | [`@zenfg/webgpu`](packages/webgpu/README.md) | TypeScript/WebGPU FrameGraph 运行时 | [![@zenfg/webgpu published next version](https://img.shields.io/npm/v/%40zenfg%2Fwebgpu/next?label=npm)](https://www.npmjs.com/package/@zenfg/webgpu) | [指南](https://uinosoft.github.io/zenfg/docs/packages/webgpu.html) |
-| [`@zenfg/snapshot`](packages/snapshot/README.md) | Snapshot 1.1 类型、编解码、验证与规范 | [![@zenfg/snapshot published next version](https://img.shields.io/npm/v/%40zenfg%2Fsnapshot/next?label=npm)](https://www.npmjs.com/package/@zenfg/snapshot) | [指南](https://uinosoft.github.io/zenfg/docs/packages/snapshot.html) |
+| [`@zenfg/snapshot`](packages/snapshot/README.md) | Snapshot 1.2 类型、编解码、验证与规范 | [![@zenfg/snapshot published next version](https://img.shields.io/npm/v/%40zenfg%2Fsnapshot/next?label=npm)](https://www.npmjs.com/package/@zenfg/snapshot) | [指南](https://uinosoft.github.io/zenfg/docs/packages/snapshot.html) |
 | [`@zenfg/inspector`](packages/inspector/README.md) | 可嵌入的 DOM Inspector | [![@zenfg/inspector published next version](https://img.shields.io/npm/v/%40zenfg%2Finspector/next?label=npm)](https://www.npmjs.com/package/@zenfg/inspector) | [指南](https://uinosoft.github.io/zenfg/docs/packages/inspector.html) |
 | [`zenfg`](crates/zenfg/README.md) | Rust/wgpu FrameGraph 运行时 | [![zenfg published version](https://img.shields.io/crates/v/zenfg?include_prereleases)](https://crates.io/crates/zenfg) | [指南](https://uinosoft.github.io/zenfg/docs/packages/zenfg.html) |
-| [`zenfg-snapshot`](crates/zenfg-snapshot/README.md) | Rust Snapshot 1.1 编解码、验证与迁移 | [![zenfg-snapshot published version](https://img.shields.io/crates/v/zenfg-snapshot?include_prereleases)](https://crates.io/crates/zenfg-snapshot) | [指南](https://uinosoft.github.io/zenfg/docs/packages/zenfg-snapshot.html) |
+| [`zenfg-snapshot`](crates/zenfg-snapshot/README.md) | Rust Snapshot 1.2 编解码、验证与迁移 | [![zenfg-snapshot published version](https://img.shields.io/crates/v/zenfg-snapshot?include_prereleases)](https://crates.io/crates/zenfg-snapshot) | [指南](https://uinosoft.github.io/zenfg/docs/packages/zenfg-snapshot.html) |
 <!-- generated:packages:end -->
 
 ## 从这里开始

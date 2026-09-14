@@ -71,7 +71,7 @@ const requirements = [
     `Rust ${cargo.workspace.package['rust-version']}; wgpu ${cargo.workspace.dependencies.wgpu}`, `Rust ${cargo.workspace.package['rust-version']}; no wgpu`,
 ];
 compatibility = replaceBlock(compatibility, 'compatibility', ['| ZenFG package | Version | Runtime/toolchain | Snapshot |','| --- | --- | --- | --- |',
-    ...packages.map((p,i) => `| \`${p.name}\` | \`${p.version}\` | ${requirements[i]} | ${p.slug === 'webgpu' || p.slug === 'zenfg' ? `produces ${wire}` : p.slug === 'inspector' ? 'reads through @zenfg/snapshot' : `reads Legacy V0, Legacy Candidate V1, ${wire}`} |`),
+    ...packages.map((p,i) => `| \`${p.name}\` | \`${p.version}\` | ${requirements[i]} | ${p.slug === 'webgpu' || p.slug === 'zenfg' ? `produces ${wire}` : p.slug === 'inspector' ? 'reads through @zenfg/snapshot' : `reads Legacy V0, Legacy Candidate V1, 1.1 (migrated), ${wire}`} |`),
 ].join('\n'));
 compatibility = replaceBlock(compatibility, 'toolchains', `Repository tooling: Node \`${workspace.engines.node}\`, npm \`${workspace.engines.npm}\`, TypeScript \`${workspace.devDependencies.typescript}\`, Rust \`${cargo.workspace.package['rust-version']}\`, wgpu \`${cargo.workspace.dependencies.wgpu}\`.`);
 save('docs/compatibility.md', compatibility);

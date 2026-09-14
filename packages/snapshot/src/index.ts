@@ -1,6 +1,6 @@
 /**
  * Reads, validates, migrates, and writes portable ZenFG FrameGraph Snapshot
- * 1.1 documents.
+ * 1.2 documents, with explicit migration of 1.1.
  *
  * Use {@link parseFrameGraphSnapshot} for JSON text and
  * {@link decodeFrameGraphSnapshot} for already-parsed values. Both return a

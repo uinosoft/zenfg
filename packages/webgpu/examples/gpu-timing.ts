@@ -1,6 +1,6 @@
 /**
  * Source: Original ZenFG package recipe.
- * Demonstrates: Optional GPU timestamp measurements and unavailable results.
+ * Demonstrates: Immediate CPU elapsed measurements and independent GPU timestamp readback.
  * Flow: Record a clear pass, compile with reporting and execute with GPU timing enabled.
  * The caller owns the device and native inputs; ZenFG owns graph execution.
  * Read next: README.md for inputs and related recipes. The Examples adapter
@@ -9,7 +9,7 @@
 import {
 	FrameGraph,
 	type FrameGraphRecording,
-	type FrameGraphGpuTimingReport,
+	type FrameGraphExecutionTiming,
 } from '@zenfg/webgpu';
 
 /** Declares the clear pass measured by the GPU timing workflow. */
@@ -33,14 +33,14 @@ export function recordTimedClearPass(
 	recorder.markPresent(backbuffer);
 }
 
-/** Times one retained render node; unsupported devices return an unavailable report. */
-export async function measureClearPass(
+/** Times one render node; CPU is immediate, GPU may report unavailable. */
+export function measureClearPass(
 	graph: FrameGraph,
 	context: GPUCanvasContext,
 	frameIndex: number,
-): Promise<FrameGraphGpuTimingReport> {
+): FrameGraphExecutionTiming {
 	const recorder = graph.beginFrame();
 	recordTimedClearPass(recorder, context.getCurrentTexture());
 
-	return recorder.compile().execute({ frameIndex, gpuTiming: true });
+	return recorder.compile().executeWithTiming({ frameIndex, timing: 'both' });
 }

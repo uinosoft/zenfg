@@ -40,7 +40,7 @@ export function createFrameFlowVisualFixture() {
 	frame.markPersistentState(history);
 	frame.markDebugCapture(history, { offset: 16, size: 16 });
 	frame.markDebugCapture(settings);
-	return createFrameGraphSnapshot({
+	return createFrameGraphSnapshot({ frameIndex: 0,
 		compilation: frame.compile({ report: true }).compilationReport,
 		gpuTiming: { status: 'unavailable', frameIndex: 0, reason: 'unsupported' },
 		resourcePool: { acquireCount: 0, reuseCount: 0, createdCount: 0, retainedCount: 0, estimatedRetainedBytes: 0 },

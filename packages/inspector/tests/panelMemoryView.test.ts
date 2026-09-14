@@ -181,7 +181,7 @@ function snapshot(resources: readonly FrameGraphSnapshotResource[] = [
 		producer: { name: 'Memory tests', version: '1' }, capture: { frameIndex: 1 },
 		graph: { groups: [{ id: 'group:main', label: 'Main' }], nodes: [], resources, textureViews: [], accesses: [], dependencies: [], roots: [], segments: [] },
 		memory: { allocationReport: { status: 'available', allocations }, poolReport: { status: 'available', acquireCount: 0, reuseCount: 0, createdCount: 0, retainedCount: 0, estimatedRetainedBytes: 0 } },
-		timings: { gpu: { status: 'unavailable', reason: 'not collected' } }, diagnostics: [], extensions: {},
+		timings: { cpu: { status: 'unavailable', reason: 'not-requested' }, gpu: { status: 'unavailable', reason: 'not collected' } }, diagnostics: [], extensions: {},
 	};
 }
 

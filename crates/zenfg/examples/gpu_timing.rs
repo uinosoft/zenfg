@@ -21,8 +21,16 @@ fn main() -> Result<(), zenfg::FrameGraphError> {
     frame.mark_texture_root(output, RootReason::Output)?;
 
     let compiled = frame.compile(CompileOptions::default())?;
-    let mut readback = compiled
-        .execute_with_gpu_timing(&queue, ExecutionOptions::default().with_frame_index(7))?;
+    let timing = compiled.execute_with_timing(
+        &queue,
+        ExecutionOptions::default().with_frame_index(7),
+        zenfg::TimingMode::Both,
+    )?;
+    println!(
+        "CPU execution: {:?}",
+        timing.cpu.as_ref().unwrap().execution_duration
+    );
+    let mut readback = timing.gpu.expect("GPU timing requested");
 
     // Call `try_take` from later frames too: it polls but never waits for the GPU.
     match readback.try_take() {

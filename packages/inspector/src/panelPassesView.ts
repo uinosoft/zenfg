@@ -7,7 +7,7 @@ import {
 	groupPath, registerSelectable, selectionKey, type WorkbenchCallbacks, updateSelectedRows,
 } from './panelWorkbenchHelpers.ts';
 
-type PassSort = 'order' | 'label' | 'kind' | 'gpu';
+type PassSort = 'order' | 'label' | 'kind' | 'gpu' | 'cpu';
 type PassEntry = {
 	readonly node: Omit<FrameGraphDebugNode, 'order'>;
 	readonly selection: Selection;
@@ -26,11 +26,11 @@ export class PassesView {
 	private readonly groupsPane = document.createElement('div');
 	private readonly listTable = createTableScroller([
 		{ label: 'Name' }, { label: 'Compile state', column: 'kind' }, { label: 'Order', column: 'numeric' },
-		{ label: 'Kind', column: 'kind' }, { label: 'GPU (ms)', column: 'numeric' }, { label: 'R / W', column: 'numeric' },
+		{ label: 'Kind', column: 'kind' }, { label: 'CPU (ms)', column: 'numeric' }, { label: 'GPU (ms)', column: 'numeric' }, { label: 'R / W', column: 'numeric' },
 	]);
 	private readonly groupsTable = createTableScroller([
 		{ label: 'Group' }, { label: 'Retained', column: 'numeric' }, { label: 'Culled', column: 'numeric' },
-		{ label: 'Measured pass sum', column: 'numeric' }, { label: 'Inputs', column: 'numeric' },
+		{ label: 'CPU sum / coverage', column: 'numeric' }, { label: 'Measured pass sum', column: 'numeric' }, { label: 'Inputs', column: 'numeric' },
 		{ label: 'Outputs', column: 'numeric' }, { label: 'Locate' },
 	]);
 	private readonly rows = new Map<string, HTMLElement[]>();
@@ -71,7 +71,7 @@ export class PassesView {
 			['clear-buffer', 'Clear Buffer'], ['command', 'Command'], ['external-submission', 'External'],
 		], (value) => { this.kind = value; this.renderRows(); });
 		const sort = createFilterSelect('Sort passes', this.sort, [
-			['order', 'Execution order'], ['label', 'Name'], ['kind', 'Kind'], ['gpu', 'GPU: slowest first'],
+			['order', 'Execution order'], ['label', 'Name'], ['kind', 'Kind'], ['gpu', 'GPU: slowest first'], ['cpu', 'CPU: slowest first'],
 		], (value) => { this.sort = value as PassSort; this.renderRows(); });
 		const clear = document.createElement('button');
 		clear.type = 'button'; clear.textContent = 'Clear filters';
@@ -173,7 +173,7 @@ export class PassesView {
 		const passes = entries.filter((entry) => this.matchesNode(snapshot, entry));
 		passes.sort((a, b) => this.compareNodes(a, b)); this.count.textContent = `${passes.length} / ${entries.length} passes`;
 		const metrics = snapshot.metrics;
-		this.timing.textContent = `Retained means kept by compilation. GPU timing: ${formatTimingCoverage(metrics.timedNodeCount, metrics.timingEligibleNodeCount)}${snapshot.profiling.status === 'unavailable' ? ` (${snapshot.profiling.reason})` : ''}.`;
+		this.timing.textContent = `Retained means kept by compilation. CPU timing: ${formatTimingCoverage(metrics.cpuTimedNodeCount, snapshot.nodes.length)}. GPU timing: ${formatTimingCoverage(metrics.timedNodeCount, metrics.timingEligibleNodeCount)}${snapshot.profiling.status === 'unavailable' ? ` (${snapshot.profiling.reason})` : ''}.`;
 		for (const { node, selection, order } of passes) {
 			const row = document.createElement('tr'); registerSelectable(this.rows, row, selection, this.callbacks);
 			const labelCell = createSelectionCell(labelNode(node), selection, this.callbacks); labelCell.title = node.id;
@@ -185,11 +185,14 @@ export class PassesView {
 			const gpu = selection.kind === 'culled' ? 'Not applicable' : node.kind === 'external-submission' ? 'Opaque'
 				: node.gpuDurationMicros !== undefined ? (node.gpuDurationMicros / 1000).toFixed(3)
 					: node.kind === 'render' || node.kind === 'compute' ? 'Not collected' : 'Not applicable';
+			const cpu = selection.kind === 'culled' ? 'Not executed' : node.cpuDurationMicros === undefined ? 'Not collected' : (node.cpuDurationMicros / 1000).toFixed(3);
+			const cpuCell = createCell(cpu, { column: 'numeric' });
+			cpuCell.title = 'Synchronous elapsed time; zero may reflect clock precision. External nodes include synchronous submission.';
 			row.append(labelCell, stateCell, createCell(order === undefined ? 'Not applicable' : String(order), { column: 'numeric' }),
-				createKindCell(node.kind), createCell(gpu, { column: 'numeric' }), createCell(`${node.reads.length} / ${node.writes.length}`, { column: 'numeric' }));
+				createKindCell(node.kind), cpuCell, createCell(gpu, { column: 'numeric' }), createCell(`${node.reads.length} / ${node.writes.length}`, { column: 'numeric' }));
 			this.listTable.body.appendChild(row);
 		}
-		if (passes.length === 0) this.listTable.body.appendChild(createEmptyTableRow(6, 'No passes match the current filters.'));
+		if (passes.length === 0) this.listTable.body.appendChild(createEmptyTableRow(7, 'No passes match the current filters.'));
 		this.renderGroups(snapshot); updateSelectedRows(this.rows, this.selected);
 	}
 
@@ -242,12 +245,13 @@ export class PassesView {
 			reveal.addEventListener('click', () => this.callbacks.onReveal?.(selection, 'graph')); revealCell.appendChild(reveal);
 			row.append(labelCell, createCell(String(summary.retainedNodeCount), { column: 'numeric' }),
 				createCell(String(summary.culledNodeCount), { column: 'numeric' }),
+				createCell((summary.cpuTimedNodeCount ? (summary.cpuWorkDurationMicros / 1000).toFixed(3) + ' ms' : 'Not collected') + ' · ' + formatTimingCoverage(summary.cpuTimedNodeCount, summary.retainedNodeCount), { column: 'numeric' }),
 				createCell(formatMeasuredGpuWork(summary.gpuWorkDurationMicros, summary.timedNodeCount, summary.timingEligibleNodeCount), { column: 'numeric' }),
 				createCell(String(summary.inputResources.length), { column: 'numeric' }),
 				createCell(String(summary.outputResources.length), { column: 'numeric' }), revealCell);
 			this.groupsTable.body.appendChild(row);
 		}
-		if (groups.length === 0) this.groupsTable.body.appendChild(createEmptyTableRow(7, 'No groups match the current filters.'));
+		if (groups.length === 0) this.groupsTable.body.appendChild(createEmptyTableRow(8, 'No groups match the current filters.'));
 	}
 
 	private matchesNode(snapshot: FrameGraphDebugViewModel, entry: PassEntry): boolean {
@@ -263,6 +267,7 @@ export class PassesView {
 		switch (this.sort) {
 			case 'label': return labelNode(a.node).localeCompare(labelNode(b.node)) || order();
 			case 'kind': return a.node.kind.localeCompare(b.node.kind) || order();
+			case 'cpu': return (b.node.cpuDurationMicros ?? -1) - (a.node.cpuDurationMicros ?? -1) || order();
 			case 'gpu': return (b.node.gpuDurationMicros ?? -1) - (a.node.gpuDurationMicros ?? -1) || order();
 			case 'order': return order();
 		}
