@@ -35,7 +35,7 @@ export function hostEnvironment() {
     canvas.getContext = (() => ({
         configure() {}, unconfigure() { unconfigured++; },
         getCurrentTexture: () => device.createTexture({ label: 'swapchain', size: [canvas.width, canvas.height], format: 'bgra8unorm', usage: GPUTextureUsage.RENDER_ATTACHMENT }),
-    })) as typeof canvas.getContext;
+    })) as unknown as typeof canvas.getContext;
     Object.defineProperty(browser.navigator, 'gpu', { value: {
         requestAdapter: async () => ({ features: new Set(), requestDevice: async () => device }),
         getPreferredCanvasFormat: () => 'bgra8unorm',

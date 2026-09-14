@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import type { ThreeInteropController } from '../src/host.ts';
 import { Window } from 'happy-dom';
 import { PerspectiveCamera } from 'three/webgpu';
 import { resolveCanvasBackingSize, startThreeInterop } from '../src/start.ts';
@@ -61,9 +62,9 @@ test('host renders continuously, captures real frames, and preserves its device 
         assert.equal(host.trace.submits, submissions + 6, 'frames submit without input or capture requests');
         const initialPose = bridges[0].bridge.camera.position.toArray();
         for (const reverseZ of [false, true, false, true]) {
-            const pending = controller.captureSnapshot();
+            const pending: ReturnType<ThreeInteropController['captureSnapshot']> = controller.captureSnapshot();
             const change = controller.setSettings({ reverseZ });
-            const duringSwitch = controller.captureSnapshot();
+            const duringSwitch: ReturnType<ThreeInteropController['captureSnapshot']> = controller.captureSnapshot();
             assert.equal(host.pendingFrames, 0);
             assert.equal(await pending, undefined);
             assert.equal(await duringSwitch, undefined);
@@ -214,7 +215,7 @@ function installHost() {
         unconfigure() { contextTrace.unconfigure += 1; },
         getCurrentTexture: () => device.createTexture({ format: 'rgba8unorm', size: [canvas.width, canvas.height], usage: GPUTextureUsage.RENDER_ATTACHMENT }),
     } as unknown as GPUCanvasContext;
-    canvas.getContext = (() => context) as typeof canvas.getContext;
+    canvas.getContext = (() => context) as unknown as typeof canvas.getContext;
     const adapter = { features: new Set(), requestDevice: async () => device };
     const gpu = { requestAdapter: async () => adapter, getPreferredCanvasFormat: () => 'rgba8unorm' };
     Object.defineProperties(target, {

@@ -27,8 +27,8 @@ test('captures the optical graph and preserves one renderer across theme, input 
 	const trace = createGpuTrace();
 	const device = createFakeDevice(trace);
 	const pipeline = { getBindGroupLayout: () => ({}) };
-	device.createComputePipelineAsync = async () => pipeline as GPUComputePipeline;
-	device.createRenderPipelineAsync = async () => pipeline as GPURenderPipeline;
+	device.createComputePipelineAsync = async () => pipeline as unknown as GPUComputePipeline;
+	device.createRenderPipelineAsync = async () => pipeline as unknown as GPURenderPipeline;
 	const bindings: GPUBindGroupDescriptor[] = [];
 	device.createBindGroup = (descriptor) => { bindings.push(descriptor); return {} as GPUBindGroup; };
 	let queued: FrameRequestCallback | undefined;

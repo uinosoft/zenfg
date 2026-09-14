@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { Window } from 'happy-dom';
+import { Window, type Node as HappyNode } from 'happy-dom';
 import {
     resolveCanvasBackingSize,
     startTypeGpuSlimeMold,
@@ -36,7 +36,7 @@ function installHostHarness(): HostHarness {
     const previous = new Map(keys.map((key) => [key, Object.getOwnPropertyDescriptor(target, key)]));
     const browser = new Window({ url: 'https://zenfg.test/playground/' });
     const canvas = browser.document.createElement('canvas') as unknown as HTMLCanvasElement;
-    browser.document.body.appendChild(canvas as unknown as Node);
+    browser.document.body.appendChild(canvas as unknown as HappyNode);
     let cssWidth = 320;
     let cssHeight = 180;
     Object.defineProperties(canvas, {
@@ -69,7 +69,7 @@ function installHostHarness(): HostHarness {
         kind === 'webgpu' ? context : null
     )) as typeof canvas.getContext;
 
-    const navigator = browser.navigator as Navigator & { gpu?: GPU };
+    const navigator = browser.navigator;
     Object.defineProperty(navigator, 'gpu', {
         configurable: true,
         value: {

@@ -27,7 +27,8 @@
     "docs:check": "node ./scripts/check-public-docs.mjs",
     "test:cross-language": "npm run build:packages && node ./scripts/run-cross-language-conformance.mjs",
     "typecheck:examples": "tsc --noEmit -p packages/webgpu/examples/tsconfig.json",
-    "typecheck": "npm run build:packages && npm run typecheck:examples && npm run typecheck --workspace @zenfg/site-app && npm run typecheck --workspace @zenfg/snapshot && npm run typecheck --workspace @zenfg/webgpu && npm run typecheck --workspace @zenfg/inspector",
+    "typecheck:tests": "tsc --noEmit -p scripts/tsconfig.tests.json",
+    "typecheck": "npm run typecheck:tests && npm run build:packages && npm run typecheck:examples && npm run typecheck --workspace @zenfg/site-app && npm run typecheck --workspace @zenfg/snapshot && npm run typecheck --workspace @zenfg/webgpu && npm run typecheck --workspace @zenfg/inspector",
     "test": "node ./scripts/run-tests.mjs",
     "pack:check": "node ./scripts/check-packages.mjs"
   },

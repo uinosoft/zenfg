@@ -35,7 +35,7 @@ test('filter searches across groups without changing selection and restores expa
 		const host = browser.document.createElement('nav') as unknown as HTMLElement;
 		const directory = createExampleDirectory({ host, examples, selectedId: 'showcase', panel: 'inspector' });
 		const input = host.querySelector('input')!;
-		const filter = (text: string) => { input.value = text; input.dispatchEvent(new browser.Event('input')); };
+		const filter = (text: string) => { input.value = text; input.dispatchEvent(new browser.Event('input') as unknown as Event); };
 		filter('  MINIMAL frame ');
 		assert.equal(host.querySelectorAll('a:not([hidden])').length, 1);
 		assert.equal(host.querySelectorAll('details')[1]!.open, true);
@@ -44,7 +44,7 @@ test('filter searches across groups without changing selection and restores expa
 		assert.equal(host.querySelector('a:not([hidden])')?.getAttribute('href'), '?example=minimal-frame&panel=code');
 		filter('not found');
 		assert.equal(host.querySelector<HTMLElement>('[role=status]')!.hidden, false);
-		input.dispatchEvent(new browser.KeyboardEvent('keydown', { key: 'Escape' }));
+		input.dispatchEvent(new browser.KeyboardEvent('keydown', { key: 'Escape' }) as unknown as KeyboardEvent);
 		assert.equal(input.value, '');
 		assert.equal(host.querySelectorAll('a:not([hidden])').length, 2);
 		assert.equal(host.querySelectorAll('details')[1]!.open, false);

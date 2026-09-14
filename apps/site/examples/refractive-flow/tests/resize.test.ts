@@ -29,8 +29,8 @@ for (const [name, start] of [['refractive flow', startRefractiveFlow], ['interac
   const trace = createGpuTrace();
   const device = createFakeDevice(trace);
   const pipeline = { getBindGroupLayout: () => ({}) };
-  device.createComputePipelineAsync = async () => pipeline as GPUComputePipeline;
-  device.createRenderPipelineAsync = async () => pipeline as GPURenderPipeline;
+  device.createComputePipelineAsync = async () => pipeline as unknown as GPUComputePipeline;
+  device.createRenderPipelineAsync = async () => pipeline as unknown as GPURenderPipeline;
   let width = 320, height = 180;
   let queued: FrameRequestCallback | undefined;
   let resize = () => {};

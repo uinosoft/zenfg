@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { Window } from 'happy-dom';
+import { Window, type Node as HappyNode } from 'happy-dom';
 import { typeGpuSlimeMoldExample } from '../src/catalog/typeGpuSlimeMold.ts';
 import {
 	createFakeDevice,
@@ -38,8 +38,8 @@ test('Slime Mold adapter mounts live controls and releases Pane, events, and DOM
 	const canvas = browser.document.createElement('canvas') as unknown as HTMLCanvasElement;
 	const controlsHost = browser.document.createElement('aside') as unknown as HTMLElement;
 	browser.document.body.append(
-		canvas as unknown as Node,
-		controlsHost as unknown as Node,
+		canvas as unknown as HappyNode,
+		controlsHost as unknown as HappyNode,
 	);
 	Object.defineProperties(canvas, {
 		clientWidth: { configurable: true, value: 320 },
@@ -74,7 +74,7 @@ test('Slime Mold adapter mounts live controls and releases Pane, events, and DOM
 		kind === 'webgpu' ? context : null
 	)) as typeof canvas.getContext;
 
-	const navigator = browser.navigator as Navigator & { gpu?: GPU };
+	const navigator = browser.navigator;
 	Object.defineProperty(navigator, 'gpu', {
 		configurable: true,
 		value: {
@@ -139,8 +139,8 @@ test('Slime Mold adapter mounts live controls and releases Pane, events, and DOM
 		assert.ok(firstInput);
 		const writesBeforeInput = gpuTrace.writes;
 		firstInput.value = '75';
-		firstInput.dispatchEvent(new browser.Event('input', { bubbles: true }));
-		firstInput.dispatchEvent(new browser.Event('change', { bubbles: true }));
+		firstInput.dispatchEvent(new browser.Event('input', { bubbles: true }) as unknown as Event);
+		firstInput.dispatchEvent(new browser.Event('change', { bubbles: true }) as unknown as Event);
 		const pendingFrames = [...animationFrames.values()];
 		animationFrames.clear();
 		for (const callback of pendingFrames) callback(16);
@@ -159,8 +159,8 @@ test('Slime Mold adapter mounts live controls and releases Pane, events, and DOM
 		assert.equal(gpuTrace.deviceDestroys, 1);
 		const writesAfterDispose = gpuTrace.writes;
 		firstInput.value = '35';
-		firstInput.dispatchEvent(new browser.Event('input', { bubbles: true }));
-		firstInput.dispatchEvent(new browser.Event('change', { bubbles: true }));
+		firstInput.dispatchEvent(new browser.Event('input', { bubbles: true }) as unknown as Event);
+		firstInput.dispatchEvent(new browser.Event('change', { bubbles: true }) as unknown as Event);
 		assert.equal(gpuTrace.writes, writesAfterDispose);
 
 		runtime.dispose();

@@ -37,6 +37,7 @@ function mountContext(options: {
 	} as unknown as HTMLCanvasElement;
 	return {
 		canvas,
+		controlsHost: {} as HTMLElement,
 		onReady() {},
 		onError(error) { options.errors?.push(error); },
 	};

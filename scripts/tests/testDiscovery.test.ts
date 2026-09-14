@@ -2,10 +2,10 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import test from 'node:test';
+import test, { type TestContext } from 'node:test';
 import { collectTestFiles } from '../test-discovery.mjs';
 
-function fixture(t) {
+function fixture(t: TestContext) {
     const dir = fs.mkdtempSync(join(tmpdir(), 'zenfg-test-discovery-'));
     t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
     return dir;
@@ -33,7 +33,9 @@ test('fails a missing root even when another root contains tests', (t) => {
     fs.writeFileSync(join(dir, 'valid.test.ts'), '');
     const missing = join(dir, 'misspelled');
     assert.throws(() => [dir, missing].flatMap(collectTestFiles), (error) => {
+        assert.ok(error instanceof Error);
         assert.ok(error.message.includes(missing));
+        assert.ok(error.cause instanceof Error && 'code' in error.cause);
         assert.equal(error.cause.code, 'ENOENT');
         return true;
     });
@@ -43,7 +45,9 @@ test('fails when a configured directory has been replaced by a file', (t) => {
     const path = join(fixture(t), 'tests');
     fs.writeFileSync(path, '');
     assert.throws(() => collectTestFiles(path), (error) => {
+        assert.ok(error instanceof Error);
         assert.ok(error.message.includes(path));
+        assert.ok(error.cause instanceof Error && 'code' in error.cause);
         assert.equal(error.cause.code, 'ENOTDIR');
         return true;
     });
@@ -56,13 +60,15 @@ test('does not silently skip unreadable roots or nested directories', (t) => {
     fs.writeFileSync(join(dir, 'valid.test.ts'), '');
     const original = fs.readdirSync;
     let denied = dir;
-    t.mock.method(fs, 'readdirSync', (path, options) => {
+    t.mock.method(fs, 'readdirSync', (path: fs.PathLike, options: { withFileTypes: true }) => {
         if (path === denied) throw Object.assign(new Error('permission denied'), { code: 'EACCES' });
         return original(path, options);
     });
     for (denied of [dir, nested]) {
         assert.throws(() => collectTestFiles(dir), (error) => {
+            assert.ok(error instanceof Error);
             assert.ok(error.message.includes(denied));
+            assert.ok(error.cause instanceof Error && 'code' in error.cause);
             assert.equal(error.cause.code, 'EACCES');
             return true;
         });

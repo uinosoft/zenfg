@@ -272,3 +272,14 @@ test('validates settings, device limits, lifecycle, and resize reset state', () 
         restore();
     }
 });
+
+test('fake queue interprets TypedArray offsets as elements and DataView offsets as bytes', () => {
+    const trace = createGpuTrace();
+    const device = createFakeDevice(trace);
+    const buffer = device.createBuffer({ size: 16, usage: 0 });
+    const bytes = new Uint8Array([0, 1, 2, 3, 4, 5, 6, 7]);
+    device.queue.writeBuffer(buffer, 0, new Uint16Array(bytes.buffer), 1, 2);
+    device.queue.writeBuffer(buffer, 0, new DataView(bytes.buffer, 1, 6), 1, 4);
+    assert.deepEqual([...trace.bufferWrites[0]!.bytes], [2, 3, 4, 5]);
+    assert.deepEqual([...trace.bufferWrites[1]!.bytes], [2, 3, 4, 5]);
+});

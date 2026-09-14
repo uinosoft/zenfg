@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { readFileSync } from 'node:fs';
-import { Window } from 'happy-dom';
+import { Window, type HTMLButtonElement, type HTMLElement } from 'happy-dom';
 import { installHomeLanguage } from '../src/language.ts';
 import { renderSiteFooter, renderSiteHeader } from '../shared/shell/template.ts';
 

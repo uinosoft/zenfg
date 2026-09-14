@@ -2,12 +2,14 @@ import fs from 'node:fs';
 import { join } from 'node:path';
 
 // Configured roots must exist, but may contain no Node tests (e.g. browser-only).
+/** @param {string} dir @returns {string[]} */
 export function collectTestFiles(dir) {
     let entries;
     try {
         entries = fs.readdirSync(dir, { withFileTypes: true });
     } catch (error) {
-        throw new Error(`Cannot read test directory "${dir}": ${error.message}`, { cause: error });
+        const message = error instanceof Error ? error.message : String(error);
+        throw new Error(`Cannot read test directory "${dir}": ${message}`, { cause: error });
     }
 
     const files = [];

@@ -261,8 +261,8 @@ test('captures five texture resources while native frame uniforms remain bound, 
 	const trace = createGpuTrace();
 	const device = createFakeDevice(trace);
 	const pipeline = { getBindGroupLayout: () => ({}) };
-	device.createComputePipelineAsync = async () => pipeline as GPUComputePipeline;
-	device.createRenderPipelineAsync = async () => pipeline as GPURenderPipeline;
+	device.createComputePipelineAsync = async () => pipeline as unknown as GPUComputePipeline;
+	device.createRenderPipelineAsync = async () => pipeline as unknown as GPURenderPipeline;
 	const bindings: GPUBindGroupDescriptor[] = [];
 	device.createBindGroup = (descriptor) => { bindings.push(descriptor); return {} as GPUBindGroup; };
 	let frame: FrameRequestCallback = () => {};

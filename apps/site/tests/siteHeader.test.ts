@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { Window } from 'happy-dom';
+import { Window, type HTMLAnchorElement, type HTMLButtonElement, type HTMLElement } from 'happy-dom';
 import { renderSiteFooter, renderSiteHeader, type SitePage } from '../shared/shell/template.ts';
 import { installSiteHeader } from '../shared/shell/header.ts';
 import { createSiteTheme } from '../shared/theme/controller.ts';

@@ -108,12 +108,12 @@ export function createFakeDevice(
                 const source = ArrayBuffer.isView(data)
                     ? new Uint8Array(data.buffer, data.byteOffset, data.byteLength)
                     : new Uint8Array(data);
-                const byteOffset = ArrayBuffer.isView(data)
-                    ? Number(dataOffset) * data.BYTES_PER_ELEMENT
-                    : Number(dataOffset);
+                const bytesPerElement = ArrayBuffer.isView(data) && 'BYTES_PER_ELEMENT' in data
+                    ? Number(data.BYTES_PER_ELEMENT) : 1;
+                const byteOffset = Number(dataOffset) * bytesPerElement;
                 const byteLength = size === undefined
                     ? source.byteLength - byteOffset
-                    : Number(size) * (ArrayBuffer.isView(data) ? data.BYTES_PER_ELEMENT : 1);
+                    : Number(size) * bytesPerElement;
                 trace.bufferWrites.push({
                     label: buffer.label,
                     bytes: source.slice(byteOffset, byteOffset + byteLength),
@@ -136,7 +136,7 @@ export function createFakeDevice(
                 mapAsync() { return Promise.resolve(); },
                 unmap() { mapState = 'unmapped'; },
                 destroy() { trace.destroyedBuffers.push(descriptor.label ?? ''); },
-            } as GPUBuffer;
+            } as unknown as GPUBuffer;
         },
         createTexture(descriptor: GPUTextureDescriptor) {
             trace.textureCreates.push(descriptor);

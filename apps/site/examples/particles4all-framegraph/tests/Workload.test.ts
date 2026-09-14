@@ -403,6 +403,7 @@ for (const displayMode of ['particles', 'surface-mesh', 'ray-march', 'ssfr'] as 
             const upload = frame.report.resources.find(resource => resource.label === 'particles4all.pour-upload')!;
             assert.equal(groupPath(frame.report, upload.debugGroupId), 'Simulation');
             const root = particleRoot(frame.report)!;
+            assert.ok(root.range);
             assert.equal(root.range.kind, 'buffer');
             if (root.range.kind !== 'buffer') throw new Error('Expected particle buffer root');
             const particleBytes = root.range.size;

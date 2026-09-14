@@ -31,10 +31,10 @@ export function browserEnvironment() {
     const context = {
         configure() {}, unconfigure() { unconfigured++; },
         getCurrentTexture: () => device.createTexture({ size: [canvas.width, canvas.height], format: 'bgra8unorm', usage: GPUTextureUsage.RENDER_ATTACHMENT }),
-    } as GPUCanvasContext;
+    } as unknown as GPUCanvasContext;
     canvas.getBoundingClientRect = () => ({ width: 320, height: 180, left: 0, top: 0 }) as DOMRect;
     canvas.width = 320; canvas.height = 180;
-    canvas.getContext = (() => context) as typeof canvas.getContext;
+    canvas.getContext = (() => context) as unknown as typeof canvas.getContext;
     const adapter = { features: device.features, limits: device.limits, requestDevice: async () => device };
     Object.defineProperty(browser.navigator, 'gpu', { value: {
         requestAdapter: async () => adapter, getPreferredCanvasFormat: () => 'bgra8unorm',

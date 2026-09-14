@@ -7,7 +7,7 @@ Rust 1.98, then run:
 npm install
 npm run build
 npm run docs:check
-npx tsc --project packages/webgpu/examples/tsconfig.json --noEmit
+npm run typecheck
 npm test
 npm run test:cross-language
 cargo test --locked --workspace --all-features
@@ -25,6 +25,38 @@ changes must update and commit `Cargo.lock` explicitly; do not remove `--locked`
 to bypass a failure. Formatting does not resolve dependencies. The packaging
 bootstrap and temporary consumer exceptions are described in
 [the release process](docs/release-process.md).
+
+## TypeScript test coverage
+
+`npm run typecheck` is the CI entrypoint. It checks the script Node tests,
+package examples, each package's source/tests, and the Site source/tests once
+per existing project. Site Node tests and their imported helpers share the
+strict Site configuration; `vite/client` types cover `?raw` and `?url` imports.
+The ES2023 library includes the array APIs used by Node 24 tests.
+
+The Site test roots covered by that configuration are:
+
+- `apps/site/tests`
+- `apps/site/playground/tests`
+- `apps/site/examples/babylon-interop/tests`
+- `apps/site/examples/babylon-lite-interop/tests`
+- `apps/site/examples/interactive-background/tests`
+- `apps/site/examples/particles4all-framegraph/tests`
+- `apps/site/examples/reference-renderer/tests`
+- `apps/site/examples/reference-renderer-demo/tests`
+- `apps/site/examples/refractive-flow/tests`
+- `apps/site/examples/three-interop/tests`
+- `apps/site/examples/typegpu-monocular-light-injection/tests`
+- `apps/site/examples/typegpu-slime-mold/tests`
+
+`apps/site/inspector/tests` is also configured for future Node tests; currently
+it contains only browser acceptance files. `tests/browser/**` and
+`tests/gpu/**` stay outside Node typechecking and the default test runner.
+Test helpers such as `browserEnvironment.ts` still run under Node and are checked.
+TypeGPU source remains typechecked as TypeScript; esbuild and the TypeGPU plugin
+perform its runtime transformation during `npm test`. Pinned upstream JavaScript
+keeps its existing explicit import boundaries rather than enabling JavaScript
+checking across third-party source.
 
 ## Website development
 

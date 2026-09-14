@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import type { BabylonInteropController } from '../src/host.ts';
 import { Window } from 'happy-dom';
 import { startBabylonInterop } from '../src/start.ts';
 import { BabylonBridge } from '../src/bridge.ts';
@@ -57,7 +58,7 @@ test('host renders continuously, switches on the same device, and destroys borro
         }
         assert.equal(host.trace.submits, submissions + 6, 'frames submit without input or capture requests');
         for (const reverseZ of [false, true, false, true]) {
-            const pending = controller.captureSnapshot();
+            const pending: ReturnType<BabylonInteropController['captureSnapshot']> = controller.captureSnapshot();
             await controller.setSettings({ reverseZ });
             assert.equal(await pending, undefined);
             assert.deepEqual(controller.getSettings(), { reverseZ });
@@ -164,7 +165,7 @@ function installHost() {
         unconfigure() { contextTrace.unconfigure += 1; },
         getCurrentTexture: () => device.createTexture({ format: 'rgba8unorm', size: [canvas.width, canvas.height], usage: GPUTextureUsage.RENDER_ATTACHMENT }),
     } as unknown as GPUCanvasContext;
-    canvas.getContext = (() => context) as typeof canvas.getContext;
+    canvas.getContext = (() => context) as unknown as typeof canvas.getContext;
     const adapter = { features: new Set(), requestDevice: async () => device };
     const gpu = { requestAdapter: async () => adapter, getPreferredCanvasFormat: () => 'rgba8unorm' };
     Object.defineProperties(target, {
