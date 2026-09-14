@@ -128,9 +128,9 @@ This README describes **@zenfg/inspector 0.1.0-beta.3**. Registry badges show th
 
 ## CPU and GPU capture
 
-The live capture selector requests CPU, GPU or both (default). Providers receive
+The Capture action always requests CPU and GPU together. Providers receive
 a `FrameGraphCaptureRequest` and must forward its timing mode to the runtime.
-The selection affects only the next capture, not imported data or normal frames.
+Timing is collected only for capture frames; imported data and normal frames are unchanged.
 CPU columns, sorting, group sums and coverage include all retained node kinds.
 CPU execute total and GPU span remain separate. Missing, culled and real zero
 readings are distinct; zero does not guarantee zero CPU cost.

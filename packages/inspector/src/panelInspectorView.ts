@@ -14,7 +14,6 @@ import {
 	formatEstimatedBytes,
 	formatResourceDescriptor,
 	formatTimingCoverage,
-	formatMeasuredGpuWork,
 	enableTabKeyboard,
 	writeClipboardText,
 	selectionKey,
@@ -228,12 +227,13 @@ export class InspectorView {
 					['Execution slot', String(node.order)],
 					['Group', groupPath(snapshot, node.debugGroupId)],
 					['Segment', segment ? `#${segment.index} ${segment.kind}` : '-'],
-					['CPU', node.cpuDurationMicros === undefined ? 'Not collected' : (node.cpuDurationMicros / 1000).toFixed(3) + ' ms'],
+					['CPU duration', node.cpuDurationMicros === undefined ? 'Not collected' : (node.cpuDurationMicros / 1000).toFixed(3) + ' ms'],
 					['CPU scope', 'Synchronous elapsed time; zero may reflect clock precision.' + (node.kind === 'external-submission' ? ' Includes synchronous external submission.' : '')],
-					['GPU', node.kind === 'external-submission' ? 'Opaque · external work is not measured'
+					['GPU duration', node.kind === 'external-submission' ? 'Opaque · external work is not measured'
 						: node.kind !== 'render' && node.kind !== 'compute' ? 'Not applicable · this pass kind is not timing eligible'
 						: node.gpuDurationMicros === undefined ? `Not collected${snapshot.profiling.status === 'unavailable' ? ` · ${snapshot.profiling.reason}` : ''}`
-						: `${(node.gpuDurationMicros / 1000).toFixed(3)} ms · captured`],
+						: `${(node.gpuDurationMicros / 1000).toFixed(3)} ms`],
+					['GPU scope', 'GPU timestamp interval for render/compute passes; excludes external work. Zero may reflect timestamp precision.'],
 					['Accesses', `${node.reads.length} reads · ${node.writes.length} writes`],
 					['Side effect', node.sideEffect ? 'yes' : 'no'],
 				]);
@@ -248,8 +248,8 @@ export class InspectorView {
 					['CPU coverage', formatTimingCoverage(group.summary.cpuTimedNodeCount, group.summary.retainedNodeCount)],
 					['CPU pass sum', group.summary.cpuTimedNodeCount ? (group.summary.cpuWorkDurationMicros / 1000).toFixed(3) + ' ms' : 'Not collected'],
 					['GPU coverage', formatTimingCoverage(group.summary.timedNodeCount, group.summary.timingEligibleNodeCount)],
-					['Measured pass sum', formatMeasuredGpuWork(group.summary.gpuWorkDurationMicros, group.summary.timedNodeCount, group.summary.timingEligibleNodeCount)],
-					['Opaque passes', `${group.summary.externalSubmissionCount} · excluded from measured sum`],
+					['GPU pass sum', group.summary.timingEligibleNodeCount === 0 ? 'Not applicable' : group.summary.timedNodeCount === 0 ? 'Not collected' : (group.summary.gpuWorkDurationMicros / 1000).toFixed(3) + ' ms'],
+					['Opaque passes', `${group.summary.externalSubmissionCount} · excluded from GPU pass sum`],
 					['Allocations', snapshot.protocol.memory.allocationReport.status === 'available' ? String(group.summary.physicalAllocationCount) : 'Unknown · allocation report unavailable'],
 					['Segments', String(group.summary.executionSegmentCount)],
 				]);
@@ -304,7 +304,7 @@ export class InspectorView {
 					['Kind', culled.node.kind],
 					['Group', groupPath(snapshot, culled.node.debugGroupId)],
 					['Reason', culled.reason],
-					['Execution / segment / GPU', 'Not applicable · culled passes do not execute'],
+					['Execution / segment / CPU / GPU', 'Not applicable · culled passes do not execute'],
 					['Accesses', `${culled.node.reads.length} reads · ${culled.node.writes.length} writes`],
 				] : []);
 			}

@@ -373,9 +373,9 @@ button[aria-busy='true'] > .zenfg-inspector-control-icon {
 /* Workspace and empty states */
 .zenfg-inspector-overview-view {
 	padding: var(--fgd-space-3);
-	overflow: auto;
 	background: var(--fgd-canvas);
 }
+.zenfg-inspector-view.zenfg-inspector-overview-view { overflow: auto; }
 
 .zenfg-inspector-workspace {
 	position: relative;
@@ -451,7 +451,6 @@ button[aria-busy='true'] > .zenfg-inspector-control-icon {
 }
 .zenfg-inspector-view-toolbar input { flex: 1 1 210px; }
 .zenfg-inspector-view-toolbar input::placeholder { color: var(--fgd-muted); opacity: 0.86; }
-.zenfg-inspector-capture-timing { max-width: 112px; min-width: 0; height: 28px; padding: 2px 4px; border: 1px solid var(--fgd-border); border-radius: 4px; background: var(--fgd-panel); color: var(--fgd-text); font-size: 11px; color-scheme: dark; }
 .zenfg-inspector-view-toolbar select { flex: 0 1 auto; color-scheme: dark; }
 
 .zenfg-inspector-passes-view,

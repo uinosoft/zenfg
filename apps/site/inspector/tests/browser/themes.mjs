@@ -55,6 +55,19 @@ try {
     await page.evaluate(() => { themeQA.host.style.removeProperty('--zfgi-graph-text'); delete themeQA.host.dataset.zfgiTheme; });
     await page.getByRole('button', { name: 'Close inspector', exact: true }).click();
     await checkDeclarations(page, output);
+    // Overview must scroll when its content exceeds the available panel height.
+    await page.setViewportSize({ width: 390, height: 480 });
+    await page.getByRole('tab', { name: 'Overview', exact: true }).first().click();
+    const overview = page.locator('.zenfg-inspector-overview-view');
+    assert.equal(await overview.evaluate(el => getComputedStyle(el).overflowY), 'auto');
+    assert.ok(await overview.evaluate(el => el.scrollHeight > el.clientHeight));
+    await overview.hover();
+    await page.mouse.wheel(0, 10000);
+    await page.waitForFunction(() => {
+        const el = document.querySelector('.zenfg-inspector-overview-view');
+        return el.scrollTop > 0 && el.scrollTop + el.clientHeight >= el.scrollHeight - 1;
+    });
+    await overview.evaluate(el => { el.scrollTop = 0; });
     for (const width of [1277, 1024, 390]) {
         await page.setViewportSize({ width, height: width === 390 ? 844 : 920 });
         for (const mode of ['dark', 'light']) {
@@ -106,7 +119,7 @@ try {
     for (const mode of ['dark', 'light']) {
         await page.evaluate(mode => themeQA.inspector.setTheme(mode === 'dark' ? themeQA.tokyoNightStorm : themeQA.tokyoNightLight), mode);
         await page.getByRole('tab', { name: 'Graph', exact: true }).click();
-        await page.evaluate(() => document.querySelector('.zenfg-inspector-graph-canvas')._cyreg.cy.nodes().filter(n => n.data('kind') !== 'group').first().emit('tap'));
+        await page.evaluate(() => { document.querySelector('.zenfg-inspector-graph-canvas')._cyreg.cy.nodes().filter(n => n.data('kind') !== 'group').first().emit('tap'); });
         for (const detail of ['Summary', 'Relations', 'Raw']) {
             await page.getByRole('tab', { name: detail, exact: true }).click();
             await page.screenshot({ path: resolve(output, mode + '-detail-' + detail.toLowerCase() + '.png'), animations: 'disabled' });

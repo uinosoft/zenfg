@@ -6,7 +6,7 @@
   cover all executed node kinds and include synchronous execution total.
 - Replace GPU-only execution entrypoints with unified timing results.
 - Emit Snapshot 1.2 and explicitly migrate 1.1 with unavailable historical CPU data.
-- Add Inspector CPU measurements, sorting, group coverage and capture-mode selection.
+- Add Inspector CPU measurements, sorting, group coverage and full CPU/GPU capture.
 - Capture CPU and pool counters before GPU readback to preserve same-frame facts.
 - See [migration guide](docs/migration-timing-snapshot-1.2.md).
 

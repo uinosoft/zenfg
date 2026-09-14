@@ -281,7 +281,7 @@ export class FrameGraphInspector {
 		if (!this.viewModel) this.workbench.showEmptyState('capturing', 'Capturing the next rendered frame…');
 		this.updateCaptureActions();
 		try {
-			const request: FrameGraphCaptureRequest = { timing: this.workbench.captureTimingMode };
+			const request: FrameGraphCaptureRequest = { timing: 'both' };
 			const snapshot = await this.captureSnapshotCallback(request);
 			if (this.destroyed || revision !== this.operationRevision) return;
 			if (!snapshot) {

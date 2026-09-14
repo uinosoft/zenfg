@@ -35,8 +35,10 @@ Existing migration provenance and extensions survive the upgrade.
 
 Inspector providers receive `{ timing: 'cpu' | 'gpu' | 'both' }` and must forward
 it through intermediate adapters. Direct showcase capture calls default to both;
-coalesced requests retain the first request's mode. Imported files are unchanged
-by the selector. CPU-only captures must work without timestamp-query support.
+coalesced requests retain the first request's mode. Inspector's Capture action
+always requests both; the UI has no timing selector. Programmatic runtime and host
+APIs still accept CPU-only or GPU-only requests. Imported files keep their captured
+data. CPU-only captures must work without timestamp-query support.
 
 ## Interpreting CPU values
 

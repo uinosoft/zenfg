@@ -30,7 +30,7 @@ export class PassesView {
 	]);
 	private readonly groupsTable = createTableScroller([
 		{ label: 'Group' }, { label: 'Retained', column: 'numeric' }, { label: 'Culled', column: 'numeric' },
-		{ label: 'CPU sum / coverage', column: 'numeric' }, { label: 'Measured pass sum', column: 'numeric' }, { label: 'Inputs', column: 'numeric' },
+		{ label: 'CPU sum / coverage', column: 'numeric' }, { label: 'GPU pass sum', column: 'numeric' }, { label: 'Inputs', column: 'numeric' },
 		{ label: 'Outputs', column: 'numeric' }, { label: 'Locate' },
 	]);
 	private readonly rows = new Map<string, HTMLElement[]>();

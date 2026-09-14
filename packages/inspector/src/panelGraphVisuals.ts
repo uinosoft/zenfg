@@ -96,7 +96,8 @@ export function createGraphStyles(theme: GraphVisualTheme = GRAPH_VISUAL_THEME):
                 'text-wrap': 'wrap',
                 'text-max-width': 'data(labelMaxWidth)',
                 'font-family': theme.fontFamily,
-                'font-size': theme.fontSize,
+                'font-size': (element: cytoscape.SingularElementArgument) => (element.data('labelFontSize') as number | undefined) ?? theme.fontSize,
+                'line-height': 1.2,
                 'min-zoomed-font-size': GRAPH_GEOMETRY.minimumZoomedFontSize,
                 'color': theme.text,
                 'background-color': theme.surfaceRaised,
@@ -266,7 +267,7 @@ function baseNodeDimensions(node: GraphSceneNode): { readonly width: number; rea
         case 'resource':
             return { width: 184, height: Math.max(58, node.label.split('\n').length * 17 + 24) };
         case 'group':
-            return node.collapsed ? { width: 224, height: 68 } : { width: 120, height: 80 };
+            return node.collapsed ? { width: 240, height: 80 } : { width: 120, height: 80 };
     }
 }
 
@@ -274,6 +275,38 @@ export function nodeDimensions(node: GraphSceneNode, theme: GraphVisualTheme = G
     const base = baseNodeDimensions(node);
     const scale = theme.fontSize / GRAPH_GEOMETRY.baseFontSize;
     return { width: base.width * scale, height: base.height * scale };
+}
+
+/** Enlarge short labels within the existing box; retain the theme size for dense text. */
+export function graphLabelFontSize(label: string, width: number, height: number, theme: GraphVisualTheme): number {
+    const context = graphTextContext();
+    if (context) context.font = theme.fontSize + 'px ' + theme.fontFamily;
+    const lines = label.split('\n');
+    const widest = Math.max(1, ...lines.map(line => context?.measureText(line).width ?? [...line].length * theme.fontSize * .62));
+    const widthScale = width / widest;
+    const heightScale = height / (lines.length * theme.fontSize * 1.2);
+    return Math.max(theme.fontSize, Math.floor(theme.fontSize * Math.min(1.25, widthScale, heightScale) * 4) / 4);
+}
+
+/** Wrap only the group name (up to two lines); keep the node-count row distinct. */
+export function fitCollapsedGroupLabel(label: string, width: number, theme: GraphVisualTheme): string {
+    const [name = '', ...summary] = label.split('\n');
+    const context = graphTextContext();
+    if (context) context.font = theme.fontSize + 'px ' + theme.fontFamily;
+    const measure = (text: string) => context?.measureText(text).width ?? [...text].length * theme.fontSize * .62;
+    const chars = [...name];
+    let split = 0;
+    while (split < chars.length && measure(chars.slice(0, split + 1).join('')) <= width) split++;
+    if (split === chars.length) return fitGraphLabel(label, width, theme);
+    // Prefer a word/path boundary without losing characters, including Unicode.
+    const prefix = chars.slice(0, split).join('');
+    const boundary = Math.max(prefix.lastIndexOf(' '), prefix.lastIndexOf('.'), prefix.lastIndexOf('/'));
+    if (boundary > prefix.length / 2) split = [...prefix.slice(0, boundary + 1)].length;
+    return fitGraphLabel([
+        chars.slice(0, split).join('').trimEnd(),
+        chars.slice(split).join('').trimStart(),
+        ...summary,
+    ].join('\n'), width, theme);
 }
 
 /** Fit the already semantic label to its available width after font changes. */
@@ -349,7 +382,8 @@ function expandedGroupStyle(backgroundColor: string, theme: GraphVisualTheme): c
         'border-color': theme.group.stroke,
         'border-width': theme.groupBorderWidth,
         'padding': `${geometry.groupPadding}px`,
-        'compound-sizing-wrt-labels': 'include',
+        'compound-sizing-wrt-labels': 'exclude',
+        'text-wrap': 'ellipsis',
         'min-width': '120px',
         'min-height': '80px',
         'text-valign': 'top-inside',

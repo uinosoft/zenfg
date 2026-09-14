@@ -20,6 +20,8 @@ import {
 import {
     createGraphStyles,
     fitGraphLabel,
+    fitCollapsedGroupLabel,
+    graphLabelFontSize,
     expandedGroupLabelMaxWidth,
     GRAPH_GEOMETRY,
     graphEdgeDisplayLabel,
@@ -672,6 +674,13 @@ function nodeRenderableData(node: GraphSceneNode, theme: GraphVisualTheme): Reco
     const labelMaxWidth = node.kind === 'group' && node.collapsed
         ? expandedGroupLabelMaxWidth(dimensions.width)
         : 160 * theme.fontSize / GRAPH_GEOMETRY.baseFontSize;
+    const fitLabel = (label: string): string => node.kind !== 'group'
+        ? fitGraphLabel(label, labelMaxWidth, theme)
+        : node.collapsed ? fitCollapsedGroupLabel(label, labelMaxWidth, theme) : label;
+    const detailLabel = fitLabel(node.label);
+    const labelFontSize = node.kind === 'group' && !node.collapsed
+        ? theme.fontSize * 1.2
+        : graphLabelFontSize(detailLabel, labelMaxWidth, dimensions.height - 12 * theme.fontSize / GRAPH_GEOMETRY.baseFontSize, theme);
     return {
         kind: node.kind,
         passKind: node.kind === 'pass' ? node.passKind : undefined,
@@ -679,9 +688,10 @@ function nodeRenderableData(node: GraphSceneNode, theme: GraphVisualTheme): Reco
         collapsed: node.kind === 'group' && node.collapsed ? 1 : 0,
         hasCulled: node.kind === 'group' && node.culledNodeCount > 0 ? 1 : 0,
         depthBand: node.kind === 'group' ? node.depthBand : undefined,
-        detailLabel: fitGraphLabel(node.label, labelMaxWidth, theme),
-        overviewLabel: fitGraphLabel(node.overviewLabel, labelMaxWidth, theme),
-        displayLabel: fitGraphLabel(node.label, labelMaxWidth, theme),
+        detailLabel,
+        labelFontSize,
+        overviewLabel: fitLabel(node.overviewLabel),
+        displayLabel: detailLabel,
         tooltip: node.title,
         labelMaxWidth,
         width: dimensions.width,

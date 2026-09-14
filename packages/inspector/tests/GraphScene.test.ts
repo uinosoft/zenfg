@@ -144,10 +144,10 @@ test('projects collapsed groups while keeping compound hierarchy in the scene', 
     const bloomNode = rootExpanded.nodes.find((node): node is GroupSceneNode => node.kind === 'group' && node.groupId === bloom.id)!;
     assert.equal(outerNode.collapsed, false);
     assert.equal(outerNode.label.includes('\n'), false);
-    assert.match(outerNode.label, /1 retained · 1 culled/);
+    assert.match(outerNode.label, /1 nodes · 1 culled/);
     assert.equal(bloomNode.collapsed, true);
-    assert.equal(bloomNode.label.includes('\n'), false);
-    assert.match(bloomNode.label, /1 retained · 0 culled/);
+    assert.equal(bloomNode.label.split('\n').length, 2);
+    assert.match(bloomNode.label, /1 nodes/);
     assert.equal(bloomNode.parentId, outerNode.id);
     assert.notEqual(bloomNode.depthBand, outerNode.depthBand);
     assert.deepEqual(outerNode.childNodeIds, [bloomNode.id]);
@@ -187,8 +187,8 @@ test('group graph labels and tooltips distinguish uncollected, partial, complete
                 expandedGroupPaths: new Set(expanded ? snapshot.debugGroups.map((group) => group.pathKey) : []),
             });
             const group = scene.nodes.find((node) => node.kind === 'group' && node.groupId === 'group:1')!;
-            assert.ok(group.label.endsWith(`Measured pass sum: ${expected}`), group.label);
-            assert.ok(group.title.endsWith(`Measured pass sum: ${expected}`), group.title);
+            assert.doesNotMatch(group.label, /CPU|GPU|timed|ms/);
+            assert.ok(group.title.endsWith(`GPU pass sum: ${expected}`), group.title);
             assert.doesNotMatch(group.title, /Σ GPU work/);
             if (expected === 'Not collected') assert.doesNotMatch(group.label + group.title, /0\.000 ms/);
         }
@@ -198,9 +198,9 @@ test('group graph labels and tooltips distinguish uncollected, partial, complete
     }, timings: { cpu: { status: 'unavailable', reason: 'not-requested' }, gpu: { status: 'unavailable', reason: 'not applicable' } } });
     const group = createGraphScene(noEligible, { groupsEnabled: true, expandedGroupPaths: new Set() })
         .nodes.find((node) => node.kind === 'group' && node.groupId === 'group:1')!;
-    assert.ok(group.label.endsWith('Measured pass sum: Not applicable'));
-    assert.ok(group.title.endsWith('Measured pass sum: Not applicable'));
-    assert.doesNotMatch(group.label + group.title, /Measured pass sum: (?:0\.000 ms|Not collected)/);
+    assert.doesNotMatch(group.label, /CPU|GPU|timed|ms/);
+    assert.ok(group.title.endsWith('GPU pass sum: Not applicable'));
+    assert.doesNotMatch(group.label + group.title, /GPU pass sum: (?:0\.000 ms|Not collected)/);
 });
 
 test('group graph tooltips distinguish missing allocation reports from a valid empty report', () => {
@@ -233,9 +233,9 @@ test('pass graph tooltips distinguish GPU eligibility, opaque work, missing meas
         });
         const node = createGraphScene(snapshot, { groupsEnabled: false, expandedGroupPaths: new Set() })
             .nodes.find((node) => node.kind === 'pass' && node.nodeId === 'node:1')!;
-        const gpu = node.title.split('\n').find((line) => line.startsWith('gpu:'));
-        assert.equal(gpu, `gpu: ${expected}`, kind);
-        assert.doesNotMatch(node.title, /gpu: - ms/);
+        const gpu = node.title.split('\n').find((line) => line.startsWith('GPU duration:'));
+        assert.equal(gpu, `GPU duration: ${expected}`, kind);
+        assert.doesNotMatch(node.title, /GPU duration: - ms/);
     }
 });
 

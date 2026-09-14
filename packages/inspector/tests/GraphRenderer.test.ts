@@ -1,3 +1,5 @@
+import { fitCollapsedGroupLabel, graphLabelFontSize } from '../src/panelGraphVisuals.ts';
+import { updateElementData } from '../src/panelCytoscapeGraphRenderer.ts';
 import { lightVariables } from '../src/themeDefinitions.ts';
 import assert from 'node:assert/strict';
 import test from 'node:test';
@@ -1489,7 +1491,7 @@ test('theme restyling preserves core, selection, positions and viewport without 
     assert.deepEqual({ pan: core.pan(), zoom: core.zoom(), nodes: core.nodes().map(node => [node.id(), node.position()]), selected: core.nodes('.semantic-selected').map(node => node.id()) }, before);
     assert.equal(core.nodes()[0]!.style('color'), 'rgb(52,59,88)');
     renderer.setTheme({ ...light, fontSize: 18 });
-    await waitFor(() => layouts === 2 && core.nodes()[0]!.style('font-size') === '18px');
+    await waitFor(() => layouts === 2 && Number.parseFloat(core.nodes()[0]!.style('font-size')) >= 18);
     assert.equal(core.zoom(), before.zoom);
     assert.deepEqual(core.nodes('.semantic-selected').map(node => node.id()), before.selected);
     renderer.destroy();
@@ -1508,4 +1510,40 @@ test('latest theme wins while the graph runtime is loading', async () => {
     await waitFor(() => harness.core?.nodes().length === scene.nodes.length);
     assert.equal(harness.core!.nodes()[0]!.style('color'), 'rgb(52,59,88)');
     renderer.destroy();
+});
+
+
+test('collapsed group names wrap before truncating and keep only the node-count row', () => {
+    const label = '▸ Lighting pipeline with a long descriptive group name that exceeds two rows\n12 nodes';
+    const lines = fitCollapsedGroupLabel(label, 220, GRAPH_VISUAL_THEME).split('\n');
+    assert.equal(lines.length, 3);
+    assert.equal(lines[0]!.includes('…'), false);
+    assert.match(lines[1]!, /…$/);
+    assert.equal(lines[2], '12 nodes');
+});
+
+test('expanded group text survives data updates without fixed-width pre-truncation', () => {
+    const snapshot = createLegacyDebugViewModel(createNestedCapture());
+    const scene = createGraphScene(snapshot, { groupsEnabled: true, expandedGroupPaths: new Set(snapshot.debugGroups.map(group => group.pathKey)) });
+    const group = scene.nodes.find(node => node.kind === 'group')!;
+    const core = cytoscape({ headless: true, elements: [{ data: { id: group.id } }] });
+    try {
+        updateElementData(core, scene);
+        assert.equal(core.getElementById(group.id).data('detailLabel'), group.label);
+        assert.equal(core.getElementById(group.id).data('displayLabel'), group.label);
+        const style = createGraphStyles().find(entry => entry.selector === 'node[kind = "group"][collapsed = 0]')!;
+        assert.ok('style' in style);
+        assert.equal((style.style as Record<string, unknown>)['text-wrap'], 'ellipsis');
+        assert.equal((style.style as Record<string, unknown>)['compound-sizing-wrt-labels'], 'exclude');
+    } finally { core.destroy(); }
+});
+
+
+test('graph fonts use spare box space without exceeding width or height limits', () => {
+    const base = GRAPH_VISUAL_THEME.fontSize;
+    const short = graphLabelFontSize('Clear', 160, 36, GRAPH_VISUAL_THEME);
+    assert.ok(short > base && short <= base * 1.25);
+    assert.equal(graphLabelFontSize('A very long label that fills its row', 160, 36, GRAPH_VISUAL_THEME), base);
+    const multiline = graphLabelFontSize('A\nB\nC', 160, 50, GRAPH_VISUAL_THEME);
+    assert.ok(multiline * 3 * 1.2 <= 50);
 });

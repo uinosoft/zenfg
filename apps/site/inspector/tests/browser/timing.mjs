@@ -16,32 +16,29 @@ try {
  for (const example of ['minimal-frame', 'three-interop']) {
   await page.goto(base + '?example=' + example + '&panel=inspector');
   await page.waitForFunction(() => document.querySelector('[data-examples]')?.dataset.effectState === 'ready', undefined, { timeout: 90000 });
-  const selector=page.getByRole('combobox', { name: 'Capture timing', exact: true });
-  await selector.waitFor();
-  for (const mode of ['cpu','gpu','both']) {
-   await page.waitForFunction(() => !document.querySelector('select[aria-label="Capture timing"]')?.disabled);
-   await selector.selectOption(mode);
+  assert.equal(await page.getByRole('combobox', { name: 'Capture timing', exact: true }).count(),0);
+  const capture=page.locator('.zenfg-inspector-capture-action');
+  await capture.waitFor();
    await page.locator('.zenfg-inspector-capture-action').click();
-   await page.waitForFunction(() => !document.querySelector('select[aria-label="Capture timing"]')?.disabled);
+   await page.waitForFunction(() => !document.querySelector('.zenfg-inspector-capture-action')?.disabled);
    await page.evaluate(() => { globalThis.__timingCopied=undefined; });
    await page.getByRole('button', {name:'Export',exact:true}).click();
    await page.getByRole('menuitem',{name:'Copy JSON',exact:true}).click();
    await page.waitForFunction(() => typeof globalThis.__timingCopied === 'string');
    const snapshot=JSON.parse(await page.evaluate(() => globalThis.__timingCopied));
    assert.equal(snapshot.version.minor,2);
-   assert.equal(snapshot.timings.cpu.status,mode==='gpu'?'unavailable':'available');
-   if(mode!=='gpu') assert.equal(snapshot.timings.cpu.nodes.length,snapshot.graph.nodes.filter(n=>n.compileState.status==='retained').length);
-   if(mode==='cpu')assert.equal(snapshot.timings.gpu.reason,'not-requested');
-   await writeFile(resolve(output,example+'-'+mode+'.json'),JSON.stringify(snapshot,null,2));
-  }
+   assert.equal(snapshot.timings.cpu.status,'available');
+   assert.equal(snapshot.timings.cpu.nodes.length,snapshot.graph.nodes.filter(n=>n.compileState.status==='retained').length);
+   assert.notEqual(snapshot.timings.gpu.reason,'not-requested');
+   await writeFile(resolve(output,example+'-both.json'),JSON.stringify(snapshot,null,2));
   await page.getByRole('tab',{name:'Passes',exact:true}).click();
   await page.screenshot({path:resolve(output,example+'-wide.png')});
   await page.setViewportSize({width:390,height:844});
-  await selector.evaluate(el=>el.scrollIntoView({block:'start'}));
+  await capture.evaluate(el=>el.scrollIntoView({block:'start'}));
   await page.screenshot({path:resolve(output,example+'-narrow.png')});
   assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth <= innerWidth+1),'page must not overflow horizontally');
-  await selector.focus();await page.keyboard.press('ArrowUp');
-  assert.equal(await selector.evaluate(el=>el===document.activeElement),true);
+  await capture.focus();
+  assert.equal(await capture.evaluate(el=>el===document.activeElement),true);
   await page.setViewportSize({width:1440,height:1000});
  }
  assert.deepEqual(errors,[]);

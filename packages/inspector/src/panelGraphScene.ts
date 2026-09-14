@@ -205,7 +205,7 @@ function createFrameFlowScene(
             groupId: group.id,
             groupPathKey: group.pathKey,
             label: createGroupLabel(group, collapsed),
-            overviewLabel: `${collapsed ? '▸' : '▾'} ${group.label}`,
+            overviewLabel: `${collapsed ? '▸' : '▾'} ${group.label.replace(/\s+/g, ' ').trim()}`,
             title: createGroupTitle(group, snapshot),
             parentId: group.parentId !== undefined && includedGroupIds.has(group.parentId)
                 ? graphGroupElementId(groupsById.get(group.parentId)!.pathKey)
@@ -606,8 +606,11 @@ function shortGraphLabel(label: string): string {
 
 function createGroupLabel(group: FrameGraphDebugGroup, collapsed: boolean): string {
     const summary = group.summary;
-    const gpu = formatMeasuredGpuWork(summary.gpuWorkDurationMicros, summary.timedNodeCount, summary.timingEligibleNodeCount);
-    return `${collapsed ? '▸' : '▾'} ${group.label} · ${summary.retainedNodeCount} retained · ${summary.culledNodeCount} culled · CPU: ${summary.cpuTimedNodeCount ? (summary.cpuWorkDurationMicros / 1000).toFixed(3) + ' ms' : 'Not collected'} (${summary.cpuTimedNodeCount}/${summary.retainedNodeCount}) · Measured pass sum: ${gpu}`;
+    const parts = [
+        `${collapsed ? '▸' : '▾'} ${group.label.replace(/\s+/g, ' ').trim()}`,
+        `${summary.retainedNodeCount} nodes` + (summary.culledNodeCount ? ` · ${summary.culledNodeCount} culled` : ''),
+    ];
+    return parts.join(collapsed ? '\n' : ' · ');
 }
 
 function createNodeTitle(
@@ -623,8 +626,8 @@ function createNodeTitle(
         `kind: ${node.kind}`,
         `group: ${debugGroupPathForId(node.debugGroupId, snapshot)}`,
         `segment: ${segment ? `${segment.index}:${segment.kind}` : '-'}`,
-        `cpu: ${node.cpuDurationMicros === undefined ? 'Not collected' : (node.cpuDurationMicros / 1000).toFixed(3) + ' ms'}`,
-        `gpu: ${gpu}`,
+        `CPU duration: ${node.cpuDurationMicros === undefined ? 'Not collected' : (node.cpuDurationMicros / 1000).toFixed(3) + ' ms'}`,
+        `GPU duration: ${gpu}`,
         `reads: ${node.reads.map((access) => labelResource(access.resource)).join(', ') || '-'}`,
         `writes: ${node.writes.map((access) => labelResource(access.resource)).join(', ') || '-'}`,
     ].join('\n');
@@ -643,7 +646,7 @@ function createGroupTitle(group: FrameGraphDebugGroup, snapshot: FrameGraphDebug
         `segments: ${summary.executionSegmentCount}`,
         `opaque: ${summary.externalSubmissionCount}`,
         `CPU pass sum: ${summary.cpuTimedNodeCount ? (summary.cpuWorkDurationMicros / 1000).toFixed(3) + ' ms' : 'Not collected'} (${summary.cpuTimedNodeCount}/${summary.retainedNodeCount})`,
-        `Measured pass sum: ${formatMeasuredGpuWork(summary.gpuWorkDurationMicros, summary.timedNodeCount, summary.timingEligibleNodeCount)}`,
+        `GPU pass sum: ${formatMeasuredGpuWork(summary.gpuWorkDurationMicros, summary.timedNodeCount, summary.timingEligibleNodeCount)}`,
     ].join('\n');
 }
 
