@@ -3,16 +3,20 @@ import { build } from 'esbuild';
 import { mkdirSync, readdirSync, readFileSync, rmSync, statSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import typegpuPlugin from 'unplugin-typegpu/esbuild';
+import { collectTestFiles } from './test-discovery.mjs';
 
 const rootDir = resolve(import.meta.dirname, '..');
 
 const outDir = resolve(rootDir, '.test-dist', 'tests');
+// Keep required roots explicit so a rename or deletion cannot hide a suite.
+// An existing root may legitimately have no Node tests.
 const defaultTestRoots = [
+	resolve(rootDir, 'scripts', 'tests'),
 	resolve(rootDir, 'packages', 'webgpu', 'tests'),
 	resolve(rootDir, 'packages', 'snapshot', 'tests'),
 	resolve(rootDir, 'packages', 'inspector', 'tests'),
 	resolve(rootDir, 'apps', 'site', 'tests'),
-	resolve(rootDir, 'apps', 'site', 'inspector', 'tests'),
+	resolve(rootDir, 'apps', 'site', 'inspector', 'tests'), // Currently browser-only; still required.
 	resolve(rootDir, 'apps', 'site', 'playground', 'tests'),
 	resolve(rootDir, 'apps', 'site', 'examples', 'interactive-background', 'tests'),
 	resolve(rootDir, 'apps', 'site', 'examples', 'refractive-flow', 'tests'),
@@ -27,6 +31,18 @@ const defaultTestRoots = [
 ];
 const requestedTestRoots = process.argv.slice(2).map((path) => resolve(rootDir, path));
 const testRoots = requestedTestRoots.length > 0 ? requestedTestRoots : defaultTestRoots;
+
+let entryPoints;
+try {
+    entryPoints = testRoots.flatMap((dir) => collectTestFiles(dir));
+} catch (error) {
+    console.error(error.message);
+    process.exit(1);
+}
+if (entryPoints.length === 0) {
+    console.error('No test files were found in the configured test roots.');
+    process.exit(1);
+}
 
 const npmExecPath = process.env.npm_execpath;
 const npmCommand = npmExecPath ? process.execPath : process.platform === 'win32' ? 'npm.cmd' : 'npm';
@@ -49,33 +65,6 @@ if (packageBuild.status !== 0) {
     process.exit(packageBuild.status ?? 1);
 }
 
-function collectTestFiles(dir) {
-    try {
-        if (!statSync(dir).isDirectory()) {
-            return [];
-        }
-    }
-    catch {
-        return [];
-    }
-
-    const entries = readdirSync(dir, { withFileTypes: true });
-    const files = [];
-
-    for (const entry of entries) {
-        const fullPath = join(dir, entry.name);
-        if (entry.isDirectory()) {
-            files.push(...collectTestFiles(fullPath));
-            continue;
-        }
-        if (entry.isFile() && entry.name.endsWith('.test.ts')) {
-            files.push(fullPath);
-        }
-    }
-
-    return files;
-}
-
 function collectCompiledTestFiles(dir) {
     const entries = readdirSync(dir, { withFileTypes: true });
     const files = [];
@@ -92,12 +81,6 @@ function collectCompiledTestFiles(dir) {
     }
 
     return files;
-}
-
-const entryPoints = testRoots.flatMap((dir) => collectTestFiles(dir));
-if (entryPoints.length === 0) {
-    console.error('No test files were found in the configured test roots.');
-    process.exit(1);
 }
 
 rmSync(resolve(rootDir, '.test-dist'), { recursive: true, force: true });
