@@ -12,7 +12,9 @@ export function installAppPageLifecycle(
 	options: AppPageLifecycleOptions,
 ): () => void {
 	const handlePageHide = (event: PageTransitionEvent): void => {
-		if (!event.persisted) options.onDiscard();
+		if (event.persisted) return;
+		uninstall();
+		options.onDiscard();
 	};
 	const handlePageShow = (event: PageTransitionEvent): void => {
 		if (!event.persisted) return;
@@ -24,8 +26,9 @@ export function installAppPageLifecycle(
 	target.addEventListener('pagehide', handlePageHide);
 	target.addEventListener('pageshow', handlePageShow);
 
-	return () => {
+	function uninstall(): void {
 		target.removeEventListener('pagehide', handlePageHide);
 		target.removeEventListener('pageshow', handlePageShow);
-	};
+	}
+	return uninstall;
 }

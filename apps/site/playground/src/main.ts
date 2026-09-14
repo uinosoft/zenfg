@@ -12,6 +12,7 @@ import { installSiteHeader } from '../../shared/shell/header.ts';
 import { tokyoNightStorm, tokyoNightLight } from '@zenfg/inspector/theme';
 import { parsePlaygroundRoute, routeSearch } from './routing.ts';
 import { createSourceView } from './sourceView.ts';
+import { initializeInspectorWorkspace } from './inspectorWorkspace.ts';
 import { disposeHighlighter, highlightSource } from './syntaxHighlighter.ts';
 import type { PlaygroundExampleDefinition, PlaygroundPanel, PlaygroundRuntime } from './types.ts';
 
@@ -316,34 +317,19 @@ function initializeCodeWorkspace(definition: PlaygroundExampleDefinition): Promi
 }
 
 function ensureInspectorWorkspace(): Promise<void> {
-	inspectorPromise ??= initializeInspectorWorkspace();
+	inspectorPromise ??= initializeInspectorWorkspace({
+		signal: mountAbort.signal, loading: inspectorLoading, runtime: runtimePromise,
+		load: async () => {
+			const { mountFrameGraphInspector } = await import('@zenfg/inspector');
+			return mounted => {
+				inspector = mountFrameGraphInspector(inspectorHost, {
+					theme: inspectorThemes[theme.get()], branding: false,
+					captureSnapshot: () => mounted.captureSnapshot(),
+				});
+			};
+		},
+	});
 	return inspectorPromise;
-}
-
-async function initializeInspectorWorkspace(): Promise<void> {
-	inspectorLoading.hidden = false;
-	inspectorLoading.textContent = 'Waiting for the live example…';
-	const mounted = await runtimePromise;
-	if (disposed) return;
-	if (!mounted) {
-		inspectorLoading.textContent = 'Live capture is unavailable because WebGPU could not start. The source remains available in Code.';
-		return;
-	}
-
-	inspectorLoading.textContent = 'Loading FrameGraph Inspector…';
-	try {
-		const { mountFrameGraphInspector } = await import('@zenfg/inspector');
-		if (disposed) return;
-		inspector = mountFrameGraphInspector(inspectorHost, {
-			theme: inspectorThemes[theme.get()],
-			branding: false,
-			captureSnapshot: () => mounted.captureSnapshot(),
-		});
-		inspectorLoading.hidden = true;
-	}
-	catch (error) {
-		inspectorLoading.textContent = `Could not load the Inspector: ${toError(error).message}`;
-	}
 }
 
 function setEffectStatus(state: ExampleStatus, message?: string): void {

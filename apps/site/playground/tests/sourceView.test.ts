@@ -150,3 +150,25 @@ for (const fails of [false, true]) {
   assert.equal(f.content.scrollLeft, 150);
  });
 }
+
+
+for (const fails of [false, true]) {
+    test('destroy ignores pending highlighter ' + (fails ? 'failure' : 'success'), async () => {
+        let resolve!: (html: string) => void;
+        let reject!: (error: Error) => void;
+        const f = fixture([file('main')], () => new Promise((done, fail) => { resolve = done; reject = fail; }));
+        await flush();
+        f.destroy();
+        f.content.textContent = 'replacement view';
+        f.copy.disabled = true;
+        const replacement = f.list.ownerDocument.createElement('span');
+        f.list.append(replacement);
+        f.destroy();
+        assert.equal(f.list.firstChild, replacement, 'repeated disposal must not clear a replacement view');
+        if (fails) reject(new Error('late highlighter failure'));
+        else resolve('<pre>stale HTML</pre>');
+        await f.ready;
+        assert.equal(f.content.textContent, 'replacement view');
+        assert.equal(f.copy.disabled, true);
+    });
+}

@@ -110,6 +110,7 @@ export function createSourceView(options: {
 	return {
 		ready: select(ordered[0]!),
 		destroy() {
+			if (destroyed) return;
 			destroyed = true;
 			revision++;
 			clearTimeout(copiedTimer);

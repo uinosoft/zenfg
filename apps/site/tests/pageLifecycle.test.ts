@@ -31,3 +31,19 @@ function pageTransition(type: 'pagehide' | 'pageshow', persisted: boolean): Even
 	Object.defineProperty(event, 'persisted', { value: persisted });
 	return event;
 }
+
+
+test('discard detaches callbacks before cleanup and repeated uninstall is harmless', () => {
+    const target = new EventTarget();
+    let discards = 0;
+    let restores = 0;
+    const uninstall = installAppPageLifecycle(target as unknown as Window, {
+        onDiscard: () => { discards++; target.dispatchEvent(pageTransition('pagehide', false)); },
+        onRestore: () => { restores++; },
+    });
+    target.dispatchEvent(pageTransition('pagehide', false));
+    target.dispatchEvent(pageTransition('pageshow', true));
+    uninstall(); uninstall();
+    assert.equal(discards, 1);
+    assert.equal(restores, 0);
+});
