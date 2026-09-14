@@ -46,14 +46,14 @@ jobs:
       - run: rustup toolchain install 1.98.0 --profile minimal --component rustfmt --component clippy
       - run: rustup default 1.98.0
       - run: cargo fmt --all --check
-      - run: cargo clippy --workspace --all-targets --all-features -- -D warnings
-      - run: cargo test --workspace --all-features
-      - run: cargo test --workspace --all-features --doc
-      - run: cargo check --workspace --all-features --examples
-      - run: cargo run -p zenfg --example minimal-frame --all-features
-      - run: cargo run -p zenfg --example snapshot-export --features snapshot
-      - run: cargo run -p zenfg-snapshot --example basic
-      - run: cargo doc --workspace --all-features --no-deps
+      - run: cargo clippy --locked --workspace --all-targets --all-features -- -D warnings
+      - run: cargo test --locked --workspace --all-features
+      - run: cargo test --locked --workspace --all-features --doc
+      - run: cargo check --locked --workspace --all-features --examples
+      - run: cargo run --locked -p zenfg --example minimal-frame --all-features
+      - run: cargo run --locked -p zenfg --example snapshot-export --features snapshot
+      - run: cargo run --locked -p zenfg-snapshot --example basic
+      - run: cargo doc --locked --workspace --all-features --no-deps
         env:
           RUSTDOCFLAGS: -D warnings
       - run: npm run cargo:package-check

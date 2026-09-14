@@ -10,14 +10,21 @@ npm run docs:check
 npx tsc --project packages/webgpu/examples/tsconfig.json --noEmit
 npm test
 npm run test:cross-language
-cargo test --workspace --all-features
-cargo test --workspace --all-features --doc
-cargo check --workspace --all-features --examples
-cargo clippy --workspace --all-targets --all-features -- -D warnings
+cargo test --locked --workspace --all-features
+cargo test --locked --workspace --all-features --doc
+cargo check --locked --workspace --all-features --examples
+cargo clippy --locked --workspace --all-targets --all-features -- -D warnings
 cargo fmt --all --check
 npm run pack:check
 npm run cargo:package-check
 ```
+
+Workspace Cargo checks use the committed `Cargo.lock` with `--locked`, including
+the Rust producer launched by `npm run test:cross-language`. Intentional dependency
+changes must update and commit `Cargo.lock` explicitly; do not remove `--locked`
+to bypass a failure. Formatting does not resolve dependencies. The packaging
+bootstrap and temporary consumer exceptions are described in
+[the release process](docs/release-process.md).
 
 ## Website development
 

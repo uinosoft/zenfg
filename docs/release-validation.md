@@ -24,13 +24,25 @@ serialization, JSON-safety, and the extension-depth boundary.
 ## Rust and Cargo
 
 1. Run `cargo fmt --all --check`.
-2. Run `cargo clippy --workspace --all-targets --all-features -- -D warnings`.
-3. Run `cargo test --workspace --all-features` and
-   `cargo test --workspace --all-features --doc`.
-4. Run `cargo check --workspace --all-features --examples`, then execute the
-   CPU-only examples listed in the release checklist.
+2. Run `cargo clippy --locked --workspace --all-targets --all-features -- -D warnings`.
+3. Run `cargo test --locked --workspace --all-features` and
+   `cargo test --locked --workspace --all-features --doc`.
+4. Run `cargo check --locked --workspace --all-features --examples`, then execute the
+   CPU-only examples with the same locked commands as CI:
+   `cargo run --locked -p zenfg --example minimal-frame --all-features`,
+   `cargo run --locked -p zenfg --example snapshot-export --features snapshot`, and
+   `cargo run --locked -p zenfg-snapshot --example basic`.
+   Run `cargo doc --locked --workspace --all-features --no-deps` with
+   `RUSTDOCFLAGS="-D warnings"`.
 5. Run `npm run cargo:package-check` and inspect both crate archives.
-6. Run Cargo publish dry-runs when their registry dependencies are available.
+6. Run `cargo publish --dry-run -p zenfg-snapshot --locked` and then
+   `cargo publish --dry-run -p zenfg --locked` when their registry dependencies
+   are available. Use `--locked` for the actual Cargo publish commands too.
+
+These workspace checks must use the committed `Cargo.lock`. See the
+[release process](release-process.md) for the bootstrap packaging and temporary
+consumer exceptions. Historical release checklists retain the commands actually
+executed for those releases.
 
 ## Repository and artifact review
 

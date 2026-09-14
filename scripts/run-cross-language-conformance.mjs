@@ -92,6 +92,7 @@ for (const name of declaredCases) {
 
 const cargo = spawnSync('cargo', [
     'test',
+    '--locked',
     '-p',
     'zenfg',
     '--features',

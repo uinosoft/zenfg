@@ -72,6 +72,9 @@ try {
     // The runtime's optional protocol dependency is intentionally unpublished
     // during the bootstrap release. Assemble the exact archive without registry
     // verification, then compile that archive with a local crates.io patch.
+    // Do not add --locked here: bootstrap excludes the archive lockfile to avoid
+    // resolving the unpublished registry dependency. The extracted-crate checks
+    // below validate consumers outside the workspace, with their own resolution.
     run('cargo', [
         'package',
         '-p',
