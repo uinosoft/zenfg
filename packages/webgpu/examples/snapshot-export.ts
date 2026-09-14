@@ -3,7 +3,7 @@
  * Demonstrates: Capturing compilation, GPU timing and resource-pool reports.
  * Flow: Record a real frame, compile with reporting, execute and serialize its snapshot.
  * The caller owns the device and native inputs; ZenFG owns graph execution.
- * Read next: README.md for inputs and related recipes. The Playground adapter
+ * Read next: README.md for inputs and related recipes. The Examples adapter
  * and recipeHost.ts provide browser setup and snapshot capture.
  */
 import { FrameGraph, type FrameGraphRecording } from '@zenfg/webgpu';

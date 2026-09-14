@@ -1,5 +1,5 @@
 import type { MonocularController, MonocularLightInjectionSettings, MonocularState, ModelSize, SourceMode } from '../../../examples/typegpu-monocular-light-injection/src/index.ts';
-import type { PlaygroundExampleDefinition, PlaygroundSourceFile } from '../types.ts';
+import type { ExamplesExampleDefinition, ExamplesSourceFile } from '../types.ts';
 
 type Control = { disabled: boolean; on(event: 'change' | 'click', callback: () => void): Control };
 type ControlPane = {
@@ -14,7 +14,7 @@ const sources = {
     'monocularLightInjectionShaders.ts': () => import('../../../examples/typegpu-monocular-light-injection/src/monocularLightInjectionShaders.ts?raw'),
     'host.ts': () => import('../../../examples/typegpu-monocular-light-injection/src/host.ts?raw'),
 };
-const sourceFiles: PlaygroundSourceFile[] = Object.entries(sources).map(([name, load]) => ({
+const sourceFiles: ExamplesSourceFile[] = Object.entries(sources).map(([name, load]) => ({
     id: `monocular-${name}`, label: name,
     path: `apps/site/examples/typegpu-monocular-light-injection/src/${name}`,
     role: name.includes('Shaders') ? 'shader' : name === 'host.ts' || name === 'model-store.ts' ? 'host' : 'example',
@@ -22,7 +22,7 @@ const sourceFiles: PlaygroundSourceFile[] = Object.entries(sources).map(([name, 
     loadSource: async () => (await load()).default,
 }));
 
-export const typeGpuMonocularLightInjectionExample: PlaygroundExampleDefinition = {
+export const typeGpuMonocularLightInjectionExample: ExamplesExampleDefinition = {
     id: 'typegpu-monocular-light-injection',
     title: 'TypeGPU · Monocular Light Injection',
     group: 'Showcases',

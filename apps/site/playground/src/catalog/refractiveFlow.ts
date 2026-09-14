@@ -1,6 +1,6 @@
-import type { PlaygroundExampleDefinition } from '../types.ts';
+import type { ExamplesExampleDefinition } from '../types.ts';
 
-export const refractiveFlowExample: PlaygroundExampleDefinition = {
+export const refractiveFlowExample: ExamplesExampleDefinition = {
 	id: 'refractive-flow', title: 'Refractive Flow', group: 'Showcases',
 	tags: ['webgpu', 'compute', 'render'], readyState: 'live',
 	description: 'Four folded Catmull–Rom surfaces, each peeling into three transparent films, with transported frames, GPU curl perturbation and damped springs. Foreground reflections and softer distant layers reveal the depth. Move your pointer to bend and energize the optics. Inspect weighted transparency, the HDR emission layer and the three-level bloom pyramid in the eight-pass graph.',

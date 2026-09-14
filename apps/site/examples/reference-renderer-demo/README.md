@@ -2,10 +2,10 @@
 
 The basic showcase for [Reference Renderer](../reference-renderer/README.md).
 This private workspace owns the application code; the reusable renderer remains
-an independent dependency with no browser host or Playground imports.
+an independent dependency with no browser host or Examples imports.
 
 ```text
-Playground adapter -> reference-renderer-demo -> reference-renderer -> @zenfg/webgpu
+Examples adapter -> reference-renderer-demo -> reference-renderer -> @zenfg/webgpu
 ```
 
 ## Run
@@ -30,7 +30,7 @@ and uses a separate Present pass to encode sRGB exactly once for the canvas.
 
 The demo imports `createReferenceRenderer` and `ReferenceInstance` from
 internal `reference-renderer/src/index.ts` module, without reaching into its implementation.
-Playground controls and source/Inspector presentation stay in the catalog adapter.
+Examples controls and source/Inspector presentation stay in the catalog adapter.
 
 Future examples should create their own host and consume the renderer package.
 They can choose a device and attachments supplied by another engine rather than

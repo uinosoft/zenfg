@@ -88,12 +88,13 @@ Start the complete project site from a clean checkout with:
 npm run dev
 ```
 
-This starts the single Site Vite application. It serves all MPA pages with hot
-module replacement behind one development origin:
+This starts the Site Vite application and VitePress documentation service,
+with the documentation proxied behind one development origin:
 
 - project site: `http://127.0.0.1:5173/`;
+- documentation: `http://127.0.0.1:5173/docs/`;
 - Inspector: `http://127.0.0.1:5173/inspector/`;
-- Playground: `http://127.0.0.1:5173/playground/`.
+- Examples: `http://127.0.0.1:5173/playground/`.
 
 The Site resolves the publishable package sources directly, so package `dist`
 directories are not required for website development. Changes to package source
@@ -102,7 +103,7 @@ are included in the same Vite module graph.
 `npm run build` builds every publishable package and the Site. `npm run
 build:pages` builds the directly deployable Site tree, and `npm run
 preview:pages` rebuilds and serves that tree at
-`http://127.0.0.1:4173/` for a production-like check.
+`http://127.0.0.1:4173/zenfg/` for a production-like check.
 
 Keep engine-specific scene, material, pipeline, and application policy outside
 the core packages. Changes to shared semantics or Snapshot V1 must update both
@@ -132,7 +133,9 @@ Documentation has one primary source for each responsibility:
   support in [`docs/compatibility.md`](docs/compatibility.md).
 
 Do not add copied global API catalogs, `AI.md`, package-specific AI manifests,
-or custom machine indexes. Installed package READMEs, packaged declarations and
+or manually maintained machine indexes. Generated per-page Markdown and
+`llms.txt` are derived from the website content map and are supported formats.
+See [Documentation maintenance](docs/documentation.md) for generation and source ownership. Installed package READMEs, packaged declarations and
 source, generated API documentation, and compiled examples are the supported
 human and coding-agent inputs.
 
@@ -153,7 +156,7 @@ and that Rust README examples still pass as doctests.
 
 The Site owns interactive presentation, displayed source, and embedded
 Inspector integration. Package recipes and repository showcases remain
-independent of the Playground shell at the source-module level. Package recipes keep their graph
-declarations in host-neutral `record*` functions so Playground adapters can
+independent of the Examples shell at the source-module level. Package recipes keep their graph
+declarations in host-neutral `record*` functions so Examples adapters can
 compile the exact same recording with diagnostics enabled; repository showcases
 may instead expose application-level start, capture, and disposal controllers.

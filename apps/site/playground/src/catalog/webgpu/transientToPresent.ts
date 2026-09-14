@@ -1,7 +1,7 @@
-import type { PlaygroundExampleDefinition } from '../../types.ts';
+import type { ExamplesExampleDefinition } from '../../types.ts';
 import { recipeHostSourceFile, recipeShaderSourceFile } from './sources.ts';
 
-export const transientToPresentExample: PlaygroundExampleDefinition = {
+export const transientToPresentExample: ExamplesExampleDefinition = {
 	id: 'transient-to-present',
 	title: 'Transient to Present',
 	group: '@zenfg/webgpu basics',

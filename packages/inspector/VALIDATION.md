@@ -12,7 +12,7 @@ The final worktree was then checked with the entire repository test suite.
 | --- | --- | --- |
 | 1 — `90db010` | Information correctness, diagnostics, stable culled IDs, Memory geometry and estimate availability | Package build, Inspector typecheck, 111/111 Inspector and Snapshot tests |
 | 2 — `0efbcd1` | Overview, searchable lists, independent group tree, diagnostic disclosures and Graph search | Package build, Inspector typecheck, 123/123 Inspector and Snapshot tests |
-| 3 — `1cfa98e` | Dock/drawer, canonical details, explicit navigation, capture feedback and keyboard behavior | Package build, Inspector typecheck, 146/146 Inspector, Snapshot and related Playground tests |
+| 3 — `1cfa98e` | Dock/drawer, canonical details, explicit navigation, capture feedback and keyboard behavior | Package build, Inspector typecheck, 146/146 Inspector, Snapshot and related Examples tests |
 | 4 — `perf(inspector): defer inactive views and cache capture details` | Deferred page rendering, per-capture Memory and Raw caches, integration tests and documentation | 451/451 repository tests; all workspace and example typechecks; production Pages build; documentation check |
 
 Memory filters accompany the Stage 1 axis replacement so both filtered and
@@ -24,7 +24,7 @@ Stage 1 information corrections.
 
 ## Browser acceptance record
 
-The standalone application and Playground were served from production builds.
+The standalone application and Examples were served from production builds.
 Stage 1, 2 and 3 also used separately built intermediate Inspector packages.
 Screenshots and read-only DOM measurements were inspected during the run.
 
@@ -35,10 +35,10 @@ Screenshots and read-only DOM measurements were inspected during the run.
 | Standalone, 1000×720 | Detail clamps to 332px, main remains 640px and the separator is 8px; document width remains 1000px |
 | Standalone, 700×720 | Modal drawer constrains keyboard focus; explicit Graph reveal closes it and focuses the Graph tab; document width remains 700px |
 | Standalone, 500×720 | Long diagnostics wrap in one scrolling content area; auxiliary resource columns collapse; document width remains 500px |
-| Playground, 1440×900 | Real WebGPU capture reports five passes; ungrouped capture hides Graph grouping controls; pointer drag changes detail width from 340px to approximately 444px |
-| Playground, 1280×720 | Host width approximately 1099px; document width 1280px; resource list and commands remain contained |
-| Playground, 1000×720 | Host width 858px uses drawer; document width 1000px; Escape closes details before the outer Playground overlay |
-| Playground, 500×720 | Host width 482px; filters wrap and auxiliary columns move out of the list; document width 500px; Escape returns focus to the initiating resource |
+| Examples, 1440×900 | Real WebGPU capture reports five passes; ungrouped capture hides Graph grouping controls; pointer drag changes detail width from 340px to approximately 444px |
+| Examples, 1280×720 | Host width approximately 1099px; document width 1280px; resource list and commands remain contained |
+| Examples, 1000×720 | Host width 858px uses drawer; document width 1000px; Escape closes details before the outer Examples overlay |
+| Examples, 500×720 | Host width 482px; filters wrap and auxiliary columns move out of the list; document width 500px; Escape returns focus to the initiating resource |
 
 Specific browser checks:
 
@@ -58,7 +58,7 @@ Specific browser checks:
   the fallback action, and allowed navigation to Resources. Successful recovery
   cleared the obsolete failure message.
 - Keyboard: main/detail tabs, export-menu Escape, drawer focus wrapping and
-  focus restoration were exercised. The Playground overlay remained open after
+  focus restoration were exercised. The Examples overlay remained open after
   its Inspector handled Escape, and closed on a subsequent unhandled Escape.
 - Large capture: a validated 5001-pass Snapshot showed the 5000-element budget
   notice. The inactive Passes page initially had zero rendered rows; opening it

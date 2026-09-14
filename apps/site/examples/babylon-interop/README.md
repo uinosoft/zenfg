@@ -86,7 +86,7 @@ are reported through `onError`. The controller provides:
 
 Rendering follows `requestAnimationFrame` continuously while visible, including
 when the camera is idle. Hidden pages suspend the frame loop. The
-Playground owns controls, legend, source tabs and Inspector presentation.
+Examples owns controls, legend, source tabs and Inspector presentation.
 
 Babylon owns the device and RTT on a separate canvas. The visible canvas,
 FrameGraph and Reference Renderer borrow that device. Teardown stops the host,

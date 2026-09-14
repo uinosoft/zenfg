@@ -1,10 +1,10 @@
-# ZenFG Playground
+# ZenFG Examples
 
 The Examples page is a private static application deployed at `/playground/`.
 A collapsible grouped directory sits beside a naturally scrolling page:
 canvas and parameters with runtime status first, then the title, optional brief
 description and topic tags, followed by the Inspector / Code workbench.
-The public route and example IDs retain their existing names.
+The public `/playground/` route and its source directory retain their existing names for link compatibility; the product name, internal identifiers and test settings use Examples. Existing example IDs and query parameters remain unchanged.
 
 See [visual foundations](../../../docs/visual-foundations.md) for the shared
 Storm / Light design tokens and validation workflow.
@@ -19,18 +19,18 @@ Run these commands from the repository root. The Site owns the showcase source
 directly, so no per-example workspace links or package build order are required
 before Vite scans the catalog imports.
 
-For the integrated Site, Inspector, and Playground development workflow, see
+For the integrated Site, Inspector, and Examples development workflow, see
 the website development section in [`CONTRIBUTING.md`](../../../CONTRIBUTING.md).
 
 Production examples are explicitly registered in `src/catalog/catalog.ts` and
 grouped as repository showcases or `@zenfg/webgpu` basics. Catalog adapters own
-Playground metadata, source display, WebGPU hosting, and Inspector wiring;
-example implementations must not import Playground code.
+Examples metadata, source display, WebGPU hosting, and Inspector wiring;
+example implementations must not import Examples code.
 
 ## Layout and appearance
 
 Dark (Tokyo Night Storm) and Light use the shared visual foundations and site
-header. Home, Inspector and Playground share the `zenfg-theme` preference,
+header. Home, Inspector and Examples share the `zenfg-theme` preference,
 defaulting to Dark and remaining usable without storage. See the
 [Site shell documentation](../README.md#shared-site-shell) for migration,
 mobile navigation and cross-tab synchronization. System appearance is not used.
@@ -153,7 +153,7 @@ Repository showcases use their actual `src/main.ts` as the reading entry.
 Reference Renderer uses the demo package's entry, not the reusable renderer.
 Package basics keep their topic-named recipe files. Source lists explicitly
 follow this reading order: entry, core implementation, supporting modules,
-shaders, browser host, and Playground adapter. Compatibility forwarding files
+shaders, browser host, and Examples adapter. Compatibility forwarding files
 are not useful reading tabs; display the implementation they forward to.
 
 Entries begin with a short English block comment containing `Source:`,
@@ -169,11 +169,11 @@ For browser acceptance, build with `npm run build:pages`, run
 `npm run preview:pages`, then run
 `node apps/site/playground/tests/browser/sourceView.mjs` from the repository root.
 `PLAYWRIGHT_MODULE` can point to an existing Playwright installation;
-`PLAYGROUND_URL` and `GPU_TEST_BROWSER` override the preview and browser.
+`EXAMPLES_URL` and `GPU_TEST_BROWSER` override the preview and browser.
 The suite checks all 16 entries, desktop/mobile typography, exact source copying
 (allowing platform clipboard line endings), selection, scrolling and real
 Inspector exports. It requires hardware WebGPU and network access for Monocular's
-model and demo image. Results and screenshots go to `.test-dist/playground-source`.
+model and demo image. Results and screenshots go to `.test-dist/examples-source`.
 
 The Particles4All showcase lives in `apps/site/examples/particles4all-framegraph` and is
 available at `?example=particles4all-framegraph`. It retains upstream fluid and
@@ -204,7 +204,7 @@ extra inference or synthesize a frame graph for display.
 
 Package recipes are executed from `packages/webgpu/examples` and displayed from
 the same files through Vite raw imports. Their `record*` functions let the
-Playground request compilation reports without changing the normal recipe
+Examples request compilation reports without changing the normal recipe
 execution path. Adapter, host, and shader files appear as secondary source tabs
 so the boundary remains visible.
 
@@ -246,11 +246,11 @@ load their runtime and controls on demand. Startup validation checks manifest
 identities without invoking source loaders or mount factories.
 
 A production Vite module-graph audit on 2026-09-14 (commit `76cc76d`, 17 examples)
-found three JS chunks in the Playground entry's static import closure:
+found three JS chunks in the Examples entry's static import closure:
 
 | Chunk role | Bytes | Gzip bytes |
 | --- | ---: | ---: |
-| Playground entry and catalog | 80,015 | 21,134 |
+| Examples entry and catalog | 80,015 | 21,134 |
 | Shared shell, palette, icons, and preload helpers | 10,888 | 4,646 |
 | Inspector theme definitions | 3,230 | 1,225 |
 | Total | 94,133 | 27,005 |

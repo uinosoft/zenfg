@@ -140,7 +140,7 @@ try {
         assert.equal(await page.locator('.site-header').evaluate(el => el.getBoundingClientRect().height), 60);
         assert.equal(await page.locator('.site-brand').innerText(), 'ZenFG');
         assert.equal(await page.locator('.site-page-links [aria-current=page]').innerText(), 'Inspector');
-        assert.equal(await page.locator('.site-page-links a').count(), 3);
+        assert.equal(await page.locator('.site-page-links a').count(), 4);
         assert.equal(await page.locator('.site-theme-switch svg').count(), 2);
         await page.getByRole('button', { name: 'Light', exact: true }).click();
         await page.reload();

@@ -1,8 +1,8 @@
 import type { FrameGraphSnapshot } from '@zenfg/snapshot';
-import type { PlaygroundExampleDefinition } from '../../types.ts';
+import type { ExamplesExampleDefinition } from '../../types.ts';
 import { recipeHostSourceFile } from './sources.ts';
 
-export const snapshotExportExample: PlaygroundExampleDefinition = {
+export const snapshotExportExample: ExamplesExampleDefinition = {
 	id: 'snapshot-export',
 	title: 'Snapshot Export',
 	group: '@zenfg/webgpu basics',

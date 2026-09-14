@@ -13,8 +13,8 @@ recording as persistent state. TypeGPU pipelines encode into the pass encoders
 provided by ZenFG.
 
 The browser host owns WebGPU setup, the canvas lifecycle, presentation, resize,
-snapshot capture, and device-loss policy. The Playground adapter owns the
-optional controls UI; the showcase package has no dependency on Playground or
+snapshot capture, and device-loss policy. The Examples adapter owns the
+optional controls UI; the showcase package has no dependency on Examples or
 Tweakpane.
 
 The simulation rules, 200,000-agent default, frame-time behavior, parameters,

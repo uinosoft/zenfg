@@ -1,5 +1,5 @@
 import type { SlimeMoldSettings } from '../../../examples/typegpu-slime-mold/src/index.ts';
-import type { PlaygroundExampleDefinition } from '../types.ts';
+import type { ExamplesExampleDefinition } from '../types.ts';
 
 type TweakpaneControl = {
 	addBinding(
@@ -10,7 +10,7 @@ type TweakpaneControl = {
 	dispose(): void;
 };
 
-export const typeGpuSlimeMoldExample: PlaygroundExampleDefinition = {
+export const typeGpuSlimeMoldExample: ExamplesExampleDefinition = {
 	id: 'typegpu-slime-mold',
 	title: 'TypeGPU · Slime Mold',
 	group: 'Showcases',

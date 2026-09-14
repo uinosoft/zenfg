@@ -1,3 +1,4 @@
+@import './navigation.css';
 /* Site-only typography roles extend the canonical UI / code metrics. */
 :root {
 	--site-header-height: 60px;
@@ -11,6 +12,9 @@
 }
 [hidden] { display: none !important; }
 .site-header {
+    --project-secondary: var(--zenfg-secondary); --project-text: var(--zenfg-text);
+    --project-accent: var(--zenfg-accent); --project-hover: var(--zenfg-hover);
+    --project-control-radius: var(--zenfg-radius-small);
 	position: sticky; top: 0; z-index: 20;
 	display: flex; align-items: center; gap: 24px;
 	height: var(--site-header-height); padding: 0 24px;
@@ -20,7 +24,7 @@
 }
 .site-brand { flex-shrink: 0; font-size: 20px; font-weight: 700; letter-spacing: -.035em; text-decoration: none; color: var(--zenfg-text); }
 .site-navigation { display: flex; align-items: center; justify-content: space-between; flex: 1; min-width: 0; gap: 16px; }
-.site-page-links, .site-resource-links, .site-header-actions { display: flex; align-items: center; gap: 4px; }
+.site-page-links, .site-header-actions { display: flex; align-items: center; gap: 4px; }
 .site-header-actions { flex-shrink: 0; gap: 10px; }
 .site-nav-link, .site-control {
 	display: inline-flex; align-items: center; justify-content: center; gap: 7px;
@@ -56,8 +60,7 @@
 	.site-menu-toggle { display: inline-flex; width: 36px; padding: 0; }
 	.site-navigation { display: none; position: absolute; inset: var(--site-header-height) 0 auto; padding: 12px; border-bottom: 1px solid var(--zenfg-divider); background: var(--zenfg-canvas); box-shadow: 0 12px 24px #0002; }
 	.site-header[data-menu-open=true] .site-navigation { display: flex; flex-direction: column; align-items: stretch; gap: 12px; }
-	.site-page-links { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
-	.site-resource-links { border-top: 1px solid var(--zenfg-divider); padding-top: 10px; }
+	.site-page-links { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
 	.site-nav-link { min-height: 44px; padding-inline: 8px; }
 }
 @media (pointer: coarse) {

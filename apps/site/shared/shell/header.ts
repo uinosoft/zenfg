@@ -1,3 +1,4 @@
+import { themeAction } from '../theme/action.ts';
 import { createIcon, setIconButton, type IconName } from '../icons.ts';
 import type { SiteThemeController } from '../theme/controller.ts';
 
@@ -24,10 +25,9 @@ export function installSiteHeader(window: Window, theme: SiteThemeController): (
 	const themeButton = header.querySelector<HTMLButtonElement>('[data-theme-toggle]')!;
 	const localized = Boolean(header.querySelector('[data-language-toggle]'));
 	const syncTheme = () => {
-		const dark = theme.get() === 'dark';
 		const chinese = localized && window.document.documentElement.lang.startsWith('zh');
-		const label = chinese ? (dark ? '切换到亮色主题' : '切换到暗色主题') : (dark ? 'Switch to light theme' : 'Switch to dark theme');
-		setIconButton(themeButton, dark ? 'moon' : 'sun', label);
+		const { icon, label } = themeAction(theme.get(), chinese);
+		setIconButton(themeButton, icon, label);
 	};
 	const switchTheme = () => theme.set(theme.get() === 'dark' ? 'light' : 'dark');
 	themeButton.addEventListener('click', switchTheme);

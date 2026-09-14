@@ -16,11 +16,11 @@ Grazing reflections and narrow edge glints strengthen the silhouette. A soft-kne
 bloom threshold isolates HDR peaks; selective highlight exposure and a partially
 chromatic tone-mapping shoulder keep bright dispersion from washing out to white.
 
-The homepage and `refractive-flow` Playground entry share this native WebGPU
+The homepage and `refractive-flow` Examples entry share this native WebGPU
 renderer. The homepage uses a bounded hero canvas and luminance limits fitted to
 actual text bounds, with soft transitions that preserve the surface's color;
-the Playground presents the full composition. The original `interactive-background`
-example, its links and the Playground default remain unchanged.
+the Examples presents the full composition. The original `interactive-background`
+example, its links and the Examples default remain unchanged.
 
 The homepage canvas ends at the responsive content column's right edge (1200px
 maximum column width). Its right edge clips directly; its bottom fades into the

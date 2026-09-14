@@ -1,8 +1,8 @@
 import type { ExternalRenderer } from '../../../../../../packages/webgpu/examples/external-submission.ts';
-import type { PlaygroundExampleDefinition } from '../../types.ts';
+import type { ExamplesExampleDefinition } from '../../types.ts';
 import { recipeHostSourceFile, recipeShaderSourceFile } from './sources.ts';
 
-export const externalSubmissionExample: PlaygroundExampleDefinition = {
+export const externalSubmissionExample: ExamplesExampleDefinition = {
 	id: 'external-submission',
 	title: 'External Submission',
 	group: '@zenfg/webgpu basics',
@@ -43,7 +43,7 @@ export const externalSubmissionExample: PlaygroundExampleDefinition = {
 		const presentPipeline = createRenderPipeline(host.device, host.format, shaders.presentShader, 'fragmentMain');
 		const sampler = host.device.createSampler({ minFilter: 'linear', magFilter: 'linear' });
 		const renderAndSubmit: ExternalRenderer = ({ device, color }) => {
-			const encoder = device.createCommandEncoder({ label: 'playground-external-renderer' });
+			const encoder = device.createCommandEncoder({ label: 'examples-external-renderer' });
 			const pass = encoder.beginRenderPass({
 				colorAttachments: [{
 					view: color,

@@ -10,11 +10,11 @@ import { createExampleDirectory } from './exampleDirectory.ts';
 import { createSiteTheme } from '../../shared/theme/controller.ts';
 import { installSiteHeader } from '../../shared/shell/header.ts';
 import { tokyoNightStorm, tokyoNightLight } from '@zenfg/inspector/theme';
-import { parsePlaygroundRoute, routeSearch } from './routing.ts';
+import { parseExamplesRoute, routeSearch } from './routing.ts';
 import { createSourceView } from './sourceView.ts';
 import { initializeInspectorWorkspace } from './inspectorWorkspace.ts';
 import { disposeHighlighter, highlightSource } from './syntaxHighlighter.ts';
-import type { PlaygroundExampleDefinition, PlaygroundPanel, PlaygroundRuntime } from './types.ts';
+import type { ExamplesExampleDefinition, ExamplesPanel, ExamplesRuntime } from './types.ts';
 
 const theme = createSiteTheme(window);
 const disposeHeader = installSiteHeader(window, theme);
@@ -27,7 +27,7 @@ const returnToTop = (event: MouseEvent) => {
 };
 backToTop.addEventListener('click', returnToTop);
 
-const playground = requireElement<HTMLElement>('[data-playground]');
+const examples = requireElement<HTMLElement>('[data-examples]');
 const effectCanvas = requireElement<HTMLCanvasElement>('[data-effect-canvas]');
 const effectStatus = requireElement<HTMLElement>('[data-effect-status]');
 // Overlay keyboard interaction must not trigger example shortcuts (for example Space).
@@ -56,10 +56,10 @@ const inspectorLoading = requireElement<HTMLElement>('[data-inspector-loading]')
 const inspectorHost = requireElement<HTMLElement>('[data-inspector-host]');
 const panelButtons = Array.from(document.querySelectorAll<HTMLButtonElement>('[data-panel-button]'));
 
-const initialRoute = parsePlaygroundRoute(window.location.search);
-let currentPanel: PlaygroundPanel = initialRoute.panel;
-const example: PlaygroundExampleDefinition | undefined = findPublicExample(initialRoute.exampleId);
-let runtime: PlaygroundRuntime | undefined;
+const initialRoute = parseExamplesRoute(window.location.search);
+let currentPanel: ExamplesPanel = initialRoute.panel;
+const example: ExamplesExampleDefinition | undefined = findPublicExample(initialRoute.exampleId);
+let runtime: ExamplesRuntime | undefined;
 let inspector: FrameGraphInspector | undefined;
 const inspectorThemes = { dark: tokyoNightStorm, light: tokyoNightLight };
 const unsubscribeTheme = theme.subscribe(mode => inspector?.setTheme(inspectorThemes[mode]));
@@ -70,7 +70,7 @@ let disposed = false;
 let frameRateMonitor: ReturnType<typeof createFrameRateMonitor> | undefined;
 const mountAbort = new AbortController();
 const runtimeStatus = createExampleStatus({
-	root: playground, status: effectStatus, label: effectStatusText,
+	root: examples, status: effectStatus, label: effectStatusText,
 	signal: requireElement<HTMLElement>('.effect-status__signal'),
 	feedback: requireElement<HTMLElement>('[data-example-feedback]'),
 	preview: requireElement<HTMLElement>('[data-status-preview]'),
@@ -95,7 +95,7 @@ const narrowViewport = window.matchMedia('(max-width: 800px)');
 function setDirectoryOpen(open: boolean): void {
 	if (!open && directory.contains(document.activeElement)) directoryToggle.focus();
 	directory.hidden = !open;
-	playground.dataset.directoryOpen = String(open);
+	examples.dataset.directoryOpen = String(open);
 	directoryToggle.setAttribute('aria-expanded', String(open));
 	setIconButton(directoryToggle, open ? 'panelClose' : 'panelOpen', open ? 'Close example directory' : 'Open example directory');
 }
@@ -146,7 +146,7 @@ if (example) {
 		(index ? ' · ' : '') + reference.relation + ' ', { text: reference.label, href: reference.href },
 	]));
 	exampleDescription.hidden = !example.description;
-	document.title = example.title + ' · ZenFG Playground';
+	document.title = example.title + ' · ZenFG Examples';
 	requireElement<HTMLElement>('[data-example-title]').textContent = example.title;
 	const hasSidebar = !!example.hasControls || example.readyState === 'live';
 	controlsPanel.hidden = !hasSidebar;
@@ -196,7 +196,7 @@ const controlsResizeObserver = example && !controlsPanel.hidden ? new ResizeObse
 controlsResizeObserver?.observe(demoStage, { box: 'border-box' });
 syncControlsHeight();
 
-let runtimePromise: Promise<PlaygroundRuntime | undefined> = Promise.resolve(undefined);
+let runtimePromise: Promise<ExamplesRuntime | undefined> = Promise.resolve(undefined);
 if (example) {
 	runtimePromise = mountExample(example);
 }
@@ -229,7 +229,7 @@ installAppPageLifecycle(window, {
 	} : undefined,
 });
 
-async function mountExample(definition: PlaygroundExampleDefinition): Promise<PlaygroundRuntime | undefined> {
+async function mountExample(definition: ExamplesExampleDefinition): Promise<ExamplesRuntime | undefined> {
 	setEffectStatus('loading', 'Initializing WebGPU…');
 	let reportedError = false;
 	try {
@@ -272,10 +272,10 @@ async function mountExample(definition: PlaygroundExampleDefinition): Promise<Pl
 	}
 }
 
-function setPanel(panel: PlaygroundPanel, syncUrl = true): void {
+function setPanel(panel: ExamplesPanel, syncUrl = true): void {
 	if (!example) return;
 	currentPanel = panel;
-	playground.dataset.panel = panel;
+	examples.dataset.panel = panel;
 	codeWorkspace.hidden = panel !== 'code';
 	inspectorWorkspace.hidden = panel !== 'inspector';
 
@@ -308,7 +308,7 @@ function ensureCodeWorkspace(): Promise<void> {
 	return codePromise;
 }
 
-function initializeCodeWorkspace(definition: PlaygroundExampleDefinition): Promise<void> {
+function initializeCodeWorkspace(definition: ExamplesExampleDefinition): Promise<void> {
 	sourceView = createSourceView({
 		definition, files: sourceFiles, path: sourcePath,
 		content: sourceContent, copy: copySource, highlight: highlightSource, copyText,
@@ -337,7 +337,7 @@ function setEffectStatus(state: ExampleStatus, message?: string): void {
 	runtimeStatus.update(state, message);
 }
 
-function parseButtonPanel(value: string | undefined): PlaygroundPanel {
+function parseButtonPanel(value: string | undefined): ExamplesPanel {
 	return value === 'code' ? 'code' : 'inspector';
 }
 
@@ -359,7 +359,7 @@ async function copyText(text: string): Promise<void> {
 
 function requireElement<T extends Element>(selector: string): T {
 	const element = document.querySelector<T>(selector);
-	if (!element) throw new Error(`Playground element is missing: ${selector}`);
+	if (!element) throw new Error(`Examples element is missing: ${selector}`);
 	return element;
 }
 

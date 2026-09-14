@@ -303,7 +303,7 @@ export class FrameGraphInspector {
 	/**
 	 * Validates and synchronously displays a programmatic Snapshot 1.1 value.
 	 *
-	 * @throws {@link FrameGraphSnapshotValidationError} if `snapshot` is invalid.
+	 * @throws {@link @zenfg/snapshot!index.FrameGraphSnapshotValidationError | FrameGraphSnapshotValidationError} if `snapshot` is invalid.
 	 */
 	setSnapshot(snapshot: FrameGraphSnapshot): void {
 		if (this.destroyed) return;

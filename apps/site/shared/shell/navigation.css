@@ -1,0 +1,21 @@
+/* Header primitives shared by the site shell and the VitePress adapter. */
+.project-nav-link {
+    display: inline-flex; align-items: center; justify-content: center;
+    min-height: 36px; padding: 0 10px; border-radius: var(--project-control-radius, 6px);
+    color: var(--project-secondary); font-size: 14px; font-weight: 600;
+    text-decoration: none; white-space: nowrap;
+}
+.project-nav-link:hover { color: var(--project-text); background: var(--project-hover); }
+.project-nav-link[aria-current=page] { color: var(--project-accent); }
+.project-nav-link:focus-visible, .project-theme-control:focus-visible {
+    outline: 2px solid var(--project-accent); outline-offset: 3px;
+}
+.project-theme-control {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 36px; height: 36px; padding: 0; flex-shrink: 0;
+    border: 1px solid transparent; border-radius: var(--project-control-radius, 6px);
+    color: var(--project-secondary); background: transparent; cursor: pointer;
+}
+.project-theme-control:hover { color: var(--project-text); background: var(--project-hover); }
+.project-theme-control .ui-icon { width: 16px; height: 16px; }
+@media (pointer: coarse) { .project-theme-control { min-width: 44px; min-height: 44px; } }

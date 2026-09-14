@@ -103,13 +103,13 @@ each advancing simulation substep so subsequent substeps see newly added particl
 Repository adaptations concern graph integration, resource lifecycle, browser
 hosting, and error handling rather than a redesign of the rendering algorithms.
 
-## Browser host and Playground
+## Browser host and Examples
 
 `startParticles4All(canvas, options)` provides a standalone browser host and
 returns a controller for settings, scene operations, statistics, Snapshot capture,
 and disposal. The host owns its device, RAF loop, current canvas texture, resize,
-visibility handling, and execution. Playground owns Tweakpane, file pickers, and
-the source viewer; this package has no Playground dependency.
+visibility handling, and execution. Examples owns Tweakpane, file pickers, and
+the source viewer; this package has no Examples dependency.
 
 Open `/playground/?example=particles4all-framegraph`. Orbit, pan, and zoom use
 the canvas controls; Space toggles pause. Pointer forces, pouring, and body
@@ -160,6 +160,6 @@ equivalence.
 Browser acceptance must compare the original and migrated demo with matching
 preset, camera, environment, and effective render resolution. Check all four
 modes, rigid body buoyancy, pouring, pointer interaction, resize, pause/resume,
-environment replacement, and repeated Playground/Inspector switching. Record
+environment replacement, and repeated Examples/Inspector switching. Record
 actual hardware and WebGPU validation errors; do not infer GPU results from the
 fake-device tests.

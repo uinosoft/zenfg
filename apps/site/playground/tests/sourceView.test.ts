@@ -2,9 +2,9 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { Window } from 'happy-dom';
 import { createSourceView, orderedSourceFiles } from '../src/sourceView.ts';
-import type { PlaygroundSourceFile } from '../src/types.ts';
+import type { ExamplesSourceFile } from '../src/types.ts';
 
-function file(id: string, loadSource = async () => `/** Source: ${id} */\nexport {};`): PlaygroundSourceFile {
+function file(id: string, loadSource = async () => `/** Source: ${id} */\nexport {};`): ExamplesSourceFile {
 	return { id, label: `${id}.ts`, path: `apps/site/examples/test/src/${id}.ts`, role: 'example', language: 'typescript', loadSource };
 }
 
@@ -23,7 +23,7 @@ test('failed highlighting preserves exact source and copying', async t => {
 	assert.deepEqual(f.copied, [source]);
 });
 
-function fixture(files: readonly PlaygroundSourceFile[], highlight = async (source: string) => `<pre>${source}</pre>`) {
+function fixture(files: readonly ExamplesSourceFile[], highlight = async (source: string) => `<pre>${source}</pre>`) {
 	const browser = new Window();
 	const document = browser.document as unknown as Document;
 	const list = document.createElement('nav');

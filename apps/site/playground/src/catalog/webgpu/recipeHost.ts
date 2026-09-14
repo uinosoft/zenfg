@@ -1,7 +1,7 @@
 import type { FrameGraphSnapshot } from '@zenfg/snapshot';
 import { FrameGraph, type FrameGraphRecorder } from '@zenfg/webgpu';
 import { createFrameGraphSnapshot } from '@zenfg/webgpu/snapshot';
-import type { PlaygroundMountContext } from '../../types.ts';
+import type { ExamplesMountContext } from '../../types.ts';
 
 export type RecipeCanvasSize = {
 	readonly width: number;
@@ -30,7 +30,7 @@ export type WebGpuRecipeHost = {
 };
 
 export async function createWebGpuRecipeHost(
-	mountContext: PlaygroundMountContext,
+	mountContext: ExamplesMountContext,
 ): Promise<WebGpuRecipeHost | undefined> {
 	const initialized = await initializeWebGpu(mountContext);
 	if (!initialized) return undefined;
@@ -156,7 +156,7 @@ export async function createWebGpuRecipeHost(
 	return host;
 }
 
-async function initializeWebGpu(mountContext: PlaygroundMountContext): Promise<{
+async function initializeWebGpu(mountContext: ExamplesMountContext): Promise<{
 	readonly device: GPUDevice;
 	readonly context: GPUCanvasContext;
 	readonly format: GPUTextureFormat;
@@ -230,7 +230,7 @@ export function presentTexture(
 	texture: GPUTexture,
 	size: RecipeCanvasSize,
 ): void {
-	const encoder = host.device.createCommandEncoder({ label: 'playground-present-texture' });
+	const encoder = host.device.createCommandEncoder({ label: 'examples-present-texture' });
 	encoder.copyTextureToTexture(
 		{ texture },
 		{ texture: host.context.getCurrentTexture() },
@@ -244,7 +244,7 @@ export function presentStorageBuffer(
 	pipeline: GPURenderPipeline,
 	buffer: GPUBuffer,
 ): void {
-	const encoder = host.device.createCommandEncoder({ label: 'playground-present-compute-output' });
+	const encoder = host.device.createCommandEncoder({ label: 'examples-present-compute-output' });
 	const pass = encoder.beginRenderPass({
 		colorAttachments: [{
 			view: host.context.getCurrentTexture().createView(),
@@ -268,7 +268,7 @@ function toError(error: unknown): Error {
 	return error instanceof Error ? error : new Error(String(error));
 }
 
-function notifyError(context: PlaygroundMountContext, error: Error): void {
+function notifyError(context: ExamplesMountContext, error: Error): void {
 	try {
 		context.onError(error);
 	}

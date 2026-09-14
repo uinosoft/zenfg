@@ -1,11 +1,11 @@
-import type { PlaygroundRuntime } from './types.ts';
+import type { ExamplesRuntime } from './types.ts';
 
 /** Lazy Inspector initialization shares the page's runtime cancellation signal. */
 export async function initializeInspectorWorkspace(options: {
     readonly signal: AbortSignal;
     readonly loading: HTMLElement;
-    readonly runtime: Promise<PlaygroundRuntime | undefined>;
-    readonly load: () => Promise<(runtime: PlaygroundRuntime) => void>;
+    readonly runtime: Promise<ExamplesRuntime | undefined>;
+    readonly load: () => Promise<(runtime: ExamplesRuntime) => void>;
 }): Promise<void> {
     const { signal, loading } = options;
     if (signal.aborted) return;

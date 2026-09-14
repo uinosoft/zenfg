@@ -21,7 +21,7 @@ html, body {
 	margin: 0;
 }
 
-.playground {
+.examples {
 	min-height: 100svh;
 }
 
@@ -61,7 +61,7 @@ html, body {
 	grid-template-columns: 238px minmax(0, 1fr);
 }
 
-.playground[data-directory-open=false] .examples-layout {
+.examples[data-directory-open=false] .examples-layout {
 	grid-template-columns: 48px minmax(0, 1fr);
 }
 
@@ -93,12 +93,12 @@ html, body {
 	color: var(--zenfg-secondary);
 }
 
-.playground[data-directory-open=false] .directory-toolbar {
+.examples[data-directory-open=false] .directory-toolbar {
 	justify-content: center;
 	padding-inline: 4px;
 }
 
-.playground[data-directory-open=false] .directory-label {
+.examples[data-directory-open=false] .directory-label {
 	display: none;
 }
 
@@ -242,7 +242,7 @@ html, body {
 	touch-action: none;
 }
 
-.playground[data-effect-state=ready] .effect-stage, .playground[data-has-frame=true] .effect-stage {
+.examples[data-effect-state=ready] .effect-stage, .examples[data-has-frame=true] .effect-stage {
 	opacity: 1;
 }
 
@@ -329,7 +329,7 @@ html, body {
 	scrollbar-width: thin;
 }
 
-.playground-controls {
+.examples-controls {
 	display: flex;
 	flex-direction: column;
 	grid-column: 2;
@@ -346,11 +346,11 @@ html, body {
 }
 
 /* The monitor stays outside the scrolling parameter host. Both panes size naturally. */
-.playground-metrics { flex: none; }
-.playground-metrics:not([hidden]):has(+ .playground-parameters:not([hidden])) {
+.examples-metrics { flex: none; }
+.examples-metrics:not([hidden]):has(+ .examples-parameters:not([hidden])) {
 	border-bottom: 1px solid var(--zenfg-divider);
 }
-.playground-parameters {
+.examples-parameters {
 	min-height: 0;
 	overflow-y: auto;
 	overflow-x: hidden;
@@ -358,7 +358,7 @@ html, body {
 	scrollbar-width: thin;
 }
 
-.playground-controls .tp-rotv {
+.examples-controls .tp-rotv {
 	width: 100%;
 	border-radius: 0;
 	box-shadow: none;
@@ -605,7 +605,7 @@ body:has(.tool-workbench[data-maximized=true]) {
 	.tool-workbench {
 		height: 70svh;
 	}
-	.examples-layout, .playground[data-directory-open=false] .examples-layout {
+	.examples-layout, .examples[data-directory-open=false] .examples-layout {
 		grid-template-columns: minmax(0, 1fr);
 	}
 	.example-sidebar {
@@ -616,12 +616,12 @@ body:has(.tool-workbench[data-maximized=true]) {
 		position: static;
 		max-height: none;
 	}
-	.directory-toolbar, .playground[data-directory-open=false] .directory-toolbar {
+	.directory-toolbar, .examples[data-directory-open=false] .directory-toolbar {
 		justify-content: space-between;
 		min-height: 48px;
 		padding: 4px 12px;
 	}
-	.playground[data-directory-open=false] .directory-label {
+	.examples[data-directory-open=false] .directory-label {
 		display: inline;
 	}
 	.example-sidebar nav {
@@ -640,7 +640,7 @@ body:has(.tool-workbench[data-maximized=true]) {
 	.demo-card {
 		grid-template-columns: minmax(0, 1fr);
 	}
-	.playground-controls {
+	.examples-controls {
 		max-height: 340px;
 		grid-column: 1;
 		grid-row: 3;

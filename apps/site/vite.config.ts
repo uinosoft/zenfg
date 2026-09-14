@@ -4,7 +4,8 @@ import typegpuPlugin from 'unplugin-typegpu/vite';
 import { siteShellPlugin } from './shared/shell/plugin.ts';
 
 export default defineConfig({
-	base: './',
+	base: process.env.SITE_BASE ?? './',
+	server: { proxy: { '/docs/': { target: `http://127.0.0.1:${process.env.DOCS_DEV_PORT ?? '5174'}`, ws: true } } },
 	resolve: {
 		tsconfigPaths: true,
 		alias: {
@@ -29,7 +30,7 @@ export default defineConfig({
 			input: {
 				home: fileURLToPath(new URL('./index.html', import.meta.url)),
 				inspector: fileURLToPath(new URL('./inspector/index.html', import.meta.url)),
-				playground: fileURLToPath(new URL('./playground/index.html', import.meta.url)),
+				examples: fileURLToPath(new URL('./playground/index.html', import.meta.url)),
 			},
 		},
 	},

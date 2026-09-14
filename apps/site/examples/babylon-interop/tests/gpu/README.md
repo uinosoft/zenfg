@@ -42,18 +42,18 @@ Set `GPU_TEST_DPR=2` to repeat the suite at DPR 2; input sensitivity remains bas
 on CSS pixels. Mouse move fixtures use `button: -1`, matching real PointerEvents
 that do not change button state.
 
-## Built Playground acceptance
+## Built Examples acceptance
 
 After `npm run build:pages`, run `npm run preview:pages` and use:
 
 ```powershell
-$env:PLAYGROUND_URL = 'http://127.0.0.1:4173/playground/'
-node apps/site/examples/babylon-interop/tests/gpu/playground.mjs
+$env:EXAMPLES_URL = 'http://127.0.0.1:4173/playground/'
+node apps/site/examples/babylon-interop/tests/gpu/examples.mjs
 ```
 
 This uses the same Playwright/browser environment variables. It exercises the
 visible Reverse Z checkbox, source files, Inspector, desktop/mobile layouts
-and repeated example selection, saving screenshots and `playground-result.json`.
+and repeated example selection, saving screenshots and `examples-result.json`.
 It rejects runtime errors and remote requests. The preview's implicit root
 favicon request is answered with 204 by the test because it is not an example
 resource. The hardware suite separately checks the actual first presented

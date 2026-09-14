@@ -1,10 +1,10 @@
 # zenfg-snapshot
 
-[![crates.io](https://img.shields.io/crates/v/zenfg-snapshot?include_prereleases)](https://crates.io/crates/zenfg-snapshot)
-[![docs.rs](https://img.shields.io/docsrs/zenfg-snapshot)](https://docs.rs/zenfg-snapshot)
-[![status: beta](https://img.shields.io/badge/status-beta-orange.svg)](https://github.com/uinosoft/zenfg/blob/main/CHANGELOG.md)
-[![CI](https://github.com/uinosoft/zenfg/actions/workflows/ci.yml/badge.svg)](https://github.com/uinosoft/zenfg/actions/workflows/ci.yml)
-[![license: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/uinosoft/zenfg/blob/main/LICENSE)
+<!-- generated:badges:start -->
+[![zenfg-snapshot published version](https://img.shields.io/crates/v/zenfg-snapshot?include_prereleases)](https://crates.io/crates/zenfg-snapshot)
+[![docs.rs](https://img.shields.io/docsrs/zenfg-snapshot/0.1.0-beta.3)](https://docs.rs/zenfg-snapshot/0.1.0-beta.3/)
+[![MIT license](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/uinosoft/zenfg/blob/cargo/zenfg-snapshot/v0.1.0-beta.3/LICENSE)
+<!-- generated:badges:end -->
 
 `zenfg-snapshot` provides portable, wgpu-independent Snapshot 1.1 wire types,
 JSON codec, validation, and legacy migration. It is the Rust counterpart of the
@@ -17,11 +17,18 @@ independent from this crate's beta API version.
 
 ## Installation
 
+<!-- generated:installation:start -->
 ```sh
-cargo add zenfg-snapshot@0.1.0-beta.3
+cargo add zenfg-snapshot@=0.1.0-beta.3
 ```
+<!-- generated:installation:end -->
 
 ## Quick start
+
+Use a Cargo application and add `serde_json` for the JSON value conversions in
+this example. Put the code in `fn main() -> Result<(), Box<dyn std::error::Error>>`
+and finish with `Ok(())`. Run `cargo run`; all assertions pass without a GPU.
+Lines prefixed with `#` are rustdoc test scaffolding, not lines to paste.
 
 Parse untrusted JSON text to validate and normalize a canonical Snapshot:
 
@@ -102,7 +109,7 @@ The crate exports `FrameGraphSnapshotV1` and all wire types with `Serialize` and
 
 The normative Schema, specification, fixtures, and conformance manifest are
 published by `@zenfg/snapshot`. See the
-[Snapshot 1.1 specification](https://github.com/uinosoft/zenfg/blob/main/packages/snapshot/SPEC.md)
+[Snapshot 1.1 specification](https://github.com/uinosoft/zenfg/blob/cargo/zenfg-snapshot/v0.1.0-beta.3/packages/snapshot/SPEC.md)
 for the complete structural and cross-field contract.
 
 ## Common mistakes
@@ -118,14 +125,28 @@ for the complete structural and cross-field contract.
 ## Complete example
 
 The crate ships a compile-checked
-[`examples/basic.rs`](https://github.com/uinosoft/zenfg/blob/main/crates/zenfg-snapshot/examples/basic.rs)
+[`examples/basic.rs`](https://github.com/uinosoft/zenfg/blob/cargo/zenfg-snapshot/v0.1.0-beta.3/crates/zenfg-snapshot/examples/basic.rs)
 workflow. Cross-language fixtures and producer projections live in the
 normative `@zenfg/snapshot` conformance corpus.
 
 ## Further reading
 
-- [Snapshot 1.1 specification](https://github.com/uinosoft/zenfg/blob/main/packages/snapshot/SPEC.md)
-- [ZenFG Core concepts](https://github.com/uinosoft/zenfg/blob/main/docs/core-concepts.md)
-- [`@zenfg/snapshot`](https://github.com/uinosoft/zenfg/blob/main/packages/snapshot/README.md)
-- [`zenfg`](https://github.com/uinosoft/zenfg/blob/main/crates/zenfg/README.md)
-- [Compatibility](https://github.com/uinosoft/zenfg/blob/main/docs/compatibility.md)
+- [Snapshot 1.1 specification](https://github.com/uinosoft/zenfg/blob/cargo/zenfg-snapshot/v0.1.0-beta.3/packages/snapshot/SPEC.md)
+- [ZenFG Core concepts](https://github.com/uinosoft/zenfg/blob/cargo/zenfg-snapshot/v0.1.0-beta.3/docs/core-concepts.md)
+- [`@zenfg/snapshot`](https://github.com/uinosoft/zenfg/blob/cargo/zenfg-snapshot/v0.1.0-beta.3/packages/snapshot/README.md)
+- [`zenfg`](https://github.com/uinosoft/zenfg/blob/cargo/zenfg-snapshot/v0.1.0-beta.3/crates/zenfg/README.md)
+- [Compatibility](https://github.com/uinosoft/zenfg/blob/cargo/zenfg-snapshot/v0.1.0-beta.3/docs/compatibility.md)
+
+## Documentation and versions
+
+<!-- generated:documentation:start -->
+This README describes **zenfg-snapshot 0.1.0-beta.3**. Registry badges show the current published channel, not your installed version.
+
+- Exact installed APIs: read the included `src/`, or run `cargo doc --open` in your consuming project.
+- [Online guide (development branch)](https://uinosoft.github.io/zenfg/docs/packages/zenfg-snapshot.html). The site may describe changes newer than this package.
+- [Rust API for this version](https://docs.rs/zenfg-snapshot/0.1.0-beta.3/).
+- [Source and documentation for this release](https://github.com/uinosoft/zenfg/tree/cargo/zenfg-snapshot/v0.1.0-beta.3/crates/zenfg-snapshot).
+- [Shared concepts for this release](https://github.com/uinosoft/zenfg/blob/cargo/zenfg-snapshot/v0.1.0-beta.3/docs/core-concepts.md) and [compatibility](https://github.com/uinosoft/zenfg/blob/cargo/zenfg-snapshot/v0.1.0-beta.3/docs/compatibility.md).
+- [Plain Markdown documentation index (development branch)](https://uinosoft.github.io/zenfg/docs/llms.txt).
+- Complete Cargo recipes are included in `examples/`.
+<!-- generated:documentation:end -->

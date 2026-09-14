@@ -1,4 +1,4 @@
-import type { PlaygroundText } from './types.ts';
+import type { ExamplesText } from './types.ts';
 
 function safeLink(href: string): boolean {
 	try { return ['https:', 'http:'].includes(new URL(href).protocol); }
@@ -6,7 +6,7 @@ function safeLink(href: string): boolean {
 }
 
 /** Render a small inline vocabulary without interpreting HTML from example metadata. */
-export function renderExampleText(host: HTMLElement, value: PlaygroundText): void {
+export function renderExampleText(host: HTMLElement, value: ExamplesText): void {
 	const document = host.ownerDocument;
 	host.replaceChildren();
 	for (const part of typeof value === 'string' ? [value] : value) {

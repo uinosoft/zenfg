@@ -6,7 +6,7 @@ import { pathToFileURL } from 'node:url';
 const root = resolve(import.meta.dirname, '../../../../../');
 const output = resolve(root, '.test-dist/examples-layout');
 await mkdir(output, { recursive: true });
-const base = process.env.PLAYGROUND_URL ?? 'http://127.0.0.1:4173/playground/';
+const base = process.env.EXAMPLES_URL ?? 'http://127.0.0.1:4173/playground/';
 const { chromium } = await import(process.env.PLAYWRIGHT_MODULE ? pathToFileURL(resolve(process.env.PLAYWRIGHT_MODULE)).href : 'playwright');
 const browser = await chromium.launch({
     ...(process.env.GPU_TEST_BROWSER ? { executablePath: process.env.GPU_TEST_BROWSER } : process.platform === 'win32' ? { channel: 'msedge' } : {}),
@@ -20,8 +20,8 @@ const report = { layouts: [], interactions: [], errors };
 try {
     await page.goto(base + '?example=reference-renderer&panel=none');
     assert.equal(await page.locator('.site-header .site-brand').innerText(), 'ZenFG');
-    assert.equal(await page.locator('.site-page-links [aria-current=page]').innerText(), 'Playground');
-    await page.waitForFunction(() => document.querySelector('[data-playground]').dataset.effectState === 'ready');
+    assert.equal(await page.locator('.site-page-links [aria-current=page]').innerText(), 'Examples');
+    await page.waitForFunction(() => document.querySelector('[data-examples]').dataset.effectState === 'ready');
     await page.locator('.zenfg-inspector-graph-canvas canvas').first().waitFor();
     await page.locator('.zenfg-inspector-graph-status').waitFor({ state: 'hidden' });
     assert.equal(await page.locator('[data-panel-button=inspector]').getAttribute('aria-selected'), 'true');
@@ -161,7 +161,7 @@ try {
     await page.keyboard.press('ArrowRight');
     assert.equal(await page.locator('[data-panel-button=code]').getAttribute('aria-selected'), 'true');
     assert.equal(await page.locator('[data-overlay-close]').count(), 0);
-    assert.equal(await page.locator('[data-playground]').getAttribute('data-panel'), 'code');
+    assert.equal(await page.locator('[data-examples]').getAttribute('data-panel'), 'code');
     await page.locator('[data-panel-button=inspector]').click();
     if (await page.locator('html').getAttribute('data-theme') !== 'light') await page.locator('[data-theme-toggle]').click();
     await page.reload();
@@ -193,7 +193,7 @@ try {
     const noGpu = await context.newPage();
     await noGpu.addInitScript(() => Object.defineProperty(navigator, 'gpu', { value: undefined }));
     await noGpu.goto(base + '?example=minimal-frame');
-    await noGpu.waitForFunction(() => document.querySelector('[data-playground]').dataset.effectState === 'error');
+    await noGpu.waitForFunction(() => document.querySelector('[data-examples]').dataset.effectState === 'error');
     assert.equal(await noGpu.locator('[data-effect-status-text]').textContent(), 'Error');
     assert.equal(await noGpu.locator('[data-status-preview]').isVisible(), true);
     await noGpu.locator('.runtime-status summary').click();

@@ -1,9 +1,10 @@
 # @zenfg/snapshot
 
-[![npm](https://img.shields.io/npm/v/%40zenfg%2Fsnapshot?include_prereleases&label=npm)](https://www.npmjs.com/package/@zenfg/snapshot)
-[![status: beta](https://img.shields.io/badge/status-beta-orange.svg)](https://github.com/uinosoft/zenfg/blob/main/CHANGELOG.md)
-[![CI](https://github.com/uinosoft/zenfg/actions/workflows/ci.yml/badge.svg)](https://github.com/uinosoft/zenfg/actions/workflows/ci.yml)
-[![license: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/uinosoft/zenfg/blob/main/LICENSE)
+<!-- generated:badges:start -->
+[![@zenfg/snapshot published next version](https://img.shields.io/npm/v/%40zenfg%2Fsnapshot/next?label=npm)](https://www.npmjs.com/package/@zenfg/snapshot)
+[![API Docs (development)](https://img.shields.io/badge/API_docs-development-blue)](https://uinosoft.github.io/zenfg/docs/api/snapshot/)
+[![MIT license](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/uinosoft/zenfg/blob/npm/snapshot/v0.1.0-beta.3/LICENSE)
+<!-- generated:badges:end -->
 
 `@zenfg/snapshot` owns the portable, versioned diagnostic contract used to move
 one compiled FrameGraph frame between producers and viewers. It provides the
@@ -16,11 +17,17 @@ independent from this package's beta API version.
 
 ## Installation
 
+<!-- generated:installation:start -->
 ```sh
 npm install @zenfg/snapshot@0.1.0-beta.3
 ```
+<!-- generated:installation:end -->
 
 ## Quick start
+
+Use an ESM TypeScript project targeting ES2022 or later. This package works without
+DOM or GPU objects. Call `normalizeSnapshot(jsonText)` with captured Snapshot JSON;
+a valid input returns formatted canonical JSON, and an invalid input reports its issues.
 
 Use `parseFrameGraphSnapshot()` for untrusted JSON text. Supported legacy
 formats are migrated to a detached canonical Snapshot 1.1 value:
@@ -115,7 +122,21 @@ JavaScript safe integers.
 ## Further reading
 
 - [Snapshot 1.1 specification](./SPEC.md)
-- [ZenFG Core concepts](https://github.com/uinosoft/zenfg/blob/main/docs/core-concepts.md)
-- [`@zenfg/webgpu` Snapshot producer](https://github.com/uinosoft/zenfg/blob/main/packages/webgpu/README.md#diagnostics-and-snapshot)
-- [`zenfg-snapshot`](https://github.com/uinosoft/zenfg/blob/main/crates/zenfg-snapshot/README.md)
-- [`@zenfg/inspector`](https://github.com/uinosoft/zenfg/blob/main/packages/inspector/README.md)
+- [ZenFG Core concepts](https://github.com/uinosoft/zenfg/blob/npm/snapshot/v0.1.0-beta.3/docs/core-concepts.md)
+- [`@zenfg/webgpu` Snapshot producer](https://github.com/uinosoft/zenfg/blob/npm/snapshot/v0.1.0-beta.3/packages/webgpu/README.md#diagnostics-and-snapshot)
+- [`zenfg-snapshot`](https://github.com/uinosoft/zenfg/blob/npm/snapshot/v0.1.0-beta.3/crates/zenfg-snapshot/README.md)
+- [`@zenfg/inspector`](https://github.com/uinosoft/zenfg/blob/npm/snapshot/v0.1.0-beta.3/packages/inspector/README.md)
+
+## Documentation and versions
+
+<!-- generated:documentation:start -->
+This README describes **@zenfg/snapshot 0.1.0-beta.3**. Registry badges show the current published channel, not your installed version.
+
+- Exact installed APIs: follow `package.json` → `exports` → `dist/*.d.ts`; declaration maps point to the included `src/`. Only declared export paths are public.
+- [Online guide (development branch)](https://uinosoft.github.io/zenfg/docs/packages/snapshot.html). The site may describe changes newer than this package.
+- [TypeScript API (development branch)](https://uinosoft.github.io/zenfg/docs/api/snapshot/).
+- [Source and documentation for this release](https://github.com/uinosoft/zenfg/tree/npm/snapshot/v0.1.0-beta.3/packages/snapshot).
+- [Shared concepts for this release](https://github.com/uinosoft/zenfg/blob/npm/snapshot/v0.1.0-beta.3/docs/core-concepts.md) and [compatibility](https://github.com/uinosoft/zenfg/blob/npm/snapshot/v0.1.0-beta.3/docs/compatibility.md).
+- [Plain Markdown documentation index (development branch)](https://uinosoft.github.io/zenfg/docs/llms.txt).
+- Local wire contract: [SPEC.md](./SPEC.md), `schema/`, `fixtures/` and `conformance/`.
+<!-- generated:documentation:end -->

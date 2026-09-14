@@ -43,14 +43,14 @@ The source `GPUExternalTexture` remains outside graph tracking and must remain
 valid through synchronous submission. The host closes temporary `VideoFrame`
 objects afterward. Workload `dispose()` leaves the caller-owned device alive.
 
-## Browser host and Playground
+## Browser host and Examples
 
 `startMonocularLightInjection(canvas, options)` owns the browser device, canvas,
 FrameGraph execution, sources, downloads, cache, light input, and Snapshot capture.
 It returns a controller after GPU setup; model/image loading continues with state
 notifications. Failures remain retryable. An optional abort signal releases
-resources and invalidates late results. Playground owns Tweakpane and the file
-picker; this package has no Playground or Tweakpane dependency.
+resources and invalidates late results. Examples owns Tweakpane and the file
+picker; this package has no Examples or Tweakpane dependency.
 
 Open `/playground/?example=typegpu-monocular-light-injection`.
 
@@ -84,6 +84,6 @@ npm run docs:check
 
 Tests cover graph content/roots, frame settlement, replacement and disposal,
 submission/capture, async source races, camera replacement, cache fallback, and
-Playground retry/cleanup. See [VALIDATION.md](./VALIDATION.md) for browser observations.
+Examples retry/cleanup. See [VALIDATION.md](./VALIDATION.md) for browser observations.
 
 See [Choosing resource declaration granularity](../../../../docs/core-concepts.md#choosing-resource-declaration-granularity) for this optional integration choice.

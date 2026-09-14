@@ -147,7 +147,7 @@ try {
 	assert.ok(page.url().includes('example=refractive-flow&panel=inspector'));
 	await page.waitForFunction(() => document.querySelector('[data-effect-canvas]')?.dataset.frameGraphPasses === '8');
 	await page.locator('.zenfg-inspector-graph-canvas canvas').first().waitFor();
-	await page.screenshot({ path: resolve(out, 'playground-refractive-flow.png'), fullPage: true });
+	await page.screenshot({ path: resolve(out, 'examples-refractive-flow.png'), fullPage: true });
 	await page.goto(new URL('playground/?example=interactive-background&panel=inspector', base).href);
 	await page.waitForFunction(() => document.querySelector('[data-effect-canvas]')?.dataset.frameGraphPasses === '5');
 	await page.locator('.zenfg-inspector-graph-canvas canvas').first().waitFor();

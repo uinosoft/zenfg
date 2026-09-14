@@ -16,7 +16,7 @@ import { minimalFrameExample } from './webgpu/minimalFrame.ts';
 import { persistentStateExample } from './webgpu/persistentState.ts';
 import { snapshotExportExample } from './webgpu/snapshotExport.ts';
 import { transientToPresentExample } from './webgpu/transientToPresent.ts';
-import type { PlaygroundExampleDefinition } from '../types.ts';
+import type { ExamplesExampleDefinition } from '../types.ts';
 
 export const publicExamples = [
 	referenceRendererExample,
@@ -36,7 +36,7 @@ export const publicExamples = [
 	snapshotExportExample,
 	gpuTimingExample,
 	computeOutputExample,
-] as const satisfies readonly PlaygroundExampleDefinition[];
+] as const satisfies readonly ExamplesExampleDefinition[];
 
 for (const example of publicExamples) {
 	orderedSourceFiles(example);
@@ -45,6 +45,6 @@ for (const example of publicExamples) {
 	}
 }
 
-export function findPublicExample(id: string): PlaygroundExampleDefinition | undefined {
+export function findPublicExample(id: string): ExamplesExampleDefinition | undefined {
 	return publicExamples.find((example) => example.id === id);
 }

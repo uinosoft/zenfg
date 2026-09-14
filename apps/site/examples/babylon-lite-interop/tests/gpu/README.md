@@ -24,10 +24,10 @@ Results, PNGs, pixel comparisons, logs and snapshots are written under
 After `npm run build:pages`, run `npm run preview:pages` and use:
 
 ```sh
-node apps/site/examples/babylon-lite-interop/tests/gpu/playground.mjs
+node apps/site/examples/babylon-lite-interop/tests/gpu/examples.mjs
 ```
 
-`PLAYGROUND_URL` defaults to `http://127.0.0.1:4173/playground/`. This checks actual
+`EXAMPLES_URL` defaults to `http://127.0.0.1:4173/playground/`. This checks actual
 mouse input and pointer capture, depth description without settings, source tabs,
 Inspector JSON export, mobile layout and switching between all three interop
 examples and the Reference Renderer. It rejects remote asset requests and browser

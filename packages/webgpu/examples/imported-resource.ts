@@ -3,7 +3,7 @@
  * Demonstrates: Caller-owned buffers and explicit resource access.
  * Flow: Import initialized native resources, record their consumers and submit the frame.
  * The caller owns the device and native inputs; ZenFG owns graph execution.
- * Read next: README.md for inputs and related recipes. The Playground adapter
+ * Read next: README.md for inputs and related recipes. The Examples adapter
  * and recipeHost.ts provide browser setup and snapshot capture.
  */
 import { BufferAccess, FrameGraph, type FrameGraphRecording } from '@zenfg/webgpu';

@@ -1,49 +1,42 @@
-# ZenFG documentation
+# Getting started with ZenFG
 
-ZenFG documentation is organized by responsibility. Package READMEs are the
-installed quick references for their own public APIs; this directory owns the
-shared model, compatibility, and maintainer-facing guides.
+Choose a path for your application. ZenFG coordinates graph-visible GPU work;
+your application owns the device, rendering policy, and presentation.
 
-## Start by goal
+| Goal | Start here | What you will get |
+| --- | --- | --- |
+| Integrate TypeScript and WebGPU | [WebGPU quick start](../packages/webgpu/README.md#quick-start) | A clear-only presentation frame |
+| Integrate Rust and wgpu | [Rust quick start](../crates/zenfg/README.md#quick-start) | A CPU-only compiled graph, followed by device-backed recipes |
+| Read or produce Snapshot data | [TypeScript Snapshot](../packages/snapshot/README.md) or [Rust Snapshot](../crates/zenfg-snapshot/README.md) | Validated, canonical portable diagnostics |
+| Embed a visual debugger | [Inspector quick start](../packages/inspector/README.md#quick-start) | A browser workbench for your captures |
 
-| Goal | Start here |
-| --- | --- |
-| Understand what ZenFG owns and how a frame is modeled | [Core concepts](core-concepts.md) |
-| Build with TypeScript and WebGPU | [`@zenfg/webgpu` README](../packages/webgpu/README.md) |
-| Build with Rust and wgpu | [`zenfg` README](../crates/zenfg/README.md) |
-| Produce, validate, or migrate Snapshot data | [`@zenfg/snapshot` README](../packages/snapshot/README.md) or [`zenfg-snapshot` README](../crates/zenfg-snapshot/README.md) |
-| Embed or open the Inspector | [`@zenfg/inspector` README](../packages/inspector/README.md) or the [hosted Inspector](https://uinosoft.github.io/zenfg/inspector/) |
-| Explore live WebGPU showcases and package recipes, their source, and captures | [Hosted Playground](https://uinosoft.github.io/zenfg/playground/?example=interactive-background&panel=inspector) |
-| Check supported versions and toolchains | [Compatibility](compatibility.md) |
-| Contribute or publish a release | [Contributing](../CONTRIBUTING.md) and [release process](release-process.md) |
+## Before you start
 
-## Sources of truth
+Read [Compatibility](compatibility.md) for package and toolchain requirements.
+Browser FrameGraph execution needs native WebGPU on HTTPS or localhost. Snapshot
+processing and the Inspector do not require a GPU. Pin exact beta package
+versions and check that your producer and consumer agree on the Snapshot wire version.
 
-| Information | Canonical source |
-| --- | --- |
-| Package installation, common tasks, and first-use pitfalls | The package or crate README shipped with that artifact |
-| Complete supported workflows | The TypeScript and Cargo examples shipped with the runtime packages |
-| Exact signatures, fields, defaults, and errors | Public TSDoc in packaged declarations/source and rustdoc on docs.rs |
-| Ownership, content, dependency, lifetime, and integration semantics | [Core concepts](core-concepts.md) |
-| Snapshot wire structure and cross-field rules | [`@zenfg/snapshot` specification](../packages/snapshot/SPEC.md) |
-| Supported package, wire, and toolchain versions | [Compatibility](compatibility.md) |
-| Release verification and history | [Release validation](release-validation.md) and the [changelog](../CHANGELOG.md) |
+## Continue by task
 
-Additional maintainer documents cover the
-[release process](release-process.md), the current
-[release checklist](release-checklist-0.1.0-beta.3.md), and Snapshot or runtime
-conformance procedures referenced by those guides.
+- Understand [Core concepts](core-concepts.md): recording, content validity, dependencies, retention, and resource lifetimes.
+- Follow the [complete TypeScript recipes](../packages/webgpu/examples/README.md) for transient resources, imported storage, persistent state, external submissions, snapshots, and GPU timing.
+- Use the [Inspector workbench guide](../packages/inspector/GUIDE.md) and [theme guide](../packages/inspector/THEMING.md).
+- Read the [Snapshot specification](../packages/snapshot/SPEC.md) for the portable wire contract.
+- Explore the [Examples](https://uinosoft.github.io/zenfg/playground/) or open the [standalone Inspector](https://uinosoft.github.io/zenfg/inspector/).
 
-## Documentation policy
+## API reference
 
-The repository root README is maintained in English and Simplified Chinese.
-Technical documents, package READMEs, API documentation, and examples are
-maintained in English so semantic changes have one normative explanation.
+[TypeScript API](https://uinosoft.github.io/zenfg/docs/api/) is generated from
+public source comments. For an installed version, follow its package manifest's
+`exports` to the included declarations and source. Rust API reference is on
+docs.rs; each crate README links its exact version.
 
-Application-like showcases, cross-package workflows, and third-party
-integrations live as private source modules under `apps/site/examples/`. Focused
-public API recipes live with and ship in their owning package. The hosted Playground owns
-presentation, exact-source display, and Inspector integration through
-application-local catalog adapters; example implementations do not import the
-Playground. See [`apps/site/examples/README.md`](../apps/site/examples/README.md) for the ownership
-boundary.
+## Versions and contributing
+
+The website follows the development branch. Installed READMEs, packaged examples,
+and per-package release tags preserve documentation for published versions.
+See [migration guidance](migration-0.1.0-beta.3.md) and the [changelog](../CHANGELOG.md).
+
+For repository work, read [Contributing](../CONTRIBUTING.md), the
+[documentation workflow](documentation.md), and the [release process](release-process.md).

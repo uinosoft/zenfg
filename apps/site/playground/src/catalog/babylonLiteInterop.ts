@@ -1,6 +1,6 @@
-import type { PlaygroundExampleDefinition } from '../types.ts';
+import type { ExamplesExampleDefinition } from '../types.ts';
 
-export const babylonLiteInteropExample: PlaygroundExampleDefinition = {
+export const babylonLiteInteropExample: ExamplesExampleDefinition = {
     id: 'babylon-lite-interop',
     title: 'Babylon Lite Co-rendering',
     group: 'Showcases',

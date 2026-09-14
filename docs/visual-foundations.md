@@ -2,7 +2,7 @@
 
 
 These shared design foundations define the production Home, Inspector, and
-Playground appearance. Validate visual changes on those pages.
+Examples appearance. Validate visual changes on those pages.
 
 ## Direction
 
@@ -38,7 +38,7 @@ Inspector preserves its compact component scale.
 | Site body | 14px / 1.5 | 400 |
 | Header navigation and shell controls | 13px / 1.4 | 600 navigation; 400 tools |
 | Captions, directory entries and metadata | 12px / 1.5 (compact controls 1.4) | 400; 600 section labels |
-| Playground page title | 28px / 1.3 at all widths; wraps when needed | 600 |
+| Examples page title | 28px / 1.3 at all widths; wraps when needed | 600 |
 | Inspector / parameter controls | 13px; Inspector secondary text 12px | Component-owned |
 | Code | 14px desktop, 13px up to 800px / 1.7 | Syntax-owned |
 | Home display title | Continuous `clamp(66px, 32px + 8.2vw, 150px)` / 1 | 700 |
@@ -88,7 +88,7 @@ import { applyVisualTheme } from '../shared/theme/index.ts';
 applyVisualTheme(ownedContainer, 'dark');
 ```
 
-The Playground CSS, Tweakpane adapter, and Shiki theme registrations consume
+The Examples CSS, Tweakpane adapter, and Shiki theme registrations consume
 these definitions. Both code themes are generated together, so switching the
 container theme preserves source markup and scroll position.
 
@@ -108,5 +108,5 @@ npm run build:site
 
 Node tests cover shared theme isolation, palette contrast, preference handling,
 and page lifecycle behavior. Review the production Home, Inspector, and
-Playground in both themes for layout, focus, code readability, and responsive
+Examples in both themes for layout, focus, code readability, and responsive
 behavior using the [Site validation guidance](../apps/site/README.md#shared-site-shell).

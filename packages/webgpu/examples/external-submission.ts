@@ -3,7 +3,7 @@
  * Demonstrates: An external renderer submission alongside native graph work.
  * Flow: Declare external resource access, enqueue external work and execute native consumers.
  * The caller owns the device and native inputs; ZenFG owns graph execution.
- * Read next: README.md for inputs and related recipes. The Playground adapter
+ * Read next: README.md for inputs and related recipes. The Examples adapter
  * and recipeHost.ts provide browser setup and snapshot capture.
  */
 import { FrameGraph, TextureAccess, type FrameGraphRecording } from '@zenfg/webgpu';

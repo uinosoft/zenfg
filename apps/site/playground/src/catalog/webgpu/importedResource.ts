@@ -1,9 +1,9 @@
-import type { PlaygroundExampleDefinition } from '../../types.ts';
+import type { ExamplesExampleDefinition } from '../../types.ts';
 import { recipeHostSourceFile, recipeShaderSourceFile } from './sources.ts';
 
 const uniformSize = 16;
 
-export const importedResourceExample: PlaygroundExampleDefinition = {
+export const importedResourceExample: ExamplesExampleDefinition = {
 	id: 'imported-resource',
 	title: 'Imported Resource',
 	group: '@zenfg/webgpu basics',
@@ -42,7 +42,7 @@ export const importedResourceExample: PlaygroundExampleDefinition = {
 		if (!host) return undefined;
 		const pipeline = createRenderPipeline(host.device, host.format, shaders.importedUniformShader, 'fragmentMain');
 		const uniformBuffer = host.own(host.device.createBuffer({
-			label: 'playground-imported-uniform',
+			label: 'examples-imported-uniform',
 			size: uniformSize,
 			usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
 		}));

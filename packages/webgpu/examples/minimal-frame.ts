@@ -3,7 +3,7 @@
  * Demonstrates: A clear-only frame and a presentation root.
  * Flow: Import the canvas texture, declare a clear pass, mark present, compile and execute.
  * The caller owns the device and native inputs; ZenFG owns graph execution.
- * Read next: README.md for inputs and related recipes. The Playground adapter
+ * Read next: README.md for inputs and related recipes. The Examples adapter
  * and recipeHost.ts provide browser setup and snapshot capture.
  */
 import { FrameGraph, type FrameGraphRecording } from '@zenfg/webgpu';

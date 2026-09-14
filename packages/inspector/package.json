@@ -23,7 +23,8 @@
     "src",
     "README.md",
     "LICENSE",
-    "THEMING.md"
+    "THEMING.md",
+    "GUIDE.md"
   ],
   "dependencies": {
     "@zenfg/snapshot": "0.1.0-beta.3",
@@ -48,7 +49,7 @@
     "url": "git+https://github.com/uinosoft/zenfg.git",
     "directory": "packages/inspector"
   },
-  "homepage": "https://github.com/uinosoft/zenfg/tree/main/packages/inspector",
+  "homepage": "https://uinosoft.github.io/zenfg/docs/packages/inspector.html",
   "bugs": {
     "url": "https://github.com/uinosoft/zenfg/issues"
   },

@@ -21,7 +21,7 @@ Diagnostics, and Render are directly visible, alongside their shared persistent
 state. The enclosing-group measurements above remain historical comparison data.
 
 Evidence: the user-provided `frame-graph-5.fgsnapshot.json`, frame 5 captured at
-`2026-09-08T02:31:57.765Z`, the running Playground Inspector, the workload,
+`2026-09-08T02:31:57.765Z`, the running Examples Inspector, the workload,
 compiler, Inspector projection, and [resource declaration guidance](core-concepts.md#choosing-resource-declaration-granularity).
 
 ## Assessment

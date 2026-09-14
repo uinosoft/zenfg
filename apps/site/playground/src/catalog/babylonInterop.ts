@@ -1,4 +1,4 @@
-import type { PlaygroundExampleDefinition } from '../types.ts';
+import type { ExamplesExampleDefinition } from '../types.ts';
 
 type Control = {
     disabled: boolean;
@@ -10,7 +10,7 @@ type ControlPane = {
     dispose(): void;
 };
 
-export const babylonInteropExample: PlaygroundExampleDefinition = {
+export const babylonInteropExample: ExamplesExampleDefinition = {
     id: 'babylon-interop',
     title: 'Babylon.js Co-rendering',
     group: 'Showcases',

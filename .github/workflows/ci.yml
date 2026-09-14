@@ -17,6 +17,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7.0.1
+        with:
+          fetch-depth: 0
       - uses: actions/setup-node@v7.0.0
         with:
           node-version: 24
@@ -26,8 +28,11 @@ jobs:
       - run: npm ci
       - run: npm run typecheck
       - run: npm run docs:check
+      - run: npm run docs:test
       - run: npm test
       - run: npm run build
+      - run: npx playwright install --with-deps chromium
+      - run: npm run docs:test:browser
       - run: npm run pack:check
       - if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
         uses: actions/upload-pages-artifact@v4
@@ -38,11 +43,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7.0.1
+        with:
+          fetch-depth: 0
       - uses: actions/setup-node@v7.0.0
         with:
           node-version: 24
       - run: npm install --global npm@11.11.0
       - run: npm --version
+      - run: npm ci
       - run: rustup toolchain install 1.98.0 --profile minimal --component rustfmt --component clippy
       - run: rustup default 1.98.0
       - run: cargo fmt --all --check
@@ -62,6 +70,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7.0.1
+        with:
+          fetch-depth: 0
       - uses: actions/setup-node@v7.0.0
         with:
           node-version: 24

@@ -20,11 +20,11 @@ export function siteShellPlugin(): Plugin {
 		transformIndexHtml: {
 			order: 'pre',
 			handler(html) {
-				const match = html.match(/<!-- site-header:(home|inspector|playground) -->/);
+				const match = html.match(/<!-- site-header:(home|inspector|examples) -->/);
 				if (!match) return html;
 				return html.replace(match[0], renderSiteHeader(match[1] as SitePage))
 					.replace('<!-- site-theme -->', renderThemeBootstrap())
-					.replace(/<!-- site-footer:(home|playground) -->/, (_, page: 'home' | 'playground') => renderSiteFooter(page));
+					.replace(/<!-- site-footer:(home|examples) -->/, (_, page: 'home' | 'examples') => renderSiteFooter(page));
 			},
 		},
 	};

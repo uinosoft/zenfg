@@ -1,13 +1,13 @@
 import { createIcon } from './icons.ts';
-import type { PlaygroundExampleDefinition, PlaygroundPanel } from './types.ts';
+import type { ExamplesExampleDefinition, ExamplesPanel } from './types.ts';
 import { routeSearch } from './routing.ts';
 
 export function createExampleDirectory(options: {
 	host: HTMLElement;
-	examples: readonly Pick<PlaygroundExampleDefinition, 'id' | 'title' | 'group'>[];
+	examples: readonly Pick<ExamplesExampleDefinition, 'id' | 'title' | 'group'>[];
 	selectedId?: string;
-	panel: PlaygroundPanel;
-}): { setPanel: (panel: PlaygroundPanel) => void; destroy: () => void } {
+	panel: ExamplesPanel;
+}): { setPanel: (panel: ExamplesPanel) => void; destroy: () => void } {
 	const { host, examples } = options;
 	const document = host.ownerDocument;
 	host.replaceChildren();
@@ -73,7 +73,7 @@ export function createExampleDirectory(options: {
 	};
 	search.addEventListener('input', filter);
 	search.addEventListener('keydown', keydown);
-	function setPanel(panel: PlaygroundPanel): void {
+	function setPanel(panel: ExamplesPanel): void {
 		for (const [exampleId, link] of links) link.href = routeSearch({ exampleId, panel });
 	}
 	setPanel(options.panel);

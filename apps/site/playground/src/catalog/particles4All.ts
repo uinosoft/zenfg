@@ -1,5 +1,5 @@
 import type { Particles4AllController, Particles4AllPreset, Particles4AllSettings } from '../../../examples/particles4all-framegraph/src/index.ts';
-import type { PlaygroundExampleDefinition, PlaygroundSourceFile } from '../types.ts';
+import type { ExamplesExampleDefinition, ExamplesSourceFile } from '../types.ts';
 
 type Control = { on(event: 'change' | 'click', callback: () => void): Control };
 type ControlPane = {
@@ -20,7 +20,7 @@ const sources = {
     'upstream/ssfr_composite_wgsl.js': () => import('../../../examples/particles4all-framegraph/src/upstream/ssfr_composite_wgsl.js?raw'),
     'host.ts': () => import('../../../examples/particles4all-framegraph/src/host.ts?raw'),
 };
-const sourceFiles: PlaygroundSourceFile[] = Object.entries(sources).map(([name, load]) => ({
+const sourceFiles: ExamplesSourceFile[] = Object.entries(sources).map(([name, load]) => ({
     id: `particles4all-${name}`, label: name,
     path: `apps/site/examples/particles4all-framegraph/src/${name}`,
     role: name.endsWith('.js') ? 'shader' : name === 'host.ts' ? 'host' : 'example',
@@ -28,7 +28,7 @@ const sourceFiles: PlaygroundSourceFile[] = Object.entries(sources).map(([name, 
     loadSource: async () => (await load()).default,
 }));
 
-export const particles4AllExample: PlaygroundExampleDefinition = {
+export const particles4AllExample: ExamplesExampleDefinition = {
     id: 'particles4all-framegraph', title: 'Particles4All · Fluid Simulation', group: 'Showcases',
     tags: ['webgpu', 'fluid-simulation', 'rigid-body'],
     readyState: 'live',

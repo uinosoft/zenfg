@@ -9,7 +9,7 @@ Validated on 2026-09-08 with Node.js 24.19.0 and Microsoft Edge
   16 renderer/geometry tests and eight demo host/camera tests. The corrected
   vertical orbit direction is preserved in the demo's camera module.
 - `npm run build:pages` and `npm run docs:check` passed after the separation.
-  Renderer, demo and Playground workspace typechecks also passed.
+  Renderer, demo and Examples workspace typechecks also passed.
 - The explicit real WebGPU suite passed all 13 groups with no captured or
   uncaptured WebGPU validation errors. It checks actual indirect counts, image
   equivalence with culling disabled, reflection lighting, empty/capacity frames,
@@ -17,7 +17,7 @@ Validated on 2026-09-08 with Node.js 24.19.0 and Microsoft Edge
   read-only depth, linear/sRGB output, color and depth mip/layer views, resize,
   device mismatch, real host snapshots and device-loss cleanup. The suite lives
   in the demo workspace and uses both packages' public entrypoints.
-- The Playground was visually checked at 1440 x 960 and 390 x 844, DPR 1.
+- The Examples was visually checked at 1440 x 960 and 390 x 844, DPR 1.
   Source tabs and the Inspector display the real implementation and captures.
 - Final review repeated the full typecheck, 424 tests, Pages build, docs check,
   and 13 hardware GPU groups in the main checkout. The assembled production

@@ -1,3 +1,4 @@
+import { assertLocalLinks } from './docs/markdown.mjs';
 import { spawnSync } from 'node:child_process';
 import { existsSync, mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -126,6 +127,7 @@ try {
             }
         }
         run('tar', ['-xzf', archive, '-C', temporaryDirectory]);
+        assertLocalLinks(join(temporaryDirectory, crate.archiveRoot));
     }
 
     const snapshotDirectory = join(temporaryDirectory, snapshotCrate.archiveRoot);

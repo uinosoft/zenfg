@@ -1,9 +1,10 @@
 # @zenfg/webgpu
 
-[![npm](https://img.shields.io/npm/v/%40zenfg%2Fwebgpu?include_prereleases&label=npm)](https://www.npmjs.com/package/@zenfg/webgpu)
-[![status: beta](https://img.shields.io/badge/status-beta-orange.svg)](https://github.com/uinosoft/zenfg/blob/main/CHANGELOG.md)
-[![CI](https://github.com/uinosoft/zenfg/actions/workflows/ci.yml/badge.svg)](https://github.com/uinosoft/zenfg/actions/workflows/ci.yml)
-[![license: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/uinosoft/zenfg/blob/main/LICENSE)
+<!-- generated:badges:start -->
+[![@zenfg/webgpu published next version](https://img.shields.io/npm/v/%40zenfg%2Fwebgpu/next?label=npm)](https://www.npmjs.com/package/@zenfg/webgpu)
+[![API Docs (development)](https://img.shields.io/badge/API_docs-development-blue)](https://uinosoft.github.io/zenfg/docs/api/webgpu/)
+[![MIT license](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/uinosoft/zenfg/blob/npm/webgpu/v0.1.0-beta.3/LICENSE)
+<!-- generated:badges:end -->
 
 `@zenfg/webgpu` is a lightweight WebGPU FrameGraph for declaring and executing
 per-frame GPU work. It orders graph nodes, validates resource access, culls
@@ -21,11 +22,18 @@ diagnostic subpath is `@zenfg/webgpu/snapshot`.
 
 ## Installation
 
+<!-- generated:installation:start -->
 ```sh
 npm install @zenfg/webgpu@0.1.0-beta.3
 ```
+<!-- generated:installation:end -->
 
 ## Quick start
+
+Run this in a browser module served from HTTPS or localhost, with native WebGPU enabled.
+The host supplies a `GPUDevice` and a configured canvas `GPUCanvasContext`. Call
+`renderFrame()` from the host animation loop; the canvas clears to dark blue.
+For a ready-to-run canvas host, open the [minimal-frame recipe in the Examples](https://uinosoft.github.io/zenfg/playground/?example=minimal-frame).
 
 Keep one `FrameGraph` for the lifetime of a `GPUDevice`. Create a fresh
 recording and import a fresh current surface texture for every presentation
@@ -150,7 +158,7 @@ pipeline and bind-group setup without placeholder helpers.
 Declaration granularity is optional: complex workloads can keep private weights,
 parameters, and scratch internally bound, while teaching or diagnostic use can
 expose more resources. Graph-visible dependencies and access correctness still
-apply. See [Choosing resource declaration granularity](../../docs/core-concepts.md#choosing-resource-declaration-granularity).
+apply. See [Choosing resource declaration granularity](https://github.com/uinosoft/zenfg/blob/npm/webgpu/v0.1.0-beta.3/docs/core-concepts.md#choosing-resource-declaration-granularity).
 
 For resources exposed to the graph:
 
@@ -167,7 +175,7 @@ For resources exposed to the graph:
 - Acquire, import, compile, execute, and present a fresh surface texture on each
   presentation frame.
 
-See [Core concepts](https://github.com/uinosoft/zenfg/blob/main/docs/core-concepts.md)
+See [Core concepts](https://github.com/uinosoft/zenfg/blob/npm/webgpu/v0.1.0-beta.3/docs/core-concepts.md)
 for the complete ownership, content, dependency, lifetime, and integration
 model.
 
@@ -181,7 +189,7 @@ execute paths do not create Snapshot data.
 Snapshot export produces an in-memory value only. Capture naming, filesystem
 storage, transport, and retention policy remain caller-owned. The language-
 neutral wire contract is defined by the
-[`@zenfg/snapshot` specification](https://github.com/uinosoft/zenfg/blob/main/packages/snapshot/SPEC.md).
+[`@zenfg/snapshot` specification](https://github.com/uinosoft/zenfg/blob/npm/webgpu/v0.1.0-beta.3/packages/snapshot/SPEC.md).
 
 ## Common mistakes
 
@@ -217,8 +225,22 @@ CI. See the [examples index](./examples/README.md) for their input contracts.
 
 ## Further reading
 
-- [ZenFG documentation index](https://github.com/uinosoft/zenfg/blob/main/docs/README.md)
-- [Core concepts](https://github.com/uinosoft/zenfg/blob/main/docs/core-concepts.md)
-- [`@zenfg/snapshot`](https://github.com/uinosoft/zenfg/blob/main/packages/snapshot/README.md)
-- [`@zenfg/inspector`](https://github.com/uinosoft/zenfg/blob/main/packages/inspector/README.md)
-- [Compatibility](https://github.com/uinosoft/zenfg/blob/main/docs/compatibility.md)
+- [ZenFG documentation index](https://github.com/uinosoft/zenfg/blob/npm/webgpu/v0.1.0-beta.3/docs/README.md)
+- [Core concepts](https://github.com/uinosoft/zenfg/blob/npm/webgpu/v0.1.0-beta.3/docs/core-concepts.md)
+- [`@zenfg/snapshot`](https://github.com/uinosoft/zenfg/blob/npm/webgpu/v0.1.0-beta.3/packages/snapshot/README.md)
+- [`@zenfg/inspector`](https://github.com/uinosoft/zenfg/blob/npm/webgpu/v0.1.0-beta.3/packages/inspector/README.md)
+- [Compatibility](https://github.com/uinosoft/zenfg/blob/npm/webgpu/v0.1.0-beta.3/docs/compatibility.md)
+
+## Documentation and versions
+
+<!-- generated:documentation:start -->
+This README describes **@zenfg/webgpu 0.1.0-beta.3**. Registry badges show the current published channel, not your installed version.
+
+- Exact installed APIs: follow `package.json` → `exports` → `dist/*.d.ts`; declaration maps point to the included `src/`. Only declared export paths are public.
+- [Online guide (development branch)](https://uinosoft.github.io/zenfg/docs/packages/webgpu.html). The site may describe changes newer than this package.
+- [TypeScript API (development branch)](https://uinosoft.github.io/zenfg/docs/api/webgpu/).
+- [Source and documentation for this release](https://github.com/uinosoft/zenfg/tree/npm/webgpu/v0.1.0-beta.3/packages/webgpu).
+- [Shared concepts for this release](https://github.com/uinosoft/zenfg/blob/npm/webgpu/v0.1.0-beta.3/docs/core-concepts.md) and [compatibility](https://github.com/uinosoft/zenfg/blob/npm/webgpu/v0.1.0-beta.3/docs/compatibility.md).
+- [Plain Markdown documentation index (development branch)](https://uinosoft.github.io/zenfg/docs/llms.txt).
+- Local complete recipes: [examples](./examples/README.md).
+<!-- generated:documentation:end -->

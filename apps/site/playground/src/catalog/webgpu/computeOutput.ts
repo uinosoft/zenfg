@@ -1,9 +1,9 @@
-import type { PlaygroundExampleDefinition } from '../../types.ts';
+import type { ExamplesExampleDefinition } from '../../types.ts';
 import { recipeHostSourceFile, recipeShaderSourceFile } from './sources.ts';
 
 const outputSize = 16 * Uint32Array.BYTES_PER_ELEMENT;
 
-export const computeOutputExample: PlaygroundExampleDefinition = {
+export const computeOutputExample: ExamplesExampleDefinition = {
 	id: 'compute-output',
 	title: 'Compute Output',
 	group: '@zenfg/webgpu basics',
@@ -53,7 +53,7 @@ export const computeOutputExample: PlaygroundExampleDefinition = {
 			'fragmentMain',
 		);
 		const outputBuffer = host.own(host.device.createBuffer({
-			label: 'playground-compute-output',
+			label: 'examples-compute-output',
 			size: outputSize,
 			usage: GPUBufferUsage.STORAGE,
 		}));

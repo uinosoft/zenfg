@@ -5,12 +5,26 @@
   "type": "module",
   "sideEffects": false,
   "exports": {
-    ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js" },
-    "./snapshot": { "types": "./dist/snapshot.d.ts", "import": "./dist/snapshot.js" }
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./snapshot": {
+      "types": "./dist/snapshot.d.ts",
+      "import": "./dist/snapshot.js"
+    }
   },
   "types": "./dist/index.d.ts",
-  "files": ["dist", "src", "examples", "README.md", "LICENSE"],
-  "dependencies": { "@zenfg/snapshot": "0.1.0-beta.3" },
+  "files": [
+    "dist",
+    "src",
+    "examples",
+    "README.md",
+    "LICENSE"
+  ],
+  "dependencies": {
+    "@zenfg/snapshot": "0.1.0-beta.3"
+  },
   "scripts": {
     "benchmark:compile": "node ../../scripts/run-webgpu-compile-benchmark.mjs",
     "build": "node ../../scripts/build-package.mjs",
@@ -20,10 +34,24 @@
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test": "node ../../scripts/run-tests.mjs packages/webgpu/tests"
   },
-  "publishConfig": { "access": "public", "registry": "https://registry.npmjs.org/" },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  },
   "license": "MIT",
-  "repository": { "type": "git", "url": "git+https://github.com/uinosoft/zenfg.git", "directory": "packages/webgpu" },
-  "homepage": "https://github.com/uinosoft/zenfg/tree/main/packages/webgpu",
-  "bugs": { "url": "https://github.com/uinosoft/zenfg/issues" },
-  "keywords": ["webgpu", "framegraph", "rendering", "graphics"]
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/uinosoft/zenfg.git",
+    "directory": "packages/webgpu"
+  },
+  "homepage": "https://uinosoft.github.io/zenfg/docs/packages/webgpu.html",
+  "bugs": {
+    "url": "https://github.com/uinosoft/zenfg/issues"
+  },
+  "keywords": [
+    "webgpu",
+    "framegraph",
+    "rendering",
+    "graphics"
+  ]
 }

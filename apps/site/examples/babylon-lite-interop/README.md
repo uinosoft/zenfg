@@ -104,7 +104,7 @@ is not enabled. Timestamp support comes from the actual shared device.
 
 FrameGraph, Reference Renderer and the visible canvas borrow Lite's device.
 Teardown releases borrowers and unconfigures the visible canvas before disposing
-Lite's scene and engine. Only Lite destroys the device. Playground owns the
+Lite's scene and engine. Only Lite destroys the device. Examples owns the
 legend, depth description, source panel and Inspector.
 
 ## Validation

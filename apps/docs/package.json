@@ -1,0 +1,11 @@
+{
+  "name": "@zenfg/docs-app",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node ../../scripts/docs/run.mjs dev",
+    "build": "node ../../scripts/docs/run.mjs build",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  }
+}

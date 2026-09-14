@@ -1,35 +1,11 @@
+import { packages, publicEntrypoints } from './docs/catalog.mjs';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { dirname, isAbsolute, relative, resolve, sep } from 'node:path';
 import ts from 'typescript';
 
 const rootDir = resolve(import.meta.dirname, '..');
-const packageSpecs = [
-    { name: '@zenfg/snapshot', directory: 'packages/snapshot' },
-    { name: '@zenfg/webgpu', directory: 'packages/webgpu' },
-    { name: '@zenfg/inspector', directory: 'packages/inspector' },
-];
-
-function discoverPublicTypeScriptEntrypoints() {
-    return packageSpecs.flatMap((packageSpec) => {
-        const manifest = JSON.parse(readFileSync(resolve(rootDir, packageSpec.directory, 'package.json'), 'utf8'));
-        return Object.entries(manifest.exports ?? {}).flatMap(([exportPath, target]) => {
-            const typesTarget = target && typeof target === 'object' && !Array.isArray(target)
-                ? target.types
-                : undefined;
-            if (typeof typesTarget !== 'string') return [];
-            const match = typesTarget.replaceAll('\\', '/').match(/^\.\/dist\/(.+)\.d\.ts$/u);
-            if (!match) {
-                throw new Error(`${packageSpec.name} export ${exportPath} has unsupported types target ${typesTarget}.`);
-            }
-            return [{
-                name: exportPath === '.' ? packageSpec.name : `${packageSpec.name}/${exportPath.slice(2)}`,
-                source: `${packageSpec.directory}/src/${match[1]}.ts`,
-            }];
-        });
-    });
-}
-
-const entrypointSpecs = discoverPublicTypeScriptEntrypoints();
+const packageSpecs = packages.filter(p => p.registry === 'npm');
+const entrypointSpecs = publicEntrypoints();
 
 function loadPackageConfig(directory) {
     const configPath = resolve(rootDir, directory, 'tsconfig.json');
@@ -50,10 +26,9 @@ const program = ts.createProgram({
     rootNames,
     options: {
         ...parsedConfigs.find((_, index) => packageSpecs[index].name === '@zenfg/webgpu').options,
-        baseUrl: rootDir,
         paths: {
-            '@zenfg/snapshot': ['packages/snapshot/src/index.ts'],
-            '@zenfg/snapshot/format': ['packages/snapshot/src/format.ts'],
+            '@zenfg/snapshot': [resolve(rootDir, 'packages/snapshot/src/index.ts')],
+            '@zenfg/snapshot/format': [resolve(rootDir, 'packages/snapshot/src/format.ts')],
         },
         noEmit: true,
         skipLibCheck: true,

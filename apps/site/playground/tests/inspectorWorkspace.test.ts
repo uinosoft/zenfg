@@ -3,7 +3,7 @@ import test from 'node:test';
 import { Window } from 'happy-dom';
 import { initializeInspectorWorkspace } from '../src/inspectorWorkspace.ts';
 import { installAppPageLifecycle } from '../../shared/pageLifecycle.ts';
-import type { PlaygroundRuntime } from '../src/types.ts';
+import type { ExamplesRuntime } from '../src/types.ts';
 
 function deferred<T>() {
     let resolve!: (value: T) => void;
@@ -11,7 +11,7 @@ function deferred<T>() {
     const promise = new Promise<T>((done, fail) => { resolve = done; reject = fail; });
     return { promise, resolve, reject };
 }
-const runtime: PlaygroundRuntime = { captureSnapshot: async () => undefined, dispose() {} };
+const runtime: ExamplesRuntime = { captureSnapshot: async () => undefined, dispose() {} };
 const flush = () => new Promise<void>(resolve => setImmediate(resolve));
 
 for (const fails of [false, true]) {
@@ -20,7 +20,7 @@ for (const fails of [false, true]) {
         t.after(() => dom.happyDOM.abort());
         const loading = dom.document.createElement('div') as unknown as HTMLElement;
         const abort = new AbortController();
-        const pending = deferred<(runtime: PlaygroundRuntime) => void>();
+        const pending = deferred<(runtime: ExamplesRuntime) => void>();
         let mounts = 0;
         const task = initializeInspectorWorkspace({ signal: abort.signal, loading, runtime: Promise.resolve(runtime), load: () => pending.promise });
         await flush();
@@ -42,7 +42,7 @@ test('discard while awaiting runtime does not start the Inspector import', async
     t.after(() => dom.happyDOM.abort());
     const loading = dom.document.createElement('div') as unknown as HTMLElement;
     const abort = new AbortController();
-    const pending = deferred<PlaygroundRuntime | undefined>();
+    const pending = deferred<ExamplesRuntime | undefined>();
     let imports = 0;
     const task = initializeInspectorWorkspace({ signal: abort.signal, loading, runtime: pending.promise, load: async () => { imports++; return () => {}; } });
     abort.abort();
@@ -63,7 +63,7 @@ test('BFCache retains a pending Inspector import and discard cancels only once',
     let mounts = 0;
     const uninstall = installAppPageLifecycle(target as unknown as globalThis.Window, { onDiscard: () => { discards++; abort.abort(); } });
     t.after(uninstall);
-    const pending = deferred<(runtime: PlaygroundRuntime) => void>();
+    const pending = deferred<(runtime: ExamplesRuntime) => void>();
     const task = initializeInspectorWorkspace({ signal: abort.signal, loading, runtime: Promise.resolve(runtime), load: () => pending.promise });
     await flush();
     for (const name of ['pagehide', 'pageshow']) {

@@ -5,14 +5,14 @@ type-checked in CI. GPU devices, canvas contexts, pipelines, native resources,
 and external renderer adapters are explicit function parameters so the files
 can be copied into an application without test-only mocks. Each file keeps its
 FrameGraph declarations in a `record*` function and provides a small execution
-wrapper, allowing hosts such as the ZenFG Playground to compile the exact same
+wrapper, allowing hosts such as the ZenFG Examples to compile the exact same
 recording with diagnostics enabled.
 
 The topic-named file is each recipe's reading entry; recipes do not introduce
 `main.ts` or a browser runtime. Begin each file with a short English block comment
 containing `Source:`, `Demonstrates:`, `Flow:`, and `Read next:`. Explain caller-owned
 inputs and graph execution, and point to related code without duplicating it.
-Playground adapters explicitly register this same file with `entrySourceId` and
+Examples adapters explicitly register this same file with `entrySourceId` and
 place browser setup, capture helpers and shaders after the recipe.
 
 | Recipe | Demonstrates |
@@ -29,7 +29,7 @@ place browser setup, capture helpers and shaders after the recipe.
 Imported Resource intentionally exposes its single-pass uniform for teaching
 imports, access tokens, and input validation. Complex workloads can choose to
 bind private parameters internally instead; see
-[Choosing resource declaration granularity](../../../docs/core-concepts.md#choosing-resource-declaration-granularity).
+[Choosing resource declaration granularity](https://github.com/uinosoft/zenfg/blob/npm/webgpu/v0.1.0-beta.3/docs/core-concepts.md#choosing-resource-declaration-granularity).
 
 Create one `FrameGraph` for each `GPUDevice`, invoke a recipe after acquiring
 the inputs shown by its exported function, and call `graph.destroy()` when that

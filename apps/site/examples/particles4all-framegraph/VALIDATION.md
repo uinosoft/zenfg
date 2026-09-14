@@ -21,7 +21,7 @@ exposed by the browser.
 | Environment | Default HDR, procedural sky, replacement from a Blob, and failed decode retaining the previous environment were exercised |
 | INI | The original Small INI was imported through the browser file chooser; unsupported fields and panorama filename were reported |
 | Snapshot | Inspector displayed real execution groups, resources, roots, pool information and GPU timing; a paused standalone host also captured its next rendered frame |
-| Playground lifecycle | Switched Particles4All → Slime Mold → Particles4All → Minimal Frame → Particles4All with Inspector open; captures resumed for the new instance |
+| Examples lifecycle | Switched Particles4All → Slime Mold → Particles4All → Minimal Frame → Particles4All with Inspector open; captures resumed for the new instance |
 | Source viewer | Actual workload/host/adapter source and JavaScript shader modules loaded with syntax highlighting |
 
 The final exercised paths produced no WebGPU validation errors. Inspector's
@@ -119,7 +119,7 @@ Simulation and Render. Scan-block storage can also share with packed solids in
 this configuration. Removing redundant scan-block clears changes clear commands
 only in this second revision; compute dispatches and graph nodes are retained.
 
-The running Playground was checked again after the final code changes. All four
+The running Examples was checked again after the final code changes. All four
 Small rendering modes displayed water and solids, SSFR pouring exhausted the
 30,000-particle budget, and new real-frame captures reported zero errors and
 zero warnings. Browser error logs were empty. Pass and Group Hierarchy views
@@ -149,7 +149,7 @@ All 67 example tests, the example typecheck, and `npm run docs:check` passed.
 ## Submission review
 
 The final 2026-09-08 review found no blocking issue within the agreed migration
-scope. It revisited workload/host/Playground separation, all rendering branches,
+scope. It revisited workload/host/Examples separation, all rendering branches,
 preset and INI handling, environment replacement, time-bank and pour fidelity,
 scan access declarations, submission settlement, readback invalidation, and
 cleanup. The last code diff only removes the enclosing debug scope; node

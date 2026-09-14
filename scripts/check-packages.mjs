@@ -1,3 +1,4 @@
+import { assertLocalLinks, quickStart } from './docs/markdown.mjs';
 import { spawnSync } from 'node:child_process';
 import {
     copyFileSync,
@@ -92,6 +93,7 @@ const packages = [
             'dist/theme.d.ts',
             'dist/themes.css',
             'THEMING.md',
+            'GUIDE.md',
             'src/index.ts',
         ],
     },
@@ -290,6 +292,7 @@ try {
             throw new Error(`${packageJson.name} must not expose @webgpu/types as a runtime dependency.`);
         }
         validateDeclarationMaps(packageJson.name, installedPackageDirectory);
+        assertLocalLinks(installedPackageDirectory);
     }
 
     const exampleDirectory = join(consumerDirectory, 'examples');
@@ -347,64 +350,6 @@ try {
         "export function themedInspector(host: HTMLElement) { const panel = mountFrameGraphInspector(host, { theme }); panel.setTheme(null); panel.refreshTheme(); return panel; }",
         "import schema from '@zenfg/snapshot/schema/v1.json' with { type: 'json' };",
         '',
-        '// Snapshot README Quick Start: parse/decode, narrow the result, and stringify.',
-        'export function normalizeSnapshots(jsonText: string, value: unknown): readonly string[] {',
-        '    const canonicalJson: string[] = [];',
-        '    const parsed = parseFrameGraphSnapshot(jsonText);',
-        '    if (parsed.ok) {',
-        '        canonicalJson.push(stringifyFrameGraphSnapshot(parsed.snapshot, { pretty: true }));',
-        '        void [parsed.source, parsed.migrated, parsed.issues];',
-        '    } else {',
-        '        void parsed.issues;',
-        '    }',
-        '',
-        '    const decoded = decodeFrameGraphSnapshot(value);',
-        '    if (decoded.ok) {',
-        '        canonicalJson.push(stringifyFrameGraphSnapshot(decoded.snapshot));',
-        '        void [decoded.source, decoded.migrated, decoded.issues];',
-        '    } else {',
-        '        void decoded.issues;',
-        '    }',
-        '    return canonicalJson;',
-        '}',
-        '',
-        '// WebGPU README Quick Start: compile and execute a clear-only surface frame.',
-        'declare const device: GPUDevice;',
-        'declare const context: GPUCanvasContext;',
-        'declare let frameIndex: number;',
-        'const graph = new FrameGraph(device);',
-        '',
-        'export function renderFrame(): void {',
-        '    const recorder = graph.beginFrame();',
-        '    const backbuffer = recorder.importSwapchainTexture(',
-        '        context.getCurrentTexture(),',
-        "        { label: 'backbuffer' },",
-        '    );',
-        '    recorder.render({',
-        "        label: 'clear-backbuffer',",
-        '        colorAttachments: [{',
-        '            target: backbuffer,',
-        "            loadOp: 'clear',",
-        "            storeOp: 'store',",
-        '            clearValue: { r: 0.04, g: 0.06, b: 0.1, a: 1 },',
-        '        }],',
-        '    });',
-        '    recorder.markPresent(backbuffer);',
-        '    recorder.compile().execute({ frameIndex: frameIndex++ });',
-        '}',
-        '',
-        '// Inspector README Quick Start: mount with options, update, and clean up.',
-        'export function mountInspector(host: HTMLElement, existingSnapshot: FrameGraphSnapshot): void {',
-        '    const options: FrameGraphInspectorOptions = {',
-        '        captureSnapshot: () => existingSnapshot,',
-        '        maxImportBytes: 64 * 1024 * 1024,',
-        '        maxGraphElements: 5_000,',
-        '    };',
-        '    const inspector = mountFrameGraphInspector(host, options);',
-        '    inspector.setSnapshot(existingSnapshot);',
-        '    inspector.destroy();',
-        '}',
-        '',
         '// Other supported declarations and entrypoints.',
         'const textureSize: TextureSize = new Uint32Array([1, 1, 1]);',
         'const textureOrigin: TextureOrigin = new Uint32Array([0, 0, 0]);',
@@ -421,6 +366,11 @@ try {
         'void [createFrameGraphSnapshot, textureSize, textureOrigin, copyOperations, invalidTextureSize, schemaId];',
         '',
     ].join('\n'));
+    for (const slug of ['webgpu', 'snapshot', 'inspector']) {
+        const installed = join(consumerDirectory, 'node_modules', '@zenfg', slug);
+        const setup = slug === 'webgpu' ? 'declare const device: GPUDevice;\ndeclare const context: GPUCanvasContext;\n' : '';
+        writeFileSync(join(exampleDirectory, `readme-${slug}.ts`), setup + quickStart(readFileSync(join(installed, 'README.md'), 'utf8').replaceAll('\r\n', '\n')));
+    }
     const tscPath = join(consumerDirectory, 'node_modules', 'typescript', 'bin', 'tsc');
     const typescriptVersion = run(process.execPath, [tscPath, '--version'], {
         cwd: consumerDirectory,

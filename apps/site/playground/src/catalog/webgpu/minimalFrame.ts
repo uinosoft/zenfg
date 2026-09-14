@@ -1,7 +1,7 @@
-import type { PlaygroundExampleDefinition } from '../../types.ts';
+import type { ExamplesExampleDefinition } from '../../types.ts';
 import { recipeHostSourceFile } from './sources.ts';
 
-export const minimalFrameExample: PlaygroundExampleDefinition = {
+export const minimalFrameExample: ExamplesExampleDefinition = {
 	id: 'minimal-frame',
 	title: 'Minimal Frame',
 	group: '@zenfg/webgpu basics',

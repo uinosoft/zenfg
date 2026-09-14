@@ -1,9 +1,9 @@
 import { setIconButton } from './icons.ts';
-import type { PlaygroundExampleDefinition, PlaygroundSourceFile } from './types.ts';
+import type { ExamplesExampleDefinition, ExamplesSourceFile } from './types.ts';
 
-type SourceDefinition = Pick<PlaygroundExampleDefinition, 'id' | 'entrySourceId' | 'sourceFiles'>;
+type SourceDefinition = Pick<ExamplesExampleDefinition, 'id' | 'entrySourceId' | 'sourceFiles'>;
 
-export function orderedSourceFiles(definition: SourceDefinition): readonly PlaygroundSourceFile[] {
+export function orderedSourceFiles(definition: SourceDefinition): readonly ExamplesSourceFile[] {
 	const entries = definition.sourceFiles.filter(file => file.id === definition.entrySourceId);
 	if (entries.length !== 1) throw new Error(`Example ${definition.id} must declare exactly one matching source entry.`);
 	if (new Set(definition.sourceFiles.map(file => file.id)).size !== definition.sourceFiles.length) {
@@ -18,7 +18,7 @@ export function createSourceView(options: {
 	readonly path: HTMLElement;
 	readonly content: HTMLElement;
 	readonly copy: HTMLButtonElement;
-	readonly highlight: (source: string, language: PlaygroundSourceFile['language']) => Promise<string>;
+	readonly highlight: (source: string, language: ExamplesSourceFile['language']) => Promise<string>;
 	readonly copyText: (source: string) => Promise<void>;
 }): { readonly ready: Promise<void>; readonly destroy: () => void } {
 	const { definition, files, path, content, copy } = options;
@@ -33,7 +33,7 @@ export function createSourceView(options: {
 	files.replaceChildren();
 	copy.disabled = true;
 
-	async function select(file: PlaygroundSourceFile): Promise<void> {
+	async function select(file: ExamplesSourceFile): Promise<void> {
 		const selectedRevision = ++revision;
 		currentSource = undefined;
 		clearTimeout(copiedTimer);

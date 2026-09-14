@@ -1,0 +1,15 @@
+@import '../../../site/shared/shell/navigation.css';
+/* Variables stay inside the docs header, without importing the application reset. */
+.VPNav {
+    --project-secondary: var(--vp-c-text-2); --project-text: var(--vp-c-text-1);
+    --project-accent: var(--vp-c-brand-1); --project-hover: var(--vp-c-bg-soft);
+}
+.VPNav .brand-accent { color: var(--vp-c-brand-1); }
+.docs-context { margin-bottom: 28px; padding: 12px 16px; border-left: 3px solid var(--vp-c-brand-1); background: var(--vp-c-bg-soft); color: var(--vp-c-text-2); font-size: 13px; line-height: 1.7; overflow-wrap: anywhere; }
+.docs-context a { color: var(--vp-c-brand-1); text-decoration: underline; }
+.docs-context summary { cursor: pointer; }
+.vp-doc table { display: block; overflow-x: auto; }
+
+.docs-project-nav { display: flex; align-items: center; flex-shrink: 0; margin-right: 16px; }
+.docs-mobile-nav .project-nav-link { display: flex; justify-content: flex-start; padding: 14px 0; border-bottom: 1px solid var(--vp-c-divider); border-radius: 0; }
+@media (max-width: 767px) { .docs-project-nav { display: none; } }

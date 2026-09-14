@@ -95,7 +95,7 @@ const BUFFER_USAGE_FLAGS: readonly [number, FrameGraphSnapshotBufferUsageFlag][]
  * timing availability, and resource-pool counters. The returned object is a
  * deep JSON clone and does not retain references to the supplied reports.
  *
- * @throws {@link FrameGraphSnapshotValidationError} if the projected draft does
+ * @throws {@link @zenfg/snapshot!index.FrameGraphSnapshotValidationError | FrameGraphSnapshotValidationError} if the projected draft does
  * not satisfy Snapshot 1.1, or if an available timing kind disagrees with its
  * compilation node. Also throws if a compilation resource contains WebGPU usage
  * bits that Snapshot 1.1 cannot represent.

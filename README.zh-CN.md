@@ -1,5 +1,12 @@
 # ZenFG
 
+<!-- generated:badges:start -->
+[![CI main](https://github.com/uinosoft/zenfg/actions/workflows/ci.yml/badge.svg?branch=main&event=push)](https://github.com/uinosoft/zenfg/actions/workflows/ci.yml?query=branch%3Amain)
+[![Documentation](https://img.shields.io/badge/docs-online-blue)](https://uinosoft.github.io/zenfg/docs/)
+[![MIT license](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/uinosoft/zenfg/blob/main/LICENSE)
+[![Public beta](https://img.shields.io/badge/status-beta-orange)](https://github.com/uinosoft/zenfg/blob/main/CHANGELOG.md)
+<!-- generated:badges:end -->
+
 [English](README.md) | 简体中文
 
 **面向 WebGPU 与 wgpu 的可组合 FrameGraph 基础设施。**
@@ -34,13 +41,15 @@ execution 模型请参阅英文 [Core concepts](docs/core-concepts.md)。
 
 ## 发布包
 
-| 包 | 用途 |
-| --- | --- |
-| [`@zenfg/webgpu`](packages/webgpu/README.md) | TypeScript/WebGPU FrameGraph runtime |
-| [`zenfg`](crates/zenfg/README.md) | Rust/wgpu FrameGraph runtime |
-| [`@zenfg/snapshot`](packages/snapshot/README.md) | Snapshot 1.0 规范类型、编解码、验证、Schema 与一致性语料 |
-| [`zenfg-snapshot`](crates/zenfg-snapshot/README.md) | Rust Snapshot 1.0 wire model、编解码、验证与迁移 |
-| [`@zenfg/inspector`](packages/inspector/README.md) | 面向 Snapshot 数据、与 renderer 无关的 DOM Inspector |
+<!-- generated:packages:start -->
+| 包 | 用途 | 发布版本 | 文档 |
+| --- | --- | --- | --- |
+| [`@zenfg/webgpu`](packages/webgpu/README.md) | TypeScript/WebGPU FrameGraph 运行时 | [![@zenfg/webgpu published next version](https://img.shields.io/npm/v/%40zenfg%2Fwebgpu/next?label=npm)](https://www.npmjs.com/package/@zenfg/webgpu) | [指南](https://uinosoft.github.io/zenfg/docs/packages/webgpu.html) |
+| [`@zenfg/snapshot`](packages/snapshot/README.md) | Snapshot 1.1 类型、编解码、验证与规范 | [![@zenfg/snapshot published next version](https://img.shields.io/npm/v/%40zenfg%2Fsnapshot/next?label=npm)](https://www.npmjs.com/package/@zenfg/snapshot) | [指南](https://uinosoft.github.io/zenfg/docs/packages/snapshot.html) |
+| [`@zenfg/inspector`](packages/inspector/README.md) | 可嵌入的 DOM Inspector | [![@zenfg/inspector published next version](https://img.shields.io/npm/v/%40zenfg%2Finspector/next?label=npm)](https://www.npmjs.com/package/@zenfg/inspector) | [指南](https://uinosoft.github.io/zenfg/docs/packages/inspector.html) |
+| [`zenfg`](crates/zenfg/README.md) | Rust/wgpu FrameGraph 运行时 | [![zenfg published version](https://img.shields.io/crates/v/zenfg?include_prereleases)](https://crates.io/crates/zenfg) | [指南](https://uinosoft.github.io/zenfg/docs/packages/zenfg.html) |
+| [`zenfg-snapshot`](crates/zenfg-snapshot/README.md) | Rust Snapshot 1.1 编解码、验证与迁移 | [![zenfg-snapshot published version](https://img.shields.io/crates/v/zenfg-snapshot?include_prereleases)](https://crates.io/crates/zenfg-snapshot) | [指南](https://uinosoft.github.io/zenfg/docs/packages/zenfg-snapshot.html) |
+<!-- generated:packages:end -->
 
 ## 从这里开始
 
@@ -51,7 +60,7 @@ execution 模型请参阅英文 [Core concepts](docs/core-concepts.md)。
   并查看 [Cargo examples](crates/zenfg/examples/)。
 - 打开[在线 Inspector](https://uinosoft.github.io/zenfg/inspector/)；它完全在浏览器中运行，
   不会上传导入的 Snapshot。
-- 打开[在线 Playground](https://uinosoft.github.io/zenfg/playground/?example=interactive-background&panel=inspector)，
+- 打开[在线示例](https://uinosoft.github.io/zenfg/playground/?example=interactive-background&panel=inspector)，
   查看 WebGPU 实时 showcase 与包级 recipe、对应的真实 TypeScript 源码及 Inspector 捕获结果。
 - 修改公共语义、示例或发布产物前，请先阅读英文 [Contributing](CONTRIBUTING.md)。
 

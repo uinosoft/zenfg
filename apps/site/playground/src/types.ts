@@ -2,32 +2,32 @@ import type { SiteThemeController } from '../../shared/theme/controller.ts';
 import type { ExampleTag } from './exampleTags.ts';
 import type { FrameGraphSnapshot } from '@zenfg/inspector';
 
-export type PlaygroundPanel = 'code' | 'inspector';
-export type PlaygroundExampleGroup = 'Showcases' | '@zenfg/webgpu basics';
-export type PlaygroundSourceRole = 'example' | 'recipe' | 'host' | 'shader';
+export type ExamplesPanel = 'code' | 'inspector';
+export type ExamplesExampleGroup = 'Showcases' | '@zenfg/webgpu basics';
+export type ExamplesSourceRole = 'example' | 'recipe' | 'host' | 'shader';
 
-export type PlaygroundText = string | readonly (string | {
+export type ExamplesText = string | readonly (string | {
 	readonly text: string;
 	readonly emphasis?: 'strong' | 'em' | 'code';
 	readonly href?: string;
 })[];
 
-export type PlaygroundSourceFile = {
+export type ExamplesSourceFile = {
 	readonly id: string;
 	readonly label: string;
 	readonly path: string;
-	readonly role: PlaygroundSourceRole;
+	readonly role: ExamplesSourceRole;
 	readonly language: 'typescript' | 'javascript';
 	readonly loadSource: () => Promise<string>;
 };
 
-export type PlaygroundRuntime = {
+export type ExamplesRuntime = {
 	/** Requests the next real frame, waiting through preparation. Failure, suspension, or disposal must settle the request. */
 	readonly captureSnapshot: () => Promise<FrameGraphSnapshot | undefined>;
 	readonly dispose: () => void;
 };
 
-export type PlaygroundMountContext = {
+export type ExamplesMountContext = {
 	readonly theme?: Pick<SiteThemeController, 'get' | 'subscribe'>;
 	readonly signal?: AbortSignal;
 	readonly onLoading?: (message: string) => void;
@@ -42,19 +42,19 @@ export type PlaygroundMountContext = {
 	readonly onError: (error: Error) => void;
 };
 
-export type PlaygroundExampleDefinition = {
+export type ExamplesExampleDefinition = {
 	readonly id: string;
 	readonly title: string;
-	readonly group: PlaygroundExampleGroup;
+	readonly group: ExamplesExampleGroup;
 	readonly tags: readonly ExampleTag[];
 	readonly readyState: 'live' | 'ready';
 	/** Description, gestures, and inspection guidance displayed together below the canvas. */
-	readonly description?: PlaygroundText;
+	readonly description?: ExamplesText;
 	readonly references?: readonly { readonly label: string; readonly href: string; readonly relation: 'Adapted from' | 'Reference' }[];
 	readonly loadingNote?: string;
 	readonly hasControls?: boolean;
 	/** The real source file readers should open first, independent of list order. */
 	readonly entrySourceId: string;
-	readonly sourceFiles: readonly PlaygroundSourceFile[];
-	readonly mount: (context: PlaygroundMountContext) => Promise<PlaygroundRuntime | undefined>;
+	readonly sourceFiles: readonly ExamplesSourceFile[];
+	readonly mount: (context: ExamplesMountContext) => Promise<ExamplesRuntime | undefined>;
 };

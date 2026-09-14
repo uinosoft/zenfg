@@ -1,8 +1,8 @@
-import type { PlaygroundExampleDefinition } from '../../types.ts';
+import type { ExamplesExampleDefinition } from '../../types.ts';
 import type { RecipeCanvasSize } from './recipeHost.ts';
 import { recipeHostSourceFile, recipeShaderSourceFile } from './sources.ts';
 
-export const persistentStateExample: PlaygroundExampleDefinition = {
+export const persistentStateExample: ExamplesExampleDefinition = {
 	id: 'persistent-state',
 	title: 'Persistent State',
 	group: '@zenfg/webgpu basics',
@@ -47,7 +47,7 @@ export const persistentStateExample: PlaygroundExampleDefinition = {
 			if (historyTexture && historySize?.width === size.width && historySize.height === size.height) return historyTexture;
 			if (historyTexture) host.release(historyTexture);
 			historyTexture = host.own(host.device.createTexture({
-				label: 'playground-persistent-history',
+				label: 'examples-persistent-history',
 				size,
 				format: host.format,
 				usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.COPY_SRC,

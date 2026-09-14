@@ -10,11 +10,11 @@ npm run dev
 npm run build:site
 ```
 
-For the integrated Site, Inspector, and Playground development workflow, see
+For the integrated Site, Inspector, and Examples development workflow, see
 the website development section in [`CONTRIBUTING.md`](../../../CONTRIBUTING.md).
 
 The Site `dist` directory is deployable static output. The MPA build emits this
-page under `/inspector/` alongside the project site and Playground, then CI
+page under `/inspector/` alongside the project site and Examples, then CI
 deploys the complete static tree to GitHub Pages after all TypeScript, Rust, and
 cross-language jobs pass.
 Browser automation frameworks and their runtime dependencies are intentionally
@@ -22,7 +22,7 @@ not part of this repository.
 
 ## Appearance
 
-The shared 60px site header links Home, Inspector and Playground and selects
+The shared 60px site header links Home, Inspector and Examples and selects
 Dark (Tokyo Night Storm) or Light. Appearance uses the site-wide `zenfg-theme`
 preference, defaulting to Dark. See the [Site shell documentation](../README.md#shared-site-shell)
 for migration, mobile navigation and cross-tab synchronization. The embedded

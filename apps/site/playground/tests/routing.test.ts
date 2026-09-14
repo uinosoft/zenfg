@@ -4,30 +4,30 @@ import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import { resolve } from 'node:path';
 import { findPublicExample, publicExamples } from '../src/catalog/catalog.ts';
-import { defaultExampleId, parsePlaygroundRoute, routeSearch } from '../src/routing.ts';
+import { defaultExampleId, parseExamplesRoute, routeSearch } from '../src/routing.ts';
 import { orderedSourceFiles } from '../src/sourceView.ts';
 
-test('playground routes default missing and invalid values safely', () => {
-	assert.deepEqual(parsePlaygroundRoute('?panel=none'), { exampleId: defaultExampleId, panel: 'inspector' });
-	assert.deepEqual(parsePlaygroundRoute(''), {
+test('examples routes default missing and invalid values safely', () => {
+	assert.deepEqual(parseExamplesRoute('?panel=none'), { exampleId: defaultExampleId, panel: 'inspector' });
+	assert.deepEqual(parseExamplesRoute(''), {
 		exampleId: defaultExampleId,
 		panel: 'inspector',
 	});
-	assert.deepEqual(parsePlaygroundRoute('?example=interactive-background&panel=inspector'), {
+	assert.deepEqual(parseExamplesRoute('?example=interactive-background&panel=inspector'), {
 		exampleId: 'interactive-background',
 		panel: 'inspector',
 	});
-	assert.deepEqual(parsePlaygroundRoute('?example=three-interop&panel=code'), {
+	assert.deepEqual(parseExamplesRoute('?example=three-interop&panel=code'), {
 		exampleId: 'three-interop',
 		panel: 'code',
 	});
-	assert.deepEqual(parsePlaygroundRoute('?example=missing&panel=unexpected'), {
+	assert.deepEqual(parseExamplesRoute('?example=missing&panel=unexpected'), {
 		exampleId: 'missing',
 		panel: 'inspector',
 	});
 });
 
-test('playground panel controls are mutually exclusive and serializable', () => {
+test('examples panel controls are mutually exclusive and serializable', () => {
 	assert.equal(routeSearch({ exampleId: 'interactive-background', panel: 'inspector' }), '?example=interactive-background&panel=inspector');
 	assert.equal(routeSearch({ exampleId: 'refractive-flow', panel: 'inspector' }), '?example=refractive-flow&panel=inspector');
 	assert.equal(findPublicExample('refractive-flow')?.title, 'Refractive Flow');
@@ -42,9 +42,9 @@ test('the production catalog is explicit, grouped, and keeps canonical sources f
 	assert.equal(findPublicExample('babylon-interop')?.hasControls, true);
 	assert.equal(findPublicExample('babylon-lite-interop')?.title, 'Babylon Lite Co-rendering');
 	assert.equal(findPublicExample('babylon-lite-interop')?.hasControls, false);
-	assert.deepEqual(parsePlaygroundRoute('?example=babylon-lite-interop&panel=code'), { exampleId: 'babylon-lite-interop', panel: 'code' });
+	assert.deepEqual(parseExamplesRoute('?example=babylon-lite-interop&panel=code'), { exampleId: 'babylon-lite-interop', panel: 'code' });
 	assert.deepEqual(findPublicExample('babylon-lite-interop')?.sourceFiles.map(file => file.label), ['main.ts', 'graph.ts', 'bridge.ts', 'resolve.ts', 'scene.ts', 'present.ts', 'host.ts', 'babylonLiteInterop.ts']);
-	assert.deepEqual(parsePlaygroundRoute('?example=babylon-interop&panel=code'), { exampleId: 'babylon-interop', panel: 'code' });
+	assert.deepEqual(parseExamplesRoute('?example=babylon-interop&panel=code'), { exampleId: 'babylon-interop', panel: 'code' });
 	assert.deepEqual(findPublicExample('babylon-interop')?.sourceFiles.map(file => file.label), ['main.ts', 'graph.ts', 'bridge.ts', 'resolve.ts', 'scene.ts', 'present.ts', 'host.ts', 'babylonInterop.ts']);
 	assert.equal(findPublicExample('missing'), undefined);
 	assert.equal(new Set(publicExamples.map((example) => example.id)).size, publicExamples.length);

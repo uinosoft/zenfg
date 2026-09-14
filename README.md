@@ -1,5 +1,12 @@
 # ZenFG
 
+<!-- generated:badges:start -->
+[![CI main](https://github.com/uinosoft/zenfg/actions/workflows/ci.yml/badge.svg?branch=main&event=push)](https://github.com/uinosoft/zenfg/actions/workflows/ci.yml?query=branch%3Amain)
+[![Documentation](https://img.shields.io/badge/docs-online-blue)](https://uinosoft.github.io/zenfg/docs/)
+[![MIT license](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/uinosoft/zenfg/blob/main/LICENSE)
+[![Public beta](https://img.shields.io/badge/status-beta-orange)](https://github.com/uinosoft/zenfg/blob/main/CHANGELOG.md)
+<!-- generated:badges:end -->
+
 English | [简体中文](README.zh-CN.md)
 
 **Composable FrameGraph infrastructure for WebGPU and wgpu.**
@@ -39,13 +46,15 @@ for the complete ownership, content, dependency, lifetime, and execution model.
 
 ## Packages
 
-| Package | Purpose |
-| --- | --- |
-| [`@zenfg/webgpu`](packages/webgpu/README.md) | TypeScript/WebGPU FrameGraph runtime |
-| [`zenfg`](crates/zenfg/README.md) | Rust/wgpu FrameGraph runtime |
-| [`@zenfg/snapshot`](packages/snapshot/README.md) | Normative Snapshot 1.1 types, codec, validator, Schema, and conformance corpus |
-| [`zenfg-snapshot`](crates/zenfg-snapshot/README.md) | Rust Snapshot 1.1 wire model, codec, validation, and migration |
-| [`@zenfg/inspector`](packages/inspector/README.md) | Renderer-independent DOM Inspector for Snapshot data |
+<!-- generated:packages:start -->
+| Package | Purpose | Published version | Documentation |
+| --- | --- | --- | --- |
+| [`@zenfg/webgpu`](packages/webgpu/README.md) | TypeScript/WebGPU FrameGraph runtime | [![@zenfg/webgpu published next version](https://img.shields.io/npm/v/%40zenfg%2Fwebgpu/next?label=npm)](https://www.npmjs.com/package/@zenfg/webgpu) | [Guide](https://uinosoft.github.io/zenfg/docs/packages/webgpu.html) |
+| [`@zenfg/snapshot`](packages/snapshot/README.md) | Snapshot 1.1 types, codec, validation and specification | [![@zenfg/snapshot published next version](https://img.shields.io/npm/v/%40zenfg%2Fsnapshot/next?label=npm)](https://www.npmjs.com/package/@zenfg/snapshot) | [Guide](https://uinosoft.github.io/zenfg/docs/packages/snapshot.html) |
+| [`@zenfg/inspector`](packages/inspector/README.md) | Embeddable DOM Inspector | [![@zenfg/inspector published next version](https://img.shields.io/npm/v/%40zenfg%2Finspector/next?label=npm)](https://www.npmjs.com/package/@zenfg/inspector) | [Guide](https://uinosoft.github.io/zenfg/docs/packages/inspector.html) |
+| [`zenfg`](crates/zenfg/README.md) | Rust/wgpu FrameGraph runtime | [![zenfg published version](https://img.shields.io/crates/v/zenfg?include_prereleases)](https://crates.io/crates/zenfg) | [Guide](https://uinosoft.github.io/zenfg/docs/packages/zenfg.html) |
+| [`zenfg-snapshot`](crates/zenfg-snapshot/README.md) | Rust Snapshot 1.1 codec, validation and migration | [![zenfg-snapshot published version](https://img.shields.io/crates/v/zenfg-snapshot?include_prereleases)](https://crates.io/crates/zenfg-snapshot) | [Guide](https://uinosoft.github.io/zenfg/docs/packages/zenfg-snapshot.html) |
+<!-- generated:packages:end -->
 
 ## Start here
 
@@ -56,7 +65,7 @@ for the complete ownership, content, dependency, lifetime, and execution model.
   and its [Cargo examples](crates/zenfg/examples/).
 - Open the [hosted Inspector](https://uinosoft.github.io/zenfg/inspector/),
   which runs entirely in the browser and does not upload imported snapshots.
-- Explore the [hosted Playground](https://uinosoft.github.io/zenfg/playground/?example=interactive-background&panel=inspector)
+- Explore the [hosted Examples](https://uinosoft.github.io/zenfg/playground/?example=interactive-background&panel=inspector)
   for live WebGPU showcases and package recipes, their exact TypeScript source,
   and Inspector captures.
 - Read [Contributing](CONTRIBUTING.md) before changing public semantics,

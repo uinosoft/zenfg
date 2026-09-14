@@ -11,7 +11,7 @@ comes from a third-party integration remain here even when one ZenFG package is
 their primary dependency.
 
 Both repository examples and package recipes must remain independent of the
-Playground. The Playground executes and displays their real source through
+Examples. The Examples executes and displays their real source through
 application-local catalog adapters.
 
 ## Reading entry convention
@@ -32,7 +32,7 @@ existing package exports and startup signatures; old source entry paths may
 forward to `main.ts` for compatibility. The Reference Renderer showcase's main
 belongs to `reference-renderer-demo`, while `reference-renderer` remains reusable.
 
-Register that file as the Playground catalog's explicit `entrySourceId` and
+Register that file as the Examples catalog's explicit `entrySourceId` and
 display the implementation, helpers, shaders and host after it in reading order.
 The displayed raw file and the executed file must be the same source.
 

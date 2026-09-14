@@ -78,8 +78,8 @@ unless cancelled). The controller provides:
 
 Rendering follows `requestAnimationFrame` continuously while visible, including
 when the camera is idle. Page visibility and device loss are handled by the
-host. Playground owns controls, source tabs and Inspector presentation; the
-example does not import Playground or the basic Reference Renderer demo.
+host. Examples owns controls, source tabs and Inspector presentation; the
+example does not import Examples or the basic Reference Renderer demo.
 
 ## Validation
 

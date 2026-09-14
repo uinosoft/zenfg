@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { createWebGpuRecipeHost } from '../src/catalog/webgpu/recipeHost.ts';
-import type { PlaygroundMountContext } from '../src/types.ts';
+import type { ExamplesMountContext } from '../src/types.ts';
 
 type Deferred<T> = {
 	readonly promise: Promise<T>;
@@ -27,7 +27,7 @@ function replaceGlobal(name: string, value: unknown): () => void {
 function mountContext(options: {
 	readonly context?: GPUCanvasContext | null;
 	readonly errors?: Error[];
-} = {}): PlaygroundMountContext {
+} = {}): ExamplesMountContext {
 	const canvas = {
 		clientWidth: 640,
 		clientHeight: 360,

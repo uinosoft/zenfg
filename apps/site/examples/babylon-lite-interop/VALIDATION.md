@@ -26,7 +26,7 @@ the intended yaw. Explicit `qY * qX` composition now matches Babylon's yaw-pitch
 and Three's XY torus after reflecting Lite's Z axis. The actual Lite world-matrix
 regression failed before the fix and passes afterward; cylinder axes and positions
 also match the canonical scene. The 15 Lite CPU tests, Lite typecheck, pages build,
-13 hardware cases at each of DPR 1 and DPR 2, and Playground browser checks were
+13 hardware cases at each of DPR 1 and DPR 2, and Examples browser checks were
 rerun successfully. Final review also reran all 598 workspace tests, workspace
 typechecking and documentation checks successfully.
 
@@ -67,9 +67,9 @@ Artifacts under `.test-dist/babylon-lite-interop-gpu/`:
 These are generated local artifacts, not tracked fixtures. The workspace test
 runner may clean `.test-dist`; run hardware acceptance after workspace tests.
 
-## Playground and regressions
+## Examples and regressions
 
-Built Playground acceptance passed: real mouse drag changes pixels, pointer
+Built Examples acceptance passed: real mouse drag changes pixels, pointer
 outline suppression and keyboard style restoration, fixed Reverse Z description
 without settings inputs, seven real source tabs, Inspector JSON export, 390×844
 mobile layout and switching through Three.js, Babylon.js, Reference Renderer and
@@ -79,9 +79,9 @@ Desktop, pointer-drag, mobile and Inspector screenshots were inspected visually.
 The initial composition and renderer legend are visible at both viewport sizes;
 the Inspector shows the actual external submission and color linearization node.
 
-Artifacts: `playground-result.json`, `playground-inspector.snapshot.json`,
-`playground-desktop.png`, `playground-pointer-focus.png`, `playground-mobile.png`,
-and `playground-inspector.png` in the same output directory.
+Artifacts: `examples-result.json`, `examples-inspector.snapshot.json`,
+`examples-desktop.png`, `examples-pointer-focus.png`, `examples-mobile.png`,
+and `examples-inspector.png` in the same output directory.
 
 The unchanged Three.js hardware suite passed **11/11** and Babylon.js passed
 **12/12**, both at DPR 1, including their forward/reverse depth modes. Their results

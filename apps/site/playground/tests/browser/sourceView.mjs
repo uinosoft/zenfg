@@ -5,9 +5,9 @@ import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 const root = resolve(import.meta.dirname, '../../../../../');
-const output = resolve(root, '.test-dist/playground-source');
+const output = resolve(root, '.test-dist/examples-source');
 await mkdir(output, { recursive: true });
-const base = new URL(process.env.PLAYGROUND_URL ?? 'http://127.0.0.1:4173/playground/');
+const base = new URL(process.env.EXAMPLES_URL ?? 'http://127.0.0.1:4173/playground/');
 const { chromium } = await import(process.env.PLAYWRIGHT_MODULE
     ? pathToFileURL(resolve(process.env.PLAYWRIGHT_MODULE)).href : 'playwright');
 const browser = await chromium.launch({
@@ -28,7 +28,7 @@ const ids = [
 const results = [];
 try {
     for (const [index, id] of ids.entries()) {
-        if (process.env.PLAYGROUND_EXAMPLES && !process.env.PLAYGROUND_EXAMPLES.split(',').includes(id)) continue;
+        if (process.env.EXAMPLES_EXAMPLES && !process.env.EXAMPLES_EXAMPLES.split(',').includes(id)) continue;
         console.log(`Checking ${id}`);
         const page = await context.newPage();
         const errors = [];
@@ -86,9 +86,9 @@ try {
             }
             await page.setViewportSize({ width: 1440, height: 900 });
             sourceVerified = true;
-            await page.waitForFunction(() => ['ready', 'error'].includes(document.querySelector('[data-playground]').dataset.effectState),
-                undefined, { timeout: Number(process.env.PLAYGROUND_RUNTIME_TIMEOUT_MS ?? (id.includes('monocular') ? 240_000 : 120_000)) });
-            assert.equal(await page.locator('[data-playground]').getAttribute('data-effect-state'), 'ready',
+            await page.waitForFunction(() => ['ready', 'error'].includes(document.querySelector('[data-examples]').dataset.effectState),
+                undefined, { timeout: Number(process.env.EXAMPLES_RUNTIME_TIMEOUT_MS ?? (id.includes('monocular') ? 240_000 : 120_000)) });
+            assert.equal(await page.locator('[data-examples]').getAttribute('data-effect-state'), 'ready',
                 await page.locator('[data-effect-status-text]').textContent());
             await page.locator('[data-panel-button=inspector]').click();
             await page.locator('.zenfg-inspector-graph-canvas canvas').first().waitFor();
@@ -114,7 +114,7 @@ try {
         }
     }
     const ok = results.every(result => result.ok);
-    const report = process.env.PLAYGROUND_EXAMPLES ? 'targeted-result.json' : 'result.json';
+    const report = process.env.EXAMPLES_EXAMPLES ? 'targeted-result.json' : 'result.json';
     await writeFile(resolve(output, report), JSON.stringify({ ok, browser: browser.version(), results }, null, 2));
     if (!ok) process.exitCode = 1;
 } catch (error) {

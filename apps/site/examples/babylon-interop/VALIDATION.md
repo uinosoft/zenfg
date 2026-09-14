@@ -5,7 +5,7 @@ Validated on 2026-09-08 with Babylon.js 9.4.0.
 ## Automated checks
 
 - `npm test`: 583 tests passed, including 16 Babylon attachment, graph, host
-  lifecycle and failed-engine-initialization cases and the Playground routing
+  lifecycle and failed-engine-initialization cases and the Examples routing
   and source-catalog regression checks.
 - `npm run typecheck`: all workspace type checks passed.
 - `npm run build:pages`: passed. Vite reports large lazy-loaded chunks, including
@@ -38,9 +38,9 @@ Artifacts are in `.test-dist/babylon-interop-gpu`: `result.json`,
 `browser-log.json`, PNG readbacks and actual host snapshots. The normal CPU
 test runner clears `.test-dist`, so run hardware/browser checks afterwards.
 
-## Built Playground
+## Built Examples
 
-`node apps/site/examples/babylon-interop/tests/gpu/playground.mjs` passed against the
+`node apps/site/examples/babylon-interop/tests/gpu/examples.mjs` passed against the
 Site Pages preview on the same Edge version. Desktop (1280x800) and narrow
 (390x844) screenshots were visually inspected. The Reverse Z checkbox worked,
 all seven source files were present, and the resolver source displayed its
@@ -50,7 +50,7 @@ its exported JSON contained `babylon-interop.resolve`.
 Four navigations between Babylon, Three.js and Reference Renderer completed
 without runtime errors or remote asset requests. The test supplies an empty
 root favicon response for the preview; no example resource requests are mocked.
-Screenshots, exported Inspector JSON and `playground-result.json` are saved
+Screenshots, exported Inspector JSON and `examples-result.json` are saved
 alongside the hardware artifacts.
 
 ## Pointer interaction follow-up
@@ -62,7 +62,7 @@ focus could match `:focus-visible`; pointer input now hides only the canvas's
 outline, restoring its original style for keyboard input, blur and disposal.
 
 After these changes, the 16 example CPU tests, example typecheck, Pages build
-and built Playground acceptance passed. The expanded hardware suite passed
+and built Examples acceptance passed. The expanded hardware suite passed
 **12/12** cases at both **DPR 1 and DPR 2**, without validation or uncaptured GPU
 errors. At 200 CSS pixels high, a 20-pixel drag rotated 0.62831853 radians; at
 400 pixels high it rotated 0.31415927 radians. One-event and twenty-event drags
@@ -70,7 +70,7 @@ agreed within floating-point precision, each event appeared in the next frame,
 batched vertical events accumulated once and release left no inertia or idle
 render loop. Real Playwright mouse dragging produced no canvas outline, while
 keyboard input restored its focus indicator. See `pointer-dpr1.json`, the latest
-`result.json` (DPR 2), and `playground-pointer-focus.png` in the artifact directory.
+`result.json` (DPR 2), and `examples-pointer-focus.png` in the artifact directory.
 
 ## Pre-commit review
 
@@ -79,5 +79,5 @@ The complete migration and pointer fixes were reviewed together. The final
 passed, and `npm run docs:check` passed. Hardware checks were rerun after the
 CPU runner: 12/12 cases passed at both DPR 1 and DPR 2, with 101 external
 submissions, zero scene renders outside graph execution and all 12 bridges
-disposed per run. The built Playground checks also passed again without
+disposed per run. The built Examples checks also passed again without
 browser errors or remote asset requests.

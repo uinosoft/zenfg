@@ -6,13 +6,20 @@ import { installSiteHeader } from '../shared/shell/header.ts';
 import { createSiteTheme } from '../shared/theme/controller.ts';
 
 test('every static header has all destinations and resolves under a deployment prefix', () => {
-	for (const page of ['home', 'inspector', 'playground'] as SitePage[]) {
-		const window = new Window({ url: `https://example.org/zenfg/${page === 'home' ? '' : page + '/'}` });
+	for (const page of ['home', 'inspector', 'examples'] as SitePage[]) {
+		const window = new Window({ url: `https://example.org/zenfg/${page === 'home' ? '' : page === 'examples' ? 'playground/' : page + '/'}` });
 		window.document.body.innerHTML = renderSiteHeader(page);
 		const links = [...window.document.querySelectorAll('.site-page-links a')];
-		assert.deepEqual(links.map(link => link.getAttribute('href')).map(href => new URL(href!, window.location.href).pathname), ['/zenfg/', '/zenfg/inspector/', '/zenfg/playground/']);
+        assert.deepEqual([...window.document.querySelectorAll('.site-navigation a')].map(link => link.textContent), ['Home', 'Inspector', 'Examples', 'Docs']);
+        const brand = window.document.querySelector<HTMLAnchorElement>('.site-brand')!;
+        assert.equal(new URL(brand.getAttribute('href')!, window.location.href).pathname, '/zenfg/');
+        assert.ok([...window.document.querySelectorAll('.site-header a:not(.site-github)')].every(link => !link.hasAttribute('target')));
+		assert.deepEqual(links.map(link => link.getAttribute('href')).map(href => new URL(href!, window.location.href).pathname), ['/zenfg/', '/zenfg/inspector/', '/zenfg/playground/', '/zenfg/docs/']);
 		assert.equal(window.document.querySelectorAll('[aria-current=page]').length, 1);
-		assert.equal(window.document.querySelector('[aria-current=page]')?.textContent, { home: 'Home', inspector: 'Inspector', playground: 'Playground' }[page]);
+		const docs = window.document.querySelector<HTMLAnchorElement>('.site-page-links a[href$="docs/"]')!;
+		assert.equal(new URL(docs.getAttribute('href')!, window.location.href).pathname, '/zenfg/docs/');
+		assert.equal(docs.hasAttribute('target'), false);
+		assert.equal(window.document.querySelector('[aria-current=page]')?.textContent, { home: 'Home', inspector: 'Inspector', examples: 'Examples' }[page]);
 		assert.equal(!!window.document.querySelector('[data-language-toggle]'), page === 'home');
 		window.happyDOM.abort();
 	}
@@ -78,7 +85,7 @@ test('single theme button follows external theme and language changes and unsubs
 });
 
 test('shared footers retain home destinations and accessible icon-only GitHub links', () => {
-	for (const page of ['home', 'playground'] as const) {
+	for (const page of ['home', 'examples'] as const) {
 		const window = new Window();
 		window.document.body.innerHTML = renderSiteHeader(page) + renderSiteFooter(page);
 		assert.equal(window.document.querySelector('.site-footer .site-brand')?.getAttribute('href'), page === 'home' ? './' : '../');

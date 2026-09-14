@@ -10,11 +10,11 @@ const out = resolve('.test-dist/examples-status');
 await mkdir(out, { recursive: true });
 const results = [];
 try {
- for (const id of (process.env.PLAYGROUND_EXAMPLES ?? 'interactive-background,typegpu-slime-mold,particles4all-framegraph,typegpu-monocular-light-injection').split(',')) {
+ for (const id of (process.env.EXAMPLES_EXAMPLES ?? 'interactive-background,typegpu-slime-mold,particles4all-framegraph,typegpu-monocular-light-injection').split(',')) {
   const page = await context.newPage();
   const errors = []; page.on('pageerror', e => errors.push(String(e)));
   console.log('Checking status ' + id);
-  await page.goto((process.env.PLAYGROUND_URL ?? 'http://127.0.0.1:4173/playground/') + '?example=' + id);
+  await page.goto((process.env.EXAMPLES_URL ?? 'http://127.0.0.1:4173/playground/') + '?example=' + id);
   await page.waitForFunction(() => document.querySelector('[data-effect-status-text]').textContent === 'Live', { }, { timeout: 180000 });
   const waitForFps = async () => {
    if (id === 'babylon-lite-interop') {

@@ -1,6 +1,6 @@
-import type { PlaygroundExampleDefinition } from '../types.ts';
+import type { ExamplesExampleDefinition } from '../types.ts';
 
-export const interactiveBackgroundExample: PlaygroundExampleDefinition = {
+export const interactiveBackgroundExample: ExamplesExampleDefinition = {
 	id: 'interactive-background',
 	title: 'Interactive FrameGraph Background',
 	group: 'Showcases',

@@ -1,7 +1,7 @@
 import type { ReferenceRendererSettings } from '../../../examples/reference-renderer-demo/src/index.ts';
-import type { PlaygroundExampleDefinition } from '../types.ts';
+import type { ExamplesExampleDefinition } from '../types.ts';
 
-export const referenceRendererExample: PlaygroundExampleDefinition = {
+export const referenceRendererExample: ExamplesExampleDefinition = {
     id: 'reference-renderer',
     title: 'Reference Renderer',
     group: 'Showcases',

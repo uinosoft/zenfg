@@ -5,7 +5,7 @@ This private workspace is not a production renderer or a published ZenFG package
 It uses native WebGPU and WGSL, without a scene graph, material system or engine
 dependency. Its package entrypoint exports only `createReferenceRenderer` and
 renderer types. The reusable renderer depends only on `@zenfg/webgpu` and does not
-import a demo, browser host or the Playground. Other examples should depend on
+import a demo, browser host or the Examples. Other examples should depend on
 internal `src/index.ts` entrypoint.
 
 ## Start with the graph
@@ -132,7 +132,7 @@ deliberately outside v1.
 The [standalone demo workspace](../reference-renderer-demo/README.md) owns scene
 layout, camera controls, browser setup, presentation and Snapshot capture. It
 consumes this renderer through the same public entrypoint as any future engine
-integration. The Playground mounts that demo without becoming a renderer dependency.
+integration. The Examples mounts that demo without becoming a renderer dependency.
 
 ```sh
 npm test

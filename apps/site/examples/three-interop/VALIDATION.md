@@ -28,7 +28,7 @@ on Windows, and an NVIDIA Turing hardware WebGPU adapter.
   after bridge initialization, active abort, disposal during replacement,
   pending captures and actual `GPUDevice.destroy()` loss notification. The
   borrowed device remains usable after a bridge is destroyed.
-- The assembled production Playground was visually checked at 1440 x 960
+- The assembled production Examples was visually checked at 1440 x 960
   and 390 x 844. Reverse Z toggling, six actual source tabs and an Inspector
   capture with zero errors and warnings worked. Procedural geometry fits both
   viewports. The browser's unrelated default favicon request returns 404.

@@ -27,7 +27,7 @@ No changes yet.
   initial-content reporting, and matching cross-language conformance coverage.
 - Unify Inspector visualization into Frame Flow with output endpoints, range
   identity, final-content sources, and refined labels, colors, and legend.
-- Add the public Playground, runnable package recipes, interactive background,
+- Add the public Examples, runnable package recipes, interactive background,
   and attributed TypeGPU slime-mold showcase.
 
 Coordinate all five packages at `0.1.0-beta.3` with exact internal dependencies.

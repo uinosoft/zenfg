@@ -1,7 +1,7 @@
-import type { PlaygroundExampleDefinition } from '../../types.ts';
+import type { ExamplesExampleDefinition } from '../../types.ts';
 import { recipeHostSourceFile } from './sources.ts';
 
-export const gpuTimingExample: PlaygroundExampleDefinition = {
+export const gpuTimingExample: ExamplesExampleDefinition = {
 	id: 'gpu-timing',
 	title: 'GPU Timing',
 	group: '@zenfg/webgpu basics',
