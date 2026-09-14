@@ -35,9 +35,22 @@ serialization, JSON-safety, and the extension-depth boundary.
    Run `cargo doc --locked --workspace --all-features --no-deps` with
    `RUSTDOCFLAGS="-D warnings"`.
 5. Run `npm run cargo:package-check` and inspect both crate archives.
-6. Run `cargo publish --dry-run -p zenfg-snapshot --locked` and then
-   `cargo publish --dry-run -p zenfg --locked` when their registry dependencies
-   are available. Use `--locked` for the actual Cargo publish commands too.
+6. Run `cargo publish --dry-run -p zenfg-snapshot --locked` before publishing
+   Snapshot. Once its exact required version is available on crates.io, run
+   `npm run cargo:release-check` before publishing the runtime. This release-only
+   command verifies the final runtime archive with all features using Cargo's
+   locked publish dry-run, without uploading or using a local Snapshot patch.
+   Require a zero exit and a `passed` report, inspect the final archive file list,
+   and retain the report, command log, and archive SHA-256 with the release
+   checklist. See the [release process](release-process.md) for prerequisites,
+   evidence paths, and blocking failure conditions. Use `--locked` for the
+   actual Cargo publish commands too.
+
+For local validation without publish credentials, run the same gate online.
+An offline run may fail even with cached dependencies because Cargo publish
+dry-runs can require registry HTTP requests. The release operator must run the
+gate after Snapshot publication. No PR CI job is
+required to invoke this registry-dependent gate.
 
 These workspace checks must use the committed `Cargo.lock`. See the
 [release process](release-process.md) for the bootstrap packaging and temporary

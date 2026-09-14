@@ -20,6 +20,7 @@
     "preview:pages": "npm run build:pages && npm run preview --workspace @zenfg/site-app",
     "benchmark:webgpu": "npm run benchmark:compile --workspace @zenfg/webgpu --",
     "cargo:package-check": "node ./scripts/check-cargo-packages.mjs",
+    "cargo:release-check": "node ./scripts/check-cargo-release.mjs",
     "dev": "npm run dev --workspace @zenfg/site-app",
     "dev:visual-lab": "npm run dev --workspace @zenfg/site-app -- --mode visual-lab --port 5176 --strictPort --base /",
     "build:visual-lab": "npm run build --workspace @zenfg/site-app -- --mode visual-lab",

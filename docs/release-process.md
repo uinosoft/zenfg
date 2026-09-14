@@ -32,8 +32,28 @@ without `--locked`: generating its registry lockfile would require the unpublish
 Snapshot version. The unpacked-crate checks are temporary consumer checks, not
 workspace lockfile gates; they resolve their own dependencies, including the local
 patch for the runtime. Snapshot workspace packaging still uses `--locked`.
-After the protocol crate is published, the release operator must also run
-ordinary `cargo package -p zenfg --locked --allow-dirty` before publishing the
-runtime.
+After the exact required Snapshot version is published and available from the
+crates.io index, run `npm run cargo:release-check` from the clean release checkout,
+before publishing the runtime. This manual release-only gate runs
+`cargo publish --dry-run --locked -p zenfg --all-features --registry crates-io`
+with a unique target directory. Cargo builds the final registry-resolved archive,
+including the Snapshot feature, without the bootstrap flags or a local patch.
+No upload occurs and no publish token is required. Do not use registry source
+replacements or local Cargo patches for this check.
+
+Each invocation preserves its archive, `commands.log`, and `result.json` under
+`target/release-validation/zenfg-*/`. The report records the commit, tracked
+worktree status, Cargo version, Snapshot requirement, command arguments, and, on
+success, archive file list, size, and SHA-256. Attach these results to the release
+checklist or release evidence storage; ignored local target files alone are not
+a durable audit record. Keep the checkout unchanged through runtime publication;
+rerun the gate after any source, manifest, lockfile, or toolchain change.
+
+A nonzero exit or failed report blocks runtime publication. An unavailable
+Snapshot version, registry/network failure, lockfile drift, dirty crate contents,
+or archive verification failure is not a successful bootstrap substitute. Fix
+the cause and rerun; do not bypass it with `--no-verify`, `--exclude-lockfile`,
+`--allow-dirty`, or a patch. Ordinary PR CI continues to use only the existing
+bootstrap package check.
 
 No dual-registry automatic release tool is required for the initial series.
