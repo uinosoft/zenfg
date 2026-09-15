@@ -1,0 +1,205 @@
+name: Publish
+on:
+  workflow_dispatch:
+    inputs:
+      npm_snapshot:
+        description: Publish @zenfg/snapshot
+        type: boolean
+        default: false
+      npm_webgpu:
+        description: Publish @zenfg/webgpu
+        type: boolean
+        default: false
+      npm_inspector:
+        description: Publish @zenfg/inspector
+        type: boolean
+        default: false
+      cargo_snapshot:
+        description: Publish zenfg-snapshot
+        type: boolean
+        default: false
+      cargo_zenfg:
+        description: Publish zenfg
+        type: boolean
+        default: false
+      dry_run:
+        description: Validate candidate only (no upload or approval)
+        type: boolean
+        default: true
+permissions:
+  contents: read
+concurrency:
+  group: zenfg-publish
+  cancel-in-progress: false
+env:
+  RELEASE_INPUTS: ${{ toJSON(inputs) }}
+
+jobs:
+  source:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Require main and a package selection
+        run: |
+          test "$GITHUB_REPOSITORY" = uinosoft/zenfg
+          test "$GITHUB_REF" = refs/heads/main
+          node -e 'const i = JSON.parse(process.env.RELEASE_INPUTS); if (!["npm_snapshot","npm_webgpu","npm_inspector","cargo_snapshot","cargo_zenfg"].some(k => i[k] === true)) process.exit(1)'
+
+  checks:
+    needs: source
+    uses: ./.github/workflows/checks.yml
+    with:
+      release_build: true
+
+  candidate:
+    needs: checks
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24.19.0
+          package-manager-cache: false
+      - run: npm install --global npm@11.11.0
+      - run: npm ci
+      - run: rustup toolchain install 1.98.0 --profile minimal && rustup default 1.98.0
+      - name: Restore original candidate on rerun
+        id: restore
+        run: npm run release -- restore
+        env:
+          GH_TOKEN: ${{ github.token }}
+      - name: Build and validate selected packages
+        if: steps.restore.outputs.restored != 'true'
+        run: npm run release -- prepare
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: steps.restore.outputs.restored != 'true'
+        with:
+          name: release-candidate
+          path: target/release/
+          if-no-files-found: error
+          retention-days: 90
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: failure()
+        with:
+          name: candidate-failure-${{ github.run_attempt }}
+          path: target/release/
+          if-no-files-found: ignore
+
+  publish:
+    needs: candidate
+    if: ${{ !inputs.dry_run }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    environment: release
+    permissions:
+      contents: read
+      actions: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24.19.0
+          package-manager-cache: false
+          registry-url: https://registry.npmjs.org
+      - run: npm install --global npm@11.11.0
+      - run: npm ci --ignore-scripts
+      - run: rustup toolchain install 1.98.0 --profile minimal && rustup default 1.98.0
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: release-candidate
+          path: target/release/
+      - run: npm run release -- validate
+      - name: Publish npm Snapshot
+        run: npm run release -- publish-snapshot
+      - name: Obtain temporary crates.io token
+        if: inputs.cargo_snapshot || inputs.cargo_zenfg
+        id: cargo-auth
+        uses: rust-lang/crates-io-auth-action@c6f97d42243bad5fab37ca0427f495c86d5b1a18 # v1.0.5
+      - name: Publish Cargo packages in dependency order
+        if: inputs.cargo_snapshot || inputs.cargo_zenfg
+        run: npm run release -- publish-cargo
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ steps.cargo-auth.outputs.token }}
+      - name: Publish npm runtime and Inspector
+        run: npm run release -- publish-npm
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: always()
+        with:
+          name: publish-evidence-${{ github.run_attempt }}
+          path: target/release/
+          if-no-files-found: ignore
+          retention-days: 90
+
+  verify:
+    outputs:
+      artifact_id: ${{ steps.evidence.outputs.artifact-id }}
+    needs: publish
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24.19.0
+          package-manager-cache: false
+      - run: npm install --global npm@11.11.0
+      - run: npm ci --ignore-scripts
+      - run: rustup toolchain install 1.98.0 --profile minimal && rustup default 1.98.0
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: release-candidate
+          path: target/release/
+      - run: npm run release -- verify
+      - id: evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: always()
+        with:
+          name: registry-evidence-${{ github.run_attempt }}
+          path: target/release/
+          if-no-files-found: error
+          retention-days: 90
+
+  finalize:
+    needs: verify
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: write
+      actions: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24.19.0
+          package-manager-cache: false
+      - run: npm install --global npm@11.11.0
+      - run: npm ci --ignore-scripts
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          artifact-ids: ${{ needs.verify.outputs.artifact_id }}
+          merge-multiple: true
+          path: target/release/
+      - run: npm run release -- finalize
+        env:
+          GH_TOKEN: ${{ github.token }}
