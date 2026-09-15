@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { catalog, channel, exactVersion, selectPackages, assertContext, assertResume,
-    validateSelection, getJson, publicationState, assertNotes, assertChannelAdvance, compareVersions, root } from '../core.mjs';
+    validateSelection, getJson, publicationState, assertNotes, assertChannelAdvance, compareVersions, assertCargoRegistrySources, root } from '../core.mjs';
 
 const pkg = (id, name, version, dependencies = [], registry = 'npm') => ({ id, name, version, dependencies, registry });
 const snapshot = pkg('s', '@zenfg/snapshot', '0.2.0');
@@ -102,4 +102,13 @@ test("npm channels cannot be rolled backwards by an older rerun", () => {
 test("dry-run mode blocks publish commands even before source validation", () => {
     const result = spawnSync(process.execPath, ["scripts/release/run.mjs", "publish-cargo"], { cwd: root, env: { ...process.env, RELEASE_INPUTS: "{\"dry_run\":true}" }, encoding: "utf8" });
     assert.notEqual(result.status, 0); assert.match(result.stderr, /Publishing is disabled/);
+});
+
+test("registry Cargo consumers reject local replacements and wrong archive checksums", () => {
+    const pkg = { name: "zenfg-snapshot", version: "0.2.0", sha256: "approved" };
+    const resolved = { ...pkg, source: "registry+https://github.com/rust-lang/crates.io-index", checksum: "approved" };
+    assert.doesNotThrow(() => assertCargoRegistrySources({ package: [resolved] }, [pkg]));
+    for (const replacement of [{ ...resolved, source: undefined }, { ...resolved, checksum: "other" }, { ...resolved, version: "0.1.0" }]) {
+        assert.throws(() => assertCargoRegistrySources({ package: [replacement] }, [pkg]), /approved crates.io archive/);
+    }
 });

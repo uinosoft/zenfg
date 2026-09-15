@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { build } from 'esbuild';
 import { parse } from 'smol-toml';
-import { root, json, read } from './core.mjs';
+import { root, json, read, assertCargoRegistrySources } from './core.mjs';
 import { archivePath, listFiles, npm, run, writeJson, output } from './io.mjs';
 import { assertLocalLinks, quickStart } from '../docs/markdown.mjs';
 
@@ -97,14 +97,14 @@ export async function consumer(packages, mode) {
             writeFileSync(join(samples, 'rust.json'), rustSample);
             const paths = readdirSync(samples).map(f => join(samples, f));
             run('cargo', ['run', '--quiet', '--locked', '--bin', 'decode', '--', ...paths], { cwd: rustDir, env });
-            if (mode === 'registry' && readFileSync(join(rustDir, 'Cargo.lock'), 'utf8').includes('path+')) throw new Error('Registry consumer leaked local paths.');
+            if (mode === 'registry') assertCargoRegistrySources(parse(readFileSync(join(rustDir, 'Cargo.lock'), 'utf8')), rust);
         }
         if (js.length) {
             // Inspector also consumes Snapshot transitively. Verify the actual installed reader.
             const codecFile = join(dir, 'decode.mjs');
             const corpus = resolve(root, 'packages/snapshot/conformance');
             writeFileSync(codecFile, [
-                'import { decodeFrameGraphSnapshot } from "@zenfg/snapshot";',
+                'import { decodeFrameGraphSnapshot, parseFrameGraphSnapshot } from "@zenfg/snapshot";',
                 'import { readFileSync, readdirSync } from "node:fs";',
                 'for (const file of readdirSync(' + JSON.stringify(samples) + ')) {',
                 'const result = decodeFrameGraphSnapshot(JSON.parse(readFileSync(' + JSON.stringify(samples + '/') + ' + file, "utf8")));',
@@ -115,8 +115,7 @@ export async function consumer(packages, mode) {
                     'const manifest = JSON.parse(readFileSync(corpus + "/manifest.json", "utf8"));',
                     'for (const entry of manifest.cases) {',
                     'const text = readFileSync(corpus + "/" + entry.file, "utf8");',
-                    'let value; try { value = JSON.parse(text); } catch { continue; }',
-                    'const result = decodeFrameGraphSnapshot(value);',
+                    'const result = parseFrameGraphSnapshot(text);',
                     'if (typeof entry.runtimeValid === "boolean" && result.ok !== entry.runtimeValid) throw new Error("Corpus mismatch: " + entry.id);',
                     '}',
                 ] : []),

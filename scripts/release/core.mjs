@@ -124,3 +124,12 @@ export function assertChannelAdvance(pkg, tags) {
     const current = tags[pkg.channel];
     if (current && compareVersions(pkg.version, current) < 0) throw new Error('Refusing to move npm ' + pkg.channel + ' backwards: ' + pkg.name);
 }
+
+export function assertCargoRegistrySources(lock, packages) {
+    for (const pkg of packages) {
+        const resolved = lock.package.find(p => p.name === pkg.name && p.version === pkg.version);
+        if (resolved?.source !== "registry+https://github.com/rust-lang/crates.io-index" || resolved.checksum !== pkg.sha256) {
+            throw new Error("Registry consumer must resolve the approved crates.io archive: " + pkg.name);
+        }
+    }
+}
