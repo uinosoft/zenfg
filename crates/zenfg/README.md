@@ -2,8 +2,8 @@
 
 <!-- generated:badges:start -->
 [![zenfg published version](https://img.shields.io/crates/v/zenfg?include_prereleases)](https://crates.io/crates/zenfg)
-[![docs.rs](https://img.shields.io/docsrs/zenfg/0.1.0-beta.3)](https://docs.rs/zenfg/0.1.0-beta.3/)
-[![MIT license](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/uinosoft/zenfg/blob/cargo/zenfg/v0.1.0-beta.3/LICENSE)
+[![docs.rs](https://img.shields.io/docsrs/zenfg/0.1.0-beta.4)](https://docs.rs/zenfg/0.1.0-beta.4/)
+[![MIT license](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/uinosoft/zenfg/blob/cargo/zenfg/v0.1.0-beta.4/LICENSE)
 <!-- generated:badges:end -->
 
 `zenfg` is a renderer-agnostic FrameGraph compiler and transient-resource
@@ -20,7 +20,7 @@ prerelease version while integrating.
 
 <!-- generated:installation:start -->
 ```sh
-cargo add zenfg@=0.1.0-beta.3
+cargo add zenfg@=0.1.0-beta.4
 ```
 <!-- generated:installation:end -->
 
@@ -38,7 +38,7 @@ imported resources remain caller-owned.
 
 ## Quick start
 
-Use a Cargo application with the toolchain in [Compatibility](https://github.com/uinosoft/zenfg/blob/cargo/zenfg/v0.1.0-beta.3/docs/compatibility.md).
+Use a Cargo application with the toolchain in [Compatibility](https://github.com/uinosoft/zenfg/blob/cargo/zenfg/v0.1.0-beta.4/docs/compatibility.md).
 Place this code inside `fn main() -> Result<(), zenfg::FrameGraphError>` and finish
 with `Ok(())`. Run `cargo run`; the assertion succeeds without requiring a GPU.
 Lines prefixed with `#` in this Markdown are rustdoc test scaffolding, not lines to paste.
@@ -160,7 +160,7 @@ needs a matching declaration.
 Declaration granularity is optional: complex workloads can keep private weights,
 parameters, and scratch internally bound, while teaching or diagnostic use can
 expose more resources. Graph-visible dependencies and access correctness still
-apply. See [Choosing resource declaration granularity](https://github.com/uinosoft/zenfg/blob/cargo/zenfg/v0.1.0-beta.3/docs/core-concepts.md#choosing-resource-declaration-granularity).
+apply. See [Choosing resource declaration granularity](https://github.com/uinosoft/zenfg/blob/cargo/zenfg/v0.1.0-beta.4/docs/core-concepts.md#choosing-resource-declaration-granularity).
 
 For resources exposed to the graph:
 
@@ -176,7 +176,7 @@ For resources exposed to the graph:
 - ZenFG performs no cross-frame dependency analysis and never acquires or
   presents a surface for the application.
 
-See [Core concepts](https://github.com/uinosoft/zenfg/blob/cargo/zenfg/v0.1.0-beta.3/docs/core-concepts.md)
+See [Core concepts](https://github.com/uinosoft/zenfg/blob/cargo/zenfg/v0.1.0-beta.4/docs/core-concepts.md)
 for the shared ownership, content, dependency, lifetime, and integration model.
 
 ## Common mistakes
@@ -198,35 +198,35 @@ outside the workspace:
 
 | Workflow | Example |
 | --- | --- |
-| Minimal presentation lifecycle | [`minimal_frame.rs`](https://github.com/uinosoft/zenfg/blob/cargo/zenfg/v0.1.0-beta.3/crates/zenfg/examples/minimal_frame.rs) |
-| Transient render target to presentation | [`transient_to_present.rs`](https://github.com/uinosoft/zenfg/blob/cargo/zenfg/v0.1.0-beta.3/crates/zenfg/examples/transient_to_present.rs) |
-| Caller-owned imported resource | [`imported_resource.rs`](https://github.com/uinosoft/zenfg/blob/cargo/zenfg/v0.1.0-beta.3/crates/zenfg/examples/imported_resource.rs) |
-| Cross-frame persistent state | [`persistent_state.rs`](https://github.com/uinosoft/zenfg/blob/cargo/zenfg/v0.1.0-beta.3/crates/zenfg/examples/persistent_state.rs) |
-| Opaque third-party submission | [`external_submission.rs`](https://github.com/uinosoft/zenfg/blob/cargo/zenfg/v0.1.0-beta.3/crates/zenfg/examples/external_submission.rs) |
-| Portable Snapshot export | [`snapshot_export.rs`](https://github.com/uinosoft/zenfg/blob/cargo/zenfg/v0.1.0-beta.3/crates/zenfg/examples/snapshot_export.rs) |
-| Asynchronous GPU timing | [`gpu_timing.rs`](https://github.com/uinosoft/zenfg/blob/cargo/zenfg/v0.1.0-beta.3/crates/zenfg/examples/gpu_timing.rs) |
-| Compute storage output | [`compute_output.rs`](https://github.com/uinosoft/zenfg/blob/cargo/zenfg/v0.1.0-beta.3/crates/zenfg/examples/compute_output.rs) |
+| Minimal presentation lifecycle | [`minimal_frame.rs`](https://github.com/uinosoft/zenfg/blob/cargo/zenfg/v0.1.0-beta.4/crates/zenfg/examples/minimal_frame.rs) |
+| Transient render target to presentation | [`transient_to_present.rs`](https://github.com/uinosoft/zenfg/blob/cargo/zenfg/v0.1.0-beta.4/crates/zenfg/examples/transient_to_present.rs) |
+| Caller-owned imported resource | [`imported_resource.rs`](https://github.com/uinosoft/zenfg/blob/cargo/zenfg/v0.1.0-beta.4/crates/zenfg/examples/imported_resource.rs) |
+| Cross-frame persistent state | [`persistent_state.rs`](https://github.com/uinosoft/zenfg/blob/cargo/zenfg/v0.1.0-beta.4/crates/zenfg/examples/persistent_state.rs) |
+| Opaque third-party submission | [`external_submission.rs`](https://github.com/uinosoft/zenfg/blob/cargo/zenfg/v0.1.0-beta.4/crates/zenfg/examples/external_submission.rs) |
+| Portable Snapshot export | [`snapshot_export.rs`](https://github.com/uinosoft/zenfg/blob/cargo/zenfg/v0.1.0-beta.4/crates/zenfg/examples/snapshot_export.rs) |
+| Asynchronous GPU timing | [`gpu_timing.rs`](https://github.com/uinosoft/zenfg/blob/cargo/zenfg/v0.1.0-beta.4/crates/zenfg/examples/gpu_timing.rs) |
+| Compute storage output | [`compute_output.rs`](https://github.com/uinosoft/zenfg/blob/cargo/zenfg/v0.1.0-beta.4/crates/zenfg/examples/compute_output.rs) |
 
 The repository also contains CPU-only compile and pool benchmarks. Snapshot
 export requires the `snapshot` feature.
 
 ## Further reading
 
-- [ZenFG documentation index](https://github.com/uinosoft/zenfg/blob/cargo/zenfg/v0.1.0-beta.3/docs/README.md)
-- [Core concepts](https://github.com/uinosoft/zenfg/blob/cargo/zenfg/v0.1.0-beta.3/docs/core-concepts.md)
-- [`zenfg-snapshot`](https://github.com/uinosoft/zenfg/blob/cargo/zenfg/v0.1.0-beta.3/crates/zenfg-snapshot/README.md)
-- [Compatibility](https://github.com/uinosoft/zenfg/blob/cargo/zenfg/v0.1.0-beta.3/docs/compatibility.md)
+- [ZenFG documentation index](https://github.com/uinosoft/zenfg/blob/cargo/zenfg/v0.1.0-beta.4/docs/README.md)
+- [Core concepts](https://github.com/uinosoft/zenfg/blob/cargo/zenfg/v0.1.0-beta.4/docs/core-concepts.md)
+- [`zenfg-snapshot`](https://github.com/uinosoft/zenfg/blob/cargo/zenfg/v0.1.0-beta.4/crates/zenfg-snapshot/README.md)
+- [Compatibility](https://github.com/uinosoft/zenfg/blob/cargo/zenfg/v0.1.0-beta.4/docs/compatibility.md)
 
 ## Documentation and versions
 
 <!-- generated:documentation:start -->
-This README describes **zenfg 0.1.0-beta.3**. Registry badges show the current published channel, not your installed version.
+This README describes **zenfg 0.1.0-beta.4**. Registry badges show the current published channel, not your installed version.
 
 - Exact installed APIs: read the included `src/`, or run `cargo doc --open` in your consuming project.
 - [Online guide (development branch)](https://uinosoft.github.io/zenfg/docs/packages/zenfg.html). The site may describe changes newer than this package.
-- [Rust API for this version](https://docs.rs/zenfg/0.1.0-beta.3/).
-- [Source and documentation for this release](https://github.com/uinosoft/zenfg/tree/cargo/zenfg/v0.1.0-beta.3/crates/zenfg).
-- [Shared concepts for this release](https://github.com/uinosoft/zenfg/blob/cargo/zenfg/v0.1.0-beta.3/docs/core-concepts.md) and [compatibility](https://github.com/uinosoft/zenfg/blob/cargo/zenfg/v0.1.0-beta.3/docs/compatibility.md).
+- [Rust API for this version](https://docs.rs/zenfg/0.1.0-beta.4/).
+- [Source and documentation for this release](https://github.com/uinosoft/zenfg/tree/cargo/zenfg/v0.1.0-beta.4/crates/zenfg).
+- [Shared concepts for this release](https://github.com/uinosoft/zenfg/blob/cargo/zenfg/v0.1.0-beta.4/docs/core-concepts.md) and [compatibility](https://github.com/uinosoft/zenfg/blob/cargo/zenfg/v0.1.0-beta.4/docs/compatibility.md).
 - [Plain Markdown documentation index (development branch)](https://uinosoft.github.io/zenfg/docs/llms.txt).
 - Complete Cargo recipes are included in `examples/`.
 <!-- generated:documentation:end -->

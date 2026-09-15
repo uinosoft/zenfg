@@ -47,7 +47,7 @@ export const snapshotExportExample: ExamplesExampleDefinition = {
 					timing,
 					context: host.context,
 					frameIndex: host.nextFrameIndex(),
-					producerVersion: '0.1.0-beta.3',
+					producerVersion: '0.1.0-beta.4',
 				});
 				const parsed = parseFrameGraphSnapshot(json);
 				if (!parsed.ok) {
