@@ -25,7 +25,7 @@ for (const file of ['README.md', 'README.zh-CN.md']) {
     let text = replaceBlock(read(file), 'badges', [
         `[![CI main](${repository}/actions/workflows/ci.yml/badge.svg?branch=main&event=push)](${repository}/actions/workflows/ci.yml?query=branch%3Amain)`,
         badge('Documentation', 'badge/docs-online-blue', `${website}docs/`), license,
-        badge('Public beta', 'badge/status-beta-orange', `${repository}/blob/main/CHANGELOG.md`),
+        badge('Release status', packages.some(p => p.version.includes('-')) ? 'badge/status-prerelease-orange' : 'badge/status-released-blue', `${repository}/blob/main/CHANGELOG.md`),
     ].join('\n'));
     const descriptions = chinese ? ['TypeScript/WebGPU FrameGraph 运行时', `Snapshot ${wire} 类型、编解码、验证与规范`, '可嵌入的 DOM Inspector', 'Rust/wgpu FrameGraph 运行时', `Rust Snapshot ${wire} 编解码、验证与迁移`] : ['TypeScript/WebGPU FrameGraph runtime', `Snapshot ${wire} types, codec, validation and specification`, 'Embeddable DOM Inspector', 'Rust/wgpu FrameGraph runtime', `Rust Snapshot ${wire} codec, validation and migration`];
     text = replaceBlock(text, 'packages', [`| ${chinese ? '包 | 用途 | 发布版本 | 文档' : 'Package | Purpose | Published version | Documentation'} |`, '| --- | --- | --- | --- |',

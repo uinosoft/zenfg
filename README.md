@@ -4,7 +4,7 @@
 [![CI main](https://github.com/uinosoft/zenfg/actions/workflows/ci.yml/badge.svg?branch=main&event=push)](https://github.com/uinosoft/zenfg/actions/workflows/ci.yml?query=branch%3Amain)
 [![Documentation](https://img.shields.io/badge/docs-online-blue)](https://uinosoft.github.io/zenfg/docs/)
 [![MIT license](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/uinosoft/zenfg/blob/main/LICENSE)
-[![Public beta](https://img.shields.io/badge/status-beta-orange)](https://github.com/uinosoft/zenfg/blob/main/CHANGELOG.md)
+[![Release status](https://img.shields.io/badge/status-released-blue)](https://github.com/uinosoft/zenfg/blob/main/CHANGELOG.md)
 <!-- generated:badges:end -->
 
 English | [简体中文](README.zh-CN.md)
@@ -49,9 +49,9 @@ for the complete ownership, content, dependency, lifetime, and execution model.
 <!-- generated:packages:start -->
 | Package | Purpose | Published version | Documentation |
 | --- | --- | --- | --- |
-| [`@zenfg/webgpu`](packages/webgpu/README.md) | TypeScript/WebGPU FrameGraph runtime | [![@zenfg/webgpu published next version](https://img.shields.io/npm/v/%40zenfg%2Fwebgpu/next?label=npm)](https://www.npmjs.com/package/@zenfg/webgpu) | [Guide](https://uinosoft.github.io/zenfg/docs/packages/webgpu.html) |
-| [`@zenfg/snapshot`](packages/snapshot/README.md) | Snapshot 1.2 types, codec, validation and specification | [![@zenfg/snapshot published next version](https://img.shields.io/npm/v/%40zenfg%2Fsnapshot/next?label=npm)](https://www.npmjs.com/package/@zenfg/snapshot) | [Guide](https://uinosoft.github.io/zenfg/docs/packages/snapshot.html) |
-| [`@zenfg/inspector`](packages/inspector/README.md) | Embeddable DOM Inspector | [![@zenfg/inspector published next version](https://img.shields.io/npm/v/%40zenfg%2Finspector/next?label=npm)](https://www.npmjs.com/package/@zenfg/inspector) | [Guide](https://uinosoft.github.io/zenfg/docs/packages/inspector.html) |
+| [`@zenfg/webgpu`](packages/webgpu/README.md) | TypeScript/WebGPU FrameGraph runtime | [![@zenfg/webgpu published latest version](https://img.shields.io/npm/v/%40zenfg%2Fwebgpu/latest?label=npm)](https://www.npmjs.com/package/@zenfg/webgpu) | [Guide](https://uinosoft.github.io/zenfg/docs/packages/webgpu.html) |
+| [`@zenfg/snapshot`](packages/snapshot/README.md) | Snapshot 1.2 types, codec, validation and specification | [![@zenfg/snapshot published latest version](https://img.shields.io/npm/v/%40zenfg%2Fsnapshot/latest?label=npm)](https://www.npmjs.com/package/@zenfg/snapshot) | [Guide](https://uinosoft.github.io/zenfg/docs/packages/snapshot.html) |
+| [`@zenfg/inspector`](packages/inspector/README.md) | Embeddable DOM Inspector | [![@zenfg/inspector published latest version](https://img.shields.io/npm/v/%40zenfg%2Finspector/latest?label=npm)](https://www.npmjs.com/package/@zenfg/inspector) | [Guide](https://uinosoft.github.io/zenfg/docs/packages/inspector.html) |
 | [`zenfg`](crates/zenfg/README.md) | Rust/wgpu FrameGraph runtime | [![zenfg published version](https://img.shields.io/crates/v/zenfg?include_prereleases)](https://crates.io/crates/zenfg) | [Guide](https://uinosoft.github.io/zenfg/docs/packages/zenfg.html) |
 | [`zenfg-snapshot`](crates/zenfg-snapshot/README.md) | Rust Snapshot 1.2 codec, validation and migration | [![zenfg-snapshot published version](https://img.shields.io/crates/v/zenfg-snapshot?include_prereleases)](https://crates.io/crates/zenfg-snapshot) | [Guide](https://uinosoft.github.io/zenfg/docs/packages/zenfg-snapshot.html) |
 <!-- generated:packages:end -->
@@ -73,8 +73,8 @@ for the complete ownership, content, dependency, lifetime, and execution model.
 
 ## Status
 
-ZenFG is public beta software. Public APIs may change before 1.0, so integrations
-should pin exact prerelease package versions. TypeScript and Rust share semantics
+ZenFG 0.1.0 is the first non-prerelease version. Public APIs may change before
+1.0; integrations should pin exact package versions and review migration notes. TypeScript and Rust share semantics
 and portable diagnostics, not source-level API parity. Snapshot wire format
 versioning is independent from package versions; see the
 [compatibility matrix](docs/compatibility.md) and [changelog](CHANGELOG.md).
