@@ -39,7 +39,35 @@ builds do not restore PR caches. No npm token, Cargo token, or PAT is stored
 as a repository secret. The Cargo auth action obtains its temporary token
 immediately before Cargo publication.
 
+## Validated release baseline
+
+The [beta.4 run](https://github.com/uinosoft/zenfg/actions/runs/34945721343)
+completed all five OIDC publications, registry consumers and immutable component
+Releases. It also verified that the native Cargo publish archives matched their
+approved candidates. Partial-failure recovery is covered by simulated tests; the
+first real recovery and a stable/latest release still require operational observation.
+
 ## Decide which packages to release
+
+Run the read-only assessment before preparing a release:
+
+~~~sh
+npm run release:assess
+npm --silent run release:assess -- --json
+~~~
+
+It compares committed HEAD with each package\'s highest-SemVer reachable component
+tag. Update local tags/history before making release decisions. Uncommitted edits
+are excluded and produce a warning; missing tags are reported as no baseline.
+The report separates source/shipped content, development-only files, shared build
+inputs and other repository changes. Shared impacts and exact dependency changes
+are review prompts, not an instruction to release or upgrade every dependent.
+PR checks include the same report in their job summary.
+
+When using an assistant, review an explicit list of package names, versions,
+channels and reasons before asking it to dispatch Publish. The assessment never
+bumps versions or selects packages for you.
+
 
 Compare each package with its own most recent component tag. For example:
 
@@ -100,6 +128,10 @@ Building the CI infrastructure does not itself cut a new version.
 Open Actions → Publish → Run workflow, choose `main`, select the packages,
 and leave `dry_run` enabled for the first run.
 
+Package selection is fixed when the workflow is dispatched. The later Environment
+approval authorizes that selection; it cannot change the selected packages. Cancel
+and start a new run if the selection needs changing.
+
 The workflow freezes the dispatch SHA and repeats the full quality checks.
 Selected versions must be unoccupied; each exact internal dependency must
 already be available in its registry or be selected at the required version.
@@ -159,6 +191,18 @@ Artifacts and manifest/verification reports are attached to drafts before
 publication. Prerelease versions are marked prerelease. Component releases
 do not claim a single repository-wide "latest" version.
 
+## Publication progress
+
+Each package reports upload command completion and registry confirmation separately.
+A successful upload command can precede registry visibility by several minutes.
+Waiting progress is printed every 30 seconds while queries remain 10 seconds apart;
+the visibility timeout remains 10 minutes. Authentication, network and checksum
+errors still fail immediately during registry lookup. An unsuccessful upload command
+is checked against the registry because it may already have accepted the archive.
+Job summaries contain phase durations; evidence artifacts include progress.jsonl.
+Cargo uploads run as one dependency-ordered command, so its command duration is
+reported for each member of that batch, not as separate per-crate upload time.
+
 ## Failure and recovery
 
 Registries cannot commit a multi-package release atomically. Stable npm
@@ -202,4 +246,5 @@ already-published Snapshot dependency, with evidence under
 package dry-run and does not depend on that manual gate.
 
 Dry-runs prove packaging and compatibility, not registry authorization.
-The first actual beta release must verify all Trusted Publishers and npm provenance.
+The beta.4 run verified all five Trusted Publishers and npm provenance. Future
+releases must continue passing registry verification.

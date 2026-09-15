@@ -28,10 +28,10 @@ export function channel(version) {
     if (!semver.test(version)) throw new Error('Invalid release version: ' + version);
     return version.includes('-') ? 'next' : 'latest';
 }
-export function catalog() {
+export function catalog(readAt = read) {
     return definitions.map(([id, registry, slug]) => {
         const directory = (registry === 'npm' ? 'packages/' : 'crates/') + slug;
-        const manifest = registry === 'npm' ? json(directory + '/package.json') : parse(read(directory + '/Cargo.toml'));
+        const manifest = registry === 'npm' ? JSON.parse(readAt(directory + '/package.json')) : parse(readAt(directory + '/Cargo.toml'));
         const pkg = registry === 'npm' ? manifest : manifest.package;
         const dependencies = Object.entries(manifest.dependencies ?? {}).filter(([name]) =>
             registry === 'npm' ? name.startsWith('@zenfg/') : name === 'zenfg-snapshot',

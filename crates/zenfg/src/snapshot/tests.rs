@@ -99,14 +99,47 @@ fn golden_snapshot_covers_v1_wire_mapping() {
     ));
 
     let json = to_json_pretty(&snapshot).unwrap();
-    let mut actual: serde_json::Value = serde_json::from_str(&json).unwrap();
-    let mut expected: serde_json::Value =
+    let actual: serde_json::Value = serde_json::from_str(&json).unwrap();
+    let expected: serde_json::Value =
         serde_json::from_str(include_str!("../../tests/fixtures/snapshot-v1.json")).unwrap();
+    assert_snapshot_matches_golden(actual, expected);
+}
+
+fn assert_snapshot_matches_golden(mut actual: serde_json::Value, mut expected: serde_json::Value) {
+    assert_eq!(actual["producer"]["version"], env!("CARGO_PKG_VERSION"));
+    // The golden fixes wire structure; the producer version is asserted independently.
+    expected["producer"]["version"] = actual["producer"]["version"].clone();
     normalize_integral_json_numbers(&mut actual);
     normalize_integral_json_numbers(&mut expected);
     assert_eq!(actual, expected);
 }
 
+#[test]
+fn golden_version_is_independent_but_metadata_and_structure_are_checked() {
+    let mut expected: serde_json::Value =
+        serde_json::from_str(include_str!("../../tests/fixtures/snapshot-v1.json")).unwrap();
+    let mut actual = expected.clone();
+    actual["producer"]["version"] = env!("CARGO_PKG_VERSION").into();
+    expected["producer"]["version"] = "0.0.0-old-golden".into();
+    assert_snapshot_matches_golden(actual.clone(), expected.clone());
+
+    let mut wrong_version = actual.clone();
+    wrong_version["producer"]["version"] = "0.0.0-wrong-output".into();
+    assert!(
+        std::panic::catch_unwind(|| {
+            assert_snapshot_matches_golden(wrong_version, expected.clone());
+        })
+        .is_err()
+    );
+
+    actual["capture"]["frameIndex"] = 999.into();
+    assert!(
+        std::panic::catch_unwind(|| {
+            assert_snapshot_matches_golden(actual, expected);
+        })
+        .is_err()
+    );
+}
 #[test]
 fn identical_producer_inputs_encode_deterministically() {
     let (report, timing, pool) = fixture_report();

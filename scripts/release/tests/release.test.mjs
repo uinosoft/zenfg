@@ -112,3 +112,15 @@ test("registry Cargo consumers reject local replacements and wrong archive check
         assert.throws(() => assertCargoRegistrySources({ package: [replacement] }, [pkg]), /approved crates.io archive/);
     }
 });
+
+test("CI only runs main pushes, PRs and dispatch; artifact downloads fail on digest mismatch", () => {
+    const ci = readFileSync(root + "/.github/workflows/ci.yml", "utf8");
+    assert.match(ci, /push:\s*\n\s*branches: \[main\]/);
+    assert.match(ci, /cancel-in-progress:.*github.event_name == .pull_request./);
+    assert.match(ci, /github.event.pull_request.number \|\| github.run_id/);
+    for (const file of ["publish.yml", "checks.yml"]) {
+        const source = readFileSync(root + "/.github/workflows/" + file, "utf8");
+        assert.doesNotMatch(source, /ea165f8d65b6e75b540449e92b4886f43607fa02|d3f86a106a0bac45b974a628896c90dbdf5c8093/);
+        assert.equal((source.match(/uses: actions\/download-artifact@/g) ?? []).length, (source.match(/digest-mismatch: error/g) ?? []).length);
+    }
+});

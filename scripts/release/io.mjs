@@ -40,3 +40,18 @@ export function listFiles(archive) {
     if (files.some(file => file.startsWith('/') || file.includes('\\') || file.split('/').includes('..'))) throw new Error('Unsafe archive entry.');
     return files;
 }
+
+export function progress(event) {
+    mkdirSync(output, { recursive: true });
+    const record = { at: new Date().toISOString(), ...event };
+    const label = event.name + "@" + event.version;
+    const elapsed = (event.elapsedMs / 1000).toFixed(1) + "s";
+    const line = label + ": " + event.phase + " (" + elapsed + ")" + (event.outcome ? " [" + event.outcome + "]" : "") + (event.message ? " " + event.message : "");
+    console.log(line);
+    appendFileSync(join(output, "commands.log"), line + "\n");
+    appendFileSync(join(output, "progress.jsonl"), JSON.stringify(record) + "\n");
+    if (process.env.GITHUB_STEP_SUMMARY && event.phase !== "registry-wait") {
+        const safe = line.replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll("\n", " ");
+        appendFileSync(process.env.GITHUB_STEP_SUMMARY, "- " + safe + "\n");
+    }
+}
