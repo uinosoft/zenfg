@@ -14,8 +14,10 @@ specific candidate belong in its release checklist.
    all three npm packages, inspects their tarballs, installs them in a clean
    temporary consumer, verifies their public exports and declaration maps, and
    compiles the documented examples.
-5. Inspect `npm publish --dry-run --access public --tag next` output for each
-   package before publishing.
+5. Inspect `npm publish --dry-run --access public --tag CHANNEL` output for each
+   package before publishing. Replace `CHANNEL` with `next` for prereleases or
+   `latest` for versions without a prerelease suffix. The selected-package
+   Publish dry-run chooses the channel from each package version.
 
 The Snapshot checks cover canonical V1, Legacy V0, Legacy Candidate V1,
 structural and semantic failures, cross-language producer parity, deterministic

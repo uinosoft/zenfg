@@ -21,12 +21,33 @@ Snapshot 1.2 semantics are unchanged. Internal dependencies use exact 0.1.0.
 - Inspector timing browser acceptance passed on the production build: CPU/GPU
   capture, Snapshot 1.2 same-frame export, keyboard controls and narrow layout.
 
-## Publication gates
+## Publication result
 
-The release commit must pass the complete CI workflow and a Publish dry-run
-before a new publishing run is dispatched. That run builds its own candidate;
-review its names, versions, channels, checksums and clean consumers before the
-protected release Environment is approved. Publication results and archive
-verification are recorded by the workflow artifacts and component Releases.
+Status: published and verified on 2026-09-15.
+
+- Release commit: `f644a73aad3c84de3b7b822acd8f1776366ea780` ([PR #5](https://github.com/uinosoft/zenfg/pull/5)).
+- [Release commit CI](https://github.com/uinosoft/zenfg/actions/runs/34957413291): passed.
+- [Five-package Publish dry-run](https://github.com/uinosoft/zenfg/actions/runs/34957420011): passed.
+- [Production Publish run](https://github.com/uinosoft/zenfg/actions/runs/34958080272): passed, including publication, registry verification and Release creation.
+- All five production candidate archive SHA-256 values matched the successful
+  dry-run archives before the protected release Environment was approved.
+- Registry downloads matched the approved archive checksums; exact-version
+  consumers and cross-language checks passed. npm provenance and all three
+  `latest` tags were verified. `next` remains at `0.1.0-beta.4`.
+- The website and both versioned docs.rs documentation entrypoints returned
+  HTTP 200 during the post-release check.
+
+| Package | Version | Channel | Component Release |
+| --- | --- | --- | --- |
+| `@zenfg/snapshot` | `0.1.0` | npm `latest` | [npm/snapshot/v0.1.0](https://github.com/uinosoft/zenfg/releases/tag/npm%2Fsnapshot%2Fv0.1.0) |
+| `@zenfg/webgpu` | `0.1.0` | npm `latest` | [npm/webgpu/v0.1.0](https://github.com/uinosoft/zenfg/releases/tag/npm%2Fwebgpu%2Fv0.1.0) |
+| `@zenfg/inspector` | `0.1.0` | npm `latest` | [npm/inspector/v0.1.0](https://github.com/uinosoft/zenfg/releases/tag/npm%2Finspector%2Fv0.1.0) |
+| `zenfg-snapshot` | `0.1.0` | crates.io | [cargo/zenfg-snapshot/v0.1.0](https://github.com/uinosoft/zenfg/releases/tag/cargo%2Fzenfg-snapshot%2Fv0.1.0) |
+| `zenfg` | `0.1.0` | crates.io | [cargo/zenfg/v0.1.0](https://github.com/uinosoft/zenfg/releases/tag/cargo%2Fzenfg%2Fv0.1.0) |
+
+Each component Release includes its archive, `manifest.json` and `verified.json`.
+The production workflow also retains `release-candidate`, `publish-evidence-1`
+and `registry-evidence-1` artifacts for 90 days. These contain the file lists,
+checksums, command logs and consumer results.
 
 Historical beta checklists remain unchanged. See [release process](release-process.md).
