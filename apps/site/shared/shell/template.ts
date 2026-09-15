@@ -8,7 +8,7 @@ export function renderSiteHeader(page: SitePage): string {
     const renderLink = ({ id, text: label, path }: typeof siteNavigation[number]) => `<a class="site-nav-link project-nav-link" href="${root}${path}"${page === id ? ' aria-current="page"' : ''}${localized(id)}>${label}</a>`;
     const links = siteNavigation.map(renderLink).join('');
 	return `<header class="site-header" data-site-header data-background-region>
-	<a class="site-brand" href="${root}" aria-label="ZenFG home">Zen<span class="brand-accent">FG</span></a>
+	<a class="site-brand" href="${root}" aria-label="ZenFG home"><img class="site-brand-mark" src="${root}brand/zenfg-mark.svg" width="28" height="28" alt=""><span>Zen<span class="brand-accent">FG</span></span></a>
 	<nav class="site-navigation" id="site-navigation" aria-label="Site navigation">
 		<div class="site-page-links">${links}</div>
 	</nav>
@@ -25,7 +25,7 @@ export function renderSiteHeader(page: SitePage): string {
 export function renderSiteFooter(page: 'home' | 'examples'): string {
 	const localized = (key: string) => page === 'home' ? ` data-i18n="${key}"` : '';
 	return `<footer class="site-footer" data-background-region>
-	<a class="site-brand" href="${page === 'home' ? './' : '../'}" aria-label="ZenFG home">Zen<span class="brand-accent">FG</span></a>
+	<a class="site-brand" href="${page === 'home' ? './' : '../'}" aria-label="ZenFG home"><img class="site-brand-mark" src="${page === 'home' ? './' : '../'}brand/zenfg-mark.svg" width="28" height="28" alt=""><span>Zen<span class="brand-accent">FG</span></span></a>
 	<p class="note"${localized('note')}>Open source / MIT licensed</p>
 	<nav class="footer-links" aria-label="Project resources"${page === 'home' ? ' data-i18n-aria="projectLinks"' : ''}>
 	<a href="${page === 'home' ? './' : '../'}docs/"${localized('docs')}>Docs</a>

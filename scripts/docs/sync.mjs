@@ -26,7 +26,7 @@ for (const file of ['README.md', 'README.zh-CN.md']) {
         `[![CI main](${repository}/actions/workflows/ci.yml/badge.svg?branch=main&event=push)](${repository}/actions/workflows/ci.yml?query=branch%3Amain)`,
         badge('Documentation', 'badge/docs-online-blue', `${website}docs/`), license,
         badge('Release status', packages.some(p => p.version.includes('-')) ? 'badge/status-prerelease-orange' : 'badge/status-released-blue', `${repository}/blob/main/CHANGELOG.md`),
-    ].join('\n'));
+    ].map(value => value.replace(/^\[!\[([^\]]+)\]\(([^)]+)\)\]\(([^)]+)\)$/, '<a href="$3"><img src="$2" alt="$1"></a>')).join('\n').replace(/^/, '<p align="center">\n').concat('\n</p>'));
     const descriptions = chinese ? ['TypeScript/WebGPU FrameGraph 运行时', `Snapshot ${wire} 类型、编解码、验证与规范`, '可嵌入的 DOM Inspector', 'Rust/wgpu FrameGraph 运行时', `Rust Snapshot ${wire} 编解码、验证与迁移`] : ['TypeScript/WebGPU FrameGraph runtime', `Snapshot ${wire} types, codec, validation and specification`, 'Embeddable DOM Inspector', 'Rust/wgpu FrameGraph runtime', `Rust Snapshot ${wire} codec, validation and migration`];
     text = replaceBlock(text, 'packages', [`| ${chinese ? '包 | 用途 | 发布版本 | 文档' : 'Package | Purpose | Published version | Documentation'} |`, '| --- | --- | --- | --- |',
         ...packages.map((p, i) => `| [\`${p.name}\`](${p.directory}/README.md) | ${descriptions[i]} | ${versionBadge(p)} | [${chinese ? '指南' : 'Guide'}](${website}docs/${p.route}.html) |`),

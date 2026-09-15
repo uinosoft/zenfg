@@ -6,6 +6,9 @@ import { root, read, write, pages, recipes, packages, publicEntrypoints, content
 import { hideRustDoctestLines } from './markdown.mjs';
 
 export function transformContent(text, source, mapping, commit) {
+    // Repository presentation has local HTML picture URLs and GitHub-specific layout.
+    // Docs already display the brand in navigation; retain the semantic article below it.
+    text = text.replace(/<!-- readme-hero:start -->[\s\S]*?<!-- readme-hero:end -->\s*/g, '');
     const history = [];
     text = text.replace(/<!-- generated:documentation:start -->[\s\S]*?<!-- generated:documentation:end -->/g, block => block.replace(/https:\/\/github\.com\/uinosoft\/zenfg\/(?:blob|tree)\/(?:npm|cargo)\/[^)\s]+/g, url => { history.push(url); return `@HISTORY@${history.length - 1}`; }));
     text = text.replace(/<!-- generated:badges:start -->[\s\S]*?<!-- generated:badges:end -->/g, '')
@@ -21,6 +24,7 @@ export function transformContent(text, source, mapping, commit) {
         else if (/^(?:[a-z][\w+.-]*:|\/\/|#)/i.test(value)) return value;
         const [pathname, fragment] = value.split('#');
         const target = value.startsWith('/') ? pathname.slice(1) : relative(root, resolve(root, dirname(source), decodeURIComponent(pathname.split('?')[0]))).replaceAll('\\', '/');
+        if (target === 'assets/brand/zenfg-icon.svg') return '@DOCS@/brand/zenfg-icon.svg';
         const route = mapping.get(target);
         if (route) return `@DOCS@/${route === 'index' ? '' : route + '.html'}${fragment ? '#' + fragment : ''}`;
         return `${repository}/blob/${commit}/${target}${fragment ? '#' + fragment : ''}`;

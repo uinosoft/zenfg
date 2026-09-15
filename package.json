@@ -14,6 +14,7 @@
     "apps/docs"
   ],
   "scripts": {
+    "brand:build": "node scripts/build-brand.mjs",
     "build:packages": "npm run build --workspace @zenfg/snapshot && npm run build --workspace @zenfg/webgpu && npm run build --workspace @zenfg/inspector",
     "build:site": "node scripts/docs/build-site.mjs",
     "build": "npm run build:packages && npm run build:site",
