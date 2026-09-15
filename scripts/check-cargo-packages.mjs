@@ -57,8 +57,8 @@ function crateInfo(name) {
 }
 
 function cratePath(crate) {
-    const path = resolve(packageDirectory, `${crate.archiveRoot}.crate`);
-    if (!existsSync(path)) {
+    const path = [resolve(packageDirectory, "tmp-crate", `${crate.archiveRoot}.crate`), resolve(packageDirectory, `${crate.archiveRoot}.crate`)].find(existsSync);
+    if (!path) {
         throw new Error(`Cargo did not create ${path}.`);
     }
     return path;
@@ -68,22 +68,9 @@ const snapshotCrate = crateInfo('zenfg-snapshot');
 const runtimeCrate = crateInfo('zenfg');
 
 try {
-    run('cargo', ['package', '-p', 'zenfg-snapshot', '--locked', '--allow-dirty']);
-
-    // The runtime's optional protocol dependency is intentionally unpublished
-    // during the bootstrap release. Assemble the exact archive without registry
-    // verification, then compile that archive with a local crates.io patch.
-    // Do not add --locked here: bootstrap excludes the archive lockfile to avoid
-    // resolving the unpublished registry dependency. The extracted-crate checks
-    // below validate consumers outside the workspace, with their own resolution.
-    run('cargo', [
-        'package',
-        '-p',
-        'zenfg',
-        '--no-verify',
-        '--exclude-lockfile',
-        '--allow-dirty',
-    ]);
+    // Native Cargo 1.98 verifies both archives through its temporary registry.
+    // --allow-dirty is for local developer checks only; release candidates require a clean checkout.
+    run('cargo', ['publish', '--dry-run', '--locked', '-p', 'zenfg-snapshot', '-p', 'zenfg', '--all-features', '--allow-dirty']);
 
     for (const [crate, requiredFiles] of [
         [snapshotCrate, [

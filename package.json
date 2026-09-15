@@ -35,7 +35,13 @@
     "docs:build": "npm run build --workspace @zenfg/docs-app",
     "dev:docs": "npm run dev --workspace @zenfg/docs-app",
     "docs:test": "node --test scripts/docs/tests/*.test.mjs",
-    "docs:test:browser": "node scripts/docs/browser-check.mjs"
+    "docs:test:browser": "node scripts/docs/browser-check.mjs",
+    "release": "node scripts/release/run.mjs",
+    "release:check": "node scripts/release/run.mjs static",
+    "release:test": "node --test scripts/release/tests/*.test.mjs",
+    "release:smoke:npm": "node scripts/release/smoke.mjs npm",
+    "release:smoke:cargo": "node scripts/release/smoke.mjs cargo",
+    "release:smoke": "node scripts/release/smoke.mjs all"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",
