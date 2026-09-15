@@ -36,7 +36,7 @@ docs.rs; each crate README links its exact version.
 
 The website follows the development branch. Installed READMEs, packaged examples,
 and per-package release tags preserve documentation for published versions.
-See [migration guidance](migration-0.1.0-beta.3.md) and the [changelog](../CHANGELOG.md).
+See [beta.4 migration guidance](migration-timing-snapshot-1.2.md) and the [changelog](../CHANGELOG.md).
 
 For repository work, read [Contributing](../CONTRIBUTING.md), the
 [documentation workflow](documentation.md), and the [release process](release-process.md).

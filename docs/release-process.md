@@ -39,6 +39,30 @@ builds do not restore PR caches. No npm token, Cargo token, or PAT is stored
 as a repository secret. The Cargo auth action obtains its temporary token
 immediately before Cargo publication.
 
+## Decide which packages to release
+
+Compare each package with its own most recent component tag. For example:
+
+~~~sh
+git log npm/webgpu/v0.1.0-beta.3..HEAD -- packages/webgpu
+git diff npm/webgpu/v0.1.0-beta.3 HEAD -- packages/webgpu
+~~~
+
+- Release when shipped implementation, public types, assets, packaged examples,
+  required metadata or dependency declarations change in a way consumers need.
+- Review shared build scripts and configuration too: changes outside the package
+  directory can change the resulting archive.
+- CI-only, test-only and website-only changes usually do not require a package
+  release. A changed file count is an investigation aid, not the release decision.
+- If a dependent needs a newer internal dependency, update its exact dependency
+  and release the dependent as well. A compatible dependency fix does not by itself
+  require releasing every other package.
+- For Snapshot wire changes, check the producer/reader migration together and
+  document any coordinated upgrade. Package versions remain independent.
+
+For beta.4 all five packages have consumer-visible changes since their own beta.3
+tags: Snapshot 1.2 readers, unified runtime timing, and Inspector features/fixes.
+
 ## Prepare a release PR
 
 1. Decide which packages need a release. Do not change versions during the
@@ -60,7 +84,7 @@ immediately before Cargo publication.
    Describe the actual changes and link any migration instructions.
    ~~~
 
-   This is a format example, not a decision to publish beta.4.
+   Replace this example with the package version selected for the release.
    Record corresponding component/version changes in `CHANGELOG.md`;
    keep exactly one Unreleased section. Keep historical checklists intact.
 5. Review Snapshot compatibility. Current source produces Snapshot 1.2,

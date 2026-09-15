@@ -1,6 +1,6 @@
 # Unified execution timing and Snapshot 1.2
 
-This source change precedes the next package release; it does not rename or
+These changes ship in 0.1.0-beta.4 of all five public packages. They do not
 retroactively change beta.3. Pin and upgrade producer and consumer packages together.
 
 ## Runtime calls

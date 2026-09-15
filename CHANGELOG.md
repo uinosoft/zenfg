@@ -5,16 +5,43 @@ packages use independent versions; component tags identify each release.
 
 ## Unreleased
 
-- Add explicit CPU/GPU/both execution timing in TypeScript and Rust. CPU reports
-  cover all executed node kinds and include synchronous execution total.
-- Replace GPU-only execution entrypoints with unified timing results.
-- Emit Snapshot 1.2 and explicitly migrate 1.1 with unavailable historical CPU data.
-- Add Inspector CPU measurements, sorting, group coverage and full CPU/GPU capture.
-- Capture CPU and pool counters before GPU readback to preserve same-frame facts.
-- See [migration guide](docs/migration-timing-snapshot-1.2.md).
+No unreleased changes.
 
-- Add manually approved, per-package OIDC release CI with verified archives and
-  isolated registry consumers.
+## [0.1.0-beta.4] - 2026-09-15
+
+All five public packages release as 0.1.0-beta.4 in this coordinated update.
+Package versions remain independent for future releases.
+
+### Breaking changes
+
+- Replace GPU-only execution entrypoints with unified CPU/GPU/both timing APIs
+  in TypeScript and Rust. Plain execution collects no timing.
+- Emit Snapshot 1.2 with CPU and GPU availability records. Readers explicitly
+  migrate validated 1.1 inputs; canonical 1.0 remains rejected.
+- Require explicit TypeScript Snapshot frame indices and forward Inspector
+  provider timing requests through host adapters.
+- See the [migration guide](docs/migration-timing-snapshot-1.2.md).
+
+### Added and fixed
+
+- Add CPU timing for all executed node kinds and synchronous execution total;
+  capture CPU/pool facts before GPU readback to preserve same-frame data.
+- Harden Snapshot validation against inherited fields and align Rust/TypeScript
+  identifier, numeric and migration behavior.
+- Improve Inspector CPU measurements, themes, search, navigation, responsive
+  details and capture replacement invalidation; defer inactive views.
+- Refresh packaged documentation and examples. Add a generated documentation
+  site, PlayCanvas GSplat demos and shareable canvas fullscreen mode.
+- Add approved per-package OIDC publishing with verified archives and isolated
+  registry consumers.
+
+### Per-package notes
+
+- [@zenfg/snapshot](docs/releases/npm-snapshot-0.1.0-beta.4.md)
+- [zenfg-snapshot](docs/releases/cargo-zenfg-snapshot-0.1.0-beta.4.md)
+- [@zenfg/webgpu](docs/releases/npm-webgpu-0.1.0-beta.4.md)
+- [zenfg](docs/releases/cargo-zenfg-0.1.0-beta.4.md)
+- [@zenfg/inspector](docs/releases/npm-inspector-0.1.0-beta.4.md)
 
 ## [0.1.0-beta.3] - 2026-09-07
 
