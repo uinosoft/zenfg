@@ -22,6 +22,10 @@ export default defineConfig({
     appearance: false, cleanUrls: false,
     ignoreDeadLinks: [/^\/llms\.txt$/],
     head: [
+        ['link', { rel: 'icon', href: meta.docsBase + 'favicon.ico', sizes: 'any' }],
+        ['link', { rel: 'icon', href: meta.docsBase + 'favicon.svg', type: 'image/svg+xml' }],
+        ['link', { rel: 'apple-touch-icon', href: meta.docsBase + 'apple-touch-icon.png', sizes: '180x180' }],
+        ['link', { rel: 'manifest', href: meta.docsBase + 'site.webmanifest' }],
         ['meta', { name: 'theme-color', content: visualThemes.dark.canvas }],
         ['style', {}, paletteCss],
         ['script', {}, `(()=>{const themePreferenceKey=${JSON.stringify(themePreferenceKey)};const readThemePreference=${readThemePreference.toString()};let storage;try{storage=localStorage}catch{}const mode=readThemePreference(storage);document.documentElement.classList.toggle('dark',mode==='dark');document.documentElement.dataset.theme=mode})()`],
@@ -29,6 +33,7 @@ export default defineConfig({
     markdown: { languages: ['ts', 'typescript', 'rust', 'json', 'sh', 'text', 'toml', 'html'] },
     themeConfig: {
         siteTitle: 'Zen<span class="brand-accent">FG</span>', projectBase: meta.base,
+        logo: { src: '/brand/zenfg-mark.svg', alt: '' },
         logoLink: { link: meta.base, target: '_self' },
         nav: [],
         sidebar,
@@ -58,6 +63,7 @@ export default defineConfig({
     },
     buildEnd(config) { exportMarkdown(config.outDir, meta); },
     vite: {
+        publicDir: resolve(root, 'apps/docs/public'),
         resolve: { alias: { '@zenfg/inspector/theme': resolve(root, 'packages/inspector/src/theme.ts') } },
         server: { hmr: { clientPort: Number(process.env.DOCS_DEV_PORT ?? 5174) }, fs: { allow: [root] } },
         plugins: [{

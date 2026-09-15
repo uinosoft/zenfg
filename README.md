@@ -1,48 +1,74 @@
-# ZenFG
+<!-- readme-hero:start -->
+<p align="center">
+  <br>
+  <a href="https://uinosoft.github.io/zenfg/">
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset="assets/brand/zenfg-lockup-dark.svg">
+      <source media="(prefers-color-scheme: light)" srcset="assets/brand/zenfg-lockup-light.svg">
+      <img src="assets/brand/zenfg-lockup-light.svg" alt="ZenFG" width="280" height="73">
+    </picture>
+  </a>
+  <br>
+</p>
+
+<p align="center">
+  <strong>Composable FrameGraph infrastructure for WebGPU and wgpu.</strong>
+</p>
 
 <!-- generated:badges:start -->
-[![CI main](https://github.com/uinosoft/zenfg/actions/workflows/ci.yml/badge.svg?branch=main&event=push)](https://github.com/uinosoft/zenfg/actions/workflows/ci.yml?query=branch%3Amain)
-[![Documentation](https://img.shields.io/badge/docs-online-blue)](https://uinosoft.github.io/zenfg/docs/)
-[![MIT license](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/uinosoft/zenfg/blob/main/LICENSE)
-[![Release status](https://img.shields.io/badge/status-released-blue)](https://github.com/uinosoft/zenfg/blob/main/CHANGELOG.md)
+<p align="center">
+<a href="https://github.com/uinosoft/zenfg/actions/workflows/ci.yml?query=branch%3Amain"><img src="https://github.com/uinosoft/zenfg/actions/workflows/ci.yml/badge.svg?branch=main&event=push" alt="CI main"></a>
+<a href="https://uinosoft.github.io/zenfg/docs/"><img src="https://img.shields.io/badge/docs-online-blue" alt="Documentation"></a>
+<a href="https://github.com/uinosoft/zenfg/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="MIT license"></a>
+<a href="https://github.com/uinosoft/zenfg/blob/main/CHANGELOG.md"><img src="https://img.shields.io/badge/status-released-blue" alt="Release status"></a>
+</p>
 <!-- generated:badges:end -->
 
-English | [简体中文](README.zh-CN.md)
+<p align="center">
+  <a href="https://uinosoft.github.io/zenfg/">Website</a> ·
+  <a href="https://uinosoft.github.io/zenfg/docs/">Documentation</a> ·
+  <a href="https://uinosoft.github.io/zenfg/playground/">Examples</a> ·
+  <a href="https://uinosoft.github.io/zenfg/inspector/">Inspector</a>
+</p>
 
-**Composable FrameGraph infrastructure for WebGPU and wgpu.**
+<p align="center">
+  <strong lang="en">English</strong> · <a href="README.zh-CN.md" lang="zh-CN">简体中文</a>
+</p>
+<!-- readme-hero:end -->
 
-ZenFG provides idiomatic TypeScript and Rust runtimes, a portable Snapshot
-format, validation and conformance tooling, and an embeddable Inspector. It
-coordinates GPU work across renderer features and third-party systems without
-turning the FrameGraph into a renderer.
+# ZenFG
 
-Website: <https://uinosoft.github.io/zenfg/>
+ZenFG coordinates GPU work across rendering features and third-party systems
+through an explicit FrameGraph. It provides idiomatic TypeScript and Rust
+runtimes, a portable Snapshot format, validation and conformance tooling, and
+an embeddable Inspector.
 
 ## Why ZenFG
 
-ZenFG gives applications one explicit model for dependencies, scheduling,
-culling, resource lifetimes, transient allocation, validation, and diagnostics.
-The application remains in control of rendering policy and can adopt the graph
-at the integration depth that fits each subsystem.
+- **Dependencies and scheduling** — Declare dependencies and execution order,
+  retain required work, and cull work that does not contribute to the result.
+- **Resource lifetimes** — Track transient resources and manage their
+  allocation, aliasing, and pooling.
+- **Validation and diagnostics** — Validate graph usage and inspect execution
+  reports through portable Snapshots and the Inspector.
 
-| ZenFG owns | The application owns |
-| --- | --- |
-| Graph-visible dependencies and execution order | Scenes, materials, cameras, and renderer architecture |
-| Retention roots and dead-work culling | Pipelines, bind groups, samplers, and draw/dispatch policy |
-| Transient lifetimes, aliasing, and pooling | Devices, queues, surfaces, presentation, and device-loss policy |
-| Validation, reports, Snapshot projection, and inspection | Long-lived resources, resource contents, and application state |
+## Start here
 
-## Integration levels
+- **WebGPU / TypeScript** — Start with the
+  [`@zenfg/webgpu` quick start](packages/webgpu/README.md#quick-start), then
+  explore the [complete TypeScript recipes](packages/webgpu/examples/README.md).
+- **wgpu / Rust** — Follow the
+  [`zenfg` quick start](crates/zenfg/README.md#quick-start) and
+  [Cargo examples](crates/zenfg/examples/).
+- **Try it online** — Explore the
+  [live examples](https://uinosoft.github.io/zenfg/playground/?example=interactive-background&panel=inspector)
+  with their TypeScript source and Inspector captures, or open a Snapshot in
+  the [Inspector](https://uinosoft.github.io/zenfg/inspector/). The Inspector
+  runs entirely in the browser and does not upload imported snapshots.
 
-- **Native render, compute, and copy** nodes provide the richest validation and
-  diagnostics.
-- **Command integration** lets a subsystem encode custom work into a
-  FrameGraph-owned command encoder.
-- **Opaque external submission** lets an existing renderer keep its encoders
-  and submission model while declaring an ordered graph boundary.
-
-The levels can be mixed in one frame. See [Core concepts](docs/core-concepts.md)
-for the complete ownership, content, dependency, lifetime, and execution model.
+Browse the [documentation index](docs/README.md) for guides and reference
+material. Before changing public semantics, examples, or release artifacts,
+read [Contributing](CONTRIBUTING.md).
 
 ## Packages
 
@@ -56,28 +82,40 @@ for the complete ownership, content, dependency, lifetime, and execution model.
 | [`zenfg-snapshot`](crates/zenfg-snapshot/README.md) | Rust Snapshot 1.2 codec, validation and migration | [![zenfg-snapshot published version](https://img.shields.io/crates/v/zenfg-snapshot?include_prereleases)](https://crates.io/crates/zenfg-snapshot) | [Guide](https://uinosoft.github.io/zenfg/docs/packages/zenfg-snapshot.html) |
 <!-- generated:packages:end -->
 
-## Start here
+## Integration levels
 
-- Browse the [documentation index](docs/README.md).
-- Start a WebGPU integration with the [`@zenfg/webgpu` quick start](packages/webgpu/README.md#quick-start)
-  and its [complete TypeScript recipes](packages/webgpu/examples/README.md).
-- Start a wgpu integration with the [`zenfg` quick start](crates/zenfg/README.md#quick-start)
-  and its [Cargo examples](crates/zenfg/examples/).
-- Open the [hosted Inspector](https://uinosoft.github.io/zenfg/inspector/),
-  which runs entirely in the browser and does not upload imported snapshots.
-- Explore the [hosted Examples](https://uinosoft.github.io/zenfg/playground/?example=interactive-background&panel=inspector)
-  for live WebGPU showcases and package recipes, their exact TypeScript source,
-  and Inspector captures.
-- Read [Contributing](CONTRIBUTING.md) before changing public semantics,
-  examples, or release artifacts.
+The application controls rendering policy and chooses how deeply each
+subsystem integrates with the graph. ZenFG coordinates the work; scenes,
+materials, and renderer architecture remain with the application.
+
+| ZenFG owns | The application owns |
+| --- | --- |
+| Graph-visible dependencies and execution order | Scenes, materials, cameras, and renderer architecture |
+| Retention roots and dead-work culling | Pipelines, bind groups, samplers, and draw/dispatch policy |
+| Transient lifetimes, aliasing, and pooling | Devices, queues, surfaces, presentation, and device-loss policy |
+| Validation, reports, Snapshot projection, and inspection | Long-lived resources, resource contents, and application state |
+
+Three integration levels can be mixed in the same frame:
+
+- **Native render, compute, and copy** nodes provide the richest validation and
+  diagnostics.
+- **Command integration** lets a subsystem encode custom work into a
+  FrameGraph-owned command encoder.
+- **Opaque external submission** lets an existing renderer keep its encoders
+  and submission model while declaring an ordered graph boundary.
+
+See [Core concepts](docs/core-concepts.md) for the complete ownership, content,
+dependency, lifetime, and execution model.
 
 ## Status
 
 ZenFG 0.1.0 is the first non-prerelease version. Public APIs may change before
-1.0; integrations should pin exact package versions and review migration notes. TypeScript and Rust share semantics
-and portable diagnostics, not source-level API parity. Snapshot wire format
-versioning is independent from package versions; see the
-[compatibility matrix](docs/compatibility.md) and [changelog](CHANGELOG.md).
+1.0; integrations should pin exact package versions and review migration notes.
+
+TypeScript and Rust share semantics and portable diagnostics, not source-level
+API parity. Snapshot wire format versioning is independent from package
+versions; see the [compatibility matrix](docs/compatibility.md) and
+[changelog](CHANGELOG.md).
 
 ## License
 

@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" fill="#ffffff"><title>ZenFG</title><path d="M20 20H108M20 108H108M20 108L108 20" fill="none" stroke="#ffffff" stroke-width="12"/>
+  <path d="M14 36H26V78L14 90ZM102 50L114 38V92H102Z"/>
+  <rect x="9" y="9" width="22" height="22" rx="2"/>
+  <rect x="97" y="9" width="22" height="22" rx="2"/>
+  <rect x="9" y="97" width="22" height="22" rx="2"/>
+  <rect x="97" y="97" width="22" height="22" rx="2"/>
+  <rect x="54" y="54" width="20" height="20" rx="2"/></svg>

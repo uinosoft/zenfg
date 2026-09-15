@@ -22,7 +22,8 @@
 	background: var(--zenfg-canvas); color: var(--zenfg-text);
 	font: var(--zenfg-font-control)/var(--site-line-control) var(--zenfg-font-ui);
 }
-.site-brand { flex-shrink: 0; font-size: 20px; font-weight: 700; letter-spacing: -.035em; text-decoration: none; color: var(--zenfg-text); }
+.site-brand-mark { display: block; flex: 0 0 28px; }
+.site-brand { display: inline-flex; align-items: center; gap: 8px; flex-shrink: 0; font-size: 20px; font-weight: 700; letter-spacing: -.035em; text-decoration: none; color: var(--zenfg-text); }
 .site-navigation { display: flex; align-items: center; justify-content: space-between; flex: 1; min-width: 0; gap: 16px; }
 .site-page-links, .site-header-actions { display: flex; align-items: center; gap: 4px; }
 .site-header-actions { flex-shrink: 0; gap: 10px; }
