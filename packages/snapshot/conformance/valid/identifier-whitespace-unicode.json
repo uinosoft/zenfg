@@ -1,0 +1,194 @@
+{
+  "format": "zenfg.frame-graph-snapshot",
+  "version": {
+    "major": 1,
+    "minor": 2
+  },
+  "producer": {
+    "name": "fixture",
+    "version": "1.0.0",
+    "language": "TypeScript"
+  },
+  "capture": {
+    "frameIndex": 0,
+    "capturedAt": "2026-01-01T00:00:00.000Z"
+  },
+  "graph": {
+    "groups": [
+      {
+        "id": "group:\ttab",
+        "label": "tab 0"
+      },
+      {
+        "id": "group:tab\tend",
+        "label": "tab 1"
+      },
+      {
+        "id": "group:tab\t",
+        "label": "tab 2"
+      },
+      {
+        "id": "group:\u0085nel",
+        "label": "nel 3"
+      },
+      {
+        "id": "group:nel\u0085end",
+        "label": "nel 4"
+      },
+      {
+        "id": "group:nel\u0085",
+        "label": "nel 5"
+      },
+      {
+        "id": "group:\u000bvt",
+        "label": "vt 6"
+      },
+      {
+        "id": "group:vt\u000bend",
+        "label": "vt 7"
+      },
+      {
+        "id": "group:vt\u000b",
+        "label": "vt 8"
+      },
+      {
+        "id": "group:\fff",
+        "label": "ff 9"
+      },
+      {
+        "id": "group:ff\fend",
+        "label": "ff 10"
+      },
+      {
+        "id": "group:ff\f",
+        "label": "ff 11"
+      },
+      {
+        "id": "group: space",
+        "label": "space 12"
+      },
+      {
+        "id": "group:space end",
+        "label": "space 13"
+      },
+      {
+        "id": "group:space ",
+        "label": "space 14"
+      },
+      {
+        "id": "group: nbsp",
+        "label": "nbsp 15"
+      },
+      {
+        "id": "group:nbsp end",
+        "label": "nbsp 16"
+      },
+      {
+        "id": "group:nbsp ",
+        "label": "nbsp 17"
+      },
+      {
+        "id": "group:中unicode",
+        "label": "unicode 18"
+      },
+      {
+        "id": "group:unicode中end",
+        "label": "unicode 19"
+      },
+      {
+        "id": "group:unicode中",
+        "label": "unicode 20"
+      },
+      {
+        "id": "group:😀emoji",
+        "label": "emoji 21"
+      },
+      {
+        "id": "group:emoji😀end",
+        "label": "emoji 22"
+      },
+      {
+        "id": "group:emoji😀",
+        "label": "emoji 23"
+      }
+    ],
+    "nodes": [],
+    "resources": [],
+    "textureViews": [],
+    "accesses": [],
+    "dependencies": [],
+    "roots": [],
+    "segments": []
+  },
+  "memory": {
+    "allocationReport": {
+      "status": "unavailable",
+      "reason": "not-requested"
+    },
+    "poolReport": {
+      "status": "unavailable",
+      "reason": "not-requested"
+    }
+  },
+  "timings": {
+    "cpu": {
+      "status": "unavailable",
+      "reason": "not-requested"
+    },
+    "gpu": {
+      "status": "unavailable",
+      "reason": "unsupported"
+    }
+  },
+  "diagnostics": [],
+  "extensions": {
+    "\ttab.item": null,
+    "tab\tend.item": null,
+    "tab\t.item": null,
+    "tab.\titem": null,
+    "tab.it\tem": null,
+    "tab.item\t": null,
+    "\u0085nel.item": null,
+    "nel\u0085end.item": null,
+    "nel\u0085.item": null,
+    "nel.\u0085item": null,
+    "nel.it\u0085em": null,
+    "nel.item\u0085": null,
+    "\u000bvt.item": null,
+    "vt\u000bend.item": null,
+    "vt\u000b.item": null,
+    "vt.\u000bitem": null,
+    "vt.it\u000bem": null,
+    "vt.item\u000b": null,
+    "\fff.item": null,
+    "ff\fend.item": null,
+    "ff\f.item": null,
+    "ff.\fitem": null,
+    "ff.it\fem": null,
+    "ff.item\f": null,
+    " space.item": null,
+    "space end.item": null,
+    "space .item": null,
+    "space. item": null,
+    "space.it em": null,
+    "space.item ": null,
+    " nbsp.item": null,
+    "nbsp end.item": null,
+    "nbsp .item": null,
+    "nbsp. item": null,
+    "nbsp.it em": null,
+    "nbsp.item ": null,
+    "中unicode.item": null,
+    "unicode中end.item": null,
+    "unicode中.item": null,
+    "unicode.中item": null,
+    "unicode.it中em": null,
+    "unicode.item中": null,
+    "😀emoji.item": null,
+    "emoji😀end.item": null,
+    "emoji😀.item": null,
+    "emoji.😀item": null,
+    "emoji.it😀em": null,
+    "emoji.item😀": null
+  }
+}

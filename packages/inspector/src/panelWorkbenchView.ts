@@ -461,7 +461,7 @@ export class FrameGraphDebugWorkbench {
 			['Captured at', protocol.capture.capturedAt ?? 'Unknown'],
 			['Schema', `${protocol.format} v${protocol.version.major}.${protocol.version.minor}`],
 			['Producer', producer], ['Runtime', runtimeLabel],
-			...(protocol.capture.migration ? [['Migration', `${protocol.capture.migration.sourceFormat} → canonical v1.1`] as const] : []),
+			...(protocol.capture.migration ? [['Migration', `${protocol.capture.migration.sourceFormat} → canonical v${protocol.version.major}.${protocol.version.minor}`] as const] : []),
 			['Timing', snapshot.profiling.status === 'available' ? coverage : snapshot.profiling.reason],
 		]));
 		this.summary.append(this.captureDetails);

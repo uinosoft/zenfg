@@ -38,7 +38,7 @@ export function recordSnapshotFrame(
 	recorder.markPresent(backbuffer);
 }
 
-/** Captures matching compilation, timing, and pool reports as Snapshot 1.1 JSON. */
+/** Captures matching compilation, timing, and pool reports as Snapshot 1.2 JSON. */
 export async function captureSnapshotJson(options: SnapshotExportOptions): Promise<string> {
 	const recorder = options.graph.beginFrame();
 	recordSnapshotFrame(recorder, options.context.getCurrentTexture());

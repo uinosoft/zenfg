@@ -401,7 +401,7 @@ test('imports V1 and Legacy JSON atomically without removing the live provider',
 	) as unknown as File);
 	assert.equal(panel.getSnapshot()?.capture.frameIndex, 2);
 	tabButton(panel.dom.querySelector('.zenfg-inspector-workbench-tabs')!, 'Overview').click();
-	assert.match(panel.dom.querySelector('.zenfg-inspector-capture-summary')?.textContent ?? '', /legacy-v0 → canonical v1\.1/);
+	assert.match(panel.dom.querySelector('.zenfg-inspector-capture-summary')?.textContent ?? '', /legacy-v0 → canonical v1\.2/);
 	assert.match(panel.dom.querySelector('.zenfg-inspector-command-status')?.textContent ?? '', /migrated/);
 	assert.match(panel.dom.querySelector('.zenfg-inspector-capture-summary')?.textContent ?? '', /Texture viewsUnknown/);
 	assert.match(panel.dom.querySelector('.zenfg-inspector-capture-summary')?.textContent ?? '', /Recording orderUnknown/);
@@ -413,7 +413,7 @@ test('imports V1 and Legacy JSON atomically without removing the live provider',
 		'canonical.fgsnapshot.json',
 		{ type: 'application/json' },
 	) as unknown as File);
-	assert.match(panel.dom.querySelector('.zenfg-inspector-capture-summary')?.textContent ?? '', /legacy-v0 → canonical v1\.1/);
+	assert.match(panel.dom.querySelector('.zenfg-inspector-capture-summary')?.textContent ?? '', /legacy-v0 → canonical v1\.2/);
 	assert.match(panel.dom.querySelector('.zenfg-inspector-command-status')?.textContent ?? '', /migration provenance/);
 
 	await panel.captureSnapshot();
@@ -441,7 +441,7 @@ test('imports Legacy Candidate V1 with canonical migration provenance and feedba
 	assert.equal(snapshot?.capture.frameIndex, 42);
 	assert.equal(snapshot?.capture.migration?.sourceFormat, 'legacy-candidate-v1');
 	const status = panel.dom.querySelector<HTMLElement>('.zenfg-inspector-command-status');
-	assert.match(status?.textContent ?? '', /Imported Legacy Candidate V1 and migrated it to ZenFG Snapshot V1/);
+	assert.match(status?.textContent ?? '', /Imported Legacy Candidate V1 and migrated it to ZenFG Snapshot 1\.2/);
 	assert.equal(status?.dataset.tone, 'neutral');
 
 	panel.destroy();
@@ -1265,4 +1265,228 @@ test('capture always requests both timing families without a mode selector', asy
  finish(toSnapshot(createEmptyCapture()));await capturing;assert.equal(button.disabled,false);
  panel.setCaptureSnapshotProvider(undefined);assert.equal(button.hidden,true);
  panel.destroy();win.close();
+});
+
+test('replacing a pending provider ignores its result, error, and cleanup in either completion order', async () => {
+	const testWindow = installDom();
+	try {
+		for (const oldFirst of [true, false]) {
+			for (const oldFails of [true, false]) {
+				let finishA!: (snapshot: ReturnType<typeof toSnapshot>) => void;
+				let failA!: (error: Error) => void;
+				let finishB!: (snapshot: ReturnType<typeof toSnapshot>) => void;
+				let callsB = 0;
+				const panel = new FrameGraphInspector({
+					captureSnapshot: () => new Promise((resolve, reject) => { finishA = resolve; failA = reject; }),
+				});
+				try {
+					const pendingA = panel.captureSnapshot();
+					panel.setCaptureSnapshotProvider(() => {
+						callsB++;
+						return new Promise((resolve) => { finishB = resolve; });
+					});
+					assert.equal(callsB, 1);
+					const settleA = () => oldFails ? failA(new Error('obsolete provider failure')) : finishA(toSnapshot(createEmptyCapture()));
+					if (oldFirst) {
+						settleA();
+						await pendingA;
+						assert.equal(panel.getSnapshot(), undefined);
+						assert.equal(captureAction(panel.dom).disabled, true);
+						assert.equal(captureAction(panel.dom).textContent, 'Capturing…');
+						await panel.captureSnapshot();
+						assert.equal(callsB, 1, 'obsolete cleanup must not release the new capture lock');
+						finishB(toSnapshot(createGroupedCapture()));
+						await flushAsync();
+					} else {
+						finishB(toSnapshot(createGroupedCapture()));
+						await flushAsync();
+						settleA();
+						await pendingA;
+					}
+					assert.equal(panel.getSnapshot()?.capture.frameIndex, 2);
+					assert.equal(captureAction(panel.dom).disabled, false);
+					assert.doesNotMatch(panel.dom.textContent ?? '', /obsolete provider failure/);
+				} finally {
+					panel.destroy();
+				}
+			}
+		}
+	} finally {
+		testWindow.close();
+	}
+});
+
+test('removing a pending provider leaves an empty workbench and ignores late success or failure', async () => {
+	const testWindow = installDom();
+	try {
+		for (const fails of [false, true]) {
+			let finish!: (snapshot: ReturnType<typeof toSnapshot>) => void;
+			let fail!: (error: Error) => void;
+			const panel = new FrameGraphInspector({
+				captureSnapshot: () => new Promise((resolve, reject) => { finish = resolve; fail = reject; }),
+			});
+			try {
+				const pending = panel.captureSnapshot();
+				panel.setCaptureSnapshotProvider(undefined);
+				assert.equal(captureAction(panel.dom).hidden, true);
+				assert.equal(panel.dom.querySelector<HTMLElement>('.zenfg-inspector-workbench-empty')?.dataset.state, 'empty');
+				if (fails) fail(new Error('removed provider failure'));
+				else finish(toSnapshot(createEmptyCapture()));
+				await pending;
+				assert.equal(panel.getSnapshot(), undefined);
+				assert.doesNotMatch(panel.dom.textContent ?? '', /removed provider failure/);
+				assert.equal(panel.dom.querySelector<HTMLElement>('.zenfg-inspector-workbench-empty')?.dataset.state, 'empty');
+			} finally {
+				panel.destroy();
+			}
+		}
+	} finally {
+		testWindow.close();
+	}
+});
+
+test('setting the same provider preserves its pending capture and setting after destroy does nothing', async () => {
+	const testWindow = installDom();
+	let finish!: (snapshot: ReturnType<typeof toSnapshot>) => void;
+	let calls = 0;
+	const provider = () => {
+		calls++;
+		return new Promise<ReturnType<typeof toSnapshot>>((resolve) => { finish = resolve; });
+	};
+	const panel = new FrameGraphInspector({ captureSnapshot: provider });
+	try {
+		const pending = panel.captureSnapshot();
+		panel.setCaptureSnapshotProvider(provider);
+		await flushAsync();
+		assert.equal(calls, 1);
+		finish(toSnapshot(createEmptyCapture()));
+		await pending;
+		assert.equal(panel.getSnapshot()?.capture.frameIndex, 1);
+		panel.destroy();
+		panel.setCaptureSnapshotProvider(() => { assert.fail('destroyed provider must not run'); });
+	} finally {
+		panel.destroy();
+		testWindow.close();
+	}
+});
+
+test('replacing a pending provider preserves the displayed snapshot until the next explicit capture', async () => {
+	const testWindow = installDom();
+	let finishA!: (snapshot: ReturnType<typeof toSnapshot>) => void;
+	let callsB = 0;
+	const panel = new FrameGraphInspector({
+		captureSnapshot: () => new Promise((resolve) => { finishA = resolve; }),
+	});
+	try {
+		panel.setSnapshot(toSnapshot(createGroupedCapture()));
+		const current = panel.getSnapshot();
+		const pending = panel.captureSnapshot();
+		panel.setCaptureSnapshotProvider(() => { callsB++; return toSnapshot(createEmptyCapture()); });
+		finishA(toSnapshot(createEmptyCapture()));
+		await pending;
+		assert.equal(panel.getSnapshot(), current);
+		assert.equal(callsB, 0);
+		assert.equal(captureAction(panel.dom).disabled, false);
+		await panel.captureSnapshot();
+		assert.equal(callsB, 1);
+		assert.equal(panel.getSnapshot()?.capture.frameIndex, 1);
+	} finally {
+		panel.destroy();
+		testWindow.close();
+	}
+});
+
+test('provider replacement or removal does not invalidate a pending file import', async () => {
+	const testWindow = installDom();
+	try {
+		for (const remove of [false, true]) {
+			let finishImport!: (text: string) => void;
+			let calls = 0;
+			const panel = new FrameGraphInspector({ captureSnapshot: () => { calls++; return undefined; } });
+			try {
+				const pending = panel.importSnapshot({
+					name: 'pending.fgsnapshot.json',
+					size: 1,
+					text: () => new Promise<string>((resolve) => { finishImport = resolve; }),
+				} as File);
+				const before = panel.dom.querySelector('.zenfg-inspector-workbench-empty')?.textContent;
+				panel.setCaptureSnapshotProvider(remove ? undefined : () => { calls++; return undefined; });
+				assert.equal(panel.dom.querySelector('.zenfg-inspector-workbench-empty')?.textContent, before);
+				finishImport(JSON.stringify(toSnapshot(createGroupedCapture())));
+				await pending;
+				assert.equal(panel.getSnapshot()?.capture.frameIndex, 2);
+				assert.equal(calls, 0);
+			} finally {
+				panel.destroy();
+			}
+		}
+	} finally {
+		testWindow.close();
+	}
+});
+
+test('migration summaries and import feedback use the real source and canonical version', async () => {
+	const testWindow = installDom();
+	try {
+		for (const [file, source, label] of [
+			['packages/snapshot/tests/fixtures/snapshot-1.1.json', 'snapshot-v1.1', 'Snapshot 1.1'],
+			['packages/snapshot/fixtures/legacy-v0.json', 'legacy-v0', 'Legacy V0'],
+			['packages/snapshot/fixtures/legacy-candidate-v1-canonical.json', 'legacy-candidate-v1', 'Legacy Candidate V1'],
+		] as const) {
+			const panel = new FrameGraphInspector();
+			try {
+				const text = JSON.stringify(readWorkspaceJson(file));
+				await panel.importSnapshot(new testWindow.File([text], 'historical.json') as unknown as File);
+				const snapshot = panel.getSnapshot();
+				assert.ok(snapshot);
+				const version = snapshot.version.major + '.' + snapshot.version.minor;
+				assert.equal(version, '1.2');
+				const tabs = panel.dom.querySelector('.zenfg-inspector-workbench-tabs');
+				assert.ok(tabs);
+				tabButton(tabs, 'Overview').click();
+				const summary = panel.dom.querySelector('.zenfg-inspector-capture-summary');
+				assert.ok(summary?.textContent?.includes(source + ' → canonical v' + version));
+				const status = panel.dom.querySelector('.zenfg-inspector-command-status');
+				assert.equal(status?.textContent, 'Imported ' + label + ' and migrated it to ZenFG Snapshot ' + version + '.');
+				await panel.importSnapshot(new testWindow.File([JSON.stringify(snapshot)], 'canonical.json') as unknown as File);
+				assert.equal(status?.textContent, 'Imported Snapshot ' + version + ' with ' + label + ' migration provenance.');
+				assert.ok(summary?.textContent?.includes(source + ' → canonical v' + version));
+			} finally {
+				panel.destroy();
+			}
+		}
+	} finally {
+		testWindow.close();
+	}
+});
+
+test('import feedback distinguishes Snapshot 1.1 input from its older migration provenance', async () => {
+	const testWindow = installDom();
+	try {
+		for (const [source, label] of [['legacy-v0', 'Legacy V0'], ['legacy-candidate-v1', 'Legacy Candidate V1']] as const) {
+			const panel = new FrameGraphInspector();
+			try {
+				const input = readWorkspaceJson('packages/snapshot/tests/fixtures/snapshot-1.1.json') as {
+					capture: { migration?: { sourceFormat: string; unavailableFacts: string[] } };
+				};
+				input.capture.migration = { sourceFormat: source, unavailableFacts: [] };
+				await panel.importSnapshot(new testWindow.File([JSON.stringify(input)], 'snapshot-1.1.json') as unknown as File);
+				const snapshot = panel.getSnapshot();
+				assert.ok(snapshot);
+				assert.equal(snapshot.capture.migration?.sourceFormat, source);
+				const status = panel.dom.querySelector('.zenfg-inspector-command-status');
+				assert.equal(status?.textContent, 'Imported Snapshot 1.1 and migrated it to ZenFG Snapshot 1.2.');
+				const tabs = panel.dom.querySelector('.zenfg-inspector-workbench-tabs');
+				assert.ok(tabs);
+				tabButton(tabs, 'Overview').click();
+				assert.ok(panel.dom.querySelector('.zenfg-inspector-capture-summary')?.textContent?.includes(source + ' → canonical v1.2'));
+				await panel.importSnapshot(new testWindow.File([JSON.stringify(snapshot)], 'canonical.json') as unknown as File);
+				assert.equal(status?.textContent, 'Imported Snapshot 1.2 with ' + label + ' migration provenance.');
+			} finally {
+				panel.destroy();
+			}
+		}
+	} finally {
+		testWindow.close();
+	}
 });

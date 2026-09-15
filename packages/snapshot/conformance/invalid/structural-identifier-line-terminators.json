@@ -1,0 +1,140 @@
+{
+  "format": "zenfg.frame-graph-snapshot",
+  "version": {
+    "major": 1,
+    "minor": 2
+  },
+  "producer": {
+    "name": "fixture",
+    "version": "1.0.0",
+    "language": "TypeScript"
+  },
+  "capture": {
+    "frameIndex": 0,
+    "capturedAt": "2026-01-01T00:00:00.000Z"
+  },
+  "graph": {
+    "groups": [
+      {
+        "id": "group:\nlf",
+        "label": "lf 0"
+      },
+      {
+        "id": "group:lf\nend",
+        "label": "lf 1"
+      },
+      {
+        "id": "group:lf\n",
+        "label": "lf 2"
+      },
+      {
+        "id": "group:\rcr",
+        "label": "cr 3"
+      },
+      {
+        "id": "group:cr\rend",
+        "label": "cr 4"
+      },
+      {
+        "id": "group:cr\r",
+        "label": "cr 5"
+      },
+      {
+        "id": "group:\u2028ls",
+        "label": "ls 6"
+      },
+      {
+        "id": "group:ls\u2028end",
+        "label": "ls 7"
+      },
+      {
+        "id": "group:ls\u2028",
+        "label": "ls 8"
+      },
+      {
+        "id": "group:\u2029ps",
+        "label": "ps 9"
+      },
+      {
+        "id": "group:ps\u2029end",
+        "label": "ps 10"
+      },
+      {
+        "id": "group:ps\u2029",
+        "label": "ps 11"
+      },
+      {
+        "id": "group:\r\ncrlf",
+        "label": "crlf 12"
+      },
+      {
+        "id": "group:crlf\r\nend",
+        "label": "crlf 13"
+      },
+      {
+        "id": "group:crlf\r\n",
+        "label": "crlf 14"
+      }
+    ],
+    "nodes": [],
+    "resources": [],
+    "textureViews": [],
+    "accesses": [],
+    "dependencies": [],
+    "roots": [],
+    "segments": []
+  },
+  "memory": {
+    "allocationReport": {
+      "status": "unavailable",
+      "reason": "not-requested"
+    },
+    "poolReport": {
+      "status": "unavailable",
+      "reason": "not-requested"
+    }
+  },
+  "timings": {
+    "cpu": {
+      "status": "unavailable",
+      "reason": "not-requested"
+    },
+    "gpu": {
+      "status": "unavailable",
+      "reason": "unsupported"
+    }
+  },
+  "diagnostics": [],
+  "extensions": {
+    "\nlf.item": null,
+    "lf\nend.item": null,
+    "lf\n.item": null,
+    "lf.\nitem": null,
+    "lf.it\nem": null,
+    "lf.item\n": null,
+    "\rcr.item": null,
+    "cr\rend.item": null,
+    "cr\r.item": null,
+    "cr.\ritem": null,
+    "cr.it\rem": null,
+    "cr.item\r": null,
+    "\u2028ls.item": null,
+    "ls\u2028end.item": null,
+    "ls\u2028.item": null,
+    "ls.\u2028item": null,
+    "ls.it\u2028em": null,
+    "ls.item\u2028": null,
+    "\u2029ps.item": null,
+    "ps\u2029end.item": null,
+    "ps\u2029.item": null,
+    "ps.\u2029item": null,
+    "ps.it\u2029em": null,
+    "ps.item\u2029": null,
+    "\r\ncrlf.item": null,
+    "crlf\r\nend.item": null,
+    "crlf\r\n.item": null,
+    "crlf.\r\nitem": null,
+    "crlf.it\r\nem": null,
+    "crlf.item\r\n": null
+  }
+}

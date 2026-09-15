@@ -2516,6 +2516,7 @@ fn valid_entity_id(value: &str) -> bool {
         return false;
     };
     !suffix.is_empty()
+        && !contains_line_terminator(suffix)
         && prefix
             .chars()
             .next()
@@ -2526,9 +2527,17 @@ fn valid_entity_id(value: &str) -> bool {
 }
 
 fn extension_name_is_qualified(value: &str) -> bool {
+    !contains_line_terminator(value)
+        && value
+            .char_indices()
+            .any(|(index, character)| character == '.' && index > 0 && index + 1 < value.len())
+}
+
+// Match the line terminators excluded by the TypeScript and JSON Schema regexes.
+fn contains_line_terminator(value: &str) -> bool {
     value
-        .char_indices()
-        .any(|(index, character)| character == '.' && index > 0 && index + 1 < value.len())
+        .chars()
+        .any(|character| matches!(character, '\n' | '\r' | '\u{2028}' | '\u{2029}'))
 }
 
 fn access_kind_matches_resource(access: SnapshotAccessKind, kind: SnapshotResourceKind) -> bool {

@@ -249,13 +249,19 @@ export class FrameGraphInspector {
 	 * Replaces or removes the live-capture provider.
 	 *
 	 * @remarks Installing a provider may immediately begin an asynchronous
-	 * capture when no snapshot is displayed.
+	 * capture when no snapshot is displayed. Replacing or removing a provider
+	 * invalidates its pending capture results without cancelling the provider
+	 * promise. An already displayed snapshot and any pending import are preserved.
 	 */
 	setCaptureSnapshotProvider(provider: FrameGraphInspectorOptions['captureSnapshot']): void {
-		const changed = this.captureSnapshotCallback !== provider;
+		if (this.destroyed || this.captureSnapshotCallback === provider) return;
+		if (this.capturing) {
+			this.operationRevision += 1;
+			this.capturing = false;
+		}
 		this.captureSnapshotCallback = provider;
-		if (changed && !this.viewModel) this.initialAutoCaptureAttempted = false;
-		if (!provider && !this.viewModel) this.showEmptyState();
+		if (!this.viewModel) this.initialAutoCaptureAttempted = false;
+		if (!provider && !this.viewModel && !this.importing) this.showEmptyState();
 		this.updateCaptureActions();
 		this.maybeAutoCapture();
 	}
@@ -307,7 +313,7 @@ export class FrameGraphInspector {
 	}
 
 	/**
-	 * Validates and synchronously displays a programmatic Snapshot 1.1 value.
+	 * Validates and synchronously displays a programmatic Snapshot 1.2 value.
 	 *
 	 * @throws {@link @zenfg/snapshot!index.FrameGraphSnapshotValidationError | FrameGraphSnapshotValidationError} if `snapshot` is invalid.
 	 */
@@ -359,10 +365,17 @@ export class FrameGraphInspector {
 			});
 			const sourceFormat = decoded.snapshot.capture.migration?.sourceFormat;
 			if (sourceFormat) {
-				const sourceLabel = sourceFormat === 'legacy-v0' ? 'Legacy V0' : 'Legacy Candidate V1';
+				// The current import format can differ from retained historical provenance.
+				const sourceLabel = {
+					'legacy-v0': 'Legacy V0',
+					'legacy-candidate-v1': 'Legacy Candidate V1',
+					'snapshot-v1.1': 'Snapshot 1.1',
+				}[decoded.migrated && decoded.source !== 'v1' ? decoded.source : sourceFormat];
+				const version = decoded.snapshot.version;
+				const targetLabel = `Snapshot ${version.major}.${version.minor}`;
 				this.statusMessage = decoded.migrated
-					? `Imported ${sourceLabel} and migrated it to ZenFG Snapshot V1.`
-					: `Imported Snapshot V1 with ${sourceLabel} migration provenance.`;
+					? `Imported ${sourceLabel} and migrated it to ZenFG ${targetLabel}.`
+					: `Imported ${targetLabel} with ${sourceLabel} migration provenance.`;
 				this.statusTone = 'neutral';
 			}
 		}

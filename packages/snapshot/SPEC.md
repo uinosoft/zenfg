@@ -43,6 +43,10 @@ Declared entity IDs MUST be non-empty strings with the following exact prefix:
 | segment | `segment:` |
 | allocation | `allocation:` |
 
+ID suffixes MUST be non-empty and MUST NOT contain the line terminators
+U+000A (LF), U+000D (CR), U+2028 (line separator), or U+2029 (paragraph separator).
+Other whitespace and Unicode characters in suffixes remain permitted.
+
 All declared entity IDs are globally unique within one Snapshot. A
 `compatibility:` ID is an equivalence-class token, not a declared entity; the
 same token is intentionally reusable by compatible allocations.
@@ -164,7 +168,7 @@ A texture region has a positive mip count and exactly one complete interval:
 
 ## 7. Roots and final contents
 
-Native 1.1 resource roots MUST contain `range` and `resolution`. A buffer range
+Native 1.2 resource roots MUST contain `range` and `resolution`. A buffer range
 contains `kind: "buffer"`, a resolved `offset`, and a positive `size`. A texture
 range contains `kind: "texture"` and non-empty normalized `regions` using the
 texture-region fields above. Ranges MUST match the resource kind and remain
@@ -215,7 +219,9 @@ CPU data uses `not-collected`.
 
 Diagnostic codes are non-empty. Optional node/resource references MUST resolve.
 
-Extension names match `^.+\..+$`. Extension values MUST be JSON values: no
+Extension names match `^.+\..+$` and MUST NOT contain U+000A, U+000D, U+2028,
+or U+2029 anywhere in the name. Other whitespace and Unicode characters remain
+permitted. Extension values MUST be JSON values: no
 non-finite numbers, undefined values, holes, host objects, or cycles. A
 primitive extension value has container depth 0. An array or object used as an
 extension root has container depth 1, and each nested array or object increases
@@ -258,7 +264,7 @@ remains unchanged because that intent cannot be reconstructed.
 Migration MUST validate source values before conversion and MUST reject unknown
 usage bits or malformed fields. It MUST NOT invent stable keys, descriptors,
 estimates, group tables, view tables, recording order, access regions, root ranges,
-or output resolutions. Re-encoding always writes 1.1 with persistent
+or output resolutions. Re-encoding always writes 1.2 with persistent
 `capture.migration` provenance.
 
 ## 10. Conformance
