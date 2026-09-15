@@ -44,8 +44,14 @@ immediately before Cargo publication.
 The [beta.4 run](https://github.com/uinosoft/zenfg/actions/runs/34945721343)
 completed all five OIDC publications, registry consumers and immutable component
 Releases. It also verified that the native Cargo publish archives matched their
-approved candidates. Partial-failure recovery is covered by simulated tests; the
-first real recovery and a stable/latest release still require operational observation.
+approved candidates.
+
+The [0.1.0 run](https://github.com/uinosoft/zenfg/actions/runs/34958080272)
+completed the first stable release of all five packages, including npm `latest`,
+provenance, registry archive checksums, clean consumers and component Releases.
+See the [0.1.0 validation record](release-validation-0.1.0.md). Partial-failure
+recovery remains covered by simulated tests; the first real recovery still
+requires operational observation.
 
 ## Decide which packages to release
 
@@ -246,5 +252,6 @@ already-published Snapshot dependency, with evidence under
 package dry-run and does not depend on that manual gate.
 
 Dry-runs prove packaging and compatibility, not registry authorization.
-The beta.4 run verified all five Trusted Publishers and npm provenance. Future
-releases must continue passing registry verification.
+The beta.4 and 0.1.0 runs verified all five Trusted Publishers and npm provenance;
+0.1.0 also verified the stable `latest` channel. Future releases must continue
+passing registry verification.
