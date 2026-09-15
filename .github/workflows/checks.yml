@@ -85,8 +85,9 @@ jobs:
       - run: npm run test:cross-language
       - run: npm run release:smoke
       - if: failure()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
+          archive: true
           name: cross-language-conformance
           path: .test-dist/cross-language
           if-no-files-found: ignore
@@ -95,6 +96,8 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 24.19.0
@@ -103,3 +106,32 @@ jobs:
       - run: npm ci
       - run: npm run release:check
       - run: npm run release:test
+      - run: npm run release:assess -- --summary
+      - name: Create artifact contract fixture
+        run: |
+          mkdir -p target/artifact-contract
+          echo "zenfg artifact contract" > target/artifact-contract/probe.txt
+      - id: contract-upload
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: release-artifact-contract
+          path: target/artifact-contract/
+          archive: true
+          retention-days: 1
+          if-no-files-found: error
+      - name: Download artifact by name
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: release-artifact-contract
+          path: target/artifact-by-name/
+          digest-mismatch: error
+      - name: Download artifact by ID
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          artifact-ids: ${{ steps.contract-upload.outputs.artifact-id }}
+          path: target/artifact-by-id/
+          digest-mismatch: error
+      - name: Verify both downloaded artifacts
+        run: |
+          cmp target/artifact-contract/probe.txt target/artifact-by-name/probe.txt
+          cmp target/artifact-contract/probe.txt target/artifact-by-id/probe.txt

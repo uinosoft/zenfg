@@ -5,7 +5,9 @@ packages use independent versions; component tags identify each release.
 
 ## Unreleased
 
-No unreleased changes.
+- Improve release tooling with a read-only package assessment, registry progress,
+  Node 24 artifact Actions, deduplicated PR CI and version-independent golden checks.
+  Public package versions and APIs are unchanged.
 
 ## [0.1.0-beta.4] - 2026-09-15
 

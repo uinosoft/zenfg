@@ -2,6 +2,7 @@ name: CI
 
 on:
   push:
+    branches: [main]
   pull_request:
   workflow_dispatch:
 
@@ -9,8 +10,8 @@ permissions:
   contents: read
 
 concurrency:
-  group: ${{ (github.event_name != 'pull_request' && github.ref == 'refs/heads/main' && 'ci-main-pages') || format('ci-{0}', github.run_id) }}
-  cancel-in-progress: false
+  group: ${{ (github.event_name != 'pull_request' && github.ref == 'refs/heads/main' && 'ci-main-pages') || format('ci-{0}', github.event.pull_request.number || github.run_id) }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   checks:

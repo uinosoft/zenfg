@@ -3,9 +3,10 @@ import { createHash } from 'node:crypto';
 import { join, resolve } from 'node:path';
 import { parse } from 'smol-toml';
 import { catalog, root, read, json, hash, repository, selectPackages, assertContext, validateSelection,
-    assertNotes, assertResume, assertChannelAdvance, publicationState, registryVersion, getJson } from './core.mjs';
-import { output, run, npm, writeJson, archivePath, checkFiles, clean, cargoArchive, listFiles } from './io.mjs';
+    assertNotes, assertResume, assertChannelAdvance, getJson } from './core.mjs';
+import { output, run, npm, writeJson, archivePath, checkFiles, clean, cargoArchive, listFiles, progress } from './io.mjs';
 import { consumer } from './consumer.mjs';
+import { waitForVersion, publishNpmPackages, publishCargoPackages } from './publication.mjs';
 
 const command = process.argv[2];
 const inputs = JSON.parse(process.env.RELEASE_INPUTS ?? '{}');
@@ -126,15 +127,6 @@ async function prepare() {
     writeJson(manifestPath, value);
     summary(value);
 }
-async function waitForVersion(pkg) {
-    const deadline = Date.now() + 10 * 60 * 1000;
-    while (true) {
-        const metadata = await registryVersion(pkg);
-        if (publicationState(pkg, metadata) === 'published') return metadata;
-        if (Date.now() >= deadline) throw new Error('Registry visibility timeout: ' + pkg.name + '. Inspect registry before retrying.');
-        await new Promise(resolveWait => setTimeout(resolveWait, 10000));
-    }
-}
 async function checkChannel(pkg) {
     const tags = await getJson("https://registry.npmjs.org/-/package/" + encodeURIComponent(pkg.name) + "/dist-tags");
     assertChannelAdvance(pkg, tags);
@@ -142,44 +134,31 @@ async function checkChannel(pkg) {
 async function publishNpm(ids) {
     const value = manifest();
     clean();
-    for (const pkg of value.packages.filter(p => ids.includes(p.id))) {
-        const state = publicationState(pkg, await registryVersion(pkg));
-        if (state === 'pending') {
-            await checkChannel(pkg);
-            try {
-                npm(['publish', archivePath(pkg.archive), '--ignore-scripts', '--access', 'public', '--tag', pkg.channel, '--registry=https://registry.npmjs.org/']);
-            } catch (error) {
-                console.error('Publish did not return success; checking whether the exact artifact was accepted:', error.message);
-            }
-        }
-        await waitForVersion(pkg);
-    }
+    await publishNpmPackages(value.packages.filter(p => ids.includes(p.id)), {
+        checkChannel, emit: progress,
+        upload: pkg => npm(["publish", archivePath(pkg.archive), "--ignore-scripts", "--access", "public", "--tag", pkg.channel, "--registry=https://registry.npmjs.org/"]),
+    });
 }
 async function publishCargo() {
     const value = manifest();
     clean();
-    const crates = value.packages.filter(p => p.registry === 'cargo');
-    const pending = [];
-    for (const pkg of crates) if (publicationState(pkg, await registryVersion(pkg)) === 'pending') pending.push(pkg);
-    if (pending.length) {
-        // Verify final packaging before upload; source, toolchain and lockfile stay fixed.
-        run('cargo', cargoArgs(pending, true));
-        for (const pkg of pending) {
-            if (hash(readFileSync(cargoArchive(pkg, cargoTarget))) !== pkg.sha256) throw new Error('Cargo repack differs from candidate: ' + pkg.name);
+    const checkArchives = items => {
+        for (const pkg of items) if (hash(readFileSync(cargoArchive(pkg, cargoTarget))) !== pkg.sha256) {
+            throw new Error("Cargo archive differs from candidate: " + pkg.name);
         }
-        try { run('cargo', cargoArgs(pending, false)); }
-        catch (error) { console.error('Cargo publish did not return success; checking registry receipts:', error.message); }
-        for (const pkg of pending) {
-            if (hash(readFileSync(cargoArchive(pkg, cargoTarget))) !== pkg.sha256) throw new Error('Actual Cargo archive differs: ' + pkg.name);
-            await waitForVersion(pkg);
-        }
-    }
+    };
+    await publishCargoPackages(value.packages.filter(p => p.registry === "cargo"), {
+        emit: progress,
+        prepare: items => { run("cargo", cargoArgs(items, true)); checkArchives(items); },
+        upload: items => run("cargo", cargoArgs(items, false)),
+        checkArchives,
+    });
 }
 async function verify() {
     const value = manifest();
     const receipts = [];
     for (const pkg of value.packages) {
-        const metadata = await waitForVersion(pkg);
+        const metadata = await waitForVersion(pkg, { emit: progress });
         const url = pkg.registry === 'npm' ? metadata.dist.tarball
             : 'https://static.crates.io/crates/' + pkg.name + '/' + pkg.name + '-' + pkg.version + '.crate';
         const response = await fetch(url, { signal: AbortSignal.timeout(60000) });
