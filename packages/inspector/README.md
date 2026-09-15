@@ -1,9 +1,9 @@
 # @zenfg/inspector
 
 <!-- generated:badges:start -->
-[![@zenfg/inspector published next version](https://img.shields.io/npm/v/%40zenfg%2Finspector/next?label=npm)](https://www.npmjs.com/package/@zenfg/inspector)
+[![@zenfg/inspector published latest version](https://img.shields.io/npm/v/%40zenfg%2Finspector/latest?label=npm)](https://www.npmjs.com/package/@zenfg/inspector)
 [![API Docs (development)](https://img.shields.io/badge/API_docs-development-blue)](https://uinosoft.github.io/zenfg/docs/api/inspector/)
-[![MIT license](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/uinosoft/zenfg/blob/npm/inspector/v0.1.0-beta.4/LICENSE)
+[![MIT license](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/uinosoft/zenfg/blob/npm/inspector/v0.1.0/LICENSE)
 <!-- generated:badges:end -->
 
 `@zenfg/inspector` is an embeddable, renderer-independent DOM workbench for
@@ -17,13 +17,13 @@ retention, and the renderer that produces Snapshot data.
 Resource and access statistics describe the declarations captured in the graph.
 They do not automatically scan all shader bindings or measure total GPU memory;
 workload-private buffers can be absent. More explicit declarations can be useful
-for diagnosis. See [Choosing resource declaration granularity](https://github.com/uinosoft/zenfg/blob/npm/inspector/v0.1.0-beta.4/docs/core-concepts.md#choosing-resource-declaration-granularity).
+for diagnosis. See [Choosing resource declaration granularity](https://github.com/uinosoft/zenfg/blob/npm/inspector/v0.1.0/docs/core-concepts.md#choosing-resource-declaration-granularity).
 
 ## Installation
 
 <!-- generated:installation:start -->
 ```sh
-npm install @zenfg/inspector@0.1.0-beta.4
+npm install @zenfg/inspector@0.1.0
 ```
 <!-- generated:installation:end -->
 
@@ -108,20 +108,20 @@ See the [workbench guide](./GUIDE.md) for views, graph interaction, timing, and 
 ## Further reading
 
 - [Hosted Inspector](https://uinosoft.github.io/zenfg/inspector/)
-- [`@zenfg/snapshot`](https://github.com/uinosoft/zenfg/blob/npm/inspector/v0.1.0-beta.4/packages/snapshot/README.md)
-- [ZenFG Core concepts](https://github.com/uinosoft/zenfg/blob/npm/inspector/v0.1.0-beta.4/docs/core-concepts.md)
-- [ZenFG documentation index](https://github.com/uinosoft/zenfg/blob/npm/inspector/v0.1.0-beta.4/docs/README.md)
+- [`@zenfg/snapshot`](https://github.com/uinosoft/zenfg/blob/npm/inspector/v0.1.0/packages/snapshot/README.md)
+- [ZenFG Core concepts](https://github.com/uinosoft/zenfg/blob/npm/inspector/v0.1.0/docs/core-concepts.md)
+- [ZenFG documentation index](https://github.com/uinosoft/zenfg/blob/npm/inspector/v0.1.0/docs/README.md)
 
 ## Documentation and versions
 
 <!-- generated:documentation:start -->
-This README describes **@zenfg/inspector 0.1.0-beta.4**. Registry badges show the current published channel, not your installed version.
+This README describes **@zenfg/inspector 0.1.0**. Registry badges show the current published channel, not your installed version.
 
 - Exact installed APIs: follow `package.json` → `exports` → `dist/*.d.ts`; declaration maps point to the included `src/`. Only declared export paths are public.
 - [Online guide (development branch)](https://uinosoft.github.io/zenfg/docs/packages/inspector.html). The site may describe changes newer than this package.
 - [TypeScript API (development branch)](https://uinosoft.github.io/zenfg/docs/api/inspector/).
-- [Source and documentation for this release](https://github.com/uinosoft/zenfg/tree/npm/inspector/v0.1.0-beta.4/packages/inspector).
-- [Shared concepts for this release](https://github.com/uinosoft/zenfg/blob/npm/inspector/v0.1.0-beta.4/docs/core-concepts.md) and [compatibility](https://github.com/uinosoft/zenfg/blob/npm/inspector/v0.1.0-beta.4/docs/compatibility.md).
+- [Source and documentation for this release](https://github.com/uinosoft/zenfg/tree/npm/inspector/v0.1.0/packages/inspector).
+- [Shared concepts for this release](https://github.com/uinosoft/zenfg/blob/npm/inspector/v0.1.0/docs/core-concepts.md) and [compatibility](https://github.com/uinosoft/zenfg/blob/npm/inspector/v0.1.0/docs/compatibility.md).
 - [Plain Markdown documentation index (development branch)](https://uinosoft.github.io/zenfg/docs/llms.txt).
 - Local guides: [workbench](./GUIDE.md) and [themes](./THEMING.md).
 <!-- generated:documentation:end -->

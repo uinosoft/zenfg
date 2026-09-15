@@ -4,7 +4,7 @@
 [![CI main](https://github.com/uinosoft/zenfg/actions/workflows/ci.yml/badge.svg?branch=main&event=push)](https://github.com/uinosoft/zenfg/actions/workflows/ci.yml?query=branch%3Amain)
 [![Documentation](https://img.shields.io/badge/docs-online-blue)](https://uinosoft.github.io/zenfg/docs/)
 [![MIT license](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/uinosoft/zenfg/blob/main/LICENSE)
-[![Public beta](https://img.shields.io/badge/status-beta-orange)](https://github.com/uinosoft/zenfg/blob/main/CHANGELOG.md)
+[![Release status](https://img.shields.io/badge/status-released-blue)](https://github.com/uinosoft/zenfg/blob/main/CHANGELOG.md)
 <!-- generated:badges:end -->
 
 [English](README.md) | 简体中文
@@ -44,9 +44,9 @@ execution 模型请参阅英文 [Core concepts](docs/core-concepts.md)。
 <!-- generated:packages:start -->
 | 包 | 用途 | 发布版本 | 文档 |
 | --- | --- | --- | --- |
-| [`@zenfg/webgpu`](packages/webgpu/README.md) | TypeScript/WebGPU FrameGraph 运行时 | [![@zenfg/webgpu published next version](https://img.shields.io/npm/v/%40zenfg%2Fwebgpu/next?label=npm)](https://www.npmjs.com/package/@zenfg/webgpu) | [指南](https://uinosoft.github.io/zenfg/docs/packages/webgpu.html) |
-| [`@zenfg/snapshot`](packages/snapshot/README.md) | Snapshot 1.2 类型、编解码、验证与规范 | [![@zenfg/snapshot published next version](https://img.shields.io/npm/v/%40zenfg%2Fsnapshot/next?label=npm)](https://www.npmjs.com/package/@zenfg/snapshot) | [指南](https://uinosoft.github.io/zenfg/docs/packages/snapshot.html) |
-| [`@zenfg/inspector`](packages/inspector/README.md) | 可嵌入的 DOM Inspector | [![@zenfg/inspector published next version](https://img.shields.io/npm/v/%40zenfg%2Finspector/next?label=npm)](https://www.npmjs.com/package/@zenfg/inspector) | [指南](https://uinosoft.github.io/zenfg/docs/packages/inspector.html) |
+| [`@zenfg/webgpu`](packages/webgpu/README.md) | TypeScript/WebGPU FrameGraph 运行时 | [![@zenfg/webgpu published latest version](https://img.shields.io/npm/v/%40zenfg%2Fwebgpu/latest?label=npm)](https://www.npmjs.com/package/@zenfg/webgpu) | [指南](https://uinosoft.github.io/zenfg/docs/packages/webgpu.html) |
+| [`@zenfg/snapshot`](packages/snapshot/README.md) | Snapshot 1.2 类型、编解码、验证与规范 | [![@zenfg/snapshot published latest version](https://img.shields.io/npm/v/%40zenfg%2Fsnapshot/latest?label=npm)](https://www.npmjs.com/package/@zenfg/snapshot) | [指南](https://uinosoft.github.io/zenfg/docs/packages/snapshot.html) |
+| [`@zenfg/inspector`](packages/inspector/README.md) | 可嵌入的 DOM Inspector | [![@zenfg/inspector published latest version](https://img.shields.io/npm/v/%40zenfg%2Finspector/latest?label=npm)](https://www.npmjs.com/package/@zenfg/inspector) | [指南](https://uinosoft.github.io/zenfg/docs/packages/inspector.html) |
 | [`zenfg`](crates/zenfg/README.md) | Rust/wgpu FrameGraph 运行时 | [![zenfg published version](https://img.shields.io/crates/v/zenfg?include_prereleases)](https://crates.io/crates/zenfg) | [指南](https://uinosoft.github.io/zenfg/docs/packages/zenfg.html) |
 | [`zenfg-snapshot`](crates/zenfg-snapshot/README.md) | Rust Snapshot 1.2 编解码、验证与迁移 | [![zenfg-snapshot published version](https://img.shields.io/crates/v/zenfg-snapshot?include_prereleases)](https://crates.io/crates/zenfg-snapshot) | [指南](https://uinosoft.github.io/zenfg/docs/packages/zenfg-snapshot.html) |
 <!-- generated:packages:end -->
@@ -66,7 +66,7 @@ execution 模型请参阅英文 [Core concepts](docs/core-concepts.md)。
 
 ## 项目状态
 
-ZenFG 目前是公开 beta 软件。1.0 前公共 API 仍可能变化，集成方应锁定精确的预发布包版本。
+ZenFG 0.1.0 是首个非预发布版本。1.0 前公共 API 仍可能变化，集成方应锁定精确包版本并查看迁移说明。
 TypeScript 与 Rust 共享语义和可移植诊断，而不追求源码级 API 一致。Snapshot wire format
 使用独立于包版本的版本体系；详情参阅英文[兼容矩阵](docs/compatibility.md)与
 [Changelog](CHANGELOG.md)。

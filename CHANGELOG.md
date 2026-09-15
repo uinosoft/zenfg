@@ -5,9 +5,17 @@ packages use independent versions; component tags identify each release.
 
 ## Unreleased
 
+## [0.1.0] - 2026-09-15
+
+- Publish all five packages as the first non-prerelease version, preserving
+  beta.4 public APIs, runtime behavior and Snapshot 1.2 compatibility.
+- Update exact internal dependencies and public installation documentation to
+  0.1.0. npm packages use the `latest` channel. No migration from beta.4 is required.
+
+
 - Improve release tooling with a read-only package assessment, registry progress,
   Node 24 artifact Actions, deduplicated PR CI and version-independent golden checks.
-  Public package versions and APIs are unchanged.
+  These tooling changes do not alter runtime APIs.
 
 ## [0.1.0-beta.4] - 2026-09-15
 
@@ -136,7 +144,9 @@ release:
 The package versions are independent of the ZenFG FrameGraph Snapshot wire
 format, which is version `1.0` in this candidate.
 
-[Unreleased]: https://github.com/uinosoft/zenfg/compare/cargo/zenfg/v0.1.0-beta.3...HEAD
+[Unreleased]: https://github.com/uinosoft/zenfg/compare/cargo/zenfg/v0.1.0...HEAD
+[0.1.0]: https://github.com/uinosoft/zenfg/tree/cargo%2Fzenfg%2Fv0.1.0
+[0.1.0-beta.4]: https://github.com/uinosoft/zenfg/tree/cargo%2Fzenfg%2Fv0.1.0-beta.4
 [0.1.0-beta.3]: https://github.com/uinosoft/zenfg/tree/cargo%2Fzenfg%2Fv0.1.0-beta.3
 [0.1.0-beta.2]: https://github.com/uinosoft/zenfg/tree/cargo%2Fzenfg%2Fv0.1.0-beta.2
 [0.1.0-beta.1]: https://github.com/uinosoft/zenfg/tree/cargo%2Fzenfg%2Fv0.1.0-beta.1
