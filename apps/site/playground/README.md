@@ -274,3 +274,20 @@ adding examples, compare final entry/static-preload sizes and the emitted
 chunk `imports`, `dynamicImports`, and `modules` graph. Split metadata from lazy
 factories only if that evidence shows a meaningful initial-bundle increase or
 an unrelated runtime entering the selected example's dependency closure.
+
+## Canvas fullscreen
+
+The bottom-right canvas expand button switches the current example to a viewport-filling web
+layout. `full=true` in the query string opens that layout directly. Both entry
+and exit use `replaceState`, preserving the example, tool panel, other query
+parameters, hash and history state without adding a navigation entry. The exit
+button and Escape restore the normal page, scroll position and keyboard focus.
+
+The live canvas and Tweakpane remain mounted. Parameters float at the upper
+right; the lower left shows only the existing average FPS number. No numeric
+reading is shown for static examples, pauses or unavailable samples. Runtime
+loading, warning and error feedback remains accessible.
+
+After building and starting the site preview, run
+`node apps/site/playground/tests/browser/fullscreen.mjs` for the hardware WebGPU
+acceptance checks. Set `EXAMPLES_URL` to override the default preview URL.

@@ -1,3 +1,4 @@
+import { createCanvasFullscreen } from './canvasFullscreen.ts';
 import { renderExampleText } from './exampleIntro.ts';
 import { createIcon, setIconButton } from './icons.ts';
 import { exampleTagLabels } from './exampleTags.ts';
@@ -28,6 +29,7 @@ const returnToTop = (event: MouseEvent) => {
 backToTop.addEventListener('click', returnToTop);
 
 const examples = requireElement<HTMLElement>('[data-examples]');
+const canvasFps = requireElement<HTMLElement>('[data-canvas-fps]');
 const effectCanvas = requireElement<HTMLCanvasElement>('[data-effect-canvas]');
 const effectStatus = requireElement<HTMLElement>('[data-effect-status]');
 // Overlay keyboard interaction must not trigger example shortcuts (for example Space).
@@ -74,7 +76,11 @@ const runtimeStatus = createExampleStatus({
 	signal: requireElement<HTMLElement>('.effect-status__signal'),
 	feedback: requireElement<HTMLElement>('[data-example-feedback]'),
 	preview: requireElement<HTMLElement>('[data-status-preview]'),
-	onFrameRate: value => frameRateMonitor?.update(value),
+	onFrameRate: value => {
+		frameRateMonitor?.update(value);
+		canvasFps.hidden = value === undefined;
+		canvasFps.textContent = value === undefined ? '' : String(value);
+	},
 	onFrameSample: value => frameRateMonitor?.record(value),
 	readyState: example?.readyState ?? 'ready', loadingNote: example?.loadingNote,
 });
@@ -111,6 +117,7 @@ let restoreScroll = 0;
 let restoreFocus: HTMLElement | null = null;
 function setMaximized(value: boolean): void {
 	if (maximized === value) return;
+	if (value && fullscreen.isFull()) fullscreen.setFull(false);
 	if (value) {
 		restoreScroll = window.scrollY;
 		restoreFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
@@ -196,6 +203,22 @@ const controlsResizeObserver = example && !controlsPanel.hidden ? new ResizeObse
 controlsResizeObserver?.observe(demoStage, { box: 'border-box' });
 syncControlsHeight();
 
+const fullscreen = createCanvasFullscreen({
+	root: examples, card: requireElement<HTMLElement>('[data-demo-card]'),
+	button: requireElement<HTMLButtonElement>('[data-canvas-expand]'), parameters: controlsHost, canvas: effectCanvas,
+	onEnter: () => setMaximized(false),
+	onChange: syncUrl => { if (syncUrl) syncRouteUrl(); syncControlsHeight(); },
+});
+if (example) fullscreen.setFull(initialRoute.full, false);
+const onRouteHistory = (): void => {
+	const route = parseExamplesRoute(window.location.search);
+	if (route.exampleId !== example?.id) return;
+	setPanel(route.panel, false);
+	fullscreen.setFull(route.full, false);
+	syncControlsHeight();
+};
+window.addEventListener('popstate', onRouteHistory);
+
 let runtimePromise: Promise<ExamplesRuntime | undefined> = Promise.resolve(undefined);
 if (example) {
 	runtimePromise = mountExample(example);
@@ -206,6 +229,8 @@ installAppPageLifecycle(window, {
 	onDiscard: () => {
 		disposed = true;
 		window.clearInterval(statusTimer);
+		fullscreen.destroy();
+		window.removeEventListener('popstate', onRouteHistory);
 		controlsResizeObserver?.disconnect();
 		document.removeEventListener('visibilitychange', onVisibilityChange);
 		window.removeEventListener('pagehide', onPageHide);
@@ -293,13 +318,14 @@ function setPanel(panel: ExamplesPanel, syncUrl = true): void {
 	}
 
 	exampleDirectory.setPanel(panel);
-	if (syncUrl) {
-		const url = `${window.location.pathname}${routeSearch({
-			exampleId: example.id,
-			panel,
-		})}${window.location.hash}`;
-		window.history.replaceState(null, '', url);
-	}
+	if (syncUrl) syncRouteUrl();
+}
+
+function syncRouteUrl(): void {
+	if (!example) return;
+	const url = new URL(window.location.href);
+	url.search = routeSearch({ exampleId: example.id, panel: currentPanel, full: fullscreen.isFull() }, url.search);
+	window.history.replaceState(window.history.state, '', url);
 }
 
 function ensureCodeWorkspace(): Promise<void> {

@@ -8,28 +8,28 @@ import { defaultExampleId, parseExamplesRoute, routeSearch } from '../src/routin
 import { orderedSourceFiles } from '../src/sourceView.ts';
 
 test('examples routes default missing and invalid values safely', () => {
-	assert.deepEqual(parseExamplesRoute('?panel=none'), { exampleId: defaultExampleId, panel: 'inspector' });
+	assert.deepEqual(parseExamplesRoute('?panel=none'), { exampleId: defaultExampleId, panel: 'inspector', full: false });
 	assert.deepEqual(parseExamplesRoute(''), {
 		exampleId: defaultExampleId,
-		panel: 'inspector',
+		panel: 'inspector', full: false,
 	});
 	assert.deepEqual(parseExamplesRoute('?example=interactive-background&panel=inspector'), {
 		exampleId: 'interactive-background',
-		panel: 'inspector',
+		panel: 'inspector', full: false,
 	});
 	assert.deepEqual(parseExamplesRoute('?example=three-interop&panel=code'), {
 		exampleId: 'three-interop',
-		panel: 'code',
+		panel: 'code', full: false,
 	});
 	assert.deepEqual(parseExamplesRoute('?example=missing&panel=unexpected'), {
 		exampleId: 'missing',
-		panel: 'inspector',
+		panel: 'inspector', full: false,
 	});
 });
 
 test('examples panel controls are mutually exclusive and serializable', () => {
-	assert.equal(routeSearch({ exampleId: 'interactive-background', panel: 'inspector' }), '?example=interactive-background&panel=inspector');
-	assert.equal(routeSearch({ exampleId: 'refractive-flow', panel: 'inspector' }), '?example=refractive-flow&panel=inspector');
+	assert.equal(routeSearch({ exampleId: 'interactive-background', panel: 'inspector', full: false }), '?example=interactive-background&panel=inspector');
+	assert.equal(routeSearch({ exampleId: 'refractive-flow', panel: 'inspector', full: false }), '?example=refractive-flow&panel=inspector');
 	assert.equal(findPublicExample('refractive-flow')?.title, 'Refractive Flow');
 	assert.equal(defaultExampleId, 'reference-renderer');
 });
@@ -42,9 +42,9 @@ test('the production catalog is explicit, grouped, and keeps canonical sources f
 	assert.equal(findPublicExample('babylon-interop')?.hasControls, true);
 	assert.equal(findPublicExample('babylon-lite-interop')?.title, 'Babylon Lite Co-rendering');
 	assert.equal(findPublicExample('babylon-lite-interop')?.hasControls, false);
-	assert.deepEqual(parseExamplesRoute('?example=babylon-lite-interop&panel=code'), { exampleId: 'babylon-lite-interop', panel: 'code' });
+	assert.deepEqual(parseExamplesRoute('?example=babylon-lite-interop&panel=code'), { exampleId: 'babylon-lite-interop', panel: 'code', full: false });
 	assert.deepEqual(findPublicExample('babylon-lite-interop')?.sourceFiles.map(file => file.label), ['main.ts', 'graph.ts', 'bridge.ts', 'resolve.ts', 'scene.ts', 'present.ts', 'host.ts', 'babylonLiteInterop.ts']);
-	assert.deepEqual(parseExamplesRoute('?example=babylon-interop&panel=code'), { exampleId: 'babylon-interop', panel: 'code' });
+	assert.deepEqual(parseExamplesRoute('?example=babylon-interop&panel=code'), { exampleId: 'babylon-interop', panel: 'code', full: false });
 	assert.deepEqual(findPublicExample('babylon-interop')?.sourceFiles.map(file => file.label), ['main.ts', 'graph.ts', 'bridge.ts', 'resolve.ts', 'scene.ts', 'present.ts', 'host.ts', 'babylonInterop.ts']);
 	assert.equal(findPublicExample('missing'), undefined);
 	assert.equal(new Set(publicExamples.map((example) => example.id)).size, publicExamples.length);
@@ -163,4 +163,19 @@ test('package adapters call recipes instead of redeclaring FrameGraph nodes', ()
 		assert.match(source, new RegExp(`recipe\\.${previewFunction}\\b`, 'u'), `${file} preview`);
 		assert.match(source, new RegExp(`recipe\\.${captureFunction}\\b`, 'u'), `${file} capture`);
 	}
+});
+
+test('fullscreen URLs round-trip and preserve unrelated query parameters', () => {
+	const route = { exampleId: 'three-interop', panel: 'code' as const, full: true };
+	const search = routeSearch(route, '?quality=high&tag=a&tag=b&full=false');
+	assert.deepEqual(parseExamplesRoute(search), route);
+	assert.deepEqual(new URLSearchParams(search).getAll('tag'), ['a', 'b']);
+	assert.equal(new URLSearchParams(search).get('quality'), 'high');
+	const restored = routeSearch({ ...route, full: false }, search);
+	assert.equal(new URLSearchParams(restored).has('full'), false);
+	assert.equal(new URLSearchParams(restored).get('quality'), 'high');
+	for (const value of ['', 'false', '1', 'TRUE', 'unexpected']) {
+		assert.equal(parseExamplesRoute('?full=' + value).full, false);
+	}
+	assert.equal(parseExamplesRoute('?full=true').full, true);
 });

@@ -29,7 +29,9 @@
 </section>
 <section class="demo-card" data-demo-card data-background-region aria-label="Live example">
 <div class="demo-stage">
-<canvas class="effect-stage" data-effect-canvas aria-label="Interactive WebGPU example"></canvas>
+<button class="shell-button canvas-expand" data-canvas-expand aria-label="Expand canvas" aria-pressed="false">Expand canvas</button>
+<span class="canvas-fps" data-canvas-fps aria-label="Average rendered frames per second over 500 milliseconds" hidden></span>
+<canvas class="effect-stage" tabindex="0" data-effect-canvas aria-label="Interactive WebGPU example"></canvas>
 <details class="runtime-status" data-effect-status aria-label="Example runtime status">
 <summary><span class="effect-status" role="status" aria-live="polite"><span class="effect-status__signal" aria-hidden="true"></span><span data-effect-status-text>Loading…</span></span><span class="runtime-status__preview" data-status-preview></span><span class="runtime-status__toggle">Details</span></summary>
 <p class="runtime-status__detail" data-example-feedback hidden></p>

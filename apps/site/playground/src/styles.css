@@ -702,3 +702,96 @@ body:has(.tool-workbench[data-maximized=true]) {
 .directory-search::placeholder { color: var(--zenfg-muted); }
 .directory-search:focus-visible { outline: 2px solid var(--zenfg-accent); outline-offset: 2px; }
 .directory-empty { padding: 8px; color: var(--zenfg-secondary); }
+
+/* Canvas presentation mode keeps the existing rendering and control DOM mounted. */
+.canvas-expand {
+	position: absolute;
+	bottom: 12px;
+	right: 12px;
+	z-index: 2;
+}
+.canvas-fps { display: none; }
+/* Keep status details clear of the bottom-right expand button. */
+.demo-stage .runtime-status { max-width: calc(100% - 76px); }
+
+html:has(.examples[data-full=true]), body:has(.examples[data-full=true]) {
+	overflow: hidden;
+	overscroll-behavior: none;
+}
+.examples[data-full=true] > :not(.examples-layout),
+.examples[data-full=true] .examples-layout > :not(.example-main),
+.examples[data-full=true] .example-main > :not(.demo-card) {
+	display: none;
+}
+.examples[data-full=true] .example-main {
+	/* Container queries otherwise establish a containing block for fixed children. */
+	container-type: normal;
+}
+.examples[data-full=true] .demo-card {
+	--full-top: max(12px, env(safe-area-inset-top));
+	--full-right: max(12px, env(safe-area-inset-right));
+	--full-bottom: max(12px, env(safe-area-inset-bottom));
+	--full-left: max(12px, env(safe-area-inset-left));
+	position: fixed;
+	inset: 0;
+	z-index: 100;
+	display: block;
+	height: 100dvh;
+	background: #05090d;
+}
+.examples[data-full=true] .demo-stage {
+	position: absolute;
+	inset: 0;
+	width: 100%;
+	height: 100%;
+	max-height: none;
+	aspect-ratio: auto;
+	border: 0;
+	border-radius: 0;
+}
+.examples[data-full=true] .canvas-expand {
+	bottom: var(--full-bottom);
+	right: var(--full-right);
+}
+.examples[data-full=true] .examples-controls {
+	position: absolute;
+	top: var(--full-top);
+	right: var(--full-right);
+	width: min(250px, calc(100% - var(--full-left) - var(--full-right) - 52px));
+	max-height: calc(100% - var(--full-top) - var(--full-bottom) - 52px);
+	margin: 0;
+	z-index: 1;
+}
+.examples[data-full=true] .examples-metrics,
+.examples[data-full=true] .examples-controls:has(.examples-parameters[hidden]),
+.examples[data-full=true] .examples-controls:has(.examples-parameters:empty) {
+	display: none;
+}
+.examples[data-full=true] .canvas-fps {
+	display: block;
+	position: absolute;
+	left: var(--full-left);
+	bottom: var(--full-bottom);
+	z-index: 1;
+	font: 13px/20px var(--zenfg-font-mono);
+	font-variant-numeric: tabular-nums;
+	color: #fff;
+	text-shadow: 0 1px 3px #000, 0 0 4px #000;
+	pointer-events: none;
+}
+.examples[data-full=true] .runtime-status {
+	left: var(--full-left);
+	bottom: var(--full-bottom);
+	max-width: calc(100% - var(--full-left) - var(--full-right) - 52px);
+	max-height: min(40dvh, 200px);
+	z-index: 1;
+}
+.examples[data-full=true] .demo-stage:has(.canvas-fps:not([hidden])) .runtime-status {
+	bottom: calc(var(--full-bottom) + 28px);
+}
+.examples[data-full=true]:has(.runtime-status:not([hidden])) .examples-controls {
+	/* Reserve a separate lower region for readable error/loading details. */
+	max-height: max(28px, calc(60dvh - var(--full-top) - var(--full-bottom) - 40px));
+}
+
+.effect-stage:focus-visible { outline: 2px solid var(--zenfg-accent); outline-offset: -2px; }

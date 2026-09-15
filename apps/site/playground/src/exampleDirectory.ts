@@ -74,7 +74,7 @@ export function createExampleDirectory(options: {
 	search.addEventListener('input', filter);
 	search.addEventListener('keydown', keydown);
 	function setPanel(panel: ExamplesPanel): void {
-		for (const [exampleId, link] of links) link.href = routeSearch({ exampleId, panel });
+		for (const [exampleId, link] of links) link.href = routeSearch({ exampleId, panel, full: false });
 	}
 	setPanel(options.panel);
 	return { setPanel, destroy: () => { search.removeEventListener('input', filter); search.removeEventListener('keydown', keydown); host.replaceChildren(); } };
