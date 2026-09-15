@@ -64,14 +64,14 @@ test('maps a compilation report into canonical prefixed Snapshot V1 data', () =>
 	assert.equal(snapshot.capture.frameIndex, 7);
 	assert.equal(snapshot.capture.capturedAt, '2026-08-28T00:00:00.000Z');
 	assert.equal(snapshot.capture.migration, undefined);
-	assert.deepEqual(snapshot.producer.runtime, {
+	assert.deepEqual(structuredClone(snapshot.producer.runtime), {
 		graphicsApi: 'webgpu',
 		implementation: 'node-test',
 		backend: 'mock',
 	});
 	assert.deepEqual(snapshot.graph.nodes.map((node) => node.id), ['node:1', 'node:2']);
 	assert.deepEqual(snapshot.graph.nodes.map((node) => node.recordingOrder), [0, 1]);
-	assert.deepEqual(snapshot.graph.nodes.map((node) => node.compileState), [
+	assert.deepEqual(structuredClone(snapshot.graph.nodes.map((node) => node.compileState)), [
 		{ status: 'retained', executionOrder: 0 },
 		{ status: 'retained', executionOrder: 1 },
 	]);
@@ -138,7 +138,7 @@ test('maps GPU timing and rejects unknown WebGPU usage bits', () => {
 			estimatedRetainedBytes: 0,
 		},
 	});
-	assert.deepEqual(snapshot.timings.gpu, {
+	assert.deepEqual(structuredClone(snapshot.timings.gpu), {
 		status: 'available',
 		frameSpanMicros: 12.5,
 		nodes: [{ nodeId: `node:${nodeId}`, durationMicros: 10 }],
@@ -216,7 +216,7 @@ test('CPU-only snapshots use explicit frame identity and validate CPU coherence'
  const timing=compiled.executeWithTiming({timing:'cpu',frameIndex:9});
  const options={frameIndex:9,compilation:compiled.compilationReport,cpuTiming:timing.cpu!,resourcePool:graph.getResourcePoolStats()};
  const snapshot=createFrameGraphSnapshot(options);
- assert.equal(snapshot.timings.cpu.status,'available');assert.deepEqual(snapshot.timings.gpu,{status:'unavailable',reason:'not-requested'});
+ assert.equal(snapshot.timings.cpu.status,'available');assert.deepEqual(structuredClone(snapshot.timings.gpu),{status:'unavailable',reason:'not-requested'});
  assert.throws(()=>createFrameGraphSnapshot({...options,frameIndex:10}),FrameGraphSnapshotValidationError);
  assert.throws(()=>createFrameGraphSnapshot({...options,cpuTiming:{...options.cpuTiming,nodes:options.cpuTiming.nodes.map(n=>({...n,kind:'compute'}))}}),FrameGraphSnapshotValidationError);
  const noTiming=createFrameGraphSnapshot({frameIndex:9,compilation:compiled.compilationReport,resourcePool:graph.getResourcePoolStats()});

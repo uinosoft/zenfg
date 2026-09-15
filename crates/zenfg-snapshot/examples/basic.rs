@@ -24,6 +24,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             "poolReport": { "status": "unavailable", "reason": "not captured" }
         },
         "timings": {
+            "cpu": { "status": "unavailable", "reason": "not-requested" },
             "gpu": { "status": "unavailable", "reason": "not captured" }
         },
         "diagnostics": [],

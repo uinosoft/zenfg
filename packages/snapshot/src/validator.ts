@@ -96,7 +96,8 @@ type EntityPrefix = 'group' | 'node' | 'resource' | 'view' | 'access' | 'segment
 /**
  * Creates an independent JSON-safe clone without reading properties through
  * getters or invoking `toJSON` hooks. Ordinary JSON containers from another
- * JavaScript realm are accepted and cloned into the current realm.
+ * JavaScript realm are accepted. Object clones have no prototype; array clones
+ * use the current realm's Array prototype.
  *
  * @internal
  */
@@ -193,7 +194,7 @@ function cloneJsonValue(
 				issues,
 				omitUndefinedObjectProperties,
 			);
-			clone = {};
+			clone = Object.create(null) as UnknownRecord;
 		}
 
 		if (assignJsonCloneValue(parent, key, clone)) root = clone;
@@ -239,7 +240,7 @@ function inspectJsonObject(
 			issues.push(issue('invalid-json-value', renderJsonPath(childPath), 'JSON objects cannot contain non-enumerable properties.'));
 			continue;
 		}
-		if (!('value' in descriptor)) {
+		if (!Object.hasOwn(descriptor, 'value')) {
 			issues.push(issue('invalid-json-value', renderJsonPath(childPath), 'JSON values cannot contain accessor properties.'));
 			continue;
 		}
@@ -262,7 +263,7 @@ function inspectJsonArray(
 		issues.push(issue('invalid-json-value', renderJsonPath(path), 'JSON value properties could not be inspected safely.'));
 		return undefined;
 	}
-	if (!lengthDescriptor || !('value' in lengthDescriptor) || !Number.isSafeInteger(lengthDescriptor.value) || lengthDescriptor.value < 0) {
+	if (!lengthDescriptor || !Object.hasOwn(lengthDescriptor, 'value') || !Number.isSafeInteger(lengthDescriptor.value) || lengthDescriptor.value < 0) {
 		issues.push(issue('invalid-json-value', renderJsonPath(path), 'JSON value properties could not be inspected safely.'));
 		return undefined;
 	}
@@ -293,7 +294,7 @@ function inspectJsonArray(
 			issues.push(issue('invalid-json-value', renderJsonPath(childPath), 'JSON array elements must be enumerable data properties.'));
 			continue;
 		}
-		if (!('value' in descriptor)) {
+		if (!Object.hasOwn(descriptor, 'value')) {
 			issues.push(issue('invalid-json-value', renderJsonPath(childPath), 'JSON values cannot contain accessor properties.'));
 			continue;
 		}
@@ -379,12 +380,12 @@ function prototypeOwnsConstructor(prototype: object): boolean {
 	if (
 		!constructorDescriptor
 		|| constructorDescriptor.enumerable
-		|| !('value' in constructorDescriptor)
+		|| !Object.hasOwn(constructorDescriptor, 'value')
 		|| typeof constructorDescriptor.value !== 'function'
 	) return false;
 	const prototypeDescriptor = Object.getOwnPropertyDescriptor(constructorDescriptor.value, 'prototype');
 	return prototypeDescriptor !== undefined
-		&& 'value' in prototypeDescriptor
+		&& Object.hasOwn(prototypeDescriptor, 'value')
 		&& prototypeDescriptor.value === prototype;
 }
 
@@ -1064,7 +1065,7 @@ function array(value: unknown, path: string, issues: Issues): unknown[] | undefi
 function keys(value: UnknownRecord, path: string, required: readonly string[], optional: readonly string[], issues: Issues): void {
 	const allowed = new Set([...required, ...optional]);
 	for (const key of required) {
-		if (!(key in value)) issues.push(issue('missing-property', `${path}/${pointer(key)}`, `Required property "${key}" is missing.`));
+		if (!Object.hasOwn(value, key)) issues.push(issue('missing-property', `${path}/${pointer(key)}`, `Required property "${key}" is missing.`));
 	}
 	for (const key of Object.keys(value)) {
 		if (!allowed.has(key)) issues.push(issue('unexpected-property', `${path}/${pointer(key)}`, `Property "${key}" is not part of Snapshot 1.2.`));
@@ -1238,7 +1239,7 @@ function jsonValue(value: unknown, rootPath: string, issues: Issues): void {
 		if (isArray) {
 			for (let index = entry.length - 1; index >= 0; index--) {
 				const entryPath = `${path}/${index}`;
-				stack.push(index in entry
+				stack.push(Object.hasOwn(entry, index)
 					? { kind: 'visit', value: entry[index], path: entryPath, containerDepth: nextDepth }
 					: { kind: 'hole', path: entryPath });
 			}

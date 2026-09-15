@@ -18,6 +18,7 @@ import {
 	cloneGeneratedSnapshotJsonValue,
 	cloneSnapshotJsonValue,
 	validateSnapshotV1,
+	type SnapshotJsonCloneResult,
 } from './validator.ts';
 
 /**
@@ -56,15 +57,15 @@ export function validateFrameGraphSnapshot(value: unknown): readonly FrameGraphS
  *
  * @remarks Object properties whose value is `undefined` are omitted to support
  * producer drafts assembled from optional fields. The result is detached from
- * the draft and has passed JSON-safety and semantic validation.
+ * the draft and has passed JSON-safety and semantic validation. All JSON
+ * objects in the result have null prototypes; arrays remain ordinary arrays.
+ * Use `Object.hasOwn(object, key)` to test for own fields.
  * @throws {@link FrameGraphSnapshotValidationError} when the draft cannot be
  * finalized as a valid Snapshot 1.2 document.
  */
 export function finalizeFrameGraphSnapshot(draft: unknown): FrameGraphSnapshot {
-	const cloned = cloneGeneratedSnapshotJsonValue(draft);
+	const cloned = canonicalizeGeneratedSnapshot(draft);
 	if (!cloned.ok) throw new FrameGraphSnapshotValidationError(cloned.issues);
-	const issues = validateSnapshotV1(cloned.value);
-	if (issues.length > 0) throw new FrameGraphSnapshotValidationError(issues);
 	return cloned.value as FrameGraphSnapshot;
 }
 
@@ -76,7 +77,10 @@ export function finalizeFrameGraphSnapshot(draft: unknown): FrameGraphSnapshot {
  * before validation. Successful results identify the source format and carry
  * migration warnings; unsupported, malformed, or semantically invalid values
  * return `{ ok: false, issues }` and do not throw. Decoding and migration do
- * not mutate the input value. Input properties are inspected through data
+ * not mutate the input value. Returned JSON objects (including extensions)
+ * have null prototypes; arrays use the current realm's Array prototype. Use
+ * `Object.hasOwn(object, key)` instead of inherited object methods.
+ * Input properties are inspected through data
  * descriptors, so getters and `toJSON` hooks are never invoked. Extension
  * object/array nesting is limited by
  * {@link FRAME_GRAPH_SNAPSHOT_MAX_EXTENSION_DEPTH}.
@@ -95,10 +99,8 @@ export function decodeFrameGraphSnapshot(value: unknown): FrameGraphSnapshotDeco
 	if (isLegacyFrameGraphCapture(safeValue)) {
 		const migrated = migrateLegacyFrameGraphCapture(safeValue);
 		if (!migrated.ok) return migrated;
-		const canonical = cloneGeneratedSnapshotJsonValue(migrated.snapshot);
+		const canonical = canonicalizeGeneratedSnapshot(migrated.snapshot);
 		if (!canonical.ok) return { ok: false, issues: canonical.issues };
-		const validationIssues = validateSnapshotV1(canonical.value);
-		if (validationIssues.length > 0) return { ok: false, issues: validationIssues };
 		return {
 			ok: true,
 			snapshot: canonical.value as FrameGraphSnapshot,
@@ -122,9 +124,9 @@ export function decodeFrameGraphSnapshot(value: unknown): FrameGraphSnapshotDeco
 		const upgraded = { ...root, version: FRAME_GRAPH_SNAPSHOT_VERSION,
 			capture: { ...capture, migration: capture.migration ?? { sourceFormat: 'snapshot-v1.1', unavailableFacts: [] } },
 			timings: { ...asRecord(root.timings), cpu: { status: 'unavailable', reason: 'not-collected' } } };
-		const validationIssues = validateSnapshotV1(upgraded);
-		if (validationIssues.length) return { ok: false, issues: validationIssues };
-		return { ok: true, snapshot: upgraded as FrameGraphSnapshot, source: 'snapshot-v1.1', migrated: true,
+		const canonical = canonicalizeGeneratedSnapshot(upgraded);
+		if (!canonical.ok) return { ok: false, issues: canonical.issues };
+		return { ok: true, snapshot: canonical.value as FrameGraphSnapshot, source: 'snapshot-v1.1', migrated: true,
 			issues: [{ severity: 'warning', code: 'snapshot-v1.1-migrated', path: '', message: 'Snapshot 1.1 was migrated to ZenFG Snapshot 1.2; CPU timing was not collected.' }] };
 	}
 	if (
@@ -132,7 +134,7 @@ export function decodeFrameGraphSnapshot(value: unknown): FrameGraphSnapshotDeco
 		|| version.major !== FRAME_GRAPH_SNAPSHOT_VERSION.major
 		|| version.minor !== FRAME_GRAPH_SNAPSHOT_VERSION.minor
 	) {
-		const actual = version ? `${String(version.major)}.${String(version.minor)}` : 'missing';
+		const actual = version ? `${describeVersionComponent(version.major)}.${describeVersionComponent(version.minor)}` : 'missing';
 		return failure(
 			'unsupported-version',
 			'/version',
@@ -153,10 +155,11 @@ export function decodeFrameGraphSnapshot(value: unknown): FrameGraphSnapshotDeco
 function migrateLegacyCandidateV1(value: Record<string, unknown>): FrameGraphSnapshotDecodeResult {
 	const version = asRecord(value.version);
 	if (!version || version.major !== 1 || version.minor !== 0) {
-		const actual = version ? `${String(version.major)}.${String(version.minor)}` : 'missing';
+		const actual = version ? `${describeVersionComponent(version.major)}.${describeVersionComponent(version.minor)}` : 'missing';
 		return failure('unsupported-version', '/version', `Snapshot version ${actual} is not supported; this Viewer supports 1.2.`);
 	}
 	const candidate: Record<string, unknown> = {
+		__proto__: null,
 		...value,
 		format: FRAME_GRAPH_SNAPSHOT_FORMAT,
 		version: { major: 1, minor: 1 },
@@ -164,8 +167,8 @@ function migrateLegacyCandidateV1(value: Record<string, unknown>): FrameGraphSna
 	const capture = asRecord(value.capture);
 	const graph = asRecord(value.graph);
 	if (!capture || !graph || !Array.isArray(graph.resources)) {
-		const issues = validateSnapshotV1(candidate, 1);
-		return { ok: false, issues };
+		const cloned = cloneGeneratedSnapshotJsonValue(candidate);
+		return { ok: false, issues: cloned.ok ? validateSnapshotV1(cloned.value, 1) : cloned.issues };
 	}
 	candidate.capture = {
 		...capture,
@@ -174,7 +177,7 @@ function migrateLegacyCandidateV1(value: Record<string, unknown>): FrameGraphSna
 	const resources = Array.from(graph.resources, (entry) => {
 		const resource = asRecord(entry);
 		if (!resource) return entry;
-		const migratedResource = { ...resource };
+		const migratedResource: Record<string, unknown> = { __proto__: null, ...resource };
 		if (resource.origin === 'transient' || resource.origin === 'surface') {
 			migratedResource.initialContents = 'undefined';
 		} else if (resource.origin === 'imported') {
@@ -183,15 +186,16 @@ function migrateLegacyCandidateV1(value: Record<string, unknown>): FrameGraphSna
 		return migratedResource;
 	});
 	candidate.graph = { ...graph, resources };
-	const issues = validateSnapshotV1(candidate, 1);
-	if (issues.length > 0) return { ok: false, issues };
-	candidate.version = FRAME_GRAPH_SNAPSHOT_VERSION;
-	candidate.timings = { ...asRecord(candidate.timings), cpu: { status: 'unavailable', reason: 'not-collected' } };
-	const upgradedIssues = validateSnapshotV1(candidate);
-	if (upgradedIssues.length) return { ok: false, issues: upgradedIssues };
+	const canonical = canonicalizeGeneratedSnapshot(candidate, 1);
+	if (!canonical.ok) return { ok: false, issues: canonical.issues };
+	const canonicalRecord = asRecord(canonical.value)!;
+	canonicalRecord.version = FRAME_GRAPH_SNAPSHOT_VERSION;
+	canonicalRecord.timings = { ...asRecord(canonicalRecord.timings), cpu: { status: 'unavailable', reason: 'not-collected' } };
+	const upgraded = canonicalizeGeneratedSnapshot(canonicalRecord);
+	if (!upgraded.ok) return { ok: false, issues: upgraded.issues };
 	return {
 		ok: true,
-		snapshot: candidate as FrameGraphSnapshot,
+		snapshot: upgraded.value as FrameGraphSnapshot,
 		source: 'legacy-candidate-v1',
 		migrated: true,
 		issues: [{
@@ -262,7 +266,7 @@ function shadowInheritedToJsonHooks(value: unknown): void {
 			if (key === 'toJSON') ownsToJson = true;
 			if (typeof key === 'symbol' || (isArray && key === 'length')) continue;
 			const descriptor = Object.getOwnPropertyDescriptor(container, key);
-			if (!descriptor || !('value' in descriptor)) continue;
+			if (!descriptor || !Object.hasOwn(descriptor, 'value')) continue;
 			const child = descriptor.value;
 			if (typeof child === 'object' && child !== null) stack.push(child);
 		}
@@ -277,10 +281,26 @@ function shadowInheritedToJsonHooks(value: unknown): void {
 	}
 }
 
+// Generated drafts can contain ordinary objects and omitted optional fields.
+// Re-clone before semantic reads so migration never restores inherited fields.
+function canonicalizeGeneratedSnapshot(value: unknown, minor: 1 | 2 = 2): SnapshotJsonCloneResult {
+	const cloned = cloneGeneratedSnapshotJsonValue(value);
+	if (!cloned.ok) return cloned;
+	const issues = validateSnapshotV1(cloned.value, minor);
+	return issues.length > 0 ? { ok: false, issues } : cloned;
+}
+
 function asRecord(value: unknown): Record<string, unknown> | undefined {
 	return typeof value === 'object' && value !== null && !Array.isArray(value)
 		? value as Record<string, unknown>
 		: undefined;
+}
+
+// Invalid version containers must not invoke conversion hooks (or require an
+// Object prototype) just to produce a structured unsupported-version issue.
+function describeVersionComponent(value: unknown): string {
+	if (typeof value === 'object' && value !== null) return Array.isArray(value) ? '[array]' : '[object]';
+	return String(value);
 }
 
 function failure(code: string, path: string, message: string): FrameGraphSnapshotDecodeResult {

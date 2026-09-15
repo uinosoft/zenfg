@@ -311,7 +311,7 @@ test('copies the current capture JSON with pending and copied feedback', async (
 	assert.equal(copyAction(panel.dom).disabled, true);
 	await flushAsync();
 	assert.equal(copyAction(panel.dom).textContent, 'Copied');
-	assert.deepEqual(JSON.parse(copiedText), toSnapshot(capture));
+	assert.deepEqual(JSON.parse(copiedText), structuredClone(toSnapshot(capture)));
 
 	panel.setSnapshot(toSnapshot(createEmptyCapture()));
 	assert.equal(copyAction(panel.dom).textContent, 'Copy JSON');

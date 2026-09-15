@@ -98,7 +98,7 @@ test('preserves every stableKey field through decode and JSON re-encoding', () =
 	const decoded = decodeFrameGraphSnapshot(fixture);
 	assert.equal(decoded.ok, true);
 	if (!decoded.ok) return;
-	assert.deepEqual(decoded.snapshot, fixture);
+	assert.deepEqual(clone(decoded.snapshot), fixture);
 	assert.deepEqual(JSON.parse(stringifyFrameGraphSnapshot(decoded.snapshot)), fixture);
 	assert.deepEqual([
 		decoded.snapshot.graph.groups[0]?.stableKey,
@@ -117,7 +117,7 @@ test('migrates Legacy V0 and only re-exports canonical V1', () => {
 	assert.equal(decoded.migrated, true);
 	assert.ok(decoded.issues.some((issue) => issue.code === 'legacy-v0-migrated'));
 	assert.equal(decoded.snapshot.format, FRAME_GRAPH_SNAPSHOT_FORMAT);
-	assert.deepEqual(decoded.snapshot.version, FRAME_GRAPH_SNAPSHOT_VERSION);
+	assert.deepEqual(clone(decoded.snapshot.version), FRAME_GRAPH_SNAPSHOT_VERSION);
 	assert.deepEqual(decoded.snapshot.graph.nodes.map((node) => [node.id, node.compileState.status]), [
 		['node:1', 'retained'],
 		['node:2', 'culled'],
@@ -126,11 +126,11 @@ test('migrates Legacy V0 and only re-exports canonical V1', () => {
 	assert.deepEqual(decoded.snapshot.graph.resources[1]?.usageFlags, ['copy-src', 'copy-dst', 'storage']);
 	assert.equal(decoded.snapshot.graph.nodes[0]?.recordingOrder, undefined);
 	assert.equal(decoded.snapshot.graph.textureViews.length, 0);
-	assert.deepEqual(decoded.snapshot.capture.migration, {
+	assert.deepEqual(clone(decoded.snapshot.capture.migration), {
 		sourceFormat: 'legacy-v0',
 		unavailableFacts: ['graph.textureViews', 'graph.nodes.recordingOrder', 'graph.accesses.regions'],
 	});
-	assert.deepEqual(decoded.snapshot, readJson('../fixtures/legacy-v0.expected.fgsnapshot.json'));
+	assert.deepEqual(clone(decoded.snapshot), readJson('../fixtures/legacy-v0.expected.fgsnapshot.json'));
 
 	const exported = stringifyFrameGraphSnapshot(decoded.snapshot);
 	const reparsed = JSON.parse(exported) as Record<string, unknown>;
@@ -152,7 +152,7 @@ test('migrates Legacy Candidate V1 and preserves unknown imported initial conten
 	assert.equal(decoded.source, 'legacy-candidate-v1');
 	assert.equal(decoded.migrated, true);
 	assert.equal(decoded.snapshot.format, FRAME_GRAPH_SNAPSHOT_FORMAT);
-	assert.deepEqual(decoded.snapshot.capture.migration, { sourceFormat: 'legacy-candidate-v1', unavailableFacts: ['graph.roots.range', 'graph.roots.resolution'] });
+	assert.deepEqual(clone(decoded.snapshot.capture.migration), { sourceFormat: 'legacy-candidate-v1', unavailableFacts: ['graph.roots.range', 'graph.roots.resolution'] });
 	for (const resource of decoded.snapshot.graph.resources) {
 		if (resource.origin === 'imported') assert.equal(resource.initialContents, undefined);
 		else assert.equal(resource.initialContents, 'undefined');
@@ -168,12 +168,12 @@ test('matches the canonical Legacy Candidate V1 migration value exactly', () => 
 	assert.equal(decoded.ok, true);
 	if (!decoded.ok) return;
 	assert.deepEqual(input, original);
-	assert.deepEqual(decoded.snapshot, expected);
+	assert.deepEqual(clone(decoded.snapshot), expected);
 	assert.deepEqual(JSON.parse(stringifyFrameGraphSnapshot(decoded.snapshot)), expected);
 	const imported = decoded.snapshot.graph.resources.find((resource) => resource.origin === 'imported');
 	assert.equal(imported?.initialContents, undefined);
 	assert.equal(imported?.stableKey, 'resource/input');
-	assert.deepEqual(decoded.snapshot.extensions['dev.zenfg.legacy-fixture'], { preserved: true });
+	assert.deepEqual(clone(decoded.snapshot.extensions['dev.zenfg.legacy-fixture']), { preserved: true });
 });
 
 test('returns detached canonical and Legacy Candidate snapshots without serialization hooks', () => {
@@ -206,8 +206,8 @@ test('accepts ordinary cross-realm JSON containers and rehomes decoded output', 
 	const decoded = decodeFrameGraphSnapshot(foreign);
 	assert.equal(decoded.ok, true);
 	if (!decoded.ok) return;
-	assert.deepEqual(decoded.snapshot, expected);
-	assert.equal(Object.getPrototypeOf(decoded.snapshot), Object.prototype);
+	assert.deepEqual(clone(decoded.snapshot), expected);
+	assert.equal(Object.getPrototypeOf(decoded.snapshot), null);
 	assert.equal(Object.getPrototypeOf(decoded.snapshot.graph.nodes), Array.prototype);
 	assert.deepEqual(JSON.parse(stringifyFrameGraphSnapshot(foreign)), expected);
 });
@@ -414,8 +414,8 @@ test('shadows inherited Object and Array toJSON hooks without changing compact o
 		try {
 			const compact = stringifyFrameGraphSnapshot(snapshot);
 			const pretty = stringifyFrameGraphSnapshot(snapshot, { pretty: true });
-			assert.deepEqual(JSON.parse(compact), snapshot);
-			assert.deepEqual(JSON.parse(pretty), snapshot);
+			assert.deepEqual(JSON.parse(compact), clone(snapshot));
+			assert.deepEqual(JSON.parse(pretty), clone(snapshot));
 			assert.equal(compact.includes('\n'), false);
 			assert.equal(pretty.includes('\n  "format"'), true);
 			assert.equal(calls, 0);
@@ -512,8 +512,8 @@ test('reports one escaped root issue per over-depth extension and preserves acti
 	assert.equal(decoded.ok, true);
 	if (decoded.ok) {
 		const clonedShared: any = decoded.snapshot.extensions['dev.zenfg.shared'];
-		assert.deepEqual(clonedShared.left, shared);
-		assert.deepEqual(clonedShared.right, shared);
+		assert.deepEqual(clone(clonedShared.left), shared);
+		assert.deepEqual(clone(clonedShared.right), shared);
 		assert.notEqual(clonedShared.left, clonedShared.right);
 	}
 
@@ -701,7 +701,7 @@ test('matches the published structural and semantic conformance manifest', () =>
 		const runtimeValid = entry.input === 'validator' ? actualIssues.length === 0 : result!.ok;
 		assert.equal(runtimeValid, entry.runtimeValid, entry.id);
 		if (result?.ok && entry.canonical) {
-			assert.deepEqual(result.snapshot, JSON.parse(readFileSync(resolve(conformanceRoot, entry.canonical), 'utf8')), entry.id);
+			assert.deepEqual(clone(result.snapshot), JSON.parse(readFileSync(resolve(conformanceRoot, entry.canonical), 'utf8')), entry.id);
 		}
 		const actual = sortIssues(actualIssues);
 		const expected = sortIssues(entry.issues ?? []);
@@ -827,7 +827,7 @@ test('strictly migrates 1.1 without changing input or losing earlier provenance'
  assert.equal(result.ok,true); if(!result.ok)return;
  assert.equal(result.source,'snapshot-v1.1'); assert.equal(result.migrated,true);
  assert.equal(result.snapshot.version.minor,2);
- assert.deepEqual(result.snapshot.timings.cpu,{status:'unavailable',reason:'not-collected'});
+ assert.deepEqual(clone(result.snapshot.timings.cpu),{status:'unavailable',reason:'not-collected'});
  assert.equal(JSON.stringify(old),saved);
  assert.ok(validateFrameGraphSnapshot(old).length);
  const bad=clone(old); bad.timings.cpu={status:'unavailable',reason:'injected'};
@@ -836,7 +836,7 @@ test('strictly migrates 1.1 without changing input or losing earlier provenance'
  assert.equal(decodeFrameGraphSnapshot(badReference).ok,false);
  old.capture.migration={sourceFormat:'legacy-v0',unavailableFacts:[]};
  const legacy=decodeFrameGraphSnapshot(old); assert.equal(legacy.ok,true);
- if(legacy.ok)assert.deepEqual(legacy.snapshot.capture.migration,old.capture.migration);
+ if(legacy.ok)assert.deepEqual(clone(legacy.snapshot.capture.migration),old.capture.migration);
 });
 
 test('CPU wire timing accepts every retained kind and rejects invalid references and numbers', () => {

@@ -56,7 +56,7 @@ test('host renders continuously, captures real frames, and preserves its device 
         const snapshot = await first;
         assert.ok(snapshot);
         assert.equal(snapshot.timings.cpu.status, 'available');
-        assert.deepEqual(snapshot.timings.gpu, { status: 'unavailable', reason: 'not-requested' });
+        assert.deepEqual(structuredClone(snapshot.timings.gpu), { status: 'unavailable', reason: 'not-requested' });
         assert.ok(snapshot.graph.nodes.some(node => node.label === 'three-interop.three-render'));
         assert.equal(snapshot.graph.nodes.at(-1)?.label, 'three-interop.present');
         assert.equal(host.pendingFrames, 1);

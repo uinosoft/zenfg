@@ -56,6 +56,12 @@ throwing native JSON or cloning failures. Serialization and producer
 finalization throw `FrameGraphSnapshotValidationError` when a caller attempts to
 write invalid canonical data.
 
+Decoded, parsed, and finalized Snapshots use null-prototype objects throughout,
+including extension objects; arrays remain ordinary arrays. Inherited fields
+and getters are ignored. Use `Object.hasOwn(object, key)` instead of
+`object.hasOwnProperty(key)`. This changes JavaScript object prototypes, not
+Snapshot fields or the JSON wire format.
+
 ## Common tasks
 
 | Task | Public API |
