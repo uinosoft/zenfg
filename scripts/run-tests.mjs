@@ -11,6 +11,9 @@ const outDir = resolve(rootDir, '.test-dist', 'tests');
 // Keep required roots explicit so a rename or deletion cannot hide a suite.
 // An existing root may legitimately have no Node tests.
 const defaultTestRoots = [
+    resolve(rootDir, 'apps', 'site', 'examples', 'playcanvas-gsplat-shared', 'tests'),
+    resolve(rootDir, 'apps', 'site', 'examples', 'playcanvas-gsplat-interop', 'tests'),
+    resolve(rootDir, 'apps', 'site', 'examples', 'playcanvas-gsplat-streaming-interop', 'tests'),
 	resolve(rootDir, 'scripts', 'tests'),
 	resolve(rootDir, 'packages', 'webgpu', 'tests'),
 	resolve(rootDir, 'packages', 'snapshot', 'tests'),

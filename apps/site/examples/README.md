@@ -53,3 +53,9 @@ Its Reverse Z control changes convention on the same engine and shared device.
 `babylon-lite-interop` uses Babylon Lite 1.28 with native reverse depth. A graph
 pass decodes Lite color while Reference Renderer loads the original depth
 attachment. It uses the same procedural composition without configurable effects.
+
+The PlayCanvas GSplat showcases draw Reference geometry before an external splat
+submission, sharing forward depth and compositing a transparent gamma-2.2 layer.
+See [Toy Cat](playcanvas-gsplat-interop/README.md) and
+[Roman Parish streaming](playcanvas-gsplat-streaming-interop/README.md). Both use
+private playcanvas-gsplat-shared helpers and independently executable main.ts entries.

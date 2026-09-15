@@ -55,6 +55,8 @@ test('the production catalog is explicit, grouped, and keeps canonical sources f
 			['three-interop', 'Showcases'],
 			['babylon-interop', 'Showcases'],
 			['babylon-lite-interop', 'Showcases'],
+		['playcanvas-gsplat-interop', 'Showcases'],
+		['playcanvas-gsplat-streaming-interop', 'Showcases'],
 			['typegpu-slime-mold', 'Showcases'],
 			['typegpu-monocular-light-injection', 'Showcases'],
 			['particles4all-framegraph', 'Showcases'],
@@ -120,7 +122,7 @@ test('the production catalog is explicit, grouped, and keeps canonical sources f
 });
 
 test('every example declares a real reading entry with a source introduction', () => {
-	assert.equal(publicExamples.length, 17);
+	assert.equal(publicExamples.length, 19);
 	for (const example of publicExamples) {
 		const ordered = orderedSourceFiles(example);
 		assert.equal(ordered[0]!.id, example.entrySourceId);

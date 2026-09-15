@@ -1,3 +1,5 @@
+import { playCanvasGsplatInteropExample } from './playCanvasGsplatInterop.ts';
+import { playCanvasGsplatStreamingInteropExample } from './playCanvasGsplatStreamingInterop.ts';
 import { refractiveFlowExample } from './refractiveFlow.ts';
 import { orderedSourceFiles } from '../sourceView.ts';
 import { interactiveBackgroundExample } from './interactiveBackground.ts';
@@ -23,6 +25,8 @@ export const publicExamples = [
 	threeInteropExample,
 	babylonInteropExample,
 	babylonLiteInteropExample,
+	playCanvasGsplatInteropExample,
+	playCanvasGsplatStreamingInteropExample,
 	typeGpuSlimeMoldExample,
 	typeGpuMonocularLightInjectionExample,
 	particles4AllExample,

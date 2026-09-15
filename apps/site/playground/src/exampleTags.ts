@@ -1,6 +1,9 @@
 /** Stable catalog IDs and shared display names for classification and future filtering. */
 export const exampleTagLabels = {
 	"webgpu": "WebGPU",
+    "playcanvas": "PlayCanvas",
+    "gaussian-splatting": "Gaussian Splatting",
+    "streaming": "Streaming",
 	"typegpu": "TypeGPU",
 	"threejs": "Three.js",
 	"babylonjs": "Babylon.js",
