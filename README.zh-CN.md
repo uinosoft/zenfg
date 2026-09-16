@@ -66,7 +66,7 @@ ZenFG 通过显式 FrameGraph 协调渲染与计算工作。直接使用 WebGPU 
 也可以查看 [Reference Renderer](https://uinosoft.github.io/zenfg/playground/?example=reference-renderer&panel=inspector) 的 GPU 裁剪与间接绘制、
 [PlayCanvas 流式 GSplat](https://uinosoft.github.io/zenfg/playground/?example=playcanvas-gsplat-streaming-interop&panel=inspector)（需要网络）和
 [TypeGPU Slime Mold](https://uinosoft.github.io/zenfg/playground/?example=typegpu-slime-mold&panel=inspector) 的计算与渲染节点。
-这些是针对特定版本的集成示例，不是通用兼容承诺。
+各示例的源码与说明记录了依赖版本和接入细节。
 
 ## 从这里开始
 
@@ -127,7 +127,6 @@ GPU 计时取决于设备支持与节点覆盖；Snapshot 不包含可重放的�
 ## 方向
 
 我们正在探索可复用的 GPU-Driven Mesh、粒子与后处理模块，让独立渲染功能更容易组合并进入实际项目。
-这是探索方向，不是交付时间表或稳定的模块协议。当前 Reference Renderer 用于教学与展示，并非已发布的生产渲染模块。
 
 ## 项目状态
 
