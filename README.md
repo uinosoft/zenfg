@@ -67,7 +67,7 @@ runtimes share semantics and portable Snapshots, with an embeddable Inspector.
 Also explore GPU culling and indirect drawing in the [Reference Renderer](https://uinosoft.github.io/zenfg/playground/?example=reference-renderer&panel=inspector),
 [PlayCanvas Streaming GSplat](https://uinosoft.github.io/zenfg/playground/?example=playcanvas-gsplat-streaming-interop&panel=inspector) (network required), and
 [TypeGPU Slime Mold](https://uinosoft.github.io/zenfg/playground/?example=typegpu-slime-mold&panel=inspector) compute and render nodes.
-These are version-specific integration examples, not a universal compatibility promise.
+Each example documents its dependency versions and integration details.
 
 ## Start here
 
@@ -138,9 +138,6 @@ dependency, lifetime, and execution model.
 
 We are exploring reusable GPU-driven mesh, particle, and post-processing modules,
 so independently built rendering features can come together in real applications.
-This is a direction, not a delivery schedule or stable module protocol. The current
-Reference Renderer is a teaching and showcase implementation, not a published
-production rendering module.
 
 ## Status
 
