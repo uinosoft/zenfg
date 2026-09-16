@@ -212,7 +212,18 @@ is destroyed.
 
 ## Integration levels
 
-ZenFG supports three integration depths, which may be mixed in one frame.
+Two common ways to compose work are to connect an existing engine and to build
+modules that record their work into the graph. These describe use cases, not a
+separate plugin protocol. A graph-native module can use native GPU APIs or a
+compatible third-party library; its scene, shader, pipeline, and draw policy
+remain module-owned.
+
+Existing engines that retain their submissions use external nodes. Modules that
+record graph-owned work use structured native nodes or command integration,
+depending on their encoding needs. All three depths can be mixed in one frame.
+The more work a module declares as structured nodes, the more of its flow is
+visible to graph validation and inspection. Sharing a device alone does not
+make formats, depth conventions, or engine resource models compatible.
 
 ### Native render, compute, and copy
 

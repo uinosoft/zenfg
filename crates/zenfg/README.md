@@ -12,9 +12,13 @@ flow, builds dependencies, culls dead work, derives usage, plans transient
 aliasing, and optionally materializes retained work on a caller-owned device and
 queue.
 
+Build domain-specific rendering and compute with wgpu while keeping explicit
+resource and execution boundaries. See the
+[composition model](https://uinosoft.github.io/zenfg/docs/concepts.html#integration-levels).
+
 ZenFG does not own scenes, pipelines, bind groups, samplers, surfaces,
-presentation, or device-loss policy. This is a public beta crate; pin the exact
-prerelease version while integrating.
+presentation, or device-loss policy. Public APIs may change before 1.0; pin exact
+package versions and review migration notes while integrating.
 
 ## Installation
 

@@ -11,6 +11,10 @@ per-frame GPU work. It orders graph nodes, validates resource access, culls
 unused work, derives WebGPU usage, tracks lifetimes, and reuses transient
 textures and buffers.
 
+Build rendering features directly with WebGPU or compatible libraries, and combine
+them with existing renderers through explicit graph integration. See the
+[composition model](https://uinosoft.github.io/zenfg/docs/concepts.html#integration-levels).
+
 It is not a renderer abstraction. ZenFG owns graph-visible dependencies,
 execution order, retention, transient allocation, and optional diagnostics.
 The caller owns scenes, pipelines, bind groups, samplers, long-lived resources,

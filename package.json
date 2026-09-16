@@ -43,7 +43,9 @@
     "release:smoke:npm": "node scripts/release/smoke.mjs npm",
     "release:smoke:cargo": "node scripts/release/smoke.mjs cargo",
     "release:smoke": "node scripts/release/smoke.mjs all",
-    "release:assess": "node scripts/release/assess.mjs"
+    "release:assess": "node scripts/release/assess.mjs",
+    "brand:social": "node scripts/build-social.mjs",
+    "showcase:capture": "node scripts/capture-showcase.mjs"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",

@@ -74,3 +74,19 @@ copies in public directories by hand. The PNG-backed ICO contains 16, 32 and
 48px frames. Apple touch icons use an opaque square background so the platform
 can apply its own corner mask. The manifest declares ordinary browser display;
 it does not add offline support.
+
+## Social previews
+
+Run `npm run brand:social` to render two static cards from the approved vector
+mark and a conceptual composition diagram:
+
+- `exports/zenfg-social.png`: 1200 × 630 website Open Graph / Twitter image;
+  also copied to the Site public brand directory.
+- `exports/zenfg-github.png`: 1280 × 640 GitHub repository social preview,
+  under 1 MB. Upload through repository Settings → Social preview → Edit.
+- `zenfg-social.html` and `zenfg-github.html`: generated layout proofs.
+
+The diagram is conceptual, not an Inspector capture or benchmark. Production
+builds use the committed PNG; they do not require browser-based generation.
+GitHub does not discover a repository avatar or social preview from a root file.
+These cards do not change the organization avatar.

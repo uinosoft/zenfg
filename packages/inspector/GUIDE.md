@@ -1,5 +1,24 @@
 # Inspector workbench guide
 
+## Analyze and verify a frame
+
+1. Capture an actual frame and inspect its graph, resource lifetimes, and diagnostics.
+2. Check available CPU/GPU timings and their coverage. Locate the relevant passes
+   and dependencies before deciding what to change.
+3. Use the workbench's Snapshot JSON download or clipboard copy with the relevant
+   graph declarations and renderer code for human or AI-assisted analysis. Include
+   the observed problem and constraints; use pass names and resource IDs to make
+   feedback precise. A Snapshot describes declared work, not shader behavior or
+   an entire engine's internals.
+4. Capture again after modifying the code. Compare the resulting structure and
+   available measurements under comparable workload and device conditions.
+
+This is an analysis workflow, not built-in AI integration or automatic optimization.
+GPU timing depends on device support and node coverage; absent timing is not zero.
+External-engine internals remain opaque. Snapshot does not include GPU resource
+contents or replayable commands. The Inspector itself does not upload imported
+snapshots; sharing exported data with another tool is a separate user action.
+
 ## Workbench behavior
 
 The workbench provides Overview, Graph, Passes, Resources, Memory, and

@@ -21,7 +21,11 @@ test('Home language updates content, shared navigation, metadata and accessible 
 			else Reflect.deleteProperty(globalThis, key);
 		}
 	});
-	const toggle = window.document.querySelector<HTMLButtonElement>('[data-language-toggle]')!;
+    const translated = [...window.document.querySelectorAll<HTMLElement>('[data-i18n]')];
+    const english = translated.map(element => element.tagName === 'META' ? element.getAttribute('content') : element.textContent);
+    const image = window.document.querySelector('img[data-i18n-alt]')!;
+    const englishAlt = image.getAttribute('alt');
+    const toggle = window.document.querySelector<HTMLButtonElement>('[data-language-toggle]')!;
 	toggle.click();
 	assert.equal(toggle.getAttribute('aria-expanded'), 'true');
 	window.document.querySelector<HTMLButtonElement>('[data-language-choice="zh-CN"]')!.click();
@@ -31,23 +35,29 @@ test('Home language updates content, shared navigation, metadata and accessible 
 	assert.equal(window.document.querySelector('[aria-current=page]')?.textContent, '首页');
 	assert.equal(toggle.getAttribute('aria-label'), '选择语言');
 	assert.match(window.document.title, /面向/);
-	assert.match(window.document.querySelector('meta[name=description]')!.getAttribute('content')!, /面向/);
+	assert.match(window.document.querySelector('meta[name=description]')!.getAttribute('content')!, /GPU/);
 	assert.equal(window.document.querySelector('.eyebrow'), null);
-	assert.equal(window.document.querySelector('[data-i18n=summary]')?.textContent, '面向 WebGPU 与 wgpu 的独立、可组合 FrameGraph 工具链。');
-	assert.equal(window.document.querySelector('[data-i18n=value]')?.textContent, '组织渲染，洞察每一帧。');
+	assert.equal(window.document.querySelector('[data-i18n=summary]')?.textContent, '面向 WebGPU 与 wgpu 的可组合 FrameGraph。');
+	assert.equal(window.document.querySelector('[data-i18n=value]')?.textContent, '自主构建渲染功能，组合不同 GPU 系统，看清每一帧的执行过程。');
 	assert.equal(window.document.querySelector('[data-i18n=validationTitle]')?.textContent, '资源管理');
 	assert.match(window.document.querySelector('[data-i18n=inspectionDescription]')!.textContent, /看清每一帧/);
 	assert.equal(window.document.querySelector('.cover-story-marker')?.getAttribute('href'), './playground/?example=refractive-flow&panel=inspector');
 	assert.equal(window.document.querySelector('.cover-story-marker')?.getAttribute('aria-label'), '探索此示例');
 	assert.equal(window.document.querySelector('[data-i18n=explore]')?.textContent, '探索');
 	assert.equal(window.localStorage.getItem('zenfg-language'), 'zh-CN');
-	language.restore();
+    translated.forEach((element, index) => {
+        const value = element.tagName === 'META' ? element.getAttribute('content') : element.textContent;
+        assert.ok(value?.trim(), 'translated content is present');
+        if (value === english[index]) assert.match(value!, /^(?:GitHub|ZenFG|Reference Renderer|TypeGPU|SNAPSHOT|Snapshot|Inspector|TypeScript)/);
+    });
+    assert.notEqual(image.getAttribute('alt'), englishAlt);
+    language.restore();
 	assert.equal(window.document.documentElement.lang, 'zh-CN');
 	toggle.click();
 	window.document.querySelector<HTMLButtonElement>('[data-language-choice=en]')!.click();
 	assert.equal(window.document.documentElement.lang, 'en');
 	assert.equal(window.document.querySelector('[aria-current=page]')?.textContent, 'Home');
-	assert.match(window.document.querySelector('[data-i18n=summary]')!.textContent, /independent/);
+	assert.match(window.document.querySelector('[data-i18n=summary]')!.textContent, /composable/);
 	assert.equal(window.document.querySelector('[data-i18n=explore]')?.textContent, 'Explore');
 	assert.equal(window.document.querySelector('[data-i18n=validationTitle]')?.textContent, 'Resource management');
 	const menu = window.document.querySelector<HTMLElement>('#site-language-menu')!;
