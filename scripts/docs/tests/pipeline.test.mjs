@@ -67,3 +67,12 @@ test('explicit release-history links are preserved while ordinary guidance uses 
     assert.ok(output.includes('[Current guide](@DOCS@/concepts.html)'));
     assert.ok(output.includes(`[For this release](${tagUrl})`));
 });
+
+
+test('README screenshot is omitted from docs while its semantic example link survives', () => {
+    const input = '# ZenFG\n<!-- readme-showcase:start -->\n<img src="apps/site/public/media/three-co-rendering.png">\n<!-- readme-showcase:end -->\n[Three.js](https://uinosoft.github.io/zenfg/playground/?example=three-interop)';
+    const result = transformContent(input, 'README.md', new Map(), 'abcdef');
+    assert.ok(!result.includes('<img'));
+    assert.ok(!result.includes('readme-showcase'));
+    assert.ok(result.includes('[Three.js](https://uinosoft.github.io/zenfg/playground/?example=three-interop)'));
+});

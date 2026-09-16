@@ -1,3 +1,4 @@
+import { socialHead } from '../../site/shared/social.ts';
 import { defineConfig } from 'vitepress';
 import { resolve } from 'node:path';
 import { root, contentDir, read, pages } from '../../../scripts/docs/catalog.mjs';
@@ -55,8 +56,13 @@ export default defineConfig({
         pageData.frontmatter.packageVersions = meta.packages.map(p => `${p.name} ${p.version}`).join(' · ');
     },
     transformHead({ pageData }) {
-        if (!pageData.frontmatter.markdownUrl) return [];
+        const route = pageData.relativePath.replaceAll('\\', '/').replace(/\.md$/, '');
+        const social = socialHead('docs/' + (route === 'index' ? '' : route + '.html'),
+            (pageData.title ? pageData.title + ' | ' : '') + 'ZenFG',
+            pageData.description || 'FrameGraph guides and API reference for WebGPU and wgpu.');
+        if (!pageData.frontmatter.markdownUrl) return social;
         return [
+            ...social,
             ['link', { rel: 'alternate', type: 'text/markdown', href: pageData.frontmatter.markdownUrl }],
             ['link', { rel: 'describedby', href: `${meta.docsBase}llms.txt` }],
         ];

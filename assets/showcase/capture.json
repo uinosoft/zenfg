@@ -1,0 +1,61 @@
+{
+  "url": "http://127.0.0.1:5183/playground/?example=three-interop&panel=inspector",
+  "capturedAt": "2026-09-16T03:20:08.737Z",
+  "browser": "153.0.4234.32",
+  "viewport": {
+    "width": 1440,
+    "height": 1050
+  },
+  "facts": {
+    "title": "Three.js Co-rendering",
+    "graph": [
+      {
+        "id": "pass:node:1"
+      },
+      {
+        "id": "pass:node:2"
+      },
+      {
+        "id": "pass:node:3"
+      },
+      {
+        "id": "pass:node:4"
+      },
+      {
+        "id": "pass:node:5"
+      },
+      {
+        "id": "resource:resource:1"
+      },
+      {
+        "id": "resource:resource:2"
+      },
+      {
+        "id": "resource:resource:3"
+      },
+      {
+        "id": "resource:resource:4"
+      },
+      {
+        "id": "resource:resource:5"
+      },
+      {
+        "id": "resource:resource:6"
+      },
+      {
+        "id": "resource:resource:7"
+      },
+      {
+        "id": "resource:resource:8"
+      },
+      {
+        "id": "resource:resource:9"
+      },
+      {
+        "id": "root:[\"present\",\"resource:9\",[[0,1,\"all\",0,1,null,null]]]"
+      }
+    ],
+    "gpu": true
+  },
+  "errors": []
+}

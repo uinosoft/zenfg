@@ -51,3 +51,29 @@ back-forward navigation and the static WebGPU fallback.
 
 Documentation development and merged builds are described in the
 [documentation workflow](../../docs/documentation.md).
+
+## Homepage content and share previews
+
+The Home HTML contains the initial English content; `src/language.ts` supplies
+English and Chinese updates. Keep both in sync, including image alt text. Home
+featured links are static and must not import the Examples catalog or engines.
+`shared/social.ts` supplies build-time metadata to the Site shell and VitePress.
+Canonical and social image URLs identify the public deployment, even in local
+previews. Query-selected examples share the Examples page metadata.
+
+Run `npm run brand:social` for share cards and `npm run showcase:capture` against
+a running development site for real Three.js captures. See the brand and showcase
+asset READMEs for source provenance. Both outputs are committed, so ordinary
+builds need neither browser capture nor asset generation.
+
+After `npm run build:pages`, serve the production tree under `/zenfg/` and run:
+
+```sh
+node apps/site/tests/browser/content.mjs
+```
+
+The default test URL is `http://127.0.0.1:4183/zenfg/`; override `CONTENT_URL`
+for another preview. This checks static crawler metadata, real links and anchors,
+featured IDs against the catalog, bilingual theme/layout combinations, lazy images,
+and readable content without WebGPU. Run the existing `tests/browser/home.mjs`
+with `HOME_URL` for hardware WebGPU cover and lifecycle acceptance.

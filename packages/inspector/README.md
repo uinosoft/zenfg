@@ -10,6 +10,10 @@
 ZenFG Snapshot data. It depends on `@zenfg/snapshot`, Cytoscape, and ELK, but has
 no WebGPU, wgpu, engine, or host-UI dependency.
 
+Use captured graphs, resource facts, and optional timings to understand a frame,
+then export Snapshot JSON alongside code for human or AI-assisted analysis.
+See the [analyze-and-verify workflow](./GUIDE.md#analyze-and-verify-a-frame).
+
 The package owns Snapshot validation, migration, visualization, and workbench
 state. The host owns layout around the workbench, live-capture policy, file
 retention, and the renderer that produces Snapshot data.
