@@ -1,0 +1,31 @@
+name: Interop request
+description: Explore composition with another GPU library or engine.
+body:
+  - type: textarea
+    id: library
+    attributes:
+      label: Library and version
+      description: Include the upstream project URL, exact version, and WebGPU or wgpu backend.
+    validations:
+      required: true
+  - type: textarea
+    id: goal
+    attributes:
+      label: Composition goal
+      description: Describe the GPU work and the textures or buffers that should be shared.
+    validations:
+      required: true
+  - type: textarea
+    id: access
+    attributes:
+      label: Device, resources, and submission access
+      description: Explain whether the library can share a device and queue, expose native resources, or encode or submit work synchronously. Unknown is a useful answer.
+    validations:
+      required: true
+  - type: textarea
+    id: attempts
+    attributes:
+      label: Existing attempts
+      description: Include adapters, code, relevant upstream APIs, or errors you have found.
+    validations:
+      required: false

@@ -9,6 +9,7 @@ export function transformContent(text, source, mapping, commit) {
     // Repository presentation has local HTML picture URLs and GitHub-specific layout.
     // Docs already display the brand in navigation; retain the semantic article below it.
     text = text.replace(/<!-- readme-hero:start -->[\s\S]*?<!-- readme-hero:end -->\s*/g, '');
+    text = text.replace(/<!-- readme-showcase:start -->[\s\S]*?<!-- readme-showcase:end -->\s*/g, '');
     const history = [];
     text = text.replace(/<!-- generated:documentation:start -->[\s\S]*?<!-- generated:documentation:end -->/g, block => block.replace(/https:\/\/github\.com\/uinosoft\/zenfg\/(?:blob|tree)\/(?:npm|cargo)\/[^)\s]+/g, url => { history.push(url); return `@HISTORY@${history.length - 1}`; }));
     text = text.replace(/<!-- generated:badges:start -->[\s\S]*?<!-- generated:badges:end -->/g, '')

@@ -1,0 +1,31 @@
+name: Bug report
+description: Report incorrect behavior in a runtime, Snapshot, Inspector, or example.
+body:
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment and versions
+      description: List ZenFG package versions, browser or wgpu backend, OS, GPU, and relevant engine versions.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reproduction
+      description: Provide a minimal reproduction, code, or example URL and exact steps.
+    validations:
+      required: true
+  - type: textarea
+    id: behavior
+    attributes:
+      label: Expected and actual behavior
+      description: Describe what should happen and what happened instead.
+    validations:
+      required: true
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Diagnostics or Snapshot
+      description: Optionally attach a Snapshot JSON file, logs, or relevant screenshots.
+    validations:
+      required: false

@@ -12,7 +12,7 @@
 </p>
 
 <p align="center">
-  <strong>Composable FrameGraph infrastructure for WebGPU and wgpu.</strong>
+  <strong>A composable FrameGraph for WebGPU and wgpu.</strong>
 </p>
 
 <!-- generated:badges:start -->
@@ -38,19 +38,36 @@
 
 # ZenFG
 
-ZenFG coordinates GPU work across rendering features and third-party systems
-through an explicit FrameGraph. It provides idiomatic TypeScript and Rust
-runtimes, a portable Snapshot format, validation and conformance tooling, and
-an embeddable Inspector.
+**Build rendering features, compose GPU systems, and understand every frame.**
+
+ZenFG coordinates rendering and compute through an explicit FrameGraph.
+Build domain-specific features with WebGPU or wgpu, connect existing engines,
+and compose their work in one frame. You control scenes, materials, pipelines,
+and rendering policy; ZenFG coordinates declared dependencies, execution order,
+transient resource lifetimes, and diagnostics. Idiomatic TypeScript and Rust
+runtimes share semantics and portable Snapshots, with an embeddable Inspector.
 
 ## Why ZenFG
 
-- **Dependencies and scheduling** — Declare dependencies and execution order,
-  retain required work, and cull work that does not contribute to the result.
-- **Resource lifetimes** — Track transient resources and manage their
-  allocation, aliasing, and pooling.
-- **Validation and diagnostics** — Validate graph usage and inspect execution
-  reports through portable Snapshots and the Inspector.
+- **Build independently** — Use native GPU APIs or compatible libraries while keeping your own renderer architecture.
+- **Compose existing work** — Combine external engines with graph-native rendering and compute modules through explicit shared resources and execution boundaries.
+- **Understand actual frames** — Inspect graphs, resources, and optional CPU/GPU timings. Export Snapshots alongside code for human or AI-assisted analysis, then capture again to verify changes.
+- **Coordinate dependencies and resources** — Retain required work, cull unused work, and manage transient allocation, lifetimes, aliasing, and pooling.
+
+<!-- readme-showcase:start -->
+<p align="center">
+  <a href="https://uinosoft.github.io/zenfg/playground/?example=three-interop&amp;panel=inspector">
+    <img src="apps/site/public/media/three-co-rendering.png" width="720" height="360" alt="Three.js and the Reference Renderer: real rendered output and captured frame graph">
+  </a>
+</p>
+<!-- readme-showcase:end -->
+
+[Three.js Co-rendering](https://uinosoft.github.io/zenfg/playground/?example=three-interop&panel=inspector): two renderers share color and depth attachments, with mutual occlusion in one scene.
+
+Also explore GPU culling and indirect drawing in the [Reference Renderer](https://uinosoft.github.io/zenfg/playground/?example=reference-renderer&panel=inspector),
+[PlayCanvas Streaming GSplat](https://uinosoft.github.io/zenfg/playground/?example=playcanvas-gsplat-streaming-interop&panel=inspector) (network required), and
+[TypeGPU Slime Mold](https://uinosoft.github.io/zenfg/playground/?example=typegpu-slime-mold&panel=inspector) compute and render nodes.
+These are version-specific integration examples, not a universal compatibility promise.
 
 ## Start here
 
@@ -70,19 +87,17 @@ Browse the [documentation index](docs/README.md) for guides and reference
 material. Before changing public semantics, examples, or release artifacts,
 read [Contributing](CONTRIBUTING.md).
 
-## Packages
-
-<!-- generated:packages:start -->
-| Package | Purpose | Published version | Documentation |
-| --- | --- | --- | --- |
-| [`@zenfg/webgpu`](packages/webgpu/README.md) | TypeScript/WebGPU FrameGraph runtime | [![@zenfg/webgpu published latest version](https://img.shields.io/npm/v/%40zenfg%2Fwebgpu/latest?label=npm)](https://www.npmjs.com/package/@zenfg/webgpu) | [Guide](https://uinosoft.github.io/zenfg/docs/packages/webgpu.html) |
-| [`@zenfg/snapshot`](packages/snapshot/README.md) | Snapshot 1.2 types, codec, validation and specification | [![@zenfg/snapshot published latest version](https://img.shields.io/npm/v/%40zenfg%2Fsnapshot/latest?label=npm)](https://www.npmjs.com/package/@zenfg/snapshot) | [Guide](https://uinosoft.github.io/zenfg/docs/packages/snapshot.html) |
-| [`@zenfg/inspector`](packages/inspector/README.md) | Embeddable DOM Inspector | [![@zenfg/inspector published latest version](https://img.shields.io/npm/v/%40zenfg%2Finspector/latest?label=npm)](https://www.npmjs.com/package/@zenfg/inspector) | [Guide](https://uinosoft.github.io/zenfg/docs/packages/inspector.html) |
-| [`zenfg`](crates/zenfg/README.md) | Rust/wgpu FrameGraph runtime | [![zenfg published version](https://img.shields.io/crates/v/zenfg?include_prereleases)](https://crates.io/crates/zenfg) | [Guide](https://uinosoft.github.io/zenfg/docs/packages/zenfg.html) |
-| [`zenfg-snapshot`](crates/zenfg-snapshot/README.md) | Rust Snapshot 1.2 codec, validation and migration | [![zenfg-snapshot published version](https://img.shields.io/crates/v/zenfg-snapshot?include_prereleases)](https://crates.io/crates/zenfg-snapshot) | [Guide](https://uinosoft.github.io/zenfg/docs/packages/zenfg-snapshot.html) |
-<!-- generated:packages:end -->
-
 ## Integration levels
+
+Connect an engine that keeps its own submissions, or build modules that record
+work into the graph; both approaches can be combined. Technically, ZenFG offers
+the three integration depths below.
+
+Interoperability requires a shared device and queue, compatible resource formats
+and usage contracts, and accurate access declarations. Import each shared native
+resource once per recording. External-engine passes stay opaque; GPU timing
+depends on device support and node coverage. Snapshots contain neither replayable
+commands nor resource contents.
 
 The application controls rendering policy and chooses how deeply each
 subsystem integrates with the graph. ZenFG coordinates the work; scenes,
@@ -106,6 +121,26 @@ Three integration levels can be mixed in the same frame:
 
 See [Core concepts](docs/core-concepts.md) for the complete ownership, content,
 dependency, lifetime, and execution model.
+
+## Packages
+
+<!-- generated:packages:start -->
+| Package | Purpose | Published version | Documentation |
+| --- | --- | --- | --- |
+| [`@zenfg/webgpu`](packages/webgpu/README.md) | TypeScript/WebGPU FrameGraph runtime | [![@zenfg/webgpu published latest version](https://img.shields.io/npm/v/%40zenfg%2Fwebgpu/latest?label=npm)](https://www.npmjs.com/package/@zenfg/webgpu) | [Guide](https://uinosoft.github.io/zenfg/docs/packages/webgpu.html) |
+| [`@zenfg/snapshot`](packages/snapshot/README.md) | Snapshot 1.2 types, codec, validation and specification | [![@zenfg/snapshot published latest version](https://img.shields.io/npm/v/%40zenfg%2Fsnapshot/latest?label=npm)](https://www.npmjs.com/package/@zenfg/snapshot) | [Guide](https://uinosoft.github.io/zenfg/docs/packages/snapshot.html) |
+| [`@zenfg/inspector`](packages/inspector/README.md) | Embeddable DOM Inspector | [![@zenfg/inspector published latest version](https://img.shields.io/npm/v/%40zenfg%2Finspector/latest?label=npm)](https://www.npmjs.com/package/@zenfg/inspector) | [Guide](https://uinosoft.github.io/zenfg/docs/packages/inspector.html) |
+| [`zenfg`](crates/zenfg/README.md) | Rust/wgpu FrameGraph runtime | [![zenfg published version](https://img.shields.io/crates/v/zenfg?include_prereleases)](https://crates.io/crates/zenfg) | [Guide](https://uinosoft.github.io/zenfg/docs/packages/zenfg.html) |
+| [`zenfg-snapshot`](crates/zenfg-snapshot/README.md) | Rust Snapshot 1.2 codec, validation and migration | [![zenfg-snapshot published version](https://img.shields.io/crates/v/zenfg-snapshot?include_prereleases)](https://crates.io/crates/zenfg-snapshot) | [Guide](https://uinosoft.github.io/zenfg/docs/packages/zenfg-snapshot.html) |
+<!-- generated:packages:end -->
+
+## Direction
+
+We are exploring reusable GPU-driven mesh, particle, and post-processing modules,
+so independently built rendering features can come together in real applications.
+This is a direction, not a delivery schedule or stable module protocol. The current
+Reference Renderer is a teaching and showcase implementation, not a published
+production rendering module.
 
 ## Status
 

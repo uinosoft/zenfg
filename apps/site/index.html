@@ -30,7 +30,7 @@
       }
     })();
   </script>
-  <meta name="description" content="ZenFG is an independent, composable FrameGraph toolchain for WebGPU and wgpu." data-i18n="description">
+  <meta name="description" content="Build rendering features, compose GPU systems, and understand every frame with ZenFG." data-i18n="description">
   <meta name="theme-color" content="#24283b">
   <meta name="color-scheme" content="dark light">
   <!-- site-theme -->
@@ -38,9 +38,6 @@
   <link rel="icon" href="./favicon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="./apple-touch-icon.png" sizes="180x180">
   <link rel="manifest" href="./site.webmanifest">
-  <meta property="og:type" content="website">
-  <meta property="og:title" content="ZenFG">
-  <meta property="og:description" content="An independent, composable FrameGraph toolchain for WebGPU and wgpu." data-i18n="ogDescription">
   <title data-i18n="title">ZenFG | FrameGraph for WebGPU and wgpu</title>
   <link rel="stylesheet" href="./src/styles.css">
 </head>
@@ -50,8 +47,8 @@
     <section class="hero" id="site-content" aria-labelledby="site-title">
       <div class="intro">
         <h1 id="site-title">Zen<span class="brand-accent">FG</span></h1>
-        <p class="summary" data-i18n="summary">An independent, composable FrameGraph toolchain for WebGPU and wgpu.</p>
-        <p class="value" data-i18n="value">Organize rendering. Inspect every frame.</p>
+        <p class="summary" data-i18n="summary">A composable FrameGraph for WebGPU and wgpu.</p>
+        <p class="value" data-i18n="value">Build rendering features, compose GPU systems, and understand every frame.</p>
         <nav class="hero-actions" aria-label="Project links" data-i18n-aria="projectLinks">
           <a class="primary" href="./docs/getting-started.html">
             <span data-i18n="getStarted">Get started</span>
@@ -72,6 +69,55 @@
         </a>
       </div>
     </section>
+
+    <section class="home-section" aria-labelledby="compose-title">
+      <p data-i18n="composeEyebrow" class="section-kicker">YOUR FRAME, YOUR DESIGN</p>
+      <h2 data-i18n="composeTitle" id="compose-title">Build independently. Bring it together.</h2>
+      <p data-i18n="composeLead" class="section-lead">Keep control of scenes, materials, pipelines, and rendering policy. Give ZenFG explicit dependencies and resource accesses to coordinate the frame.</p>
+      <div class="integration-grid">
+        <article><h3 data-i18n="engineTitle">Connect an existing engine</h3><p data-i18n="engineBody">Let a renderer keep its own commands and submissions. Declare its shared inputs and outputs as an external node, then combine it with work before and after that boundary.</p></article>
+        <article><h3 data-i18n="moduleTitle">Build graph-native modules</h3><p data-i18n="moduleBody">Use native WebGPU or compatible libraries to build domain-specific rendering and compute. Record nodes into the graph so their declared passes and resource flow can be inspected.</p></article>
+      </div>
+      <figure class="composition-figure">
+        <div class="frame-model" role="group" aria-label="Conceptual frame composition" data-i18n-aria="modelLabel">
+          <div class="model-node model-compute"><strong data-i18n="modelCompute">Compute</strong><span data-i18n="modelComputeDetail">Graph-visible work</span></div>
+          <span class="model-arrow" aria-hidden="true">→</span>
+          <div class="model-node model-external"><strong data-i18n="modelEngine">External renderer</strong><span data-i18n="modelOpaque">Internal passes stay opaque</span></div>
+          <span class="model-arrow" aria-hidden="true">→</span>
+          <div class="model-node model-render"><strong data-i18n="modelRender">Render / composite</strong><span data-i18n="modelRenderDetail">Graph-visible work</span></div>
+          <span class="model-arrow" aria-hidden="true">→</span>
+          <div class="model-output"><strong data-i18n="modelOutput">Output</strong></div>
+        </div>
+        <figcaption data-i18n="modelCaption">Conceptual composition on a shared device and queue. Edges represent declared resource flow and ordering; the application supplies compatible resources and access declarations.</figcaption>
+      </figure>
+      <a class="text-link" href="./docs/concepts.html#integration-levels"><span data-i18n="integrationLink">Explore the three integration levels →</span></a>
+    </section>
+    <section class="home-section" aria-labelledby="examples-title">
+      <p data-i18n="examplesEyebrow" class="section-kicker">RUNNING EXAMPLES</p>
+      <h2 data-i18n="featuredTitle" id="examples-title">See composition in practice.</h2>
+      <p data-i18n="featuredLead" class="section-lead">Each example connects real GPU work to an inspectable frame graph. Open the result, follow its resources, and read the source.</p>
+      <div class="featured-grid">
+        <a class="featured-card" href="./playground/?example=reference-renderer&amp;panel=inspector"><span data-i18n="referenceLabel" class="section-kicker">NATIVE WEBGPU</span><h3 data-i18n="referenceTitle">Reference Renderer</h3><p data-i18n="referenceBody">GPU culling and indirect drawing, built without an engine dependency. A teaching renderer with an explicit Reset → Cull → Draw flow.</p><span data-i18n="referenceAction" class="text-link">Open example ↗</span></a>
+        <a class="featured-card" href="./playground/?example=three-interop&amp;panel=inspector"><span data-i18n="threeLabel" class="section-kicker">SHARED COLOR + DEPTH</span><h3 data-i18n="threeTitle">Three.js Co-rendering</h3><p data-i18n="threeBody">Three.js and a custom renderer draw into shared color and depth attachments. Their objects occlude each other in one scene.</p><span data-i18n="threeAction" class="text-link">Open example ↗</span></a>
+        <a class="featured-card" href="./playground/?example=playcanvas-gsplat-streaming-interop&amp;panel=inspector"><span data-i18n="playcanvasLabel" class="section-kicker">EXTERNAL ENGINE · NETWORK REQUIRED</span><h3 data-i18n="playcanvasTitle">PlayCanvas Streaming GSplat</h3><p data-i18n="playcanvasBody">Combine streaming Gaussian splats with custom drawing and compositing. Scene data loads from a remote host.</p><span data-i18n="playcanvasAction" class="text-link">Open example ↗</span></a>
+        <a class="featured-card" href="./playground/?example=typegpu-slime-mold&amp;panel=inspector"><span data-i18n="typegpuLabel" class="section-kicker">COMPUTE + RENDER</span><h3 data-i18n="typegpuTitle">TypeGPU · Slime Mold</h3><p data-i18n="typegpuBody">TypeGPU defines shaders and pipelines; ZenFG connects native compute and render nodes through persistent simulation resources.</p><span data-i18n="typegpuAction" class="text-link">Open example ↗</span></a>
+      </div>
+      <p class="related-examples"><span data-i18n="moreExamples">More integration examples:</span> <a href="./playground/?example=babylon-interop&amp;panel=inspector">Babylon.js</a> · <a href="./playground/?example=babylon-lite-interop&amp;panel=inspector">Babylon Lite</a> · <a href="./playground/"><span data-i18n="allExamples">All examples →</span></a></p>
+      <p data-i18n="examplesBoundary" class="home-note">These are version-specific integration examples, not a promise of compatibility with every engine version.</p>
+    </section>
+    <section class="home-section" aria-labelledby="inspector-title">
+      <p data-i18n="inspectEyebrow" class="section-kicker">SNAPSHOT + INSPECTOR</p>
+      <h2 data-i18n="inspectTitle" id="inspector-title">Understand the frame you actually built.</h2>
+      <p data-i18n="inspectLead" class="section-lead">Follow declared dependencies, resource lifetimes, and diagnostics. Inspect optional CPU/GPU timings alongside the structure that explains them.</p>
+      <figure class="inspection-figure"><a href="./playground/?example=three-interop&amp;panel=inspector"><img src="./media/three-co-rendering.png" width="1440" height="720" loading="lazy" decoding="async" alt="Three.js and the Reference Renderer sharing a scene, alongside their actual captured ZenFG frame graph" data-i18n-alt="captureAlt"></a><figcaption data-i18n="captureCaption">Three.js Co-rendering — a real rendered scene and its captured graph. The external renderer appears as a boundary, alongside visible native passes.</figcaption></figure>
+      <ol class="inspect-workflow">
+        <li><h3 data-i18n="workflowCapture">Capture</h3><p data-i18n="workflowCaptureBody">Capture an actual frame and locate the passes and resources that matter.</p></li>
+        <li><h3 data-i18n="workflowAnalyze">Analyze with context</h3><p data-i18n="workflowAnalyzeBody">Export Snapshot JSON with relevant code for human or AI-assisted analysis. Use the Inspector to give precise feedback about the flow.</p></li>
+        <li><h3 data-i18n="workflowVerify">Change and verify</h3><p data-i18n="workflowVerifyBody">Capture again after changes. Check the resulting graph and available timings rather than assuming an optimization worked.</p></li>
+      </ol>
+      <p data-i18n="inspectBoundary" class="home-note">External-engine internals stay opaque. GPU timing depends on device support and node coverage. Snapshots describe declared work; they contain neither replayable GPU commands nor resource contents.</p>
+      <a class="text-link" href="./docs/guides/inspector.html"><span data-i18n="inspectGuide">Read the Inspector workflow →</span></a>
+    </section>
     <section class="capabilities" aria-label="Capabilities" data-i18n-aria="capabilities">
       <article>
         <span class="capability-index" aria-hidden="true">01 /</span>
@@ -91,6 +137,12 @@
         <p data-i18n="inspectionDescription">Understand every frame.</p>
         <p class="capability-detail" data-i18n="inspectionDetail">Capture, navigate, and inspect your frame graph.</p>
       </article>
+    </section>
+    <section class="home-section next-steps" aria-labelledby="next-title">
+      <h2 data-i18n="nextTitle" id="next-title">Start with your GPU stack.</h2>
+      <div class="start-links"><a href="./docs/packages/webgpu.html#quick-start">WebGPU / TypeScript <span aria-hidden="true">→</span></a><a href="./docs/packages/zenfg.html#quick-start">wgpu / Rust <span aria-hidden="true">→</span></a></div>
+      <p data-i18n="runtimeBoundary" class="home-note">The runtimes share semantics and portable snapshots, with idiomatic APIs for each language. They do not share live GPU resources across runtimes.</p>
+      <div class="vision"><h3 data-i18n="visionTitle">Toward reusable rendering building blocks</h3><p data-i18n="visionBody">We are exploring reusable GPU-driven mesh, particle, and post-processing modules: independently built features that can come together in real applications. This is a direction, not a delivery schedule or a stable module protocol. The current Reference Renderer is a teaching and showcase implementation.</p></div>
     </section>
     <!-- site-footer:home -->
   </main>
