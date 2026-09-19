@@ -2,7 +2,7 @@
 
 ## Three.js
 
-This showcase uses Three.js 0.184.0, including OrbitControls. All displayed
+This showcase uses Three.js 0.185.0, including OrbitControls. All displayed
 geometry is generated locally; no third-party models, textures or remote data
 are used. Three.js is distributed under the following license:
 The MIT License

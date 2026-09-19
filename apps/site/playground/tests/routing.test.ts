@@ -51,12 +51,13 @@ test('the production catalog is explicit, grouped, and keeps canonical sources f
 	assert.deepEqual(
 		publicExamples.map((example) => [example.id, example.group]),
 		[
-			['reference-renderer', 'Showcases'],
+            ['reference-renderer', 'Showcases'],
 			['three-interop', 'Showcases'],
 			['babylon-interop', 'Showcases'],
 			['babylon-lite-interop', 'Showcases'],
 		['playcanvas-gsplat-interop', 'Showcases'],
 		['playcanvas-gsplat-streaming-interop', 'Showcases'],
+			['glyph-interop', 'Showcases'],
 			['typegpu-slime-mold', 'Showcases'],
 			['typegpu-monocular-light-injection', 'Showcases'],
 			['particles4all-framegraph', 'Showcases'],
@@ -122,7 +123,7 @@ test('the production catalog is explicit, grouped, and keeps canonical sources f
 });
 
 test('every example declares a real reading entry with a source introduction', () => {
-	assert.equal(publicExamples.length, 19);
+	assert.equal(publicExamples.length, 20);
 	for (const example of publicExamples) {
 		const ordered = orderedSourceFiles(example);
 		assert.equal(ordered[0]!.id, example.entrySourceId);

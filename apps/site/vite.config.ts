@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { defineConfig } from 'vite';
 import { fileURLToPath } from 'node:url';
 import typegpuPlugin from 'unplugin-typegpu/vite';
@@ -19,8 +20,15 @@ export default defineConfig({
 	},
 	plugins: [
 		siteShellPlugin(),
+        {
+            name: 'glyph-font-license',
+            generateBundle() {
+                this.emitFile({ type: 'asset', fileName: 'glyph-font-license.txt',
+                    source: readFileSync(new URL('./examples/glyph-interop/assets/Inter-LICENSE.txt', import.meta.url), 'utf8') });
+            },
+        },
 		typegpuPlugin({
-			include: /apps[\\/]site[\\/]examples[\\/]typegpu-(?:slime-mold|monocular-light-injection)[\\/]src[\\/].*\.ts$/,
+			include: /apps[\\/]site[\\/]examples[\\/](?:glyph-interop|typegpu-(?:slime-mold|monocular-light-injection))[\\/]src[\\/].*\.ts$/,
 		}),
 	],
 	build: {
