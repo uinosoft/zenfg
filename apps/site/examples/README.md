@@ -59,3 +59,7 @@ submission, sharing forward depth and compositing a transparent gamma-2.2 layer.
 See [Toy Cat](playcanvas-gsplat-interop/README.md) and
 [Roman Parish streaming](playcanvas-gsplat-streaming-interop/README.md). Both use
 private playcanvas-gsplat-shared helpers and independently executable main.ts entries.
+
+`glyph-interop` compares Glyph 0.1.0 Bitmap, MSDF and Slug on one 3D text
+plane. Its official TypeGPU integration records directly into a native graph
+render pass, reading Reference Renderer depth and blending into shared color.

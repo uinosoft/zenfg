@@ -1,3 +1,4 @@
+import { glyphInteropExample } from './glyphInterop.ts';
 import { playCanvasGsplatInteropExample } from './playCanvasGsplatInterop.ts';
 import { playCanvasGsplatStreamingInteropExample } from './playCanvasGsplatStreamingInterop.ts';
 import { refractiveFlowExample } from './refractiveFlow.ts';
@@ -27,6 +28,7 @@ export const publicExamples = [
 	babylonLiteInteropExample,
 	playCanvasGsplatInteropExample,
 	playCanvasGsplatStreamingInteropExample,
+	glyphInteropExample,
 	typeGpuSlimeMoldExample,
 	typeGpuMonocularLightInjectionExample,
 	particles4AllExample,

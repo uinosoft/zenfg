@@ -37,7 +37,7 @@ Three.js internal passes remain opaque in the Inspector, including their timing.
 
 ## Version and depth contracts
 
-`three` and `@types/three` are pinned to **0.184.0**. The only native texture
+`three` and `@types/three` are pinned to **0.185.0**. The only native texture
 lookup is isolated in `src/bridge.ts`, using `renderer.backend.get(texture)`.
 It verifies the WebGPU backend and shared device, and validates the exposed
 texture formats, dimensions, sampling and required usage. This is a
