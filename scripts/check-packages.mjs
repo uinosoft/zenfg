@@ -273,6 +273,7 @@ try {
         "if (typeof snapshot.decodeFrameGraphSnapshot !== 'function') throw new Error('snapshot import failed')",
         "if (typeof webgpu.FrameGraph !== 'function') throw new Error('webgpu import failed')",
         "if (typeof webgpuSnapshot.createFrameGraphSnapshot !== 'function') throw new Error('webgpu snapshot import failed')",
+        "if (typeof webgpuSnapshot.stringifyFrameGraphSnapshot !== 'function') throw new Error('webgpu snapshot serializer import failed')",
         "if (typeof inspector.mountFrameGraphInspector !== 'function') throw new Error('inspector import failed')",
         "if (schema.$id !== 'https://uinosoft.github.io/zenfg/schema/frame-graph-snapshot-v1.schema.json') throw new Error('snapshot schema import failed')",
     ].join(';');
@@ -340,7 +341,7 @@ try {
         "    type TextureOrigin,",
         "    type TextureSize,",
         "} from '@zenfg/webgpu';",
-        "import { createFrameGraphSnapshot } from '@zenfg/webgpu/snapshot';",
+        "import { createFrameGraphSnapshot, stringifyFrameGraphSnapshot as stringifyWebGpuFrameGraphSnapshot, type FrameGraphSnapshot as WebGpuFrameGraphSnapshot } from '@zenfg/webgpu/snapshot';",
         'import {',
         '    mountFrameGraphInspector,',
         '    type FrameGraphInspectorOptions,',
@@ -363,7 +364,8 @@ try {
         '// @ts-expect-error Texture extent dictionaries reject the deprecated `depth` spelling.',
         'const invalidTextureSize: TextureSize = { width: 1, depth: 1 };',
         'const schemaId: string = schema.$id;',
-        'void [createFrameGraphSnapshot, textureSize, textureOrigin, copyOperations, invalidTextureSize, schemaId];',
+        'declare const producerSnapshot: WebGpuFrameGraphSnapshot;',
+        'void [createFrameGraphSnapshot, stringifyWebGpuFrameGraphSnapshot(producerSnapshot), textureSize, textureOrigin, copyOperations, invalidTextureSize, schemaId];',
         '',
     ].join('\n'));
     for (const slug of ['webgpu', 'snapshot', 'inspector']) {

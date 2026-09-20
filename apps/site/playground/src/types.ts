@@ -38,6 +38,8 @@ export type ExamplesMountContext = {
 	/** Nonfatal runtime limitation; pass undefined to clear. */
 	readonly onWarning?: (message?: string) => void;
 	readonly canvas: HTMLCanvasElement;
+	/** Optional host for commands specific to one example, such as exporting a capture. */
+	readonly actionsHost?: HTMLElement;
 	readonly controlsHost: HTMLElement;
 	readonly onReady: (message?: string) => void;
 	readonly onError: (error: Error) => void;

@@ -44,6 +44,7 @@ const exampleDirectoryHost = requireElement<HTMLElement>('[data-example-director
 const exampleTags = requireElement<HTMLElement>('[data-example-tags]');
 const exampleDescription = requireElement<HTMLElement>('[data-example-description]');
 const exampleError = requireElement<HTMLElement>('[data-example-error]');
+const actionsHost = requireElement<HTMLElement>('[data-example-actions]');
 const controlsHost = requireElement<HTMLElement>('[data-controls-host]');
 const controlsPanel = requireElement<HTMLElement>('[data-controls-panel]');
 const metricsHost = requireElement<HTMLElement>('[data-metrics-host]');
@@ -270,6 +271,7 @@ async function mountExample(definition: ExamplesExampleDefinition): Promise<Exam
 			onPaused: (paused) => { if (!disposed) runtimeStatus.pause(paused); },
 			onLoading: (message) => { if (!disposed) setEffectStatus('loading', message); },
 			canvas: effectCanvas,
+			actionsHost,
 			controlsHost,
 			onReady: message => {
 				setEffectStatus('ready');

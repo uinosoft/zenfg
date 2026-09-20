@@ -7,13 +7,16 @@
  * and recipeHost.ts provide browser setup and snapshot capture.
  */
 import { FrameGraph, type FrameGraphTimingMode, type FrameGraphRecording } from '@zenfg/webgpu';
-import { createFrameGraphSnapshot } from '@zenfg/webgpu/snapshot';
+import {
+	createFrameGraphSnapshot,
+	stringifyFrameGraphSnapshot,
+} from '@zenfg/webgpu/snapshot';
 
 export type SnapshotExportOptions = {
 	readonly graph: FrameGraph;
 	readonly context: GPUCanvasContext;
 	readonly frameIndex: number;
-	readonly producerVersion: string;
+	readonly producerVersion?: string;
 	readonly timing?: FrameGraphTimingMode;
 };
 
@@ -57,5 +60,5 @@ export async function captureSnapshotJson(options: SnapshotExportOptions): Promi
 		producerVersion: options.producerVersion,
 	});
 
-	return `${JSON.stringify(snapshot, null, 2)}\n`;
+	return `${stringifyFrameGraphSnapshot(snapshot, { pretty: true })}\n`;
 }
