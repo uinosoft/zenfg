@@ -7,6 +7,8 @@
  * awaiting GPU readback and calling {@link createFrameGraphSnapshot}.
  * Report provenance is a caller-owned convention because independently supplied
  * report values do not carry a shared compiled-frame identity.
+ * This entrypoint also exposes the portable Snapshot type and canonical
+ * serializer needed by WebGPU producers.
  *
  * @packageDocumentation
  */
@@ -18,7 +20,9 @@ import {
 import {
 	FrameGraphSnapshotValidationError,
 	finalizeFrameGraphSnapshot,
+	stringifyFrameGraphSnapshot as stringifyPortableFrameGraphSnapshot,
 } from '@zenfg/snapshot';
+export type { FrameGraphSnapshot } from '@zenfg/snapshot';
 import type {
 	FrameGraphSnapshot,
 	FrameGraphSnapshotAccess,
@@ -87,6 +91,22 @@ const BUFFER_USAGE_FLAGS: readonly [number, FrameGraphSnapshotBufferUsageFlag][]
 	[0x0100, 'indirect'],
 	[0x0200, 'query-resolve'],
 ];
+
+/**
+ * Validates and serializes a canonical Snapshot 1.2 document.
+ *
+ * @param snapshot - Snapshot produced by {@link createFrameGraphSnapshot} or
+ * another conforming producer.
+ * @param options - Set `pretty` to `true` for two-space indentation.
+ * @returns Canonical JSON text without mutating `snapshot`.
+ * @throws When the value is not JSON-safe or does not satisfy Snapshot 1.2.
+ */
+export function stringifyFrameGraphSnapshot(
+	snapshot: FrameGraphSnapshot,
+	options: { readonly pretty?: boolean } = {},
+): string {
+	return stringifyPortableFrameGraphSnapshot(snapshot, options);
+}
 
 /**
  * Creates an independent canonical Snapshot 1.2 value from one executed frame.

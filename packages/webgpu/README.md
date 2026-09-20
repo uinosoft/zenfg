@@ -202,6 +202,55 @@ remains synchronous and does not collect timing. CPU duration is elapsed time,
 not thread CPU usage, and covers every executed node kind. Keep compilation,
 frame identity and pool counters from the same execution when exporting.
 
+### Download a Snapshot for Inspector
+
+`@zenfg/webgpu/snapshot` provides both the WebGPU projection and canonical
+serializer. An application that already depends on `@zenfg/webgpu` does not
+need `@zenfg/inspector` to export a file:
+
+```ts
+import type { FrameGraph, FrameGraphRecording } from '@zenfg/webgpu';
+import {
+  createFrameGraphSnapshot,
+  stringifyFrameGraphSnapshot,
+} from '@zenfg/webgpu/snapshot';
+
+async function downloadRecordedFrame(
+  recorder: FrameGraphRecording,
+  graph: FrameGraph,
+  frameIndex: number,
+): Promise<void> {
+  const compiled = recorder.compile({ report: true });
+  const timing = compiled.executeWithTiming({ frameIndex, timing: 'both' });
+  const resourcePool = graph.getResourcePoolStats();
+  const gpuTiming = await timing.gpu;
+  const snapshot = createFrameGraphSnapshot({
+    frameIndex: timing.frameIndex,
+    compilation: compiled.compilationReport,
+    cpuTiming: timing.cpu,
+    gpuTiming,
+    resourcePool,
+  });
+  const json = stringifyFrameGraphSnapshot(snapshot, { pretty: true });
+  const url = URL.createObjectURL(new Blob([json], {
+    type: 'application/json;charset=utf-8',
+  }));
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `frame-graph-${snapshot.capture.frameIndex}.fgsnapshot.json`;
+  link.click();
+  setTimeout(() => URL.revokeObjectURL(url), 0);
+}
+```
+
+Call this path for the next normally recorded application frame after a user
+requests a capture; use ordinary `compile().execute()` for other frames. Save
+pool statistics immediately after execution, before waiting for GPU timestamp
+readback. GPU timing unavailability is recorded in the Snapshot and does not
+prevent export. Drop the downloaded `.fgsnapshot.json` file into the
+[hosted Inspector](https://uinosoft.github.io/zenfg/inspector/); imported files
+are processed locally in the browser and are not uploaded.
+
 ## Common mistakes
 
 | Symptom | Fix |
@@ -227,7 +276,7 @@ of supported public entrypoints:
 | Caller-owned imported resource | [`imported-resource.ts`](./examples/imported-resource.ts) |
 | Cross-frame persistent state | [`persistent-state.ts`](./examples/persistent-state.ts) |
 | Opaque third-party submission | [`external-submission.ts`](./examples/external-submission.ts) |
-| Portable Snapshot export | [`snapshot-export.ts`](./examples/snapshot-export.ts) |
+| Portable Snapshot JSON for browser download or other caller-owned storage | [`snapshot-export.ts`](./examples/snapshot-export.ts) |
 | Asynchronous GPU timing | [`gpu-timing.ts`](./examples/gpu-timing.ts) |
 | Compute storage output | [`compute-output.ts`](./examples/compute-output.ts) |
 

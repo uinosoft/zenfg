@@ -1,9 +1,13 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { FrameGraphSnapshotValidationError, validateFrameGraphSnapshot } from '@zenfg/snapshot';
+import {
+	FrameGraphSnapshotValidationError,
+	parseFrameGraphSnapshot,
+	validateFrameGraphSnapshot,
+} from '@zenfg/snapshot';
 
-import { createFrameGraphSnapshot } from '../src/snapshot.ts';
+import { createFrameGraphSnapshot, stringifyFrameGraphSnapshot } from '../src/snapshot.ts';
 import { FrameGraph, TextureAccess } from '../src/index.ts';
 import { mockDevice, texture, textureUsage } from './testUtils.ts';
 
@@ -61,6 +65,9 @@ test('maps a compilation report into canonical prefixed Snapshot V1 data', () =>
 	});
 
 	assert.deepEqual(validateFrameGraphSnapshot(snapshot), []);
+	const decoded = parseFrameGraphSnapshot(stringifyFrameGraphSnapshot(snapshot, { pretty: true }));
+	assert.ok(decoded.ok);
+	assert.deepEqual(decoded.snapshot, snapshot);
 	assert.equal(snapshot.capture.frameIndex, 7);
 	assert.equal(snapshot.capture.capturedAt, '2026-08-28T00:00:00.000Z');
 	assert.equal(snapshot.capture.migration, undefined);

@@ -242,6 +242,61 @@ html, body {
 	touch-action: none;
 }
 
+.example-actions {
+	position: absolute;
+	top: 12px;
+	left: 12px;
+	display: flex;
+	gap: 6px;
+	z-index: 1;
+}
+
+.example-actions:empty {
+	display: none;
+}
+
+.example-actions .shell-button {
+	color: #d5dfee;
+	background: #0b121ddd;
+	border-color: #ffffff1a;
+}
+
+.example-actions .shell-button:hover:not(:disabled) {
+	color: #fff;
+	background: #172235ee;
+}
+
+.example-actions:has(.snapshot-download-action) {
+	inset: 0;
+	align-items: center;
+	justify-content: center;
+	pointer-events: none;
+}
+
+.example-actions .snapshot-download-action {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	gap: 9px;
+	min-height: 48px;
+	padding: 10px 18px;
+	border-color: #7aa2f7;
+	color: #fff;
+	background: #172235ee;
+	box-shadow: 0 8px 24px #0008;
+	font-size: var(--zenfg-font-control);
+	font-weight: 600;
+	pointer-events: auto;
+}
+
+.example-actions .snapshot-download-action:hover:not(:disabled) {
+	background: #24375bee;
+}
+
+.example-actions .snapshot-download-action:disabled .ui-icon {
+	animation: status-spin 1s linear infinite;
+}
+
 .examples[data-effect-state=ready] .effect-stage, .examples[data-has-frame=true] .effect-stage {
 	opacity: 1;
 }
@@ -314,7 +369,8 @@ html, body {
 }
 
 @media (prefers-reduced-motion: reduce) {
-	.effect-status__signal [data-icon=loading] {
+	.effect-status__signal [data-icon=loading],
+	.example-actions .snapshot-download-action:disabled .ui-icon {
 		animation: none;
 	}
 }
