@@ -12,7 +12,7 @@ type ControlPane = {
 
 export const threeInteropExample: ExamplesExampleDefinition = {
     id: 'three-interop',
-    title: 'Three.js Co-rendering',
+    title: 'Three.js · Co-rendering',
     group: 'Showcases',
     tags: ['threejs', 'interop', 'shared-resources'],
     readyState: 'live',

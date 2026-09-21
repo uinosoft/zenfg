@@ -1,7 +1,7 @@
 import type { ExamplesExampleDefinition } from '../types.ts';
 
 export const playCanvasGsplatInteropExample: ExamplesExampleDefinition = {
-    id: 'playcanvas-gsplat-interop', title: 'PlayCanvas GSplat Co-rendering',
+    id: 'playcanvas-gsplat-interop', title: 'PlayCanvas · GSplat Co-rendering',
     group: 'Showcases', tags: ['playcanvas', 'gaussian-splatting', 'interop', 'shared-resources'],
     readyState: 'live', hasControls: false,
     loadingNote: 'Loads external Toy Cat data. WebGPU and an internet connection are required.',

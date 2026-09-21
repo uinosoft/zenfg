@@ -12,7 +12,7 @@ type ControlPane = {
 
 export const babylonInteropExample: ExamplesExampleDefinition = {
     id: 'babylon-interop',
-    title: 'Babylon.js Co-rendering',
+    title: 'Babylon.js · Co-rendering',
     group: 'Showcases',
     tags: ['babylonjs', 'interop', 'shared-resources'],
     readyState: 'live',

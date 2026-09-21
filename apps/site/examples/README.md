@@ -63,3 +63,12 @@ private playcanvas-gsplat-shared helpers and independently executable main.ts en
 `glyph-interop` compares Glyph 0.1.0 Bitmap, MSDF and Slug on one 3D text
 plane. Its official TypeGPU integration records directly into a native graph
 render pass, reading Reference Renderer depth and blending into shared color.
+
+The pixi-interop showcase turns a Reference Renderer city into a PixiJS texture.
+One built-in DisplacementFilter bends the live 3D image and 2D star chart together;
+the graph records Reference drawing followed by one Pixi external submission.
+
+The pixi-surface showcase renders PixiJS tinted sprites into a host-owned texture
+and samples it on a curved 3D screen. It complements pixi-interop's reverse
+direction. See pixi-surface/README.md for the explicit six-node graph, ownership,
+color encoding, and asset provenance.

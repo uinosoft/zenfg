@@ -20,6 +20,7 @@
     "@zenfg/snapshot": "0.1.0",
     "@zenfg/webgpu": "0.1.0",
     "lucide": "^1.44.0",
+    "pixi.js": "8.21.0",
     "playcanvas": "2.21.4",
     "shiki": "^4.4.3",
     "three": "0.185.0",

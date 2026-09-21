@@ -1,6 +1,6 @@
-# PlayCanvas GSplat Co-rendering
+# PlayCanvas · GSplat Co-rendering
 
-Run `npm run dev` and select **PlayCanvas GSplat Co-rendering**, or open `?example=playcanvas-gsplat-interop`.
+Run `npm run dev` and select **PlayCanvas · GSplat Co-rendering**, or open `?example=playcanvas-gsplat-interop`.
 Requires WebGPU and a network connection. Toy Cat is loaded at runtime.
 Drag to orbit; scroll to zoom. There are no settings.
 

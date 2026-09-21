@@ -2,6 +2,7 @@
 export const exampleTagLabels = {
 	"webgpu": "WebGPU",
     "playcanvas": "PlayCanvas",
+    "pixijs": "PixiJS",
     "gaussian-splatting": "Gaussian Splatting",
     "streaming": "Streaming",
 	"typegpu": "TypeGPU",

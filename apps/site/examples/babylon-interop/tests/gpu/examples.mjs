@@ -74,7 +74,7 @@ try {
     await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
     await page.screenshot({ path: resolve(output, 'examples-mobile.png') });
     await page.setViewportSize({ width: 1280, height: 800 });
-    for (const title of ['Three.js Co-rendering', 'Babylon.js Co-rendering', 'Reference Renderer', 'Babylon.js Co-rendering']) {
+    for (const title of ['Three.js · Co-rendering', 'Babylon.js · Co-rendering', 'Reference Renderer', 'Babylon.js · Co-rendering']) {
         await page.getByRole('combobox', { name: 'Select example', exact: true }).click();
         const choices = await page.getByRole('option').allTextContents();
         const choice = choices.find(text => text.startsWith(title));

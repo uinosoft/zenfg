@@ -36,11 +36,11 @@ test('examples panel controls are mutually exclusive and serializable', () => {
 
 test('the production catalog is explicit, grouped, and keeps canonical sources first', () => {
 	assert.equal(findPublicExample('interactive-background')?.title, 'Interactive FrameGraph Background');
-	assert.equal(findPublicExample('three-interop')?.title, 'Three.js Co-rendering');
+	assert.equal(findPublicExample('three-interop')?.title, 'Three.js · Co-rendering');
 	assert.equal(findPublicExample('three-interop')?.hasControls, true);
-	assert.equal(findPublicExample('babylon-interop')?.title, 'Babylon.js Co-rendering');
+	assert.equal(findPublicExample('babylon-interop')?.title, 'Babylon.js · Co-rendering');
 	assert.equal(findPublicExample('babylon-interop')?.hasControls, true);
-	assert.equal(findPublicExample('babylon-lite-interop')?.title, 'Babylon Lite Co-rendering');
+	assert.equal(findPublicExample('babylon-lite-interop')?.title, 'Babylon Lite · Co-rendering');
 	assert.equal(findPublicExample('babylon-lite-interop')?.hasControls, false);
 	assert.deepEqual(parseExamplesRoute('?example=babylon-lite-interop&panel=code'), { exampleId: 'babylon-lite-interop', panel: 'code', full: false });
 	assert.deepEqual(findPublicExample('babylon-lite-interop')?.sourceFiles.map(file => file.label), ['main.ts', 'graph.ts', 'bridge.ts', 'resolve.ts', 'scene.ts', 'present.ts', 'host.ts', 'babylonLiteInterop.ts']);
@@ -57,7 +57,9 @@ test('the production catalog is explicit, grouped, and keeps canonical sources f
 			['babylon-lite-interop', 'Showcases'],
 		['playcanvas-gsplat-interop', 'Showcases'],
 		['playcanvas-gsplat-streaming-interop', 'Showcases'],
-			['glyph-interop', 'Showcases'],
+            ['pixi-interop', 'Showcases'],
+            ['pixi-surface', 'Showcases'],
+            ['glyph-interop', 'Showcases'],
 			['typegpu-slime-mold', 'Showcases'],
 			['typegpu-monocular-light-injection', 'Showcases'],
 			['particles4all-framegraph', 'Showcases'],
@@ -123,7 +125,7 @@ test('the production catalog is explicit, grouped, and keeps canonical sources f
 });
 
 test('every example declares a real reading entry with a source introduction', () => {
-	assert.equal(publicExamples.length, 20);
+	assert.equal(publicExamples.length, 22);
 	for (const example of publicExamples) {
 		const ordered = orderedSourceFiles(example);
 		assert.equal(ordered[0]!.id, example.entrySourceId);
