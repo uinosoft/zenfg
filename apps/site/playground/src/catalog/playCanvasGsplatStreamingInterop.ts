@@ -1,7 +1,7 @@
 import type { ExamplesExampleDefinition } from '../types.ts';
 
 export const playCanvasGsplatStreamingInteropExample: ExamplesExampleDefinition = {
-    id: 'playcanvas-gsplat-streaming-interop', title: 'PlayCanvas Streaming GSplat Co-rendering',
+    id: 'playcanvas-gsplat-streaming-interop', title: 'PlayCanvas · Streaming GSplat Co-rendering',
     group: 'Showcases', tags: ['playcanvas', 'gaussian-splatting', 'interop', 'shared-resources', 'streaming'],
     readyState: 'live', hasControls: true,
     loadingNote: 'Loads external streamed scene data from PlayCanvas. WebGPU and an internet connection are required.',

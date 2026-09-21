@@ -1,11 +1,11 @@
-# Portal Lens · PixiJS
+# PixiJS · Portal Lens
 
 A small 3D city becomes a texture in a PixiJS star chart. Move the golden lens
 across the portal edge: Pixi's built-in DisplacementFilter bends the live city,
 grid and lettering together. A circular Graphics mask and front/back orbit
 decorations provide the rest of the scene.
 
-Run `npm run dev` and select **Portal Lens · PixiJS**, or use
+Run `npm run dev` and select **PixiJS · Portal Lens**, or use
 `?example=pixi-interop`. Drag the lens to move it; drag elsewhere inside the
 portal to orbit; scroll over the portal to zoom. Canvas buttons control
 automatic orbit, the lens and reset. Blur and pointer cancellation release a

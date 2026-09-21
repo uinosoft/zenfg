@@ -1,3 +1,4 @@
+import { pixiSurfaceExample } from './pixiSurface.ts';
 import { pixiInteropExample } from './pixiInterop.ts';
 import { glyphInteropExample } from './glyphInterop.ts';
 import { playCanvasGsplatInteropExample } from './playCanvasGsplatInterop.ts';
@@ -29,8 +30,9 @@ export const publicExamples = [
 	babylonLiteInteropExample,
 	playCanvasGsplatInteropExample,
 	playCanvasGsplatStreamingInteropExample,
-	glyphInteropExample,
 	pixiInteropExample,
+	pixiSurfaceExample,
+	glyphInteropExample,
 	typeGpuSlimeMoldExample,
 	typeGpuMonocularLightInjectionExample,
 	particles4AllExample,

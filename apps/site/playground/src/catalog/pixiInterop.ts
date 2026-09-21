@@ -1,8 +1,8 @@
 import type { ExamplesExampleDefinition } from '../types.ts';
 
 export const pixiInteropExample: ExamplesExampleDefinition = {
-    id: 'pixi-interop', title: 'Portal Lens · PixiJS', group: 'Showcases',
-    tags: ['webgpu', 'interop', 'shared-resources'], readyState: 'live', hasControls: false,
+    id: 'pixi-interop', title: 'PixiJS · Portal Lens', group: 'Showcases',
+    tags: ['webgpu', 'pixijs', 'interop', 'shared-resources'], readyState: 'live', hasControls: false,
     entrySourceId: 'pixi-entry',
     description: [
         'A live 3D city becomes a texture in a ', { text: 'PixiJS', href: 'https://pixijs.com/' },

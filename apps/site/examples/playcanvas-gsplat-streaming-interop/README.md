@@ -1,6 +1,6 @@
-# PlayCanvas Streaming GSplat Co-rendering
+# PlayCanvas · Streaming GSplat Co-rendering
 
-Run `npm run dev` and select **PlayCanvas Streaming GSplat Co-rendering**, or open `?example=playcanvas-gsplat-streaming-interop`.
+Run `npm run dev` and select **PlayCanvas · Streaming GSplat Co-rendering**, or open `?example=playcanvas-gsplat-streaming-interop`.
 Requires WebGPU and a network connection. Roman Parish is loaded at runtime.
 Focus the canvas, drag to look, WASD to move, Q down / E up and Shift to accelerate. Splat Budget ranges from 500,000 to 4,000,000 (default); Reset View restores the initial camera. Thirty-two deterministic orange primitives mark the initial area and route.
 

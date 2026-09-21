@@ -12,6 +12,7 @@ const outDir = resolve(rootDir, '.test-dist', 'tests');
 // An existing root may legitimately have no Node tests.
 const defaultTestRoots = [
     resolve(rootDir, 'apps', 'site', 'examples', 'pixi-interop', 'tests'),
+    resolve(rootDir, 'apps', 'site', 'examples', 'pixi-surface', 'tests'),
     resolve(rootDir, 'apps', 'site', 'examples', 'glyph-interop', 'tests'),
     resolve(rootDir, 'apps', 'site', 'examples', 'playcanvas-gsplat-shared', 'tests'),
     resolve(rootDir, 'apps', 'site', 'examples', 'playcanvas-gsplat-interop', 'tests'),

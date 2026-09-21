@@ -1,4 +1,4 @@
-# Three.js Co-rendering validation
+# Three.js · Co-rendering validation
 
 Validated on 2026-09-08 using Node.js 24.19.0, Microsoft Edge 152.0.4191.66
 on Windows, and an NVIDIA Turing hardware WebGPU adapter.

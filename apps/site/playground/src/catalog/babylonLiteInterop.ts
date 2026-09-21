@@ -2,7 +2,7 @@ import type { ExamplesExampleDefinition } from '../types.ts';
 
 export const babylonLiteInteropExample: ExamplesExampleDefinition = {
     id: 'babylon-lite-interop',
-    title: 'Babylon Lite Co-rendering',
+    title: 'Babylon Lite · Co-rendering',
     group: 'Showcases',
     tags: ['babylon-lite', 'interop', 'shared-resources'],
     readyState: 'live',
