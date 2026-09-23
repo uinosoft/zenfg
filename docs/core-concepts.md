@@ -153,6 +153,10 @@ using it for partial work makes the graph model incorrect.
 
 Texture dependencies use normalized mip, layer, depth-slice, and aspect regions.
 Buffer dependencies use byte ranges; an omitted range covers the whole buffer.
+Rust texture views select all remaining layers when the layer count is omitted;
+an explicit D2 view must therefore select only one remaining layer or specify
+count 1. TypeScript view defaults depend on the access role and view dimension.
+Specify dimensions and counts explicitly when sharing examples across runtimes.
 
 ## Dependencies and retention
 
@@ -276,7 +280,10 @@ including node-local preparation and cleanup, not thread CPU usage. External
 nodes include synchronous submission in their callbacks. Execution total also
 includes shared preparation, submission and transient release. It excludes
 recording, compilation, GPU waiting, report projection and Inspector updates.
-Only successful execution produces a CPU report. CPU and GPU durations must not
+Only successful execution produces a CPU report. GPU timing spans the first
+retained render/compute pass start through the last such pass end; it does not
+measure other node kinds. When no such pass is retained, GPU timing is
+unavailable with reason `no-timed-nodes`. CPU and GPU durations must not
 be added to infer frame time. Clock precision and preemption affect readings.
 Resource/view preparation remains runtime-specific, so per-node CPU readings are
 not strict cross-language benchmarks.

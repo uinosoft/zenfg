@@ -1307,3 +1307,196 @@ fn summary_and_none_reports_have_expected_shapes() {
     let compiled = frame.compile(CompileOptions::default()).unwrap();
     assert!(compiled.report().is_none());
 }
+
+#[test]
+fn explicit_view_dimensions_validate_resolved_remaining_layers() {
+    use wgpu::TextureViewDimension::{Cube, CubeArray, D2, D2Array};
+
+    let mut graph = FrameGraph::new();
+    let mut frame = graph.begin_frame();
+    let mut descriptor = TextureDesc::new_2d("array", 8, 8, wgpu::TextureFormat::Rgba8Unorm);
+    descriptor.size.depth_or_array_layers = 12;
+    let texture = frame.create_texture(descriptor).unwrap();
+    let view_desc = |dimension, base_array_layer, array_layer_count| TextureViewDesc {
+        dimension: Some(dimension),
+        base_array_layer,
+        array_layer_count,
+        ..Default::default()
+    };
+
+    assert!(matches!(
+        frame.create_texture_view(texture, view_desc(D2, 0, None)),
+        Err(FrameGraphError::InvalidTextureView { .. })
+    ));
+    let last = frame
+        .create_texture_view(texture, view_desc(D2, 11, None))
+        .unwrap();
+    assert_eq!(
+        frame.texture_view_desc(last).unwrap().array_layer_count,
+        Some(1)
+    );
+    let explicit = frame
+        .create_texture_view(texture, view_desc(D2, 0, Some(1)))
+        .unwrap();
+    assert_eq!(
+        frame.texture_view_desc(explicit).unwrap().array_layer_count,
+        Some(1)
+    );
+
+    assert!(matches!(
+        frame.create_texture_view(texture, view_desc(Cube, 0, None)),
+        Err(FrameGraphError::InvalidTextureView { .. })
+    ));
+    let cube = frame
+        .create_texture_view(texture, view_desc(Cube, 6, None))
+        .unwrap();
+    assert_eq!(
+        frame.texture_view_desc(cube).unwrap().array_layer_count,
+        Some(6)
+    );
+
+    let cube_array = frame
+        .create_texture_view(texture, view_desc(CubeArray, 0, None))
+        .unwrap();
+    assert_eq!(
+        frame
+            .texture_view_desc(cube_array)
+            .unwrap()
+            .array_layer_count,
+        Some(12)
+    );
+    assert!(matches!(
+        frame.create_texture_view(texture, view_desc(CubeArray, 1, None)),
+        Err(FrameGraphError::InvalidTextureView { .. })
+    ));
+    let tail = frame
+        .create_texture_view(texture, view_desc(D2Array, 5, None))
+        .unwrap();
+    assert_eq!(
+        frame.texture_view_desc(tail).unwrap().array_layer_count,
+        Some(7)
+    );
+    assert!(matches!(
+        frame.create_texture_view(texture, view_desc(D2Array, 12, None)),
+        Err(FrameGraphError::InvalidTextureView { .. })
+    ));
+}
+
+#[test]
+fn failed_compound_copy_rolls_back_accesses_and_keeps_builder_usable() {
+    let mut graph = FrameGraph::new();
+    let mut frame = graph.begin_frame();
+    let source = frame
+        .import_buffer(
+            BufferDesc::new("source", 16),
+            ImportBufferOptions::new(InitialContents::Defined),
+        )
+        .unwrap();
+    let destination = frame
+        .create_buffer(BufferDesc::new("destination", 16))
+        .unwrap();
+    let mut pass = frame.copy_pass("recover-copy");
+    let first = pass
+        .buffer_copy_dst(
+            destination,
+            BufferRange::new(0, 4),
+            WriteContents::Overwrite,
+        )
+        .unwrap();
+    let error = pass
+        .copy_buffer_to_buffer(source, 0, destination, 0, 4)
+        .err()
+        .unwrap();
+    assert_eq!(error.code(), "FG1105");
+    let recovered = pass
+        .buffer_copy_dst(source, BufferRange::new(0, 4), WriteContents::Overwrite)
+        .unwrap();
+    assert_eq!(recovered.access_id().get(), first.access_id().get() + 1);
+    pass.finish().unwrap();
+    frame
+        .mark_buffer_root(source, BufferRange::new(0, 4), RootReason::Output)
+        .unwrap();
+
+    let compiled = frame.compile(full_options()).unwrap();
+    let full = compiled.report().unwrap().full.as_ref().unwrap();
+    assert_eq!(full.accesses.len(), 2);
+    assert!(
+        full.accesses
+            .iter()
+            .all(|access| access.role == AccessRole::BufferCopyDst)
+    );
+}
+
+#[test]
+fn failed_resolve_declaration_rolls_back_source_access() {
+    let mut graph = FrameGraph::new();
+    let mut frame = graph.begin_frame();
+    let texture = frame
+        .create_texture(TextureDesc::new_2d(
+            "color",
+            8,
+            8,
+            wgpu::TextureFormat::Rgba8Unorm,
+        ))
+        .unwrap();
+    let mut pass = frame.render_pass("recover-resolve");
+    let error = pass
+        .color_attachment_with_resolve(
+            texture,
+            texture,
+            ColorAttachmentOps::clear_store(wgpu::Color::BLACK),
+        )
+        .unwrap_err();
+    assert_eq!(error.code(), "FG1105");
+    let _ = pass
+        .color_attachment(texture, ColorAttachmentOps::clear_store(wgpu::Color::BLACK))
+        .unwrap();
+    pass.finish_render(|_| Ok(())).unwrap();
+    frame
+        .mark_texture_root(texture, RootReason::Output)
+        .unwrap();
+    let compiled = frame.compile(full_options()).unwrap();
+    assert_eq!(
+        compiled
+            .report()
+            .unwrap()
+            .full
+            .as_ref()
+            .unwrap()
+            .accesses
+            .len(),
+        1
+    );
+}
+
+#[test]
+fn finish_render_validates_attachments_and_preserves_original_error() {
+    let mut graph = FrameGraph::new();
+    let mut frame = graph.begin_frame();
+    let texture = frame
+        .create_texture(TextureDesc::new_2d(
+            "color",
+            8,
+            8,
+            wgpu::TextureFormat::Rgba8Unorm,
+        ))
+        .unwrap();
+    let mut pass = frame.render_pass("invalid-clear");
+    let _ = pass
+        .color_attachment(
+            texture,
+            ColorAttachmentOps::clear_store(wgpu::Color {
+                r: f64::NAN,
+                g: 0.0,
+                b: 0.0,
+                a: 1.0,
+            }),
+        )
+        .unwrap();
+    let original = pass.finish_render(|_| Ok(())).unwrap_err();
+    assert!(matches!(
+        original,
+        FrameGraphError::InvalidNodeOperation { .. }
+    ));
+    assert_eq!(frame.compile(full_options()).unwrap_err(), original);
+}

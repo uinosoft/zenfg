@@ -8,14 +8,22 @@ export const FRAME_GRAPH_ERROR_CODES = {
 	UsageMismatch: 'FG1101',
 	InvalidResourceDescriptor: 'FG1102',
 	InvalidTextureView: 'FG1104',
+	ConflictingAccesses: 'FG1105',
+	InvalidNodeOperation: 'FG1106',
+	InvalidRoot: 'FG1107',
+	UnsupportedTextureFormatUsage: 'FG1108',
 	InvalidAccess: 'FG1109',
 	ForeignHandle: 'FG2001',
+	InvalidDebugGroupLabel: 'FG2003',
+	DebugGroupStackUnderflow: 'FG2004',
+	UnclosedDebugGroup: 'FG2005',
 	UnknownHandle: 'FG2011',
 	Destroyed: 'FG2006',
 	RecorderConsumed: 'FG2007',
 	ConcurrentExecution: 'FG2008',
 	DuplicateImport: 'FG2010',
 	DuplicateResourceUse: 'FG2012',
+	InvalidArgument: 'FG2013',
 	MissingNativeBinding: 'FG4002',
 	NativeDescriptorMismatch: 'FG4003',
 	MissingNodeExecutor: 'FG4004',
@@ -25,7 +33,7 @@ export const FRAME_GRAPH_ERROR_CODES = {
 	Internal: 'FG9001',
 } as const;
 
-/** Error lifecycle phase exposed by the FrameGraph API. */
+/** Error lifecycle phase exposed by the FrameGraph API. Snapshot remains a reserved phase; Snapshot validation has its own error type. */
 export type FrameGraphErrorPhase = 'record' | 'compile' | 'execute' | 'snapshot';
 
 /** Stable error identifier. Unknown future codes remain valid to consumers. */
@@ -43,8 +51,11 @@ export type FrameGraphErrorOptions = {
 /**
  * A structured failure produced by the FrameGraph implementation.
  *
- * `code` and the location fields are stable diagnostic data. `message` remains
- * human-readable and may gain additional detail over time.
+ * ZenFG-detected recording, compilation, and execution failures use this type.
+ * Callback and native WebGPU exceptions pass through unchanged; Snapshot
+ * validation uses FrameGraphSnapshotValidationError. `code` and available
+ * location fields are stable diagnostic data. `message` remains human-readable
+ * and may gain additional detail over time.
  */
 export class FrameGraphError extends Error {
 	readonly code: FrameGraphErrorCode;

@@ -76,10 +76,9 @@ export function beginGpuTimingFrame(
 	if (timedNodes.length === 0) {
 		return {
 			promise: Promise.resolve({
-				status: 'available',
+				status: 'unavailable',
 				frameIndex,
-				frameDurationMicros: 0,
-				nodes: [],
+				reason: 'no-timed-nodes',
 			}),
 		};
 	}

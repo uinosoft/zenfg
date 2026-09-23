@@ -7,9 +7,13 @@ import {
 	validateFrameGraphSnapshot,
 } from '@zenfg/snapshot';
 
-import { createFrameGraphSnapshot, stringifyFrameGraphSnapshot } from '../src/snapshot.ts';
+import { createFrameGraphSnapshot, stringifyFrameGraphSnapshot, FrameGraphSnapshotValidationError as WebGpuSnapshotValidationError } from '../src/snapshot.ts';
 import { FrameGraph, TextureAccess } from '../src/index.ts';
 import { mockDevice, texture, textureUsage } from './testUtils.ts';
+
+test('Snapshot subpath exposes its producer validation error', () => {
+	assert.equal(WebGpuSnapshotValidationError, FrameGraphSnapshotValidationError);
+});
 
 test('maps a compilation report into canonical prefixed Snapshot V1 data', () => {
 	const recorder = new FrameGraph(mockDevice()).beginFrame();
@@ -161,7 +165,10 @@ test('maps GPU timing and rejects unknown WebGPU usage bits', () => {
 		compilation: invalidCompilation,
 		gpuTiming: { status: 'unavailable', frameIndex: 3, reason: 'unsupported' },
 		resourcePool: { acquireCount: 0, reuseCount: 0, createdCount: 0, retainedCount: 0, estimatedRetainedBytes: 0 },
-	}), /unknown bits 0x20/);
+	}), (error) => error instanceof WebGpuSnapshotValidationError
+		&& error.issues[0]?.code === 'unknown-usage-bits'
+		&& error.issues[0]?.path === '/graph/resources/0/usageFlags'
+		&& error.message.includes('unknown bits 0x20'));
 });
 
 test('rejects Snapshot-invalid producer inputs and incoherent GPU timing kinds', () => {
@@ -226,6 +233,8 @@ test('CPU-only snapshots use explicit frame identity and validate CPU coherence'
  assert.equal(snapshot.timings.cpu.status,'available');assert.deepEqual(structuredClone(snapshot.timings.gpu),{status:'unavailable',reason:'not-requested'});
  assert.throws(()=>createFrameGraphSnapshot({...options,frameIndex:10}),FrameGraphSnapshotValidationError);
  assert.throws(()=>createFrameGraphSnapshot({...options,cpuTiming:{...options.cpuTiming,nodes:options.cpuTiming.nodes.map(n=>({...n,kind:'compute'}))}}),FrameGraphSnapshotValidationError);
- const noTiming=createFrameGraphSnapshot({frameIndex:9,compilation:compiled.compilationReport,resourcePool:graph.getResourcePoolStats()});
+ const noTiming=createFrameGraphSnapshot({frameIndex:9,compilation:compiled.compilationReport});
  assert.equal(noTiming.timings.cpu.status,'unavailable');
+ assert.deepEqual(structuredClone(noTiming.memory.poolReport), {status:'unavailable',reason:'not-requested'});
+ assert.deepEqual(validateFrameGraphSnapshot(noTiming), []);
 });

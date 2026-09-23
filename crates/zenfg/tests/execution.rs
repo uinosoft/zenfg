@@ -1294,7 +1294,7 @@ fn a_second_timing_request_is_busy_until_mapping_completes() {
 }
 
 #[test]
-fn timed_execution_without_render_or_compute_is_immediately_available() {
+fn timed_execution_without_render_or_compute_reports_no_timed_nodes() {
     let (device, queue) = noop_device();
     let mut graph = FrameGraph::with_device(&device);
     let mut frame = graph.begin_frame();
@@ -1317,13 +1317,40 @@ fn timed_execution_without_render_or_compute_is_immediately_available() {
         .unwrap();
     assert_eq!(
         readback.try_take(),
-        Some(GpuTimingReport::Available {
+        Some(GpuTimingReport::Unavailable {
             frame_index: 11,
-            frame_duration: std::time::Duration::ZERO,
-            nodes: Vec::new(),
-            debug_groups: Vec::new(),
+            reason: zenfg::GpuTimingUnavailableReason::NoTimedNodes,
         })
     );
+}
+
+#[test]
+fn empty_or_fully_culled_timed_frames_report_no_timed_nodes() {
+    let (device, queue) = noop_device();
+    let mut graph = FrameGraph::with_device(&device);
+    for include_culled_compute in [false, true] {
+        let mut frame = graph.begin_frame();
+        if include_culled_compute {
+            frame
+                .compute_pass("culled")
+                .finish_compute(|_| Ok(()))
+                .unwrap();
+        }
+        let mut readback = frame
+            .compile(CompileOptions::default())
+            .unwrap()
+            .execute_with_timing(&queue, ExecutionOptions::default(), zenfg::TimingMode::Gpu)
+            .unwrap()
+            .gpu
+            .unwrap();
+        assert_eq!(
+            readback.try_take(),
+            Some(GpuTimingReport::Unavailable {
+                frame_index: 0,
+                reason: zenfg::GpuTimingUnavailableReason::NoTimedNodes,
+            })
+        );
+    }
 }
 
 #[test]

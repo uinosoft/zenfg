@@ -21,6 +21,24 @@ use super::{
     create_frame_graph_snapshot, to_json_pretty, validate_typed_frame_graph_snapshot,
 };
 
+#[cfg(feature = "serde")]
+#[test]
+fn report_serde_round_trip_preserves_snapshot_export_facts() {
+    let (report, _, _) = fixture_report();
+    let encoded = serde_json::to_string(&report).unwrap();
+    let decoded: CompilationReport = serde_json::from_str(&encoded).unwrap();
+    assert_eq!(decoded, report);
+    assert!(create_frame_graph_snapshot(&decoded, CreateFrameGraphSnapshotOptions::new(7)).is_ok());
+
+    let mut missing_order: serde_json::Value = serde_json::from_str(&encoded).unwrap();
+    missing_order["full"]["nodes"][0]
+        .as_object_mut()
+        .unwrap()
+        .remove("recording_order");
+    let error = serde_json::from_value::<CompilationReport>(missing_order).unwrap_err();
+    assert!(error.to_string().contains("recording_order"));
+}
+
 #[test]
 fn golden_snapshot_covers_v1_wire_mapping() {
     let (report, timing, pool) = fixture_report();
@@ -334,6 +352,22 @@ fn absent_optional_runtime_reports_are_explicitly_unavailable() {
     assert!(matches!(
         snapshot.timings.gpu,
         SnapshotGpuTimings::Unavailable { .. }
+    ));
+}
+
+#[test]
+fn no_timed_nodes_maps_to_snapshot_unavailability() {
+    let (report, _, _) = fixture_report();
+    let timing = GpuTimingReport::Unavailable {
+        frame_index: 7,
+        reason: crate::GpuTimingUnavailableReason::NoTimedNodes,
+    };
+    let mut options = CreateFrameGraphSnapshotOptions::new(7);
+    options.gpu_timing = Some(&timing);
+    let snapshot = create_frame_graph_snapshot(&report, options).unwrap();
+    assert!(matches!(
+        snapshot.timings.gpu,
+        SnapshotGpuTimings::Unavailable { ref reason } if reason == "no-timed-nodes"
     ));
 }
 

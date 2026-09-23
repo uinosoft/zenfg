@@ -3,8 +3,8 @@
  * and resource-pool snapshot into the portable ZenFG Snapshot 1.2 wire model.
  *
  * Capture inputs from the same compiled frame: compile with `{ report: true }`,
- * execute with explicit timing, and save CPU results and pool statistics before
- * awaiting GPU readback and calling {@link createFrameGraphSnapshot}.
+ * execute with explicit timing, and optionally save CPU results and pool statistics
+ * before awaiting GPU readback and calling {@link createFrameGraphSnapshot}.
  * Report provenance is a caller-owned convention because independently supplied
  * report values do not carry a shared compiled-frame identity.
  * This entrypoint also exposes the portable Snapshot type and canonical
@@ -23,6 +23,7 @@ import {
 	stringifyFrameGraphSnapshot as stringifyPortableFrameGraphSnapshot,
 } from '@zenfg/snapshot';
 export type { FrameGraphSnapshot } from '@zenfg/snapshot';
+export { FrameGraphSnapshotValidationError } from '@zenfg/snapshot';
 import type {
 	FrameGraphSnapshot,
 	FrameGraphSnapshotAccess,
@@ -53,10 +54,11 @@ export type CreateFrameGraphSnapshotOptions = {
 	/** Optional synchronous CPU result from the same execution. */
 	readonly cpuTiming?: FrameGraphCpuTimingReport;
 	/**
-	 * Aggregate pool counters to record with the capture. Read them after frame
-	 * execution when the snapshot should include that execution's releases.
+	 * Optional aggregate pool counters. Read them after execution when the
+	 * snapshot should include that execution's releases. Omission records
+	 * an unavailable pool report with reason 'not-requested'.
 	 */
-	readonly resourcePool: FrameGraphResourcePoolStats;
+	readonly resourcePool?: FrameGraphResourcePoolStats;
 	/**
 	 * ISO-8601 capture timestamp.
 	 *
@@ -177,7 +179,7 @@ export function createFrameGraphSnapshot(options: CreateFrameGraphSnapshotOption
 					: { status: 'retained' as const, executionOrder },
 			};
 		});
-	const resources = compilation.resources.map((resource): FrameGraphSnapshotResource => {
+	const resources = compilation.resources.map((resource, index): FrameGraphSnapshotResource => {
 		const common = {
 			id: resourceId(resource.id),
 			label: resource.label,
@@ -193,13 +195,13 @@ export function createFrameGraphSnapshot(options: CreateFrameGraphSnapshotOption
 				...common,
 				kind: resource.kind,
 				descriptor: { kind: 'texture', ...resource.descriptor },
-				usageFlags: decodeUsage('texture', resource.usage),
+				usageFlags: decodeUsage('texture', resource.usage, index),
 			}
 			: {
 				...common,
 				kind: resource.kind,
 				descriptor: { kind: 'buffer', ...resource.descriptor },
-				usageFlags: decodeUsage('buffer', resource.usage),
+				usageFlags: decodeUsage('buffer', resource.usage, index),
 			};
 	});
 	const accesses = compilation.accesses.map((access): FrameGraphSnapshotAccess => {
@@ -286,10 +288,9 @@ export function createFrameGraphSnapshot(options: CreateFrameGraphSnapshotOption
 					estimatedByteSize: allocation.estimatedByteSize,
 				})),
 			},
-			poolReport: {
-				status: 'available',
-				...resourcePool,
-			},
+			poolReport: resourcePool
+				? { status: 'available', ...resourcePool }
+				: { status: 'unavailable', reason: 'not-requested' },
 		},
 		timings: {
 			cpu: cpuTiming ? { status: 'available', executionDurationMicros: cpuTiming.executionDurationMicros, nodes: cpuTiming.nodes.map(timing => ({ nodeId: nodeId(timing.nodeId), durationMicros: timing.durationMicros })) } : { status: 'unavailable', reason: 'not-requested' },
@@ -335,9 +336,9 @@ function validateGpuTimingCoherence(
 	if (issues.length > 0) throw new FrameGraphSnapshotValidationError(issues);
 }
 
-function decodeUsage(kind: 'texture', usage: number): FrameGraphSnapshotTextureUsageFlag[];
-function decodeUsage(kind: 'buffer', usage: number): FrameGraphSnapshotBufferUsageFlag[];
-function decodeUsage(kind: 'texture' | 'buffer', usage: number): string[] {
+function decodeUsage(kind: 'texture', usage: number, index: number): FrameGraphSnapshotTextureUsageFlag[];
+function decodeUsage(kind: 'buffer', usage: number, index: number): FrameGraphSnapshotBufferUsageFlag[];
+function decodeUsage(kind: 'texture' | 'buffer', usage: number, index: number): string[] {
 	const definitions = kind === 'texture' ? TEXTURE_USAGE_FLAGS : BUFFER_USAGE_FLAGS;
 	let known = 0;
 	const flags: string[] = [];
@@ -347,7 +348,7 @@ function decodeUsage(kind: 'texture' | 'buffer', usage: number): string[] {
 	}
 	const unknown = (usage & ~known) >>> 0;
 	if (unknown !== 0) {
-		throw new Error(`Cannot create FrameGraph Snapshot: ${kind} usage contains unknown bits 0x${unknown.toString(16)}.`);
+		throw new FrameGraphSnapshotValidationError([{ severity: 'error', code: 'unknown-usage-bits', path: `/graph/resources/${index}/usageFlags`, message: `Cannot create FrameGraph Snapshot: ${kind} usage contains unknown bits 0x${unknown.toString(16)}.` }]);
 	}
 	return flags;
 }

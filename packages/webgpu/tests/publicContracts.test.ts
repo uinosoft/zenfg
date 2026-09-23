@@ -8,6 +8,9 @@ import {
 	type TextureViewHandle,
 	type BufferHandle,
 	type FrameGraphCompilationReport,
+	type FrameGraphCpuTimingReport,
+	type FrameGraphGpuTimingReport,
+	type FrameGraphTimingMode,
 	type FrameGraphRecording,
 	type ImportTextureOptions,
 	type TextureOrigin,
@@ -185,6 +188,22 @@ test('public recording and compiled-frame types enforce lifecycle and typed-use 
 		plain.execute({ gpuDebugGroups: true });
 		// @ts-expect-error Plain compiled frames do not expose a compilation report.
 		plain.compilationReport;
+		const cpuTiming = plain.executeWithTiming({ timing: 'cpu' });
+		const cpuReport: FrameGraphCpuTimingReport = cpuTiming.cpu;
+		// @ts-expect-error GPU result is absent in CPU-only mode.
+		const absentGpu: Promise<FrameGraphGpuTimingReport> = cpuTiming.gpu;
+		const gpuTiming = plain.executeWithTiming({ timing: 'gpu' });
+		const gpuReport: Promise<FrameGraphGpuTimingReport> = gpuTiming.gpu;
+		// @ts-expect-error CPU result is absent in GPU-only mode.
+		const absentCpu: FrameGraphCpuTimingReport = gpuTiming.cpu;
+		const bothTiming = plain.executeWithTiming({ timing: 'both' });
+		const bothCpu: FrameGraphCpuTimingReport = bothTiming.cpu;
+		const bothGpu: Promise<FrameGraphGpuTimingReport> = bothTiming.gpu;
+		const dynamicMode = null as unknown as FrameGraphTimingMode;
+		const dynamicTiming = plain.executeWithTiming({ timing: dynamicMode });
+		// @ts-expect-error A dynamic mode cannot promise a CPU result.
+		const dynamicCpu: FrameGraphCpuTimingReport = dynamicTiming.cpu;
+		void [cpuReport, absentGpu, gpuReport, absentCpu, bothCpu, bothGpu, dynamicCpu];
 		const reported = runtime.beginFrame().compile({ report: true });
 		const report: FrameGraphCompilationReport = reported.compilationReport;
 		void report;
