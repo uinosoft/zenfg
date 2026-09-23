@@ -1592,6 +1592,45 @@ mod tests {
     }
 
     #[test]
+    fn explicit_d2_view_uses_the_same_layer_in_range_and_execution_descriptor() {
+        let mut graph = FrameGraph::new();
+        let mut frame = graph.begin_frame();
+        let mut texture_desc = TextureDesc::new_2d("array", 8, 8, wgpu::TextureFormat::Rgba8Unorm);
+        texture_desc.size.depth_or_array_layers = 12;
+        let texture = frame
+            .import_texture(
+                texture_desc,
+                ImportTextureOptions::new(InitialContents::Defined),
+            )
+            .unwrap();
+        let view = frame
+            .create_texture_view(
+                texture,
+                TextureViewDesc {
+                    dimension: Some(wgpu::TextureViewDimension::D2),
+                    base_array_layer: 11,
+                    ..Default::default()
+                },
+            )
+            .unwrap();
+        let mut pass = frame.command_pass("sample-last");
+        let _ = pass.sampled_texture(view).unwrap();
+        pass.finish_command(|_| Ok(())).unwrap();
+
+        let compiled = frame.compile(CompileOptions::default()).unwrap();
+        let access = &compiled.plan.retained_nodes[0].accesses[0];
+        let super::NormalizedRange::Texture(regions) = &access.range else {
+            panic!("expected texture range");
+        };
+        assert_eq!(regions[0].base_slice, 11);
+        assert_eq!(regions[0].slice_count, 1);
+        let descriptor = &compiled.plan.execution_views[0].descriptor;
+        assert_eq!(descriptor.dimension, wgpu::TextureViewDimension::D2);
+        assert_eq!(descriptor.base_array_layer, 11);
+        assert_eq!(descriptor.array_layer_count, Some(1));
+    }
+
+    #[test]
     fn aliased_logical_textures_keep_distinct_execution_views() {
         let mut graph = FrameGraph::new();
         let mut frame = graph.begin_frame();

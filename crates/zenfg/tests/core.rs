@@ -1307,3 +1307,77 @@ fn summary_and_none_reports_have_expected_shapes() {
     let compiled = frame.compile(CompileOptions::default()).unwrap();
     assert!(compiled.report().is_none());
 }
+
+#[test]
+fn explicit_view_dimensions_validate_resolved_remaining_layers() {
+    use wgpu::TextureViewDimension::{Cube, CubeArray, D2, D2Array};
+
+    let mut graph = FrameGraph::new();
+    let mut frame = graph.begin_frame();
+    let mut descriptor = TextureDesc::new_2d("array", 8, 8, wgpu::TextureFormat::Rgba8Unorm);
+    descriptor.size.depth_or_array_layers = 12;
+    let texture = frame.create_texture(descriptor).unwrap();
+    let view_desc = |dimension, base_array_layer, array_layer_count| TextureViewDesc {
+        dimension: Some(dimension),
+        base_array_layer,
+        array_layer_count,
+        ..Default::default()
+    };
+
+    assert!(matches!(
+        frame.create_texture_view(texture, view_desc(D2, 0, None)),
+        Err(FrameGraphError::InvalidTextureView { .. })
+    ));
+    let last = frame
+        .create_texture_view(texture, view_desc(D2, 11, None))
+        .unwrap();
+    assert_eq!(
+        frame.texture_view_desc(last).unwrap().array_layer_count,
+        Some(1)
+    );
+    let explicit = frame
+        .create_texture_view(texture, view_desc(D2, 0, Some(1)))
+        .unwrap();
+    assert_eq!(
+        frame.texture_view_desc(explicit).unwrap().array_layer_count,
+        Some(1)
+    );
+
+    assert!(matches!(
+        frame.create_texture_view(texture, view_desc(Cube, 0, None)),
+        Err(FrameGraphError::InvalidTextureView { .. })
+    ));
+    let cube = frame
+        .create_texture_view(texture, view_desc(Cube, 6, None))
+        .unwrap();
+    assert_eq!(
+        frame.texture_view_desc(cube).unwrap().array_layer_count,
+        Some(6)
+    );
+
+    let cube_array = frame
+        .create_texture_view(texture, view_desc(CubeArray, 0, None))
+        .unwrap();
+    assert_eq!(
+        frame
+            .texture_view_desc(cube_array)
+            .unwrap()
+            .array_layer_count,
+        Some(12)
+    );
+    assert!(matches!(
+        frame.create_texture_view(texture, view_desc(CubeArray, 1, None)),
+        Err(FrameGraphError::InvalidTextureView { .. })
+    ));
+    let tail = frame
+        .create_texture_view(texture, view_desc(D2Array, 5, None))
+        .unwrap();
+    assert_eq!(
+        frame.texture_view_desc(tail).unwrap().array_layer_count,
+        Some(7)
+    );
+    assert!(matches!(
+        frame.create_texture_view(texture, view_desc(D2Array, 12, None)),
+        Err(FrameGraphError::InvalidTextureView { .. })
+    ));
+}

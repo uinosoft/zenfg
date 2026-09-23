@@ -153,6 +153,10 @@ using it for partial work makes the graph model incorrect.
 
 Texture dependencies use normalized mip, layer, depth-slice, and aspect regions.
 Buffer dependencies use byte ranges; an omitted range covers the whole buffer.
+Rust texture views select all remaining layers when the layer count is omitted;
+an explicit D2 view must therefore select only one remaining layer or specify
+count 1. TypeScript view defaults depend on the access role and view dimension.
+Specify dimensions and counts explicitly when sharing examples across runtimes.
 
 ## Dependencies and retention
 
