@@ -631,15 +631,15 @@ function buildCompilationReport(
 function estimateAllocationByteSize(input: GraphCompilerInput, allocation: PhysicalAllocation): number {
 	const resourceId = allocation.resourceIds[0];
 	if (resourceId === undefined) {
-		throw new Error('Physical allocation ' + allocation.id + ' has no logical resources.');
+		throw new FrameGraphError(FRAME_GRAPH_ERROR_CODES.Internal, 'Physical allocation ' + allocation.id + ' has no logical resources.', { phase: 'compile' });
 	}
 	const resource = input.resources.get(resourceId);
 	if (!resource) {
-		throw new Error('Physical allocation ' + allocation.id + ' references unknown resource ' + resourceId + '.');
+		throw new FrameGraphError(FRAME_GRAPH_ERROR_CODES.Internal, 'Physical allocation ' + allocation.id + ' references unknown resource ' + resourceId + '.', { phase: 'compile', resourceId });
 	}
 	return allocation.kind === 'texture'
 		? estimateTextureByteSize(resource.desc as TextureDesc)
-		: bufferAllocationSize((resource.desc as BufferDesc).size);
+		: bufferAllocationSize((resource.desc as BufferDesc).size, { code: FRAME_GRAPH_ERROR_CODES.InvalidResourceDescriptor, phase: 'compile', resourceId });
 }
 
 function toReportNode(
@@ -794,7 +794,7 @@ export function resolveTextureAccessRange(
 	access: InternalAccess,
 ): InternalTextureRegion {
 	if (access.resource.kind !== 'texture') {
-		throw new Error('Buffer access does not have a texture subresource range.');
+		throw new FrameGraphError(FRAME_GRAPH_ERROR_CODES.Internal, 'Buffer access does not have a texture subresource range.', { phase: 'compile', resourceId: access.resource.id });
 	}
 	if (access.textureRegion) {
 		return access.textureRegion;
@@ -1053,7 +1053,7 @@ export function subtractResolvedTextureRange(
 
 function resolveBufferAccessRange(resourceFor: ResourceResolver, access: InternalAccess): ResolvedBufferRange {
 	if (access.resource.kind !== 'buffer') {
-		throw new Error('Texture access does not have a buffer range.');
+		throw new FrameGraphError(FRAME_GRAPH_ERROR_CODES.Internal, 'Texture access does not have a buffer range.', { phase: 'compile', resourceId: access.resource.id });
 	}
 	return resolveBufferRange(resourceFor, access.resource, access.bufferRange);
 }
