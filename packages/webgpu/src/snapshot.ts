@@ -3,8 +3,8 @@
  * and resource-pool snapshot into the portable ZenFG Snapshot 1.2 wire model.
  *
  * Capture inputs from the same compiled frame: compile with `{ report: true }`,
- * execute with explicit timing, and save CPU results and pool statistics before
- * awaiting GPU readback and calling {@link createFrameGraphSnapshot}.
+ * execute with explicit timing, and optionally save CPU results and pool statistics
+ * before awaiting GPU readback and calling {@link createFrameGraphSnapshot}.
  * Report provenance is a caller-owned convention because independently supplied
  * report values do not carry a shared compiled-frame identity.
  * This entrypoint also exposes the portable Snapshot type and canonical
@@ -54,10 +54,11 @@ export type CreateFrameGraphSnapshotOptions = {
 	/** Optional synchronous CPU result from the same execution. */
 	readonly cpuTiming?: FrameGraphCpuTimingReport;
 	/**
-	 * Aggregate pool counters to record with the capture. Read them after frame
-	 * execution when the snapshot should include that execution's releases.
+	 * Optional aggregate pool counters. Read them after execution when the
+	 * snapshot should include that execution's releases. Omission records
+	 * an unavailable pool report with reason 'not-requested'.
 	 */
-	readonly resourcePool: FrameGraphResourcePoolStats;
+	readonly resourcePool?: FrameGraphResourcePoolStats;
 	/**
 	 * ISO-8601 capture timestamp.
 	 *
@@ -287,10 +288,9 @@ export function createFrameGraphSnapshot(options: CreateFrameGraphSnapshotOption
 					estimatedByteSize: allocation.estimatedByteSize,
 				})),
 			},
-			poolReport: {
-				status: 'available',
-				...resourcePool,
-			},
+			poolReport: resourcePool
+				? { status: 'available', ...resourcePool }
+				: { status: 'unavailable', reason: 'not-requested' },
 		},
 		timings: {
 			cpu: cpuTiming ? { status: 'available', executionDurationMicros: cpuTiming.executionDurationMicros, nodes: cpuTiming.nodes.map(timing => ({ nodeId: nodeId(timing.nodeId), durationMicros: timing.durationMicros })) } : { status: 'unavailable', reason: 'not-requested' },
