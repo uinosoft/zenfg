@@ -267,9 +267,8 @@ impl<'a, 'frame> PassBuilder<'a, 'frame> {
                 AttachmentStoreOp::Store,
                 None,
             )
-            .map_err(|error| {
+            .inspect_err(|_| {
                 self.rollback_accesses(checkpoint);
-                error
             })?;
         self.color_attachments.push(RenderColorAttachment {
             access: source.access,
@@ -513,9 +512,8 @@ impl<'a, 'frame> PassBuilder<'a, 'frame> {
         let _ = self.buffer_copy_src(source, source_range)?;
         let _ = self
             .buffer_copy_dst(destination, destination_range, WriteContents::Overwrite)
-            .map_err(|error| {
+            .inspect_err(|_| {
                 self.rollback_accesses(checkpoint);
-                error
             })?;
         self.copy_operations.push(CopyOperation::BufferToBuffer {
             source: source.id,
@@ -568,9 +566,8 @@ impl<'a, 'frame> PassBuilder<'a, 'frame> {
                 NormalizedRange::Texture(destination.range),
                 None,
             )
-            .map_err(|error| {
+            .inspect_err(|_| {
                 self.rollback_accesses(checkpoint);
-                error
             })?;
         self.copy_operations.push(CopyOperation::BufferToTexture {
             source: buffer.resource,
@@ -618,9 +615,8 @@ impl<'a, 'frame> PassBuilder<'a, 'frame> {
                 NormalizedRange::Buffer(buffer.range.clone()),
                 None,
             )
-            .map_err(|error| {
+            .inspect_err(|_| {
                 self.rollback_accesses(checkpoint);
-                error
             })?;
         self.copy_operations.push(CopyOperation::TextureToBuffer {
             source: source.record,
@@ -677,9 +673,8 @@ impl<'a, 'frame> PassBuilder<'a, 'frame> {
                 NormalizedRange::Texture(destination.range),
                 None,
             )
-            .map_err(|error| {
+            .inspect_err(|_| {
                 self.rollback_accesses(checkpoint);
-                error
             })?;
         self.copy_operations.push(CopyOperation::TextureToTexture {
             source: source.record,
@@ -805,16 +800,16 @@ impl<'a, 'frame> PassBuilder<'a, 'frame> {
 
     fn finish_node(&mut self) -> Result<PassId, FrameGraphError> {
         let open = self.node.as_ref().expect("open pass");
-        if open.kind == NodeKind::Render {
-            if let Err(error) = validate_render_attachments(
+        if open.kind == NodeKind::Render
+            && let Err(error) = validate_render_attachments(
                 self.frame,
                 open.id,
                 &self.color_attachments,
                 self.depth_attachments.first().copied(),
                 open,
-            ) {
-                return Err(self.fail_finish(error));
-            }
+            )
+        {
+            return Err(self.fail_finish(error));
         }
         if open.kind == NodeKind::Copy && !self.copy_operations.is_empty() {
             self.frame.executors.insert(
