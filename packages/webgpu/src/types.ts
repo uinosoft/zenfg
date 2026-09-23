@@ -1076,11 +1076,30 @@ export type FrameGraphExecutionTiming = {
 	readonly gpu?: Promise<FrameGraphGpuTimingReport>;
 };
 
+/** Timed execution with an immediate CPU report and no GPU readback. */
+export type FrameGraphCpuExecutionTiming = FrameGraphExecutionTiming & {
+	readonly cpu: FrameGraphCpuTimingReport;
+	readonly gpu?: never;
+};
+
+/** Timed execution with a GPU readback promise and no CPU report. */
+export type FrameGraphGpuExecutionTiming = FrameGraphExecutionTiming & {
+	readonly cpu?: never;
+	readonly gpu: Promise<FrameGraphGpuTimingReport>;
+};
+
+/** Timed execution with immediate CPU data and a GPU readback promise. */
+export type FrameGraphBothExecutionTiming = FrameGraphExecutionTiming & {
+	readonly cpu: FrameGraphCpuTimingReport;
+	readonly gpu: Promise<FrameGraphGpuTimingReport>;
+};
+
 /** GPU timing result returned by executeWithTiming. */
 export type FrameGraphGpuTimingReport =
 	| {
 		readonly status: 'available';
 		readonly frameIndex: number;
+		/** Span from the first retained render/compute pass start to the last end. */
 		readonly frameDurationMicros: number;
 		readonly nodes: readonly {
 			readonly nodeId: number;
@@ -1092,7 +1111,7 @@ export type FrameGraphGpuTimingReport =
 	| {
 		readonly status: 'unavailable';
 		readonly frameIndex: number;
-		readonly reason: 'unsupported' | 'busy' | 'readback-failed';
+		readonly reason: 'unsupported' | 'busy' | 'readback-failed' | 'no-timed-nodes';
 	};
 
 /**
@@ -1293,6 +1312,9 @@ export interface CompiledFrame {
 	 * CPU results do not await GPU completion. GPU unavailability is non-fatal.
 	 * Throws synchronously on execution failure; no partial CPU report is returned.
 	 */
+	executeWithTiming(options: CompiledFrameExecuteOptions & { readonly timing: 'cpu' }): FrameGraphCpuExecutionTiming;
+	executeWithTiming(options: CompiledFrameExecuteOptions & { readonly timing: 'gpu' }): FrameGraphGpuExecutionTiming;
+	executeWithTiming(options: CompiledFrameExecuteOptions & { readonly timing: 'both' }): FrameGraphBothExecutionTiming;
 	executeWithTiming(options: CompiledFrameExecuteOptions & { readonly timing: FrameGraphTimingMode }): FrameGraphExecutionTiming;
 }
 

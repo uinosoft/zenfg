@@ -23,6 +23,9 @@ import {
 	type FrameGraphCompilationReport,
 	type FrameGraphTimingMode,
 	type FrameGraphExecutionTiming,
+	type FrameGraphCpuExecutionTiming,
+	type FrameGraphGpuExecutionTiming,
+	type FrameGraphBothExecutionTiming,
 	type FrameGraphResourcePoolStats,
 	type GraphRootReason,
 	type NodeKind,
@@ -337,6 +340,10 @@ class CompiledFrameImpl implements CompiledFrame {
 		this.recorder.executeCompiled(options);
 	}
 
+	executeWithTiming(options: CompiledFrameExecuteOptions & { readonly timing: 'cpu' }): FrameGraphCpuExecutionTiming;
+	executeWithTiming(options: CompiledFrameExecuteOptions & { readonly timing: 'gpu' }): FrameGraphGpuExecutionTiming;
+	executeWithTiming(options: CompiledFrameExecuteOptions & { readonly timing: 'both' }): FrameGraphBothExecutionTiming;
+	executeWithTiming(options: CompiledFrameExecuteOptions & { readonly timing: FrameGraphTimingMode }): FrameGraphExecutionTiming;
 	executeWithTiming(options: CompiledFrameExecuteOptions & { readonly timing: FrameGraphTimingMode }): FrameGraphExecutionTiming {
 		if (!['cpu', 'gpu', 'both'].includes(options.timing)) throw new TypeError('Invalid execution timing mode.');
 		return this.recorder.executeCompiled(options, options.timing)!;

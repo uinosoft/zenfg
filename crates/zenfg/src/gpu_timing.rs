@@ -35,6 +35,8 @@ pub struct GpuTimingNodeReport {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[non_exhaustive]
 pub enum GpuTimingUnavailableReason {
+    /// No retained render or compute node can receive timestamp writes.
+    NoTimedNodes,
     /// The device does not expose timestamp-query support.
     Unsupported,
     /// A previous timing readback on this graph is still pending.
@@ -217,12 +219,7 @@ impl GpuProfiler {
             return TimingSetup::Immediate(GpuTimingReadback::immediate(
                 device,
                 frame_index,
-                GpuTimingReport::Available {
-                    frame_index,
-                    frame_duration: Duration::ZERO,
-                    nodes: Vec::new(),
-                    debug_groups: Vec::new(),
-                },
+                unavailable(frame_index, GpuTimingUnavailableReason::NoTimedNodes),
             ));
         }
 
@@ -488,12 +485,7 @@ fn build_report(
     ticks: &[u64],
 ) -> GpuTimingReport {
     let Some(first) = nodes.first() else {
-        return GpuTimingReport::Available {
-            frame_index,
-            frame_duration: Duration::ZERO,
-            nodes: Vec::new(),
-            debug_groups,
-        };
+        return unavailable(frame_index, GpuTimingUnavailableReason::NoTimedNodes);
     };
     let Some(last) = nodes.last() else {
         unreachable!();

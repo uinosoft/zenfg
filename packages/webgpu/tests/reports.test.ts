@@ -431,6 +431,19 @@ test('concurrent GPU timing requests execute and report busy', async () => {
 	assert.equal((await first).status, 'available');
 });
 
+test('GPU timing is unavailable when no retained render or compute node is sampled', async () => {
+	for (const feature of [false, true]) {
+		for (const kind of ['empty', 'command', 'culled-compute'] as const) {
+			const runtime = new FrameGraph(timingDevice({ feature }));
+			const recorder = runtime.beginFrame();
+			if (kind === 'command') recorder.command({ label: 'command', sideEffect: true });
+			if (kind === 'culled-compute') recorder.compute({ label: 'culled' });
+			const report = await recorder.compile().executeWithTiming({ frameIndex: 9, timing: 'gpu' }).gpu;
+			assert.deepEqual(report, { status: 'unavailable', frameIndex: 9, reason: 'no-timed-nodes' });
+		}
+	}
+});
+
 test('timing reports unsupported and readback failures without blocking execution', async () => {
 	for (const scenario of [
 		{ device: timingDevice({ feature: false }), reason: 'unsupported' },
