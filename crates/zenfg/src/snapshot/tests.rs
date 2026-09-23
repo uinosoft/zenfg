@@ -356,6 +356,22 @@ fn absent_optional_runtime_reports_are_explicitly_unavailable() {
 }
 
 #[test]
+fn no_timed_nodes_maps_to_snapshot_unavailability() {
+    let (report, _, _) = fixture_report();
+    let timing = GpuTimingReport::Unavailable {
+        frame_index: 7,
+        reason: crate::GpuTimingUnavailableReason::NoTimedNodes,
+    };
+    let mut options = CreateFrameGraphSnapshotOptions::new(7);
+    options.gpu_timing = Some(&timing);
+    let snapshot = create_frame_graph_snapshot(&report, options).unwrap();
+    assert!(matches!(
+        snapshot.timings.gpu,
+        SnapshotGpuTimings::Unavailable { ref reason } if reason == "no-timed-nodes"
+    ));
+}
+
+#[test]
 fn all_v1_enum_spellings_are_locked() {
     assert_json_strings(
         &[

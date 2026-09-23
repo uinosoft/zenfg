@@ -1176,6 +1176,7 @@ fn timing_unavailable_reason(
     reason: GpuTimingUnavailableReason,
 ) -> Result<&'static str, SnapshotExportError> {
     match reason {
+        GpuTimingUnavailableReason::NoTimedNodes => Ok("no-timed-nodes"),
         GpuTimingUnavailableReason::Unsupported => Ok("unsupported"),
         GpuTimingUnavailableReason::Busy => Ok("busy"),
         GpuTimingUnavailableReason::ReadbackFailed => Ok("readback-failed"),
