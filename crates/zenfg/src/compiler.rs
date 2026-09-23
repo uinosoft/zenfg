@@ -177,11 +177,15 @@ impl<'frame> CompiledFrame<'frame> {
     /// The queue must belong to the device passed to
     /// [`FrameGraph::with_device`](crate::FrameGraph::with_device). All failures
     /// are reported before the first command is encoded whenever possible.
+    /// Native device-limit and ownership failures may be reported by wgpu.
     pub fn execute(self, queue: &wgpu::Queue) -> Result<(), FrameGraphError> {
         self.execute_with_options(queue, ExecutionOptions::default())
     }
 
     /// Executes once with caller-selected debug markers and frame identity.
+    ///
+    /// The queue must belong to the device passed to
+    /// [`FrameGraph::with_device`](crate::FrameGraph::with_device).
     pub fn execute_with_options(
         self,
         queue: &wgpu::Queue,
@@ -198,6 +202,8 @@ impl<'frame> CompiledFrame<'frame> {
     /// result while graph execution still succeeds. GPU timing covers retained
     /// render/compute nodes; CPU elapsed timing covers all executed node kinds.
     /// Execution failure returns no partial CPU report.
+    /// The queue must belong to the device passed to
+    /// [`FrameGraph::with_device`](crate::FrameGraph::with_device).
     pub fn execute_with_timing(
         self,
         queue: &wgpu::Queue,
@@ -1589,6 +1595,45 @@ mod tests {
             compiled.plan.execution_views[0].descriptor.usage,
             wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::STORAGE_BINDING
         );
+    }
+
+    #[test]
+    fn explicit_d2_view_uses_the_same_layer_in_range_and_execution_descriptor() {
+        let mut graph = FrameGraph::new();
+        let mut frame = graph.begin_frame();
+        let mut texture_desc = TextureDesc::new_2d("array", 8, 8, wgpu::TextureFormat::Rgba8Unorm);
+        texture_desc.size.depth_or_array_layers = 12;
+        let texture = frame
+            .import_texture(
+                texture_desc,
+                ImportTextureOptions::new(InitialContents::Defined),
+            )
+            .unwrap();
+        let view = frame
+            .create_texture_view(
+                texture,
+                TextureViewDesc {
+                    dimension: Some(wgpu::TextureViewDimension::D2),
+                    base_array_layer: 11,
+                    ..Default::default()
+                },
+            )
+            .unwrap();
+        let mut pass = frame.command_pass("sample-last");
+        let _ = pass.sampled_texture(view).unwrap();
+        pass.finish_command(|_| Ok(())).unwrap();
+
+        let compiled = frame.compile(CompileOptions::default()).unwrap();
+        let access = &compiled.plan.retained_nodes[0].accesses[0];
+        let super::NormalizedRange::Texture(regions) = &access.range else {
+            panic!("expected texture range");
+        };
+        assert_eq!(regions[0].base_slice, 11);
+        assert_eq!(regions[0].slice_count, 1);
+        let descriptor = &compiled.plan.execution_views[0].descriptor;
+        assert_eq!(descriptor.dimension, wgpu::TextureViewDimension::D2);
+        assert_eq!(descriptor.base_array_layer, 11);
+        assert_eq!(descriptor.array_layer_count, Some(1));
     }
 
     #[test]

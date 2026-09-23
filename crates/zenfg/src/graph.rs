@@ -13,7 +13,7 @@ use crate::{
     execution::{ClearBufferOperation, NativeResource, NodeExecutor},
     gpu_timing::GpuProfiler,
     model::{DebugGroupRecord, NormalizedRange, ResourceRecord, RootRecord, ViewRecord},
-    resource::normalize_texture_view_descriptor,
+    resource::{normalize_texture_view_descriptor, resolved_array_layer_count},
     resource_pool::{ResourcePool, ResourcePoolStats},
 };
 
@@ -56,7 +56,9 @@ impl FrameGraph {
     ///
     /// The graph owns its transient resource pool and GPU timing resources. The
     /// queue, imported resources, pipelines, bind groups, and surface remain
-    /// caller-owned.
+    /// caller-owned. Native objects supplied for execution must belong to this
+    /// device. Device-specific limits and native object ownership are checked
+    /// by wgpu during allocation or execution, not by graph recording.
     pub fn with_device(device: &wgpu::Device) -> Self {
         Self {
             owner: NEXT_OWNER_ID.fetch_add(1, Ordering::Relaxed),
@@ -981,7 +983,8 @@ fn normalize_view(
         });
     }
 
-    validate_view_dimension(resource, texture, view, mip_count)?;
+    let layer_count = resolved_array_layer_count(texture, view);
+    validate_view_dimension(resource, texture, view, mip_count, layer_count)?;
 
     let mut ranges = Vec::with_capacity(mip_count as usize);
     for mip in view.base_mip_level..mip_end {
@@ -989,10 +992,7 @@ fn normalize_view(
         let (base_slice, slice_count) = if texture.dimension == wgpu::TextureDimension::D3 {
             (0, total_slices)
         } else {
-            let count = view
-                .array_layer_count
-                .unwrap_or_else(|| total_slices.saturating_sub(view.base_array_layer));
-            (view.base_array_layer, count)
+            (view.base_array_layer, layer_count)
         };
         if slice_count == 0 || base_slice.saturating_add(slice_count) > total_slices {
             return Err(FrameGraphError::InvalidTextureView {
@@ -1020,6 +1020,7 @@ fn validate_view_dimension(
     texture: &TextureDesc,
     view: &TextureViewDesc,
     mip_count: u32,
+    layer_count: u32,
 ) -> Result<(), FrameGraphError> {
     let Some(dimension) = view.dimension else {
         return Ok(());
@@ -1037,9 +1038,7 @@ fn validate_view_dimension(
             }
         }
         wgpu::TextureViewDimension::D2 => {
-            if texture.dimension != wgpu::TextureDimension::D2
-                || view.array_layer_count.unwrap_or(1) != 1
-            {
+            if texture.dimension != wgpu::TextureDimension::D2 || layer_count != 1 {
                 return fail("D2 views require a D2 texture and one array layer");
             }
         }
@@ -1056,15 +1055,9 @@ fn validate_view_dimension(
             {
                 return fail("cube views require a square, single-sampled D2 texture");
             }
-            let layers = view.array_layer_count.unwrap_or_else(|| {
-                texture
-                    .size
-                    .depth_or_array_layers
-                    .saturating_sub(view.base_array_layer)
-            });
-            if (dimension == wgpu::TextureViewDimension::Cube && layers != 6)
+            if (dimension == wgpu::TextureViewDimension::Cube && layer_count != 6)
                 || (dimension == wgpu::TextureViewDimension::CubeArray
-                    && (layers == 0 || !layers.is_multiple_of(6)))
+                    && (layer_count == 0 || !layer_count.is_multiple_of(6)))
             {
                 return fail(
                     "cube views require six layers; cube arrays require a multiple of six",

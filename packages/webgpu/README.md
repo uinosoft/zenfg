@@ -76,6 +76,11 @@ function renderFrame(): void {
 // graph.destroy();
 ```
 
+Imported GPU objects must belong to the `GPUDevice` passed to `FrameGraph`.
+ZenFG checks its own graph descriptors and accesses; device-specific limits
+and native object ownership may be validated later by WebGPU. Exceptions from
+the WebGPU implementation are passed through and do not have ZenFG error codes.
+
 `markPresent()` makes the final surface value observable. Without a resource
 root or a side-effect node, work that contributes to no result is culled.
 Normal execution records and submits synchronously; only optional GPU timing
@@ -182,6 +187,21 @@ For resources exposed to the graph:
 See [Core concepts](https://github.com/uinosoft/zenfg/blob/npm/webgpu/v0.1.0/docs/core-concepts.md)
 for the complete ownership, content, dependency, lifetime, and integration
 model.
+
+## Error handling
+
+ZenFG-detected failures in recording, compilation, and execution, including
+invalid descriptors, access declarations, copy operations, ranges, roots, and
+execution options, throw `FrameGraphError`. Branch on its stable `code` and
+`phase`; `nodeId` and `resourceId` are present only when the failing node or
+resource can be identified. Messages are for people and may change.
+
+Exceptions thrown by application callbacks or the WebGPU implementation pass
+through unchanged. Snapshot projection and serialization use a separate
+`FrameGraphSnapshotValidationError` with structured `issues`; import it from
+`@zenfg/webgpu/snapshot` alongside the Snapshot functions. Validation failures
+that previously threw plain `Error` or `TypeError` now throw
+`FrameGraphError` (which still extends `Error`).
 
 ## Diagnostics and Snapshot
 

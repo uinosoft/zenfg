@@ -469,13 +469,14 @@ test('texture view ranges reject non-finite and fractional values during compile
 });
 
 test('buffer allocation bucketing rejects invalid and unsafe results', () => {
-	assert.equal(bufferAllocationSize(0), 1);
-	assert.equal(bufferAllocationSize(3), 4);
+	const context = { code: 'FG1102', phase: 'record' } as const;
+	assert.equal(bufferAllocationSize(0, context), 1);
+	assert.equal(bufferAllocationSize(3, context), 4);
 	for (const size of invalidSafeIntegers) {
-		assert.throws(() => bufferAllocationSize(size), /must be a non-negative safe integer/);
+		assert.throws(() => bufferAllocationSize(size, context), /must be a non-negative safe integer/);
 	}
 	assert.throws(
-		() => bufferAllocationSize(Number.MAX_SAFE_INTEGER),
+		() => bufferAllocationSize(Number.MAX_SAFE_INTEGER, context),
 		/rounds to an unsafe allocation bucket/,
 	);
 });

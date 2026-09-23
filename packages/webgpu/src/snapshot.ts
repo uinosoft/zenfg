@@ -23,6 +23,7 @@ import {
 	stringifyFrameGraphSnapshot as stringifyPortableFrameGraphSnapshot,
 } from '@zenfg/snapshot';
 export type { FrameGraphSnapshot } from '@zenfg/snapshot';
+export { FrameGraphSnapshotValidationError } from '@zenfg/snapshot';
 import type {
 	FrameGraphSnapshot,
 	FrameGraphSnapshotAccess,
@@ -178,7 +179,7 @@ export function createFrameGraphSnapshot(options: CreateFrameGraphSnapshotOption
 					: { status: 'retained' as const, executionOrder },
 			};
 		});
-	const resources = compilation.resources.map((resource): FrameGraphSnapshotResource => {
+	const resources = compilation.resources.map((resource, index): FrameGraphSnapshotResource => {
 		const common = {
 			id: resourceId(resource.id),
 			label: resource.label,
@@ -194,13 +195,13 @@ export function createFrameGraphSnapshot(options: CreateFrameGraphSnapshotOption
 				...common,
 				kind: resource.kind,
 				descriptor: { kind: 'texture', ...resource.descriptor },
-				usageFlags: decodeUsage('texture', resource.usage),
+				usageFlags: decodeUsage('texture', resource.usage, index),
 			}
 			: {
 				...common,
 				kind: resource.kind,
 				descriptor: { kind: 'buffer', ...resource.descriptor },
-				usageFlags: decodeUsage('buffer', resource.usage),
+				usageFlags: decodeUsage('buffer', resource.usage, index),
 			};
 	});
 	const accesses = compilation.accesses.map((access): FrameGraphSnapshotAccess => {
@@ -335,9 +336,9 @@ function validateGpuTimingCoherence(
 	if (issues.length > 0) throw new FrameGraphSnapshotValidationError(issues);
 }
 
-function decodeUsage(kind: 'texture', usage: number): FrameGraphSnapshotTextureUsageFlag[];
-function decodeUsage(kind: 'buffer', usage: number): FrameGraphSnapshotBufferUsageFlag[];
-function decodeUsage(kind: 'texture' | 'buffer', usage: number): string[] {
+function decodeUsage(kind: 'texture', usage: number, index: number): FrameGraphSnapshotTextureUsageFlag[];
+function decodeUsage(kind: 'buffer', usage: number, index: number): FrameGraphSnapshotBufferUsageFlag[];
+function decodeUsage(kind: 'texture' | 'buffer', usage: number, index: number): string[] {
 	const definitions = kind === 'texture' ? TEXTURE_USAGE_FLAGS : BUFFER_USAGE_FLAGS;
 	let known = 0;
 	const flags: string[] = [];
@@ -347,7 +348,7 @@ function decodeUsage(kind: 'texture' | 'buffer', usage: number): string[] {
 	}
 	const unknown = (usage & ~known) >>> 0;
 	if (unknown !== 0) {
-		throw new Error(`Cannot create FrameGraph Snapshot: ${kind} usage contains unknown bits 0x${unknown.toString(16)}.`);
+		throw new FrameGraphSnapshotValidationError([{ severity: 'error', code: 'unknown-usage-bits', path: `/graph/resources/${index}/usageFlags`, message: `Cannot create FrameGraph Snapshot: ${kind} usage contains unknown bits 0x${unknown.toString(16)}.` }]);
 	}
 	return flags;
 }

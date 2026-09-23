@@ -195,7 +195,7 @@ function snapshotColor(value: GPUColor | undefined, field: string): GPUColorDict
 	if (Symbol.iterator in Object(value)) {
 		const values = Array.from(value as Iterable<number>);
 		if (values.length !== 4) {
-			throw new Error(`${field} iterable must contain exactly 4 values. Received ${values.length}.`);
+			throw new FrameGraphError(FRAME_GRAPH_ERROR_CODES.InvalidNodeOperation, `${field} iterable must contain exactly 4 values. Received ${values.length}.`, { phase: 'record' });
 		}
 		return { r: values[0], g: values[1], b: values[2], a: values[3] };
 	}
@@ -338,7 +338,7 @@ class CompiledFrameImpl implements CompiledFrame {
 	}
 
 	executeWithTiming(options: CompiledFrameExecuteOptions & { readonly timing: FrameGraphTimingMode }): FrameGraphExecutionTiming {
-		if (!['cpu', 'gpu', 'both'].includes(options.timing)) throw new TypeError('Invalid execution timing mode.');
+		if (!['cpu', 'gpu', 'both'].includes(options.timing)) throw new FrameGraphError(FRAME_GRAPH_ERROR_CODES.InvalidArgument, 'Invalid execution timing mode.', { phase: 'execute' });
 		return this.recorder.executeCompiled(options, options.timing)!;
 	}
 }
@@ -375,9 +375,12 @@ class FrameGraphRecorderImpl implements FrameGraphRecorder {
 	/** Opens a distinct diagnostic-only recording group. */
 	pushDebugGroup(label: string): void {
 		this.assertCanMutate('pushDebugGroup');
+		if (typeof label !== 'string') {
+			throw new FrameGraphError(FRAME_GRAPH_ERROR_CODES.InvalidDebugGroupLabel, 'FrameGraph debug group label must be a string.', { phase: 'record' });
+		}
 		const normalizedLabel = label.trim();
 		if (normalizedLabel.length === 0) {
-			throw new Error('FrameGraph debug group label must not be empty.');
+			throw new FrameGraphError(FRAME_GRAPH_ERROR_CODES.InvalidDebugGroupLabel, 'FrameGraph debug group label must not be empty.', { phase: 'record' });
 		}
 		const parentId = this.debugGroupStack.at(-1);
 		const id = this.nextDebugGroupId++;
@@ -389,7 +392,7 @@ class FrameGraphRecorderImpl implements FrameGraphRecorder {
 	popDebugGroup(): void {
 		this.assertCanMutate('popDebugGroup');
 		if (this.debugGroupStack.pop() === undefined) {
-			throw new Error('FrameGraph debug group stack is empty.');
+			throw new FrameGraphError(FRAME_GRAPH_ERROR_CODES.DebugGroupStackUnderflow, 'FrameGraph debug group stack is empty.', { phase: 'record' });
 		}
 	}
 
@@ -631,10 +634,10 @@ class FrameGraphRecorderImpl implements FrameGraphRecorder {
 	importSwapchainTexture(texture: GPUTexture, options: ImportSwapchainTextureOptions = {}): TextureHandle {
 		this.assertCanMutate('importSwapchainTexture');
 		if (options === null || typeof options !== 'object' || Array.isArray(options)) {
-			throw new Error('FrameGraph.importSwapchainTexture() options must be an object.');
+			throw new FrameGraphError(FRAME_GRAPH_ERROR_CODES.InvalidArgument, 'FrameGraph.importSwapchainTexture() options must be an object.', { phase: 'record' });
 		}
 		if (Object.prototype.hasOwnProperty.call(options, 'initialContents')) {
-			throw new Error('importSwapchainTexture() does not accept initialContents; swapchain contents are always undefined.');
+			throw new FrameGraphError(FRAME_GRAPH_ERROR_CODES.InvalidArgument, 'importSwapchainTexture() does not accept initialContents; swapchain contents are always undefined.', { phase: 'record' });
 		}
 		this.assertTextureNotImported(texture, 'importSwapchainTexture');
 		const registeredDesc = this.importedTextureDescriptor(texture, options);
@@ -743,26 +746,27 @@ class FrameGraphRecorderImpl implements FrameGraphRecorder {
 		mode: InternalAccess['mode'],
 		options: WriteUseOptions | BufferUseOptions | BufferWriteUseOptions | undefined,
 	): { readonly range?: BufferRange; readonly contents?: WriteContents } {
+		const resourceId = resource.kind === 'texture-view' ? this.textureViewFor(resource).texture.id : resource.id;
 		if (options === undefined) {
 			if (mode === 'write') {
-				throw new Error('FrameGraph.use() write access requires explicit contents: "overwrite" or "preserve".');
+				throw new FrameGraphError(FRAME_GRAPH_ERROR_CODES.InvalidAccess, 'FrameGraph.use() write access requires explicit contents: "overwrite" or "preserve".', { phase: 'record', resourceId });
 			}
 			return {};
 		}
 		if (options === null || typeof options !== 'object' || Array.isArray(options)) {
-			throw new Error('FrameGraph.use() options must be an object.');
+			throw new FrameGraphError(FRAME_GRAPH_ERROR_CODES.InvalidArgument, 'FrameGraph.use() options must be an object.', { phase: 'record', resourceId });
 		}
 		for (const key of Object.keys(options)) {
 			const accepted = (key === 'range' && resource.kind === 'buffer')
 				|| (key === 'contents' && mode === 'write');
 			if (!accepted) {
-				throw new Error(`FrameGraph.use() does not accept option "${key}" for this ${mode} access.`);
+				throw new FrameGraphError(FRAME_GRAPH_ERROR_CODES.InvalidArgument, `FrameGraph.use() does not accept option "${key}" for this ${mode} access.`, { phase: 'record', resourceId });
 			}
 		}
 		let range: BufferRange | undefined;
 		if (resource.kind === 'buffer' && 'range' in options && options.range !== undefined) {
 			if (options.range === null || typeof options.range !== 'object' || Array.isArray(options.range)) {
-				throw new Error('FrameGraph.use() buffer range must be an object.');
+				throw new FrameGraphError(FRAME_GRAPH_ERROR_CODES.InvalidArgument, 'FrameGraph.use() buffer range must be an object.', { phase: 'record', resourceId });
 			}
 			range = { ...options.range };
 		}
@@ -770,11 +774,11 @@ class FrameGraphRecorderImpl implements FrameGraphRecorder {
 			return { range };
 		}
 		if (!('contents' in options) || options.contents === undefined) {
-			throw new Error('FrameGraph.use() write access requires explicit contents: "overwrite" or "preserve".');
+			throw new FrameGraphError(FRAME_GRAPH_ERROR_CODES.InvalidAccess, 'FrameGraph.use() write access requires explicit contents: "overwrite" or "preserve".', { phase: 'record', resourceId });
 		}
 		const contents = options.contents;
 		if (contents !== 'overwrite' && contents !== 'preserve') {
-			throw new Error(`FrameGraph.use() write contents must be "overwrite" or "preserve", received "${String(contents)}".`);
+			throw new FrameGraphError(FRAME_GRAPH_ERROR_CODES.InvalidAccess, `FrameGraph.use() write contents must be "overwrite" or "preserve", received "${String(contents)}".`, { phase: 'record', resourceId });
 		}
 		return { range, contents };
 	}
@@ -1143,7 +1147,7 @@ class FrameGraphRecorderImpl implements FrameGraphRecorder {
 		this.assertCanMutate('markPresent');
 		const internal = this.resourceFor(resource);
 		if (internal.origin !== 'swapchain') {
-			throw new Error('Present can only be marked on a swapchain texture.');
+			throw new FrameGraphError(FRAME_GRAPH_ERROR_CODES.InvalidRoot, 'Present can only be marked on a swapchain texture.', { phase: 'record', resourceId: resource.id });
 		}
 		this.addRootResource(resource, 'present');
 		this.invalidate();
@@ -1187,7 +1191,7 @@ class FrameGraphRecorderImpl implements FrameGraphRecorder {
 		this.assertCanMutate('markPersistentState');
 		const internal = this.resourceFor(resource.kind === 'texture-view' ? this.textureViewFor(resource).texture : resource);
 		if (internal.origin !== 'imported') {
-			throw new Error('Persistent state can only be marked on an imported resource.');
+			throw new FrameGraphError(FRAME_GRAPH_ERROR_CODES.InvalidRoot, 'Persistent state can only be marked on an imported resource.', { phase: 'record', resourceId: internal.handle.id });
 		}
 		this.addRootResource(resource, 'persistent-state', range);
 		this.invalidate();
@@ -1271,7 +1275,7 @@ class FrameGraphRecorderImpl implements FrameGraphRecorder {
 			if (this.debugGroupStack.length > 0) {
 				const groupId = this.debugGroupStack.at(-1)!;
 				const group = this.debugGroups.find((candidate) => candidate.id === groupId);
-				throw new Error(`FrameGraph cannot compile with unclosed debug group "${group?.label ?? groupId}".`);
+				throw new FrameGraphError(FRAME_GRAPH_ERROR_CODES.UnclosedDebugGroup, `FrameGraph cannot compile with unclosed debug group "${group?.label ?? groupId}".`, { phase: 'compile', context: { groupId } });
 			}
 			this.resetRequiredUsage();
 			for (const node of this.nodes) {
@@ -1414,7 +1418,7 @@ class FrameGraphRecorderImpl implements FrameGraphRecorder {
 			);
 		}
 		const frameIndex = options.frameIndex ?? 0;
-		assertNonNegativeSafeInteger(frameIndex, 'CompiledFrame.execute() frameIndex');
+		assertNonNegativeSafeInteger(frameIndex, 'CompiledFrame.execute() frameIndex', { code: FRAME_GRAPH_ERROR_CODES.InvalidArgument, phase: 'execute' });
 		const cpuDurations = timing === 'cpu' || timing === 'both' ? new Float64Array(plan.nodes.length) : undefined;
 		let cpuIndex = 0;
 		const cpuStart = cpuDurations ? cpuClock.now() : 0;
@@ -1852,7 +1856,7 @@ class FrameGraphRecorderImpl implements FrameGraphRecorder {
 		gpuTimingQuery?: GpuTimingNodeQuery,
 	): GPURenderPassDescriptor {
 		if (!node.renderPass) {
-			throw new Error(`Render node "${node.label ?? node.id}" is missing render pass metadata.`);
+			throw new FrameGraphError(FRAME_GRAPH_ERROR_CODES.Internal, `Render node "${node.label ?? node.id}" is missing render pass metadata.`, { phase: 'execute', nodeId: node.id });
 		}
 
 		const colorAttachments = node.renderPass.colorAttachments.map((attachment): GPURenderPassColorAttachment => ({
@@ -2022,11 +2026,11 @@ class FrameGraphRecorderImpl implements FrameGraphRecorder {
 		const mode = this.accessMode(access);
 		const contents = mode === 'write' ? access.contents : undefined;
 		if (mode === 'write' && contents === undefined) {
-			throw new Error('Internal FrameGraph write access requires explicit contents.');
+			throw new FrameGraphError(FRAME_GRAPH_ERROR_CODES.Internal, 'Internal FrameGraph write access requires explicit contents.', { phase: 'record' });
 		}
 		if (access.resource.kind === 'texture-view') {
 			if (access.access === TextureAccess.CopySrc || access.access === TextureAccess.CopyDst) {
-				throw new Error('Texture views cannot be used for copy access.');
+				throw new FrameGraphError(FRAME_GRAPH_ERROR_CODES.InvalidAccess, 'Texture views cannot be used for copy access.', { phase: 'record', resourceId: this.textureViewFor(access.resource as unknown as TextureViewHandle).texture.id });
 			}
 			const view = this.textureViewFor(access.resource);
 			return this.createTextureAccess(
@@ -2116,7 +2120,7 @@ class FrameGraphRecorderImpl implements FrameGraphRecorder {
 		const mode = textureAccessMode(access);
 		const normalizedContents = mode === 'write' ? contents : undefined;
 		if (mode === 'write' && normalizedContents === undefined) {
-			throw new Error('Internal FrameGraph texture write access requires explicit contents.');
+			throw new FrameGraphError(FRAME_GRAPH_ERROR_CODES.Internal, 'Internal FrameGraph texture write access requires explicit contents.', { phase: 'record' });
 		}
 		return {
 			resource,
@@ -2137,7 +2141,7 @@ class FrameGraphRecorderImpl implements FrameGraphRecorder {
 				throw new FrameGraphError(
 					FRAME_GRAPH_ERROR_CODES.InvalidAccess,
 					`Texture cannot use BufferAccess. Resource "${access.resource.label ?? access.resource.id}" declares invalid texture access "${access.access}".`,
-					{ phase: 'record', resourceId: access.resource.id, context: { access: access.access, resourceKind: access.resource.kind } },
+					{ phase: 'record', resourceId: access.resource.kind === 'texture-view' ? this.textureViewFor(access.resource).texture.id : access.resource.id, context: { access: access.access, resourceKind: access.resource.kind } },
 				);
 			}
 			return textureAccessMode(access.access as TextureAccess);
@@ -2157,7 +2161,7 @@ class FrameGraphRecorderImpl implements FrameGraphRecorder {
 		// validated when the internal access edge was recorded.
 		const resource = this.resourceFor(access.resource);
 		if (access.resource.kind === 'texture') {
-			this.validateTextureRegion(access.resource, access.textureRegion!);
+			this.validateTextureRegion(access.resource, access.textureRegion!, node);
 			const textureAccess = access.access as TextureAccess;
 			const format = access.textureView
 				? this.textureViewFor(access.textureView).desc.format
@@ -2170,16 +2174,16 @@ class FrameGraphRecorderImpl implements FrameGraphRecorder {
 				|| formatCapabilities?.kind === 'stencil';
 			const sampleCount = (resource.desc as TextureDesc).sampleCount ?? 1;
 			if ((textureAccess === TextureAccess.DepthRead || textureAccess === TextureAccess.DepthWrite) && !depthFormat) {
-				throw new Error(`Node "${node.label ?? node.id}" declares texture "${access.resource.label ?? access.resource.id}" access "${textureAccess}" with format "${format}". Depth attachment access requires a depth or depth-stencil format.`);
+				throw new FrameGraphError(FRAME_GRAPH_ERROR_CODES.UnsupportedTextureFormatUsage, `Node "${node.label ?? node.id}" declares texture "${access.resource.label ?? access.resource.id}" access "${textureAccess}" with format "${format}". Depth attachment access requires a depth or depth-stencil format.`, { phase: 'compile', nodeId: node.id, resourceId: access.resource.id });
 			}
 			if (textureAccess === TextureAccess.ColorAttachmentWrite && depthFormat) {
-				throw new Error(`Node "${node.label ?? node.id}" declares texture "${access.resource.label ?? access.resource.id}" access "${textureAccess}" with depth format "${format}". ColorAttachment access requires a renderable color format.`);
+				throw new FrameGraphError(FRAME_GRAPH_ERROR_CODES.UnsupportedTextureFormatUsage, `Node "${node.label ?? node.id}" declares texture "${access.resource.label ?? access.resource.id}" access "${textureAccess}" with depth format "${format}". ColorAttachment access requires a renderable color format.`, { phase: 'compile', nodeId: node.id, resourceId: access.resource.id });
 			}
 			if (textureAccess === TextureAccess.ColorAttachmentWrite && !formatCapabilities?.colorRenderable) {
-				throw new Error(`Node "${node.label ?? node.id}" declares texture "${access.resource.label ?? access.resource.id}" access "${textureAccess}" with format "${format}". ColorAttachment access requires a renderable color format.`);
+				throw new FrameGraphError(FRAME_GRAPH_ERROR_CODES.UnsupportedTextureFormatUsage, `Node "${node.label ?? node.id}" declares texture "${access.resource.label ?? access.resource.id}" access "${textureAccess}" with format "${format}". ColorAttachment access requires a renderable color format.`, { phase: 'compile', nodeId: node.id, resourceId: access.resource.id });
 			}
 			if (textureAccess === TextureAccess.Sampled && !formatCapabilities?.sampleable) {
-				throw new Error(`Node "${node.label ?? node.id}" declares texture "${access.resource.label ?? access.resource.id}" access "${textureAccess}". Sampled access requires a sampleable format; actual format "${format}" is not sampleable.`);
+				throw new FrameGraphError(FRAME_GRAPH_ERROR_CODES.UnsupportedTextureFormatUsage, `Node "${node.label ?? node.id}" declares texture "${access.resource.label ?? access.resource.id}" access "${textureAccess}". Sampled access requires a sampleable format; actual format "${format}" is not sampleable.`, { phase: 'compile', nodeId: node.id, resourceId: access.resource.id });
 			}
 			if (
 				(textureAccess === TextureAccess.StorageRead
@@ -2188,10 +2192,10 @@ class FrameGraphRecorderImpl implements FrameGraphRecorder {
 					|| textureAccess === TextureAccess.CopyDst)
 				&& sampleCount > 1
 			) {
-				throw new Error(`Node "${node.label ?? node.id}" declares texture "${access.resource.label ?? access.resource.id}" access "${textureAccess}" with sampleCount ${sampleCount}. This WebGPU access requires a single-sampled texture.`);
+				throw new FrameGraphError(FRAME_GRAPH_ERROR_CODES.InvalidNodeOperation, `Node "${node.label ?? node.id}" declares texture "${access.resource.label ?? access.resource.id}" access "${textureAccess}" with sampleCount ${sampleCount}. This WebGPU access requires a single-sampled texture.`, { phase: 'compile', nodeId: node.id, resourceId: access.resource.id });
 			}
 			if ((textureAccess === TextureAccess.StorageRead || textureAccess === TextureAccess.StorageWrite) && !formatCapabilities?.storage) {
-				throw new Error(`Node "${node.label ?? node.id}" declares texture "${access.resource.label ?? access.resource.id}" ${textureAccess} access. Storage texture access requires a storage-capable format; actual format "${format}" is not storage-capable.`);
+				throw new FrameGraphError(FRAME_GRAPH_ERROR_CODES.UnsupportedTextureFormatUsage, `Node "${node.label ?? node.id}" declares texture "${access.resource.label ?? access.resource.id}" ${textureAccess} access. Storage texture access requires a storage-capable format; actual format "${format}" is not storage-capable.`, { phase: 'compile', nodeId: node.id, resourceId: access.resource.id });
 			}
 			if (access.textureViewDescriptor) {
 				this.validateTextureViewDescriptor(access.resource, access.textureViewDescriptor, access.textureRegion!, textureAccess, node);
@@ -2199,7 +2203,7 @@ class FrameGraphRecorderImpl implements FrameGraphRecorder {
 			return resource;
 		}
 		if (access.bufferRange) {
-			this.validateBufferAccessRange(access.resource, access.bufferRange);
+			this.validateBufferAccessRange(access.resource, access.bufferRange, node);
 		}
 		return resource;
 	}
@@ -2321,7 +2325,7 @@ class FrameGraphRecorderImpl implements FrameGraphRecorder {
 
 	private validateRenderPassDescriptor(node: InternalNode): void {
 		if (!node.renderPass) {
-			throw new Error(`Render node "${node.label ?? node.id}" is missing render pass metadata.`);
+			throw new FrameGraphError(FRAME_GRAPH_ERROR_CODES.Internal, `Render node "${node.label ?? node.id}" is missing render pass metadata.`, { phase: 'compile', nodeId: node.id });
 		}
 
 		let attachmentReference: RenderAttachmentCompatibility | undefined;
@@ -2330,29 +2334,29 @@ class FrameGraphRecorderImpl implements FrameGraphRecorder {
 			const targetDesc = target.desc as TextureDesc;
 			const targetFormat = attachment.targetViewDescriptor.format ?? targetDesc.format;
 			if (isDepthFormat(targetFormat) || !isColorRenderableFormat(targetFormat)) {
-				throw new Error(`Render node "${node.label ?? node.id}" color attachment "${attachment.target.label ?? attachment.target.id}" requires a renderable color format. Received "${targetFormat}".`);
+				throw new FrameGraphError(FRAME_GRAPH_ERROR_CODES.UnsupportedTextureFormatUsage, `Render node "${node.label ?? node.id}" color attachment "${attachment.target.label ?? attachment.target.id}" requires a renderable color format. Received "${targetFormat}".`, { phase: 'compile', nodeId: node.id, resourceId: attachment.target.id });
 			}
-			this.validateTextureRegion(attachment.target, attachment.textureRegion);
+			this.validateTextureRegion(attachment.target, attachment.textureRegion, node);
 			this.validateColorAttachmentView(node, attachment);
 			if (attachment.resolveTarget) {
 				const resolve = this.resourceFor(attachment.resolveTarget);
 				const resolveDesc = resolve.desc as TextureDesc;
 				const resolveFormat = attachment.resolveTargetViewDescriptor?.format ?? resolveDesc.format;
-				this.validateTextureRegion(attachment.resolveTarget, attachment.resolveTextureRegion!);
+				this.validateTextureRegion(attachment.resolveTarget, attachment.resolveTextureRegion!, node);
 				this.validateResolveTargetView(node, attachment);
 				if (targetFormat !== resolveFormat) {
-					throw new Error(`Render node "${node.label ?? node.id}" resolve target "${attachment.resolveTarget.label ?? attachment.resolveTarget.id}" format mismatch: color attachment "${attachment.target.label ?? attachment.target.id}" is "${targetFormat}", resolve target is "${resolveFormat}". WebGPU resolve target format must match the color attachment format.`);
+					throw new FrameGraphError(FRAME_GRAPH_ERROR_CODES.InvalidNodeOperation, `Render node "${node.label ?? node.id}" resolve target "${attachment.resolveTarget.label ?? attachment.resolveTarget.id}" format mismatch: color attachment "${attachment.target.label ?? attachment.target.id}" is "${targetFormat}", resolve target is "${resolveFormat}". WebGPU resolve target format must match the color attachment format.`, { phase: 'compile', nodeId: node.id, resourceId: attachment.resolveTarget.id, context: { colorResourceId: attachment.target.id, resolveResourceId: attachment.resolveTarget.id } });
 				}
 				const targetExtent = textureRenderExtent(targetDesc, attachment.textureRegion.baseMipLevel);
 				const resolveExtent = textureRenderExtent(resolveDesc, attachment.resolveTextureRegion!.baseMipLevel);
 				if (targetExtent[0] !== resolveExtent[0] || targetExtent[1] !== resolveExtent[1]) {
-					throw new Error(`Render node "${node.label ?? node.id}" resolve target "${attachment.resolveTarget.label ?? attachment.resolveTarget.id}" render extent mismatch: color attachment "${attachment.target.label ?? attachment.target.id}" mip ${attachment.textureRegion.baseMipLevel} is ${targetExtent.join('x')}, resolve target mip ${attachment.resolveTextureRegion!.baseMipLevel} is ${resolveExtent.join('x')}. WebGPU resolve target render extent must match the color attachment render extent.`);
+					throw new FrameGraphError(FRAME_GRAPH_ERROR_CODES.InvalidNodeOperation, `Render node "${node.label ?? node.id}" resolve target "${attachment.resolveTarget.label ?? attachment.resolveTarget.id}" render extent mismatch: color attachment "${attachment.target.label ?? attachment.target.id}" mip ${attachment.textureRegion.baseMipLevel} is ${targetExtent.join('x')}, resolve target mip ${attachment.resolveTextureRegion!.baseMipLevel} is ${resolveExtent.join('x')}. WebGPU resolve target render extent must match the color attachment render extent.`, { phase: 'compile', nodeId: node.id, resourceId: attachment.resolveTarget.id, context: { colorResourceId: attachment.target.id, resolveResourceId: attachment.resolveTarget.id } });
 				}
 				if ((targetDesc.sampleCount ?? 1) <= 1) {
-					throw new Error(`Render node "${node.label ?? node.id}" color attachment "${attachment.target.label ?? attachment.target.id}" sampleCount is ${targetDesc.sampleCount ?? 1}. WebGPU render resolve source must be multisampled.`);
+					throw new FrameGraphError(FRAME_GRAPH_ERROR_CODES.InvalidNodeOperation, `Render node "${node.label ?? node.id}" color attachment "${attachment.target.label ?? attachment.target.id}" sampleCount is ${targetDesc.sampleCount ?? 1}. WebGPU render resolve source must be multisampled.`, { phase: 'compile', nodeId: node.id, resourceId: attachment.target.id });
 				}
 				if ((resolveDesc.sampleCount ?? 1) !== 1) {
-					throw new Error(`Render node "${node.label ?? node.id}" resolve target "${attachment.resolveTarget.label ?? attachment.resolveTarget.id}" sampleCount is ${resolveDesc.sampleCount ?? 1}. WebGPU render resolve target must be single-sampled.`);
+					throw new FrameGraphError(FRAME_GRAPH_ERROR_CODES.InvalidNodeOperation, `Render node "${node.label ?? node.id}" resolve target "${attachment.resolveTarget.label ?? attachment.resolveTarget.id}" sampleCount is ${resolveDesc.sampleCount ?? 1}. WebGPU render resolve target must be single-sampled.`, { phase: 'compile', nodeId: node.id, resourceId: attachment.resolveTarget?.id });
 				}
 			}
 			attachmentReference = this.validateRenderAttachmentCompatibility(
@@ -2370,10 +2374,10 @@ class FrameGraphRecorderImpl implements FrameGraphRecorder {
 			const target = this.resourceFor(depth.target);
 			const targetDesc = target.desc as TextureDesc;
 			if (getTextureFormatCapabilities(targetDesc.format).kind !== 'depth') {
-				throw new Error(`Render node "${node.label ?? node.id}" depth attachment "${depth.target.label ?? depth.target.id}" has format "${targetDesc.format}". Depth attachment access requires a pure depth format.`);
+				throw new FrameGraphError(FRAME_GRAPH_ERROR_CODES.UnsupportedTextureFormatUsage, `Render node "${node.label ?? node.id}" depth attachment "${depth.target.label ?? depth.target.id}" has format "${targetDesc.format}". Depth attachment access requires a pure depth format.`, { phase: 'compile', nodeId: node.id, resourceId: depth.target.id });
 			}
 			this.validateDepthAttachmentOperations(node, depth);
-			this.validateTextureRegion(depth.target, depth.textureRegion);
+			this.validateTextureRegion(depth.target, depth.textureRegion, node);
 			this.validateDepthAttachmentView(node, depth);
 			this.validateRenderAttachmentCompatibility(node, depth.target, depth.textureRegion, attachmentReference);
 		}
@@ -2387,21 +2391,21 @@ class FrameGraphRecorderImpl implements FrameGraphRecorder {
 		const attachmentLabel = depth.target.label ?? depth.target.id;
 		if (depth.depthReadOnly) {
 			if (depth.depthLoadOp !== undefined || depth.depthStoreOp !== undefined) {
-				throw new Error(`Render node "${nodeLabel}" read-only depth attachment "${attachmentLabel}" must not provide depthLoadOp or depthStoreOp.`);
+				throw new FrameGraphError(FRAME_GRAPH_ERROR_CODES.InvalidNodeOperation, `Render node "${nodeLabel}" read-only depth attachment "${attachmentLabel}" must not provide depthLoadOp or depthStoreOp.`, { phase: 'compile', nodeId: node.id, resourceId: depth.target.id });
 			}
 			return;
 		}
 		if (depth.depthLoadOp === undefined || depth.depthStoreOp === undefined) {
-			throw new Error(`Render node "${nodeLabel}" writable depth attachment "${attachmentLabel}" must provide depthLoadOp and depthStoreOp.`);
+			throw new FrameGraphError(FRAME_GRAPH_ERROR_CODES.InvalidNodeOperation, `Render node "${nodeLabel}" writable depth attachment "${attachmentLabel}" must provide depthLoadOp and depthStoreOp.`, { phase: 'compile', nodeId: node.id, resourceId: depth.target.id });
 		}
 		if (depth.depthLoadOp !== 'clear') {
 			return;
 		}
 		if (depth.depthClearValue === undefined) {
-			throw new Error(`Render node "${nodeLabel}" cleared depth attachment "${attachmentLabel}" must provide depthClearValue.`);
+			throw new FrameGraphError(FRAME_GRAPH_ERROR_CODES.InvalidNodeOperation, `Render node "${nodeLabel}" cleared depth attachment "${attachmentLabel}" must provide depthClearValue.`, { phase: 'compile', nodeId: node.id, resourceId: depth.target.id });
 		}
 		if (!Number.isFinite(depth.depthClearValue) || depth.depthClearValue < 0 || depth.depthClearValue > 1) {
-			throw new Error(`Render node "${nodeLabel}" cleared depth attachment "${attachmentLabel}" depthClearValue must be between 0 and 1. Received ${depth.depthClearValue}.`);
+			throw new FrameGraphError(FRAME_GRAPH_ERROR_CODES.InvalidNodeOperation, `Render node "${nodeLabel}" cleared depth attachment "${attachmentLabel}" depthClearValue must be between 0 and 1. Received ${depth.depthClearValue}.`, { phase: 'compile', nodeId: node.id, resourceId: depth.target.id });
 		}
 	}
 
@@ -2415,16 +2419,16 @@ class FrameGraphRecorderImpl implements FrameGraphRecorder {
 			|| attachment.textureRegion.arrayLayerCount !== 1
 			|| (dimension !== '2d' && dimension !== '2d-array' && dimension !== '3d')
 		) {
-			throw new Error(`Render node "${node.label ?? node.id}" color attachment "${attachment.target.label ?? attachment.target.id}" must use a single-mip, single-layer 2d, 2d-array, or 3d view.`);
+			throw new FrameGraphError(FRAME_GRAPH_ERROR_CODES.InvalidNodeOperation, `Render node "${node.label ?? node.id}" color attachment "${attachment.target.label ?? attachment.target.id}" must use a single-mip, single-layer 2d, 2d-array, or 3d view.`, { phase: 'compile', nodeId: node.id, resourceId: attachment.target.id });
 		}
 		if ((attachment.targetViewDescriptor.swizzle ?? 'rgba') !== 'rgba') {
-			throw new Error(`Render node "${node.label ?? node.id}" color attachment views cannot use component swizzle.`);
+			throw new FrameGraphError(FRAME_GRAPH_ERROR_CODES.InvalidNodeOperation, `Render node "${node.label ?? node.id}" color attachment views cannot use component swizzle.`, { phase: 'compile', nodeId: node.id, resourceId: attachment.target.id });
 		}
 		if (dimension === '3d' && attachment.depthSlice === undefined) {
-			throw new Error(`Render node "${node.label ?? node.id}" 3d color attachment "${attachment.target.label ?? attachment.target.id}" requires depthSlice.`);
+			throw new FrameGraphError(FRAME_GRAPH_ERROR_CODES.InvalidNodeOperation, `Render node "${node.label ?? node.id}" 3d color attachment "${attachment.target.label ?? attachment.target.id}" requires depthSlice.`, { phase: 'compile', nodeId: node.id, resourceId: attachment.target.id });
 		}
 		if (dimension !== '3d' && attachment.depthSlice !== undefined) {
-			throw new Error(`Render node "${node.label ?? node.id}" color attachment "${attachment.target.label ?? attachment.target.id}" provides depthSlice for a non-3d view.`);
+			throw new FrameGraphError(FRAME_GRAPH_ERROR_CODES.InvalidNodeOperation, `Render node "${node.label ?? node.id}" color attachment "${attachment.target.label ?? attachment.target.id}" provides depthSlice for a non-3d view.`, { phase: 'compile', nodeId: node.id, resourceId: attachment.target.id });
 		}
 	}
 
@@ -2438,10 +2442,10 @@ class FrameGraphRecorderImpl implements FrameGraphRecorder {
 			|| attachment.resolveTextureRegion.arrayLayerCount !== 1
 			|| (dimension !== '2d' && dimension !== '2d-array')
 		) {
-			throw new Error(`Render node "${node.label ?? node.id}" resolve target "${attachment.resolveTarget?.label ?? attachment.resolveTarget?.id}" must use a single-mip, single-layer 2d or 2d-array view.`);
+			throw new FrameGraphError(FRAME_GRAPH_ERROR_CODES.InvalidNodeOperation, `Render node "${node.label ?? node.id}" resolve target "${attachment.resolveTarget?.label ?? attachment.resolveTarget?.id}" must use a single-mip, single-layer 2d or 2d-array view.`, { phase: 'compile', nodeId: node.id, resourceId: attachment.resolveTarget?.id });
 		}
 		if ((attachment.resolveTargetViewDescriptor?.swizzle ?? 'rgba') !== 'rgba') {
-			throw new Error(`Render node "${node.label ?? node.id}" resolve target views cannot use component swizzle.`);
+			throw new FrameGraphError(FRAME_GRAPH_ERROR_CODES.InvalidNodeOperation, `Render node "${node.label ?? node.id}" resolve target views cannot use component swizzle.`, { phase: 'compile', nodeId: node.id, resourceId: attachment.resolveTarget?.id });
 		}
 	}
 
@@ -2455,10 +2459,10 @@ class FrameGraphRecorderImpl implements FrameGraphRecorder {
 			|| depth.textureRegion.arrayLayerCount !== 1
 			|| (dimension !== '2d' && dimension !== '2d-array')
 		) {
-			throw new Error(`Render node "${node.label ?? node.id}" depth attachment "${depth.target.label ?? depth.target.id}" must use a single-mip, single-layer 2d or 2d-array view.`);
+			throw new FrameGraphError(FRAME_GRAPH_ERROR_CODES.InvalidNodeOperation, `Render node "${node.label ?? node.id}" depth attachment "${depth.target.label ?? depth.target.id}" must use a single-mip, single-layer 2d or 2d-array view.`, { phase: 'compile', nodeId: node.id, resourceId: depth.target.id });
 		}
 		if ((depth.targetViewDescriptor.swizzle ?? 'rgba') !== 'rgba') {
-			throw new Error(`Render node "${node.label ?? node.id}" depth attachment views cannot use component swizzle.`);
+			throw new FrameGraphError(FRAME_GRAPH_ERROR_CODES.InvalidNodeOperation, `Render node "${node.label ?? node.id}" depth attachment views cannot use component swizzle.`, { phase: 'compile', nodeId: node.id, resourceId: depth.target.id });
 		}
 	}
 
@@ -2479,10 +2483,10 @@ class FrameGraphRecorderImpl implements FrameGraphRecorder {
 			return attachment;
 		}
 		if (attachment.sampleCount !== reference.sampleCount) {
-			throw new Error(`Render node "${node.label ?? node.id}" attachment "${handle.label ?? handle.id}" sampleCount ${attachment.sampleCount} does not match attachment "${reference.handle.label ?? reference.handle.id}" sampleCount ${reference.sampleCount}. WebGPU render pass color and depth attachments must have matching sample counts.`);
+			throw new FrameGraphError(FRAME_GRAPH_ERROR_CODES.InvalidNodeOperation, `Render node "${node.label ?? node.id}" attachment "${handle.label ?? handle.id}" sampleCount ${attachment.sampleCount} does not match attachment "${reference.handle.label ?? reference.handle.id}" sampleCount ${reference.sampleCount}. WebGPU render pass color and depth attachments must have matching sample counts.`, { phase: 'compile', nodeId: node.id, resourceId: handle.id, context: { attachmentResourceId: handle.id, referenceResourceId: reference.handle.id } });
 		}
 		if (attachment.extent[0] !== reference.extent[0] || attachment.extent[1] !== reference.extent[1]) {
-			throw new Error(`Render node "${node.label ?? node.id}" attachment "${handle.label ?? handle.id}" mip ${attachment.baseMipLevel} render extent ${attachment.extent.join('x')} does not match attachment "${reference.handle.label ?? reference.handle.id}" mip ${reference.baseMipLevel} render extent ${reference.extent.join('x')}. WebGPU render pass color and depth attachment render extents must match.`);
+			throw new FrameGraphError(FRAME_GRAPH_ERROR_CODES.InvalidNodeOperation, `Render node "${node.label ?? node.id}" attachment "${handle.label ?? handle.id}" mip ${attachment.baseMipLevel} render extent ${attachment.extent.join('x')} does not match attachment "${reference.handle.label ?? reference.handle.id}" mip ${reference.baseMipLevel} render extent ${reference.extent.join('x')}. WebGPU render pass color and depth attachment render extents must match.`, { phase: 'compile', nodeId: node.id, resourceId: handle.id, context: { attachmentResourceId: handle.id, referenceResourceId: reference.handle.id } });
 		}
 		return reference;
 	}
@@ -2511,71 +2515,71 @@ class FrameGraphRecorderImpl implements FrameGraphRecorder {
 				if (!hasWrite) {
 					continue;
 				}
-				throw new Error(`Render pass "${node.label ?? node.id}" has overlapping texture accesses for "${first.resource.label ?? first.resource.id}": ${first.access} (${first.mode}) conflicts with ${second.access} (${second.mode}) on overlapping subresources. WebGPU does not allow simultaneous read/write or write/write aliasing within a pass.`);
+				throw new FrameGraphError(FRAME_GRAPH_ERROR_CODES.ConflictingAccesses, `Render pass "${node.label ?? node.id}" has overlapping texture accesses for "${first.resource.label ?? first.resource.id}": ${first.access} (${first.mode}) conflicts with ${second.access} (${second.mode}) on overlapping subresources. WebGPU does not allow simultaneous read/write or write/write aliasing within a pass.`, { phase: 'compile', nodeId: node.id, resourceId: first.resource.id });
 			}
 		}
 	}
 
-	private validateTextureRegion(handle: TextureHandle, range: InternalTextureRegion): void {
+	private validateTextureRegion(handle: TextureHandle, range: InternalTextureRegion, node?: InternalNode): void {
 		const desc = this.resourceFor(handle).desc as TextureDesc;
 		const [, , depthOrArrayLayers] = textureSizeTuple(desc.size);
 		const mipLevelCount = desc.mipLevelCount ?? 1;
 		const prefix = `Texture view range for "${handle.label ?? handle.id}"`;
-		assertNonNegativeUint32(range.baseMipLevel, `${prefix} baseMipLevel`);
-		assertPositiveUint32(range.mipLevelCount, `${prefix} mipLevelCount`);
+		assertNonNegativeUint32(range.baseMipLevel, `${prefix} baseMipLevel`, { code: FRAME_GRAPH_ERROR_CODES.InvalidTextureView, phase: node ? 'compile' : 'record', nodeId: node?.id, resourceId: handle.id });
+		assertPositiveUint32(range.mipLevelCount, `${prefix} mipLevelCount`, { code: FRAME_GRAPH_ERROR_CODES.InvalidTextureView, phase: node ? 'compile' : 'record', nodeId: node?.id, resourceId: handle.id });
 		if (range.baseMipLevel + range.mipLevelCount > mipLevelCount) {
-			throw new Error(`Texture view range for "${handle.label ?? handle.id}" exceeds declared mip levels.`);
+			throw new FrameGraphError(FRAME_GRAPH_ERROR_CODES.InvalidTextureView, `Texture view range for "${handle.label ?? handle.id}" exceeds declared mip levels.`, { phase: node ? 'compile' : 'record', nodeId: node?.id, resourceId: handle.id });
 		}
 		const dimension = desc.dimension ?? '2d';
 		const maxArrayLayers = dimension === '2d' ? depthOrArrayLayers : 1;
-		assertNonNegativeUint32(range.baseArrayLayer, `${prefix} baseArrayLayer`);
-		assertPositiveUint32(range.arrayLayerCount, `${prefix} arrayLayerCount`);
+		assertNonNegativeUint32(range.baseArrayLayer, `${prefix} baseArrayLayer`, { code: FRAME_GRAPH_ERROR_CODES.InvalidTextureView, phase: node ? 'compile' : 'record', nodeId: node?.id, resourceId: handle.id });
+		assertPositiveUint32(range.arrayLayerCount, `${prefix} arrayLayerCount`, { code: FRAME_GRAPH_ERROR_CODES.InvalidTextureView, phase: node ? 'compile' : 'record', nodeId: node?.id, resourceId: handle.id });
 		if (range.baseArrayLayer + range.arrayLayerCount > maxArrayLayers) {
-			throw new Error(`Texture view range for "${handle.label ?? handle.id}" exceeds declared array layers.`);
+			throw new FrameGraphError(FRAME_GRAPH_ERROR_CODES.InvalidTextureView, `Texture view range for "${handle.label ?? handle.id}" exceeds declared array layers.`, { phase: node ? 'compile' : 'record', nodeId: node?.id, resourceId: handle.id });
 		}
 		const maxDepth = dimension === '3d'
 			? Math.max(1, Math.floor(depthOrArrayLayers / (2 ** range.baseMipLevel)))
 			: 1;
-		assertNonNegativeUint32(range.baseDepthSlice, `${prefix} baseDepthSlice`);
-		assertPositiveUint32(range.depthSliceCount, `${prefix} depthSliceCount`);
+		assertNonNegativeUint32(range.baseDepthSlice, `${prefix} baseDepthSlice`, { code: FRAME_GRAPH_ERROR_CODES.InvalidTextureView, phase: node ? 'compile' : 'record', nodeId: node?.id, resourceId: handle.id });
+		assertPositiveUint32(range.depthSliceCount, `${prefix} depthSliceCount`, { code: FRAME_GRAPH_ERROR_CODES.InvalidTextureView, phase: node ? 'compile' : 'record', nodeId: node?.id, resourceId: handle.id });
 		if (range.baseDepthSlice + range.depthSliceCount > maxDepth) {
-			throw new Error(`Texture view range for "${handle.label ?? handle.id}" exceeds declared depth slices.`);
+			throw new FrameGraphError(FRAME_GRAPH_ERROR_CODES.InvalidTextureView, `Texture view range for "${handle.label ?? handle.id}" exceeds declared depth slices.`, { phase: node ? 'compile' : 'record', nodeId: node?.id, resourceId: handle.id });
 		}
 	}
 
 	private validateClearBufferNodeDescriptor(node: InternalNode): void {
 		for (const operation of node.clearBufferOperations ?? []) {
-			this.validateBufferClearRange(operation.target, operation.offset ?? 0, operation.size);
+			this.validateBufferClearRange(operation.target, operation.offset ?? 0, operation.size, node);
 		}
 	}
 
-	private validateBufferClearRange(handle: BufferHandle, offset: GPUSize64, size: GPUSize64 | undefined): void {
+	private validateBufferClearRange(handle: BufferHandle, offset: GPUSize64, size: GPUSize64 | undefined, node: InternalNode): void {
 		const resource = this.resourceFor(handle);
 		const desc = resource.desc as BufferDesc;
 		const prefix = `Buffer clear range for "${handle.label ?? handle.id}"`;
-		assertNonNegativeSafeInteger(offset, `${prefix} offset`);
+		assertNonNegativeSafeInteger(offset, `${prefix} offset`, { code: FRAME_GRAPH_ERROR_CODES.InvalidBufferRange, phase: 'compile', nodeId: node.id, resourceId: handle.id });
 		if (size !== undefined) {
-			assertNonNegativeSafeInteger(size, `${prefix} size`);
+			assertNonNegativeSafeInteger(size, `${prefix} size`, { code: FRAME_GRAPH_ERROR_CODES.InvalidBufferRange, phase: 'compile', nodeId: node.id, resourceId: handle.id });
 		}
 		const resolvedSize = size ?? desc.size - offset;
 		if (offset > desc.size || resolvedSize > desc.size - offset) {
-			throw new Error(`Buffer clear range exceeds buffer "${handle.label ?? handle.id}" size.`);
+			throw new FrameGraphError(FRAME_GRAPH_ERROR_CODES.InvalidBufferRange, `Buffer clear range exceeds buffer "${handle.label ?? handle.id}" size.`, { phase: 'compile', nodeId: node.id, resourceId: handle.id });
 		}
 		if (offset % 4 !== 0 || resolvedSize % 4 !== 0) {
-			throw new Error('Buffer clear offset and size must be 4-byte aligned.');
+			throw new FrameGraphError(FRAME_GRAPH_ERROR_CODES.InvalidNodeOperation, 'Buffer clear offset and size must be 4-byte aligned.', { phase: 'compile', nodeId: node.id, resourceId: handle.id });
 		}
 	}
 
-	private validateBufferAccessRange(handle: BufferHandle, range: BufferRange): void {
+	private validateBufferAccessRange(handle: BufferHandle, range: BufferRange, node: InternalNode): void {
 		const prefix = `Buffer access range for "${handle.label ?? handle.id}"`;
-		assertNonNegativeSafeInteger(range.offset, `${prefix} offset`);
+		assertNonNegativeSafeInteger(range.offset, `${prefix} offset`, { code: FRAME_GRAPH_ERROR_CODES.InvalidBufferRange, phase: 'compile', nodeId: node.id, resourceId: handle.id });
 		if (range.size !== undefined) {
-			assertNonNegativeSafeInteger(range.size, `${prefix} size`);
+			assertNonNegativeSafeInteger(range.size, `${prefix} size`, { code: FRAME_GRAPH_ERROR_CODES.InvalidBufferRange, phase: 'compile', nodeId: node.id, resourceId: handle.id });
 		}
 		const resolved = resolveBufferRange((resource) => this.resourceFor(resource), handle, range);
 		const descriptorSize = (this.resourceFor(handle).desc as BufferDesc).size;
 		if (resolved.offset > descriptorSize || resolved.size > descriptorSize - resolved.offset) {
-			throw new Error(`Buffer access range exceeds buffer "${handle.label ?? handle.id}" size.`);
+			throw new FrameGraphError(FRAME_GRAPH_ERROR_CODES.InvalidBufferRange, `Buffer access range exceeds buffer "${handle.label ?? handle.id}" size.`, { phase: 'compile', nodeId: node.id, resourceId: handle.id });
 		}
 	}
 
@@ -2602,29 +2606,29 @@ class FrameGraphRecorderImpl implements FrameGraphRecorder {
 
 	private addTextureUsage(resource: InternalResource, access: TextureAccess): void {
 		if (resource.handle.kind !== 'texture') {
-			throw new Error('Cannot add texture usage to a buffer resource.');
+			throw new FrameGraphError(FRAME_GRAPH_ERROR_CODES.Internal, 'Cannot add texture usage to a buffer resource.', { phase: 'compile', resourceId: resource.handle.id });
 		}
 		resource.requiredUsage = (resource.requiredUsage | textureAccessUsage(access)) as never;
 	}
 
 	private validateReadbackBuffer(resource: InternalResource): void {
 		if (resource.handle.kind !== 'buffer') {
-			throw new Error('Readback can only be marked on a buffer resource.');
+			throw new FrameGraphError(FRAME_GRAPH_ERROR_CODES.InvalidRoot, 'Readback can only be marked on a buffer resource.', { phase: 'record', resourceId: resource.handle.id });
 		}
 		if (resource.origin !== 'imported') {
-			throw new Error(`Readback buffer "${resource.handle.label ?? resource.handle.id}" must be caller-owned and registered with importBuffer().`);
+			throw new FrameGraphError(FRAME_GRAPH_ERROR_CODES.InvalidRoot, `Readback buffer "${resource.handle.label ?? resource.handle.id}" must be caller-owned and registered with importBuffer().`, { phase: 'record', resourceId: resource.handle.id });
 		}
 		const usage = (resource.desc as BufferDesc).usage ?? 0;
 		const mapRead = bufferUsageFlag('MAP_READ');
 		const copyDst = bufferUsageFlag('COPY_DST');
 		if ((usage & mapRead) !== mapRead) {
-			throw new Error(`Readback buffer "${resource.handle.label ?? resource.handle.id}" must declare GPUBufferUsage.MAP_READ.`);
+			throw new FrameGraphError(FRAME_GRAPH_ERROR_CODES.InvalidRoot, `Readback buffer "${resource.handle.label ?? resource.handle.id}" must declare GPUBufferUsage.MAP_READ.`, { phase: 'record', resourceId: resource.handle.id });
 		}
 		if ((usage & copyDst) !== copyDst) {
-			throw new Error(`Readback buffer "${resource.handle.label ?? resource.handle.id}" must declare GPUBufferUsage.COPY_DST.`);
+			throw new FrameGraphError(FRAME_GRAPH_ERROR_CODES.InvalidRoot, `Readback buffer "${resource.handle.label ?? resource.handle.id}" must declare GPUBufferUsage.COPY_DST.`, { phase: 'record', resourceId: resource.handle.id });
 		}
 		if ((usage & ~(mapRead | copyDst)) !== 0) {
-			throw new Error(`Readback buffer "${resource.handle.label ?? resource.handle.id}" usage must only combine MAP_READ with COPY_DST.`);
+			throw new FrameGraphError(FRAME_GRAPH_ERROR_CODES.InvalidRoot, `Readback buffer "${resource.handle.label ?? resource.handle.id}" usage must only combine MAP_READ with COPY_DST.`, { phase: 'record', resourceId: resource.handle.id });
 		}
 	}
 
@@ -2636,7 +2640,7 @@ class FrameGraphRecorderImpl implements FrameGraphRecorder {
 		if (resource.handle.kind === 'texture') {
 			return texturePoolKey(resource.desc as TextureDesc, this.effectiveResourceUsage(resource) as GPUTextureUsageFlags);
 		}
-		return bufferPoolKey(resource.desc as BufferDesc, this.effectiveResourceUsage(resource) as GPUBufferUsageFlags);
+		return bufferPoolKey(resource.desc as BufferDesc, this.effectiveResourceUsage(resource) as GPUBufferUsageFlags, { code: FRAME_GRAPH_ERROR_CODES.InvalidResourceDescriptor, phase: 'compile', resourceId: resource.handle.id });
 	}
 
 	private resolveTextureViewBinding(
@@ -2750,34 +2754,34 @@ class FrameGraphRecorderImpl implements FrameGraphRecorder {
 	private validateTextureDescriptor(desc: TextureDesc): void {
 		const prefix = `Texture descriptor "${desc.label ?? 'unlabeled'}"`;
 		const [width, height, depthOrArrayLayers] = textureSizeTuple(desc.size);
-		assertPositiveUint32(width, `${prefix} size.width`);
-		assertPositiveUint32(height, `${prefix} size.height`);
-		assertPositiveUint32(depthOrArrayLayers, `${prefix} size.depthOrArrayLayers`);
+		assertPositiveUint32(width, `${prefix} size.width`, { code: FRAME_GRAPH_ERROR_CODES.InvalidResourceDescriptor, phase: 'record' });
+		assertPositiveUint32(height, `${prefix} size.height`, { code: FRAME_GRAPH_ERROR_CODES.InvalidResourceDescriptor, phase: 'record' });
+		assertPositiveUint32(depthOrArrayLayers, `${prefix} size.depthOrArrayLayers`, { code: FRAME_GRAPH_ERROR_CODES.InvalidResourceDescriptor, phase: 'record' });
 		const mipLevelCount = desc.mipLevelCount ?? 1;
-		assertPositiveUint32(mipLevelCount, `${prefix} mipLevelCount`);
+		assertPositiveUint32(mipLevelCount, `${prefix} mipLevelCount`, { code: FRAME_GRAPH_ERROR_CODES.InvalidResourceDescriptor, phase: 'record' });
 		const maximumMipLevelCount = this.maximumMipLevelCount(desc, width, height, depthOrArrayLayers);
 		if (mipLevelCount > maximumMipLevelCount) {
-			throw new Error(`${prefix} mipLevelCount must not exceed ${maximumMipLevelCount} for its declared size and dimension. Received ${mipLevelCount}.`);
+			throw new FrameGraphError(FRAME_GRAPH_ERROR_CODES.InvalidResourceDescriptor, `${prefix} mipLevelCount must not exceed ${maximumMipLevelCount} for its declared size and dimension. Received ${mipLevelCount}.`, { phase: 'record' });
 		}
 		const sampleCount = desc.sampleCount ?? 1;
-		assertPositiveUint32(sampleCount, `${prefix} sampleCount`);
+		assertPositiveUint32(sampleCount, `${prefix} sampleCount`, { code: FRAME_GRAPH_ERROR_CODES.InvalidResourceDescriptor, phase: 'record' });
 		if (sampleCount !== 1 && sampleCount !== 4) {
-			throw new Error(`${prefix} sampleCount must be either 1 or 4. Received ${sampleCount}.`);
+			throw new FrameGraphError(FRAME_GRAPH_ERROR_CODES.InvalidResourceDescriptor, `${prefix} sampleCount must be either 1 or 4. Received ${sampleCount}.`, { phase: 'record' });
 		}
 		if (hasStencilAspect(desc.format)) {
-			throw new Error(`FrameGraph does not support stencil texture format "${desc.format}".`);
+			throw new FrameGraphError(FRAME_GRAPH_ERROR_CODES.InvalidResourceDescriptor, `FrameGraph does not support stencil texture format "${desc.format}".`, { phase: 'record' });
 		}
 		const seen = new Set<GPUTextureFormat>();
 		for (const viewFormat of desc.viewFormats ?? []) {
 			if (seen.has(viewFormat)) {
-				throw new Error(`Texture viewFormats contains duplicate format "${viewFormat}".`);
+				throw new FrameGraphError(FRAME_GRAPH_ERROR_CODES.InvalidResourceDescriptor, `Texture viewFormats contains duplicate format "${viewFormat}".`, { phase: 'record' });
 			}
 			seen.add(viewFormat);
 			if (hasStencilAspect(viewFormat)) {
-				throw new Error(`FrameGraph does not support stencil view format "${viewFormat}".`);
+				throw new FrameGraphError(FRAME_GRAPH_ERROR_CODES.InvalidResourceDescriptor, `FrameGraph does not support stencil view format "${viewFormat}".`, { phase: 'record' });
 			}
 			if (!areTextureViewFormatsCompatible(desc.format, viewFormat)) {
-				throw new Error(`Texture view format "${viewFormat}" is not compatible with texture format "${desc.format}".`);
+				throw new FrameGraphError(FRAME_GRAPH_ERROR_CODES.InvalidResourceDescriptor, `Texture view format "${viewFormat}" is not compatible with texture format "${desc.format}".`, { phase: 'record' });
 			}
 		}
 	}
@@ -2799,9 +2803,9 @@ class FrameGraphRecorderImpl implements FrameGraphRecorder {
 
 	private validateBufferDescriptor(desc: BufferDesc, transient: boolean): void {
 		const prefix = `Buffer descriptor "${desc.label ?? 'unlabeled'}"`;
-		assertNonNegativeSafeInteger(desc.size, `${prefix} size`);
+		assertNonNegativeSafeInteger(desc.size, `${prefix} size`, { code: FRAME_GRAPH_ERROR_CODES.InvalidResourceDescriptor, phase: 'record' });
 		if (transient) {
-			bufferAllocationSize(desc.size);
+			bufferAllocationSize(desc.size, { code: FRAME_GRAPH_ERROR_CODES.InvalidResourceDescriptor, phase: 'record' });
 		}
 	}
 
@@ -2815,10 +2819,10 @@ class FrameGraphRecorderImpl implements FrameGraphRecorder {
 		const desc = this.resourceFor(handle).desc as TextureDesc;
 		const format = descriptor.format ?? desc.format;
 		if (format !== desc.format && !(desc.viewFormats ?? []).includes(format)) {
-			throw new Error(`Texture view format "${format}" for "${handle.label ?? handle.id}" was not declared in viewFormats.`);
+			throw new FrameGraphError(FRAME_GRAPH_ERROR_CODES.InvalidTextureView, `Texture view format "${format}" for "${handle.label ?? handle.id}" was not declared in viewFormats.`, { phase: node ? 'compile' : 'record', nodeId: node?.id, resourceId: handle.id });
 		}
 		if (!areTextureViewFormatsCompatible(desc.format, format)) {
-			throw new Error(`Texture view format "${format}" is not compatible with texture format "${desc.format}".`);
+			throw new FrameGraphError(FRAME_GRAPH_ERROR_CODES.InvalidTextureView, `Texture view format "${format}" is not compatible with texture format "${desc.format}".`, { phase: node ? 'compile' : 'record', nodeId: node?.id, resourceId: handle.id });
 		}
 		const dimension = descriptor.dimension!;
 		const textureDimension = desc.dimension ?? '2d';
@@ -2830,13 +2834,13 @@ class FrameGraphRecorderImpl implements FrameGraphRecorder {
 			&& aspect !== 'depth-only'
 			&& aspect !== 'stencil-only'
 		) {
-			throw new Error(`Texture view "${handle.label ?? handle.id}" has invalid aspect "${aspect}".`);
+			throw new FrameGraphError(FRAME_GRAPH_ERROR_CODES.InvalidTextureView, `Texture view "${handle.label ?? handle.id}" has invalid aspect "${aspect}".`, { phase: node ? 'compile' : 'record', nodeId: node?.id, resourceId: handle.id });
 		}
 		if (aspect === 'stencil-only') {
-			throw new Error(`FrameGraph does not support stencil texture view aspects.`);
+			throw new FrameGraphError(FRAME_GRAPH_ERROR_CODES.InvalidTextureView, `FrameGraph does not support stencil texture view aspects.`, { phase: node ? 'compile' : 'record', nodeId: node?.id, resourceId: handle.id });
 		}
 		if (aspect === 'depth-only' && formatKind !== 'depth') {
-			throw new Error(`Texture view "${handle.label ?? handle.id}" uses depth-only aspect with non-depth format "${format}".`);
+			throw new FrameGraphError(FRAME_GRAPH_ERROR_CODES.InvalidTextureView, `Texture view "${handle.label ?? handle.id}" uses depth-only aspect with non-depth format "${format}".`, { phase: node ? 'compile' : 'record', nodeId: node?.id, resourceId: handle.id });
 		}
 		if (
 			(textureDimension === '1d' || textureDimension === '3d')
@@ -2845,7 +2849,7 @@ class FrameGraphRecorderImpl implements FrameGraphRecorder {
 				|| (descriptor.arrayLayerCount ?? 1) !== 1
 			)
 		) {
-			throw new Error(`Texture view "${handle.label ?? handle.id}" for a ${textureDimension} texture must use baseArrayLayer 0 and arrayLayerCount 1.`);
+			throw new FrameGraphError(FRAME_GRAPH_ERROR_CODES.InvalidTextureView, `Texture view "${handle.label ?? handle.id}" for a ${textureDimension} texture must use baseArrayLayer 0 and arrayLayerCount 1.`, { phase: node ? 'compile' : 'record', nodeId: node?.id, resourceId: handle.id });
 		}
 		const validDimension = textureDimension === '1d'
 			? dimension === '1d' && region.arrayLayerCount === 1
@@ -2858,20 +2862,20 @@ class FrameGraphRecorderImpl implements FrameGraphRecorder {
 					|| (dimension === 'cube-array' && region.arrayLayerCount % 6 === 0)
 				);
 		if (!validDimension) {
-			throw new Error(`${node ? `Node "${node.label ?? node.id}" uses texture` : 'Texture root'} "${handle.label ?? handle.id}" has incompatible view dimension "${dimension}".`);
+			throw new FrameGraphError(FRAME_GRAPH_ERROR_CODES.InvalidTextureView, `${node ? `Node "${node.label ?? node.id}" uses texture` : 'Texture root'} "${handle.label ?? handle.id}" has incompatible view dimension "${dimension}".`, { phase: node ? 'compile' : 'record', nodeId: node?.id, resourceId: handle.id });
 		}
 		if ((dimension === 'cube' || dimension === 'cube-array') && textureSizeTuple(desc.size)[0] !== textureSizeTuple(desc.size)[1]) {
-			throw new Error(`Cube texture view "${handle.label ?? handle.id}" requires equal width and height.`);
+			throw new FrameGraphError(FRAME_GRAPH_ERROR_CODES.InvalidTextureView, `Cube texture view "${handle.label ?? handle.id}" requires equal width and height.`, { phase: node ? 'compile' : 'record', nodeId: node?.id, resourceId: handle.id });
 		}
 		if ((dimension === 'cube' || dimension === 'cube-array') && region.baseArrayLayer + region.arrayLayerCount > layers) {
-			throw new Error(`Cube texture view "${handle.label ?? handle.id}" exceeds declared array layers.`);
+			throw new FrameGraphError(FRAME_GRAPH_ERROR_CODES.InvalidTextureView, `Cube texture view "${handle.label ?? handle.id}" exceeds declared array layers.`, { phase: node ? 'compile' : 'record', nodeId: node?.id, resourceId: handle.id });
 		}
 		const storageAccess = access === TextureAccess.StorageRead || access === TextureAccess.StorageWrite;
 		if (storageAccess && descriptor.mipLevelCount !== 1) {
-			throw new Error(`Storage texture view "${handle.label ?? handle.id}" must select exactly one mip level.`);
+			throw new FrameGraphError(FRAME_GRAPH_ERROR_CODES.InvalidTextureView, `Storage texture view "${handle.label ?? handle.id}" must select exactly one mip level.`, { phase: node ? 'compile' : 'record', nodeId: node?.id, resourceId: handle.id });
 		}
 		if (storageAccess && (dimension === 'cube' || dimension === 'cube-array')) {
-			throw new Error(`Storage texture view "${handle.label ?? handle.id}" cannot use "${dimension}" dimension.`);
+			throw new FrameGraphError(FRAME_GRAPH_ERROR_CODES.InvalidTextureView, `Storage texture view "${handle.label ?? handle.id}" cannot use "${dimension}" dimension.`, { phase: node ? 'compile' : 'record', nodeId: node?.id, resourceId: handle.id });
 		}
 		const colorAttachmentAccess = access === TextureAccess.ColorAttachmentWrite;
 		if (
@@ -2882,7 +2886,7 @@ class FrameGraphRecorderImpl implements FrameGraphRecorder {
 				|| (dimension !== '2d' && dimension !== '2d-array' && dimension !== '3d')
 			)
 		) {
-			throw new Error(`Color attachment texture view "${handle.label ?? handle.id}" must be single-mip, single-layer, and 2d, 2d-array, or 3d.`);
+			throw new FrameGraphError(FRAME_GRAPH_ERROR_CODES.InvalidTextureView, `Color attachment texture view "${handle.label ?? handle.id}" must be single-mip, single-layer, and 2d, 2d-array, or 3d.`, { phase: node ? 'compile' : 'record', nodeId: node?.id, resourceId: handle.id });
 		}
 		const depthAttachmentAccess = access === TextureAccess.DepthRead
 			|| access === TextureAccess.DepthWrite;
@@ -2894,7 +2898,7 @@ class FrameGraphRecorderImpl implements FrameGraphRecorder {
 				|| (dimension !== '2d' && dimension !== '2d-array')
 			)
 		) {
-			throw new Error(`Depth attachment texture view "${handle.label ?? handle.id}" must be single-mip, single-layer, and 2d or 2d-array.`);
+			throw new FrameGraphError(FRAME_GRAPH_ERROR_CODES.InvalidTextureView, `Depth attachment texture view "${handle.label ?? handle.id}" must be single-mip, single-layer, and 2d or 2d-array.`, { phase: node ? 'compile' : 'record', nodeId: node?.id, resourceId: handle.id });
 		}
 		const sampleCount = desc.sampleCount ?? 1;
 		if (
@@ -2906,17 +2910,17 @@ class FrameGraphRecorderImpl implements FrameGraphRecorder {
 				|| region.arrayLayerCount !== 1
 			)
 		) {
-			throw new Error(`Multisampled texture view "${handle.label ?? handle.id}" must be a single-mip, single-layer 2d view.`);
+			throw new FrameGraphError(FRAME_GRAPH_ERROR_CODES.InvalidTextureView, `Multisampled texture view "${handle.label ?? handle.id}" must be a single-mip, single-layer 2d view.`, { phase: node ? 'compile' : 'record', nodeId: node?.id, resourceId: handle.id });
 		}
 		const swizzle = descriptor.swizzle ?? 'rgba';
 		if (!/^[rgba01]{4}$/.test(swizzle)) {
-			throw new Error(`Texture view "${handle.label ?? handle.id}" has invalid component swizzle "${swizzle}".`);
+			throw new FrameGraphError(FRAME_GRAPH_ERROR_CODES.InvalidTextureView, `Texture view "${handle.label ?? handle.id}" has invalid component swizzle "${swizzle}".`, { phase: node ? 'compile' : 'record', nodeId: node?.id, resourceId: handle.id });
 		}
 		if (
 			swizzle !== 'rgba'
 			&& !this.device.features?.has('texture-component-swizzle')
 		) {
-			throw new Error(`Texture view "${handle.label ?? handle.id}" uses component swizzle without the "texture-component-swizzle" device feature.`);
+			throw new FrameGraphError(FRAME_GRAPH_ERROR_CODES.UnsupportedTextureFormatUsage, `Texture view "${handle.label ?? handle.id}" uses component swizzle without the "texture-component-swizzle" device feature.`, { phase: node ? 'compile' : 'record', nodeId: node?.id, resourceId: handle.id });
 		}
 	}
 
@@ -3002,7 +3006,7 @@ class FrameGraphRecorderImpl implements FrameGraphRecorder {
 			}
 			range = { kind: 'buffer', ...resolved };
 		} else {
-			if (bufferRange !== undefined) throw new TypeError('Buffer ranges cannot select texture roots.');
+			if (bufferRange !== undefined) throw new FrameGraphError(FRAME_GRAPH_ERROR_CODES.InvalidRoot, 'Buffer ranges cannot select texture roots.', { phase: 'record', resourceId: handle.id });
 			if (view) {
 				this.validateTextureRegion(view.texture, view.region);
 				this.validateTextureViewDescriptor(view.texture, view.desc, view.region);
