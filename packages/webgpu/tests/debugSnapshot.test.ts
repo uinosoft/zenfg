@@ -226,6 +226,8 @@ test('CPU-only snapshots use explicit frame identity and validate CPU coherence'
  assert.equal(snapshot.timings.cpu.status,'available');assert.deepEqual(structuredClone(snapshot.timings.gpu),{status:'unavailable',reason:'not-requested'});
  assert.throws(()=>createFrameGraphSnapshot({...options,frameIndex:10}),FrameGraphSnapshotValidationError);
  assert.throws(()=>createFrameGraphSnapshot({...options,cpuTiming:{...options.cpuTiming,nodes:options.cpuTiming.nodes.map(n=>({...n,kind:'compute'}))}}),FrameGraphSnapshotValidationError);
- const noTiming=createFrameGraphSnapshot({frameIndex:9,compilation:compiled.compilationReport,resourcePool:graph.getResourcePoolStats()});
+ const noTiming=createFrameGraphSnapshot({frameIndex:9,compilation:compiled.compilationReport});
  assert.equal(noTiming.timings.cpu.status,'unavailable');
+ assert.deepEqual(structuredClone(noTiming.memory.poolReport), {status:'unavailable',reason:'not-requested'});
+ assert.deepEqual(validateFrameGraphSnapshot(noTiming), []);
 });
