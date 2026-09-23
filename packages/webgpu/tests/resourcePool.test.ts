@@ -101,7 +101,7 @@ test('clearRetainedResources clears bucket metadata while preserving cumulative 
 	const textureUsage = 0x10;
 	const bufferUsage = 0x80;
 	const textureKey = texturePoolKey(textureDesc, textureUsage);
-	const bufferKey = bufferPoolKey(bufferDesc, bufferUsage);
+	const bufferKey = bufferPoolKey(bufferDesc, bufferUsage, { code: 'FG1102', phase: 'execute' });
 	const pooledTexture = pool.acquireTexture(textureDesc, textureUsage, textureKey);
 	const pooledBuffer = pool.acquireBuffer(bufferDesc, bufferUsage, bufferKey);
 
@@ -167,7 +167,7 @@ test('buffer reuse refreshes changed labels without rewriting stable labels', ()
 	const pool = new ResourcePool(device);
 	const baseDesc = { size: 33 };
 	const usage = 0x80;
-	const key = bufferPoolKey(baseDesc, usage);
+	const key = bufferPoolKey(baseDesc, usage, { code: 'FG1102', phase: 'execute' });
 	const first = pool.acquireBuffer({ ...baseDesc, label: 'first' }, usage, key) as TrackedBuffer;
 	pool.release([{ resource: first, key }]);
 

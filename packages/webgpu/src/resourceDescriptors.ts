@@ -5,54 +5,55 @@ import type {
 	TextureSize,
 } from './types.ts';
 import { getTextureFormatBlockInfo } from './formatCaps.ts';
-import { assertNonNegativeSafeInteger } from './numericValidation.ts';
+import { assertNonNegativeSafeInteger, type NumericValidationContext } from './numericValidation.ts';
+import { FRAME_GRAPH_ERROR_CODES, FrameGraphError } from './error.ts';
 
 export function snapshotTextureDescriptor<T extends TextureDesc>(desc: T): T {
 	return {
 		...desc,
-		size: snapshotExtent3D(desc.size, `Texture descriptor "${desc.label ?? 'unlabeled'}" size`),
+		size: snapshotExtent3D(desc.size, `Texture descriptor "${desc.label ?? 'unlabeled'}" size`, { code: FRAME_GRAPH_ERROR_CODES.InvalidResourceDescriptor, phase: 'record' }),
 		...(desc.viewFormats === undefined ? {} : { viewFormats: desc.viewFormats.slice() }),
 	};
 }
 
-export function snapshotExtent3D(size: TextureSize, field: string): GPUExtent3D {
+export function snapshotExtent3D(size: TextureSize, field: string, context: NumericValidationContext): GPUExtent3D {
 	if (Array.isArray(size)) {
-		validateExtentSequenceLength(size.length, field);
+		validateExtentSequenceLength(size.length, field, context);
 		return [...size];
 	}
 	if (Symbol.iterator in Object(size)) {
 		const values = Array.from(size as Iterable<number>);
-		validateExtentSequenceLength(values.length, field);
+		validateExtentSequenceLength(values.length, field, context);
 		return values;
 	}
 	return { ...(size as GPUExtent3DDict) };
 }
 
-export function snapshotOrigin3D(origin: TextureOrigin | undefined, field: string): GPUOrigin3D | undefined {
+export function snapshotOrigin3D(origin: TextureOrigin | undefined, field: string, context: NumericValidationContext): GPUOrigin3D | undefined {
 	if (origin === undefined) {
 		return undefined;
 	}
 	if (Array.isArray(origin)) {
-		validateOriginSequenceLength(origin.length, field);
+		validateOriginSequenceLength(origin.length, field, context);
 		return [...origin];
 	}
 	if (Symbol.iterator in Object(origin)) {
 		const values = Array.from(origin as Iterable<number>);
-		validateOriginSequenceLength(values.length, field);
+		validateOriginSequenceLength(values.length, field, context);
 		return values;
 	}
 	return { ...(origin as GPUOrigin3DDict) };
 }
 
-function validateExtentSequenceLength(length: number, field: string): void {
+function validateExtentSequenceLength(length: number, field: string, context: NumericValidationContext): void {
 	if (length < 1 || length > 3) {
-		throw new Error(`${field} iterable must contain between 1 and 3 values. Received ${length}.`);
+		throw new FrameGraphError(context.code, `${field} iterable must contain between 1 and 3 values. Received ${length}.`, context);
 	}
 }
 
-function validateOriginSequenceLength(length: number, field: string): void {
+function validateOriginSequenceLength(length: number, field: string, context: NumericValidationContext): void {
 	if (length < 1 || length > 3) {
-		throw new Error(`${field} iterable must contain between 1 and 3 values. Received ${length}.`);
+		throw new FrameGraphError(context.code, `${field} iterable must contain between 1 and 3 values. Received ${length}.`, context);
 	}
 }
 
@@ -153,18 +154,18 @@ export function texturePoolKey(desc: TextureDesc, usage: GPUTextureUsageFlags): 
 	].join('|');
 }
 
-export function bufferAllocationSize(size: number): number {
-	assertNonNegativeSafeInteger(size, 'Buffer allocation size');
+export function bufferAllocationSize(size: number, context: NumericValidationContext): number {
+	assertNonNegativeSafeInteger(size, 'Buffer allocation size', context);
 	let bucket = 1;
 	while (bucket < size) {
 		bucket *= 2;
 	}
 	if (!Number.isSafeInteger(bucket)) {
-		throw new Error(`Buffer allocation size ${size} rounds to an unsafe allocation bucket ${bucket}.`);
+		throw new FrameGraphError(context.code, `Buffer allocation size ${size} rounds to an unsafe allocation bucket ${bucket}.`, context);
 	}
 	return bucket;
 }
 
-export function bufferPoolKey(desc: BufferDesc, usage: GPUBufferUsageFlags): string {
-	return `${bufferAllocationSize(desc.size)}|${usage}`;
+export function bufferPoolKey(desc: BufferDesc, usage: GPUBufferUsageFlags, context: NumericValidationContext): string {
+	return `${bufferAllocationSize(desc.size, context)}|${usage}`;
 }

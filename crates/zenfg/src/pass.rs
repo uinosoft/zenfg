@@ -118,7 +118,8 @@ impl<Role: AccessMarker> AccessToken<'_, Role> {
 /// Access declarations validate ranges and conflicting roles immediately and
 /// return typed tokens for callback-time resolution. Finish the builder with the
 /// method matching its node kind. Dropping an open builder records an
-/// [`FrameGraphError::UnclosedPass`] that is returned by compilation.
+/// [`FrameGraphError::UnclosedPass`] that is returned by compilation. A failed
+/// consuming finish preserves its original error for compilation.
 pub struct PassBuilder<'a, 'frame> {
     frame: &'a mut Frame<'frame>,
     node: Option<NodeRecord>,
@@ -250,6 +251,7 @@ impl<'a, 'frame> PassBuilder<'a, 'frame> {
         ops: ColorAttachmentOps,
     ) -> Result<AccessToken<'frame, ColorAttachment>, FrameGraphError> {
         let (load, store) = ops.semantic();
+        let checkpoint = self.access_checkpoint();
         let source = self.attachment_access(
             source.into(),
             AccessRole::ColorAttachment,
@@ -257,13 +259,17 @@ impl<'a, 'frame> PassBuilder<'a, 'frame> {
             store,
             ops.depth_slice,
         )?;
-        let resolve = self.attachment_access::<ColorAttachment>(
-            resolve_target.into(),
-            AccessRole::ColorAttachment,
-            AttachmentLoadOp::Clear,
-            AttachmentStoreOp::Store,
-            None,
-        )?;
+        let resolve = self
+            .attachment_access::<ColorAttachment>(
+                resolve_target.into(),
+                AccessRole::ColorAttachment,
+                AttachmentLoadOp::Clear,
+                AttachmentStoreOp::Store,
+                None,
+            )
+            .inspect_err(|_| {
+                self.rollback_accesses(checkpoint);
+            })?;
         self.color_attachments.push(RenderColorAttachment {
             access: source.access,
             resolve_access: Some(resolve.access),
@@ -502,8 +508,13 @@ impl<'a, 'frame> PassBuilder<'a, 'frame> {
         }
         let source_range = BufferRange::new(source_offset, size);
         let destination_range = BufferRange::new(destination_offset, size);
+        let checkpoint = self.access_checkpoint();
         let _ = self.buffer_copy_src(source, source_range)?;
-        let _ = self.buffer_copy_dst(destination, destination_range, WriteContents::Overwrite)?;
+        let _ = self
+            .buffer_copy_dst(destination, destination_range, WriteContents::Overwrite)
+            .inspect_err(|_| {
+                self.rollback_accesses(checkpoint);
+            })?;
         self.copy_operations.push(CopyOperation::BufferToBuffer {
             source: source.id,
             source_offset,
@@ -535,6 +546,7 @@ impl<'a, 'frame> PassBuilder<'a, 'frame> {
             destination.record.aspect,
             copy_size,
         )?;
+        let checkpoint = self.access_checkpoint();
         let _ = self.add_access::<BufferCopySrc>(
             buffer.resource,
             AccessRole::BufferCopySrc,
@@ -544,15 +556,19 @@ impl<'a, 'frame> PassBuilder<'a, 'frame> {
             NormalizedRange::Buffer(buffer.range.clone()),
             None,
         )?;
-        let _ = self.add_access::<TextureCopyDst>(
-            destination.record.resource,
-            AccessRole::TextureCopyDst,
-            AccessMode::Write,
-            !destination.full_subresources,
-            true,
-            NormalizedRange::Texture(destination.range),
-            None,
-        )?;
+        let _ = self
+            .add_access::<TextureCopyDst>(
+                destination.record.resource,
+                AccessRole::TextureCopyDst,
+                AccessMode::Write,
+                !destination.full_subresources,
+                true,
+                NormalizedRange::Texture(destination.range),
+                None,
+            )
+            .inspect_err(|_| {
+                self.rollback_accesses(checkpoint);
+            })?;
         self.copy_operations.push(CopyOperation::BufferToTexture {
             source: buffer.resource,
             source_layout: source.layout,
@@ -579,6 +595,7 @@ impl<'a, 'frame> PassBuilder<'a, 'frame> {
             source.record.aspect,
             copy_size,
         )?;
+        let checkpoint = self.access_checkpoint();
         let _ = self.add_access::<TextureCopySrc>(
             source.record.resource,
             AccessRole::TextureCopySrc,
@@ -588,15 +605,19 @@ impl<'a, 'frame> PassBuilder<'a, 'frame> {
             NormalizedRange::Texture(source.range),
             None,
         )?;
-        let _ = self.add_access::<BufferCopyDst>(
-            buffer.resource,
-            AccessRole::BufferCopyDst,
-            AccessMode::Write,
-            !buffer.tightly_packed,
-            true,
-            NormalizedRange::Buffer(buffer.range.clone()),
-            None,
-        )?;
+        let _ = self
+            .add_access::<BufferCopyDst>(
+                buffer.resource,
+                AccessRole::BufferCopyDst,
+                AccessMode::Write,
+                !buffer.tightly_packed,
+                true,
+                NormalizedRange::Buffer(buffer.range.clone()),
+                None,
+            )
+            .inspect_err(|_| {
+                self.rollback_accesses(checkpoint);
+            })?;
         self.copy_operations.push(CopyOperation::TextureToBuffer {
             source: source.record,
             destination: buffer.resource,
@@ -632,6 +653,7 @@ impl<'a, 'frame> PassBuilder<'a, 'frame> {
                 ),
             ));
         }
+        let checkpoint = self.access_checkpoint();
         let _ = self.add_access::<TextureCopySrc>(
             source.record.resource,
             AccessRole::TextureCopySrc,
@@ -641,15 +663,19 @@ impl<'a, 'frame> PassBuilder<'a, 'frame> {
             NormalizedRange::Texture(source.range),
             None,
         )?;
-        let _ = self.add_access::<TextureCopyDst>(
-            destination.record.resource,
-            AccessRole::TextureCopyDst,
-            AccessMode::Write,
-            !destination.full_subresources,
-            true,
-            NormalizedRange::Texture(destination.range),
-            None,
-        )?;
+        let _ = self
+            .add_access::<TextureCopyDst>(
+                destination.record.resource,
+                AccessRole::TextureCopyDst,
+                AccessMode::Write,
+                !destination.full_subresources,
+                true,
+                NormalizedRange::Texture(destination.range),
+                None,
+            )
+            .inspect_err(|_| {
+                self.rollback_accesses(checkpoint);
+            })?;
         self.copy_operations.push(CopyOperation::TextureToTexture {
             source: source.record,
             destination: destination.record,
@@ -678,16 +704,19 @@ impl<'a, 'frame> PassBuilder<'a, 'frame> {
         F: for<'execute> FnOnce(crate::RenderPassContext<'execute>) -> Result<(), FrameGraphError>
             + 'frame,
     {
-        self.require_kind(NodeKind::Render, "render executor")?;
+        if let Err(error) = self.require_kind(NodeKind::Render, "render executor") {
+            return Err(self.fail_finish(error));
+        }
         if self.color_attachments.is_empty() && self.depth_attachments.is_empty() {
-            return Err(
-                self.invalid_operation(None, "render nodes require at least one attachment")
-            );
+            let error =
+                self.invalid_operation(None, "render nodes require at least one attachment");
+            return Err(self.fail_finish(error));
         }
         if self.depth_attachments.len() > 1 {
-            return Err(self.invalid_operation(None, "render nodes support one depth attachment"));
+            let error = self.invalid_operation(None, "render nodes support one depth attachment");
+            return Err(self.fail_finish(error));
         }
-        let id = self.id();
+        let id = self.finish_node()?;
         self.frame.executors.insert(
             id,
             crate::execution::NodeExecutor::Render {
@@ -696,7 +725,7 @@ impl<'a, 'frame> PassBuilder<'a, 'frame> {
                 callback: Box::new(callback),
             },
         );
-        self.finish_node()
+        Ok(id)
     }
 
     /// Completes a compute node with a synchronous, one-shot execution callback.
@@ -705,13 +734,15 @@ impl<'a, 'frame> PassBuilder<'a, 'frame> {
         F: for<'execute> FnOnce(crate::ComputePassContext<'execute>) -> Result<(), FrameGraphError>
             + 'frame,
     {
-        self.require_kind(NodeKind::Compute, "compute executor")?;
-        let id = self.id();
+        if let Err(error) = self.require_kind(NodeKind::Compute, "compute executor") {
+            return Err(self.fail_finish(error));
+        }
+        let id = self.finish_node()?;
         self.frame.executors.insert(
             id,
             crate::execution::NodeExecutor::Compute(Box::new(callback)),
         );
-        self.finish_node()
+        Ok(id)
     }
 
     /// Completes a command node with direct access to the current graph encoder.
@@ -724,18 +755,19 @@ impl<'a, 'frame> PassBuilder<'a, 'frame> {
     {
         let node = self.node.as_ref().expect("open pass");
         if node.kind != NodeKind::Command {
-            return Err(FrameGraphError::InvalidNodeExecutor {
+            let error = FrameGraphError::InvalidNodeExecutor {
                 pass: node.id,
                 expected: "command",
                 actual: node.kind,
-            });
+            };
+            return Err(self.fail_finish(error));
         }
-        let id = node.id;
+        let id = self.finish_node()?;
         self.frame.executors.insert(
             id,
             crate::execution::NodeExecutor::Command(Box::new(callback)),
         );
-        self.finish_node()
+        Ok(id)
     }
 
     /// Completes an external-submission node with direct queue access.
@@ -751,30 +783,33 @@ impl<'a, 'frame> PassBuilder<'a, 'frame> {
     {
         let node = self.node.as_ref().expect("open pass");
         if node.kind != NodeKind::ExternalSubmission {
-            return Err(FrameGraphError::InvalidNodeExecutor {
+            let error = FrameGraphError::InvalidNodeExecutor {
                 pass: node.id,
                 expected: "external-submission",
                 actual: node.kind,
-            });
+            };
+            return Err(self.fail_finish(error));
         }
-        let id = node.id;
+        let id = self.finish_node()?;
         self.frame.executors.insert(
             id,
             crate::execution::NodeExecutor::External(Box::new(callback)),
         );
-        self.finish_node()
+        Ok(id)
     }
 
     fn finish_node(&mut self) -> Result<PassId, FrameGraphError> {
         let open = self.node.as_ref().expect("open pass");
-        if open.kind == NodeKind::Render {
-            validate_render_attachments(
+        if open.kind == NodeKind::Render
+            && let Err(error) = validate_render_attachments(
                 self.frame,
                 open.id,
                 &self.color_attachments,
                 self.depth_attachments.first().copied(),
                 open,
-            )?;
+            )
+        {
+            return Err(self.fail_finish(error));
         }
         if open.kind == NodeKind::Copy && !self.copy_operations.is_empty() {
             self.frame.executors.insert(
@@ -782,13 +817,35 @@ impl<'a, 'frame> PassBuilder<'a, 'frame> {
                 crate::execution::NodeExecutor::Copy(core::mem::take(&mut self.copy_operations)),
             );
         }
-        let node = self.node.take().ok_or_else(|| FrameGraphError::Internal {
-            message: "pass was already finished".into(),
-        })?;
+        let node = self.node.take().expect("open pass");
         let id = node.id;
         self.frame.nodes.push(node);
         self.closed = true;
         Ok(id)
+    }
+
+    fn access_checkpoint(&self) -> (usize, u32) {
+        (
+            self.node.as_ref().expect("open pass").accesses.len(),
+            self.frame.next_access,
+        )
+    }
+
+    fn rollback_accesses(&mut self, checkpoint: (usize, u32)) {
+        self.node
+            .as_mut()
+            .expect("open pass")
+            .accesses
+            .truncate(checkpoint.0);
+        self.frame.next_access = checkpoint.1;
+    }
+
+    fn fail_finish(&mut self, error: FrameGraphError) -> FrameGraphError {
+        if self.frame.recording_error.is_none() {
+            self.frame.recording_error = Some(error.clone());
+        }
+        self.closed = true;
+        error
     }
 
     fn attachment_access<Role: AccessMarker>(
@@ -1541,4 +1598,26 @@ fn attachment_extent(
         desc.sample_count,
         access.resource,
     ))
+}
+
+#[cfg(test)]
+mod completion_tests {
+    use super::*;
+
+    #[test]
+    fn failed_render_finish_installs_no_executor() {
+        let mut graph = crate::FrameGraph::new();
+        let mut frame = graph.begin_frame();
+        let error = frame
+            .render_pass("empty")
+            .finish_render(|_| Ok(()))
+            .unwrap_err();
+        assert!(matches!(
+            error,
+            FrameGraphError::InvalidNodeOperation { .. }
+        ));
+        assert!(frame.executors.is_empty());
+        assert!(frame.nodes.is_empty());
+        assert_eq!(frame.recording_error, Some(error));
+    }
 }

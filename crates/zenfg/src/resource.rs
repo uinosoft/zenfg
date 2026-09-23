@@ -244,7 +244,8 @@ pub struct TextureViewDesc {
     pub mip_level_count: Option<u32>,
     /// First selected array layer.
     pub base_array_layer: u32,
-    /// Selected array-layer count, or all remaining layers.
+    /// Selected array-layer count, or all remaining layers. Explicit D2 views
+    /// must resolve to exactly one layer; cube views must resolve to six.
     pub array_layer_count: Option<u32>,
 }
 
@@ -285,6 +286,15 @@ impl Default for TextureViewDesc {
     }
 }
 
+pub(crate) fn resolved_array_layer_count(texture: &TextureDesc, view: &TextureViewDesc) -> u32 {
+    view.array_layer_count.unwrap_or_else(|| {
+        texture
+            .size
+            .depth_or_array_layers
+            .saturating_sub(view.base_array_layer)
+    })
+}
+
 pub(crate) fn normalize_texture_view_descriptor(
     texture: &TextureDesc,
     view: &TextureViewDesc,
@@ -303,10 +313,7 @@ pub(crate) fn normalize_texture_view_descriptor(
     let array_layer_count = if texture.dimension == wgpu::TextureDimension::D3 {
         None
     } else {
-        Some(
-            view.array_layer_count
-                .unwrap_or(texture.size.depth_or_array_layers - view.base_array_layer),
-        )
+        Some(resolved_array_layer_count(texture, view))
     };
     NormalizedTextureViewDesc {
         label: view.label.clone(),

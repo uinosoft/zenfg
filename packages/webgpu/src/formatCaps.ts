@@ -1,3 +1,4 @@
+import { FRAME_GRAPH_ERROR_CODES, FrameGraphError, type FrameGraphErrorOptions } from './error.ts';
 import { BufferAccess, TextureAccess } from './types.ts';
 
 export const textureAccessValues = new Set<string>(Object.values(TextureAccess));
@@ -337,12 +338,12 @@ export function getTextureFormatCapabilities(format: GPUTextureFormat): TextureF
 	};
 }
 
-export function getTextureFormatBlockInfo(format: GPUTextureFormat): TextureFormatBlockInfo {
+export function getTextureFormatBlockInfo(format: GPUTextureFormat, options: FrameGraphErrorOptions = { phase: 'compile' }): TextureFormatBlockInfo {
 	const blockInfo = getTextureFormatCapabilities(format).blockInfo;
 	if (blockInfo) {
 		return blockInfo;
 	}
-	throw new Error(`Unsupported texture format "${format}" for buffer-texture copy validation.`);
+	throw new FrameGraphError(FRAME_GRAPH_ERROR_CODES.UnsupportedTextureFormatUsage, `Unsupported texture format "${format}" for buffer-texture copy validation.`, options);
 }
 
 export function isDepthFormat(format: GPUTextureFormat): boolean {

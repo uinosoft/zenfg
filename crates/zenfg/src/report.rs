@@ -70,12 +70,10 @@ pub enum ResourceDescriptor {
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct NodeReport {
     pub id: PassId,
-    #[cfg_attr(feature = "serde", serde(skip))]
     pub recording_order: u32,
     pub kind: NodeKind,
     pub label: String,
     pub side_effect: bool,
-    #[cfg_attr(feature = "serde", serde(skip))]
     pub debug_group: Option<DebugGroupId>,
 }
 
@@ -95,14 +93,11 @@ pub enum CulledNodeReason {
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct CulledNodeReport {
     pub id: PassId,
-    #[cfg_attr(feature = "serde", serde(skip))]
     pub recording_order: u32,
     pub kind: NodeKind,
     pub label: String,
     pub side_effect: bool,
-    #[cfg_attr(feature = "serde", serde(skip))]
     pub debug_group: Option<DebugGroupId>,
-    #[cfg_attr(feature = "serde", serde(skip))]
     pub reason: CulledNodeReason,
 }
 
@@ -121,7 +116,6 @@ pub struct ResourceReport {
     pub estimated_byte_size: u64,
     pub lifetime: Option<ResourceLifetime>,
     pub allocation: Option<AllocationId>,
-    #[cfg_attr(feature = "serde", serde(skip))]
     pub debug_group: Option<DebugGroupId>,
 }
 
@@ -298,7 +292,6 @@ pub struct FullCompilationReport {
     pub allocations: Vec<AllocationReport>,
     pub execution_segments: Vec<ExecutionSegmentReport>,
     pub diagnostics: Vec<Diagnostic>,
-    #[cfg_attr(feature = "serde", serde(skip))]
     pub debug_groups: Vec<DebugGroupReport>,
 }
 

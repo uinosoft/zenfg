@@ -1,3 +1,4 @@
+import { FRAME_GRAPH_ERROR_CODES, FrameGraphError } from './error.ts';
 import {
 	bufferAllocationSize,
 	bufferPoolKey,
@@ -56,9 +57,9 @@ export class ResourcePool {
 		});
 	}
 
-	acquireBuffer(desc: BufferDesc, usage: GPUBufferUsageFlags, key = bufferPoolKey(desc, usage)): GPUBuffer {
+	acquireBuffer(desc: BufferDesc, usage: GPUBufferUsageFlags, key = bufferPoolKey(desc, usage, { code: FRAME_GRAPH_ERROR_CODES.InvalidResourceDescriptor, phase: 'execute' })): GPUBuffer {
 		const pooled = this.buffers.get(key)?.pop();
-		const metadata = this.bucketMetadata('buffer', key, bufferAllocationSize(desc.size));
+		const metadata = this.bucketMetadata('buffer', key, bufferAllocationSize(desc.size, { code: FRAME_GRAPH_ERROR_CODES.InvalidResourceDescriptor, phase: 'execute' }));
 		this.acquireCount++;
 		if (pooled) {
 			this.reuseCount++;
@@ -72,7 +73,7 @@ export class ResourcePool {
 		this.createdCount++;
 		return this.device.createBuffer({
 			label: desc.label,
-			size: bufferAllocationSize(desc.size),
+			size: bufferAllocationSize(desc.size, { code: FRAME_GRAPH_ERROR_CODES.InvalidResourceDescriptor, phase: 'execute' }),
 			usage,
 		});
 	}
@@ -142,7 +143,7 @@ export class ResourcePool {
 		const statsKey = `${kind}|${key}`;
 		const metadata = this.metadata.get(statsKey);
 		if (!metadata) {
-			throw new Error(`ResourcePool.release received a ${kind} for unknown bucket "${key}". Resources must be released with the key returned by acquire.`);
+			throw new FrameGraphError(FRAME_GRAPH_ERROR_CODES.Internal, `ResourcePool.release received a ${kind} for unknown bucket "${key}". Resources must be released with the key returned by acquire.`, { phase: 'execute' });
 		}
 		return metadata;
 	}
@@ -152,7 +153,7 @@ export class ResourcePool {
 		let metadata = this.metadata.get(statsKey);
 		if (!metadata) {
 			if (bytesPerResource === undefined) {
-				throw new Error(`Missing byte estimate for resource pool bucket "${key}".`);
+				throw new FrameGraphError(FRAME_GRAPH_ERROR_CODES.Internal, `Missing byte estimate for resource pool bucket "${key}".`, { phase: 'execute' });
 			}
 			metadata = {
 				kind,

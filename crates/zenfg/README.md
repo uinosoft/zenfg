@@ -33,7 +33,7 @@ cargo add zenfg@=0.1.0
 | Feature | Default | Adds |
 | --- | --- | --- |
 | `default` | Yes | Empty feature set; the core compiler and device-backed executor are always available |
-| `serde` | No | Serde support for internal compilation report types |
+| `serde` | No | Serde support for current-version runtime compilation reports; use Snapshot for portable exchange |
 | `snapshot` | No | `zenfg-snapshot`, wire-type re-exports, and portable report export |
 
 `FrameGraph::new()` is CPU-only. `FrameGraph::with_device()` stores a cloned
