@@ -56,7 +56,9 @@ impl FrameGraph {
     ///
     /// The graph owns its transient resource pool and GPU timing resources. The
     /// queue, imported resources, pipelines, bind groups, and surface remain
-    /// caller-owned.
+    /// caller-owned. Native objects supplied for execution must belong to this
+    /// device. Device-specific limits and native object ownership are checked
+    /// by wgpu during allocation or execution, not by graph recording.
     pub fn with_device(device: &wgpu::Device) -> Self {
         Self {
             owner: NEXT_OWNER_ID.fetch_add(1, Ordering::Relaxed),
