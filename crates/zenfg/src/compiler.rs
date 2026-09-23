@@ -177,11 +177,15 @@ impl<'frame> CompiledFrame<'frame> {
     /// The queue must belong to the device passed to
     /// [`FrameGraph::with_device`](crate::FrameGraph::with_device). All failures
     /// are reported before the first command is encoded whenever possible.
+    /// Native device-limit and ownership failures may be reported by wgpu.
     pub fn execute(self, queue: &wgpu::Queue) -> Result<(), FrameGraphError> {
         self.execute_with_options(queue, ExecutionOptions::default())
     }
 
     /// Executes once with caller-selected debug markers and frame identity.
+    ///
+    /// The queue must belong to the device passed to
+    /// [`FrameGraph::with_device`](crate::FrameGraph::with_device).
     pub fn execute_with_options(
         self,
         queue: &wgpu::Queue,
@@ -198,6 +202,8 @@ impl<'frame> CompiledFrame<'frame> {
     /// result while graph execution still succeeds. GPU timing covers retained
     /// render/compute nodes; CPU elapsed timing covers all executed node kinds.
     /// Execution failure returns no partial CPU report.
+    /// The queue must belong to the device passed to
+    /// [`FrameGraph::with_device`](crate::FrameGraph::with_device).
     pub fn execute_with_timing(
         self,
         queue: &wgpu::Queue,

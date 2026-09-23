@@ -5,6 +5,12 @@ packages use independent versions; component tags identify each release.
 
 ## Unreleased
 
+- Give ZenFG-detected `@zenfg/webgpu` validation failures structured
+  `FrameGraphError` codes and phase/location metadata. Code that checked for
+  exact `TypeError` or plain `Error` types should check `FrameGraphError.code`.
+- Re-export `FrameGraphSnapshotValidationError` from
+  `@zenfg/webgpu/snapshot` and report unknown usage bits as a Snapshot issue.
+
 ## [0.1.0] - 2026-09-15
 
 - Publish all five packages as the first non-prerelease version, preserving

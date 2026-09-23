@@ -7,9 +7,13 @@ import {
 	validateFrameGraphSnapshot,
 } from '@zenfg/snapshot';
 
-import { createFrameGraphSnapshot, stringifyFrameGraphSnapshot } from '../src/snapshot.ts';
+import { createFrameGraphSnapshot, stringifyFrameGraphSnapshot, FrameGraphSnapshotValidationError as WebGpuSnapshotValidationError } from '../src/snapshot.ts';
 import { FrameGraph, TextureAccess } from '../src/index.ts';
 import { mockDevice, texture, textureUsage } from './testUtils.ts';
+
+test('Snapshot subpath exposes its producer validation error', () => {
+	assert.equal(WebGpuSnapshotValidationError, FrameGraphSnapshotValidationError);
+});
 
 test('maps a compilation report into canonical prefixed Snapshot V1 data', () => {
 	const recorder = new FrameGraph(mockDevice()).beginFrame();
@@ -161,7 +165,10 @@ test('maps GPU timing and rejects unknown WebGPU usage bits', () => {
 		compilation: invalidCompilation,
 		gpuTiming: { status: 'unavailable', frameIndex: 3, reason: 'unsupported' },
 		resourcePool: { acquireCount: 0, reuseCount: 0, createdCount: 0, retainedCount: 0, estimatedRetainedBytes: 0 },
-	}), /unknown bits 0x20/);
+	}), (error) => error instanceof WebGpuSnapshotValidationError
+		&& error.issues[0]?.code === 'unknown-usage-bits'
+		&& error.issues[0]?.path === '/graph/resources/0/usageFlags'
+		&& error.message.includes('unknown bits 0x20'));
 });
 
 test('rejects Snapshot-invalid producer inputs and incoherent GPU timing kinds', () => {
