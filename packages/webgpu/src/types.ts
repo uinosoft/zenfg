@@ -184,6 +184,8 @@ export type BufferRange = {
 	readonly size?: GPUSize64;
 };
 
+declare const handleBrand: unique symbol;
+
 /**
  * An opaque, stable logical texture identity owned by one FrameGraph recording.
  *
@@ -201,8 +203,8 @@ export type TextureHandle = {
 	readonly kind: 'texture';
 	/** Optional diagnostic label copied from the descriptor. */
 	readonly label?: string;
-	/** Compile-time brand; callers must not construct handles manually. */
-	readonly __brand: 'TextureHandle';
+	/** Private compile-time brand; use a recording factory to obtain handles. */
+	readonly [handleBrand]: 'TextureHandle';
 };
 
 /**
@@ -221,8 +223,8 @@ export type TextureViewHandle = {
 	readonly kind: 'texture-view';
 	/** Optional diagnostic label copied from the descriptor. */
 	readonly label?: string;
-	/** Compile-time brand; callers must not construct handles manually. */
-	readonly __brand: 'TextureViewHandle';
+	/** Private compile-time brand; use a recording factory to obtain handles. */
+	readonly [handleBrand]: 'TextureViewHandle';
 };
 
 /**
@@ -242,8 +244,8 @@ export type BufferHandle = {
 	readonly kind: 'buffer';
 	/** Optional diagnostic label copied from the descriptor. */
 	readonly label?: string;
-	/** Compile-time brand; callers must not construct handles manually. */
-	readonly __brand: 'BufferHandle';
+	/** Private compile-time brand; use a recording factory to obtain handles. */
+	readonly [handleBrand]: 'BufferHandle';
 };
 
 /**
