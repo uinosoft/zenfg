@@ -15,15 +15,15 @@ function withOwner<T extends object>(handle: T, owner: object): T {
 }
 
 export function makeTextureHandle(id: number, label: string | undefined, owner: object): TextureHandle {
-	return withOwner({ id, kind: 'texture', label, __brand: 'TextureHandle' } as TextureHandle, owner);
+	return withOwner({ id, kind: 'texture', label } as TextureHandle, owner);
 }
 
 export function makeBufferHandle(id: number, label: string | undefined, owner: object): BufferHandle {
-	return withOwner({ id, kind: 'buffer', label, __brand: 'BufferHandle' } as BufferHandle, owner);
+	return withOwner({ id, kind: 'buffer', label } as BufferHandle, owner);
 }
 
 export function makeTextureViewHandle(id: number, label: string | undefined, owner: object): TextureViewHandle {
-	return withOwner({ id, kind: 'texture-view', label, __brand: 'TextureViewHandle' } as TextureViewHandle, owner);
+	return withOwner({ id, kind: 'texture-view', label } as TextureViewHandle, owner);
 }
 
 export function isHandleOwnedBy(handle: ResourceHandle | TextureViewHandle, owner: object): boolean {

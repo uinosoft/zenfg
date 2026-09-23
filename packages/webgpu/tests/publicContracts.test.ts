@@ -4,6 +4,9 @@ import test from 'node:test';
 import {
 	BufferAccess,
 	type FrameGraph,
+	type TextureHandle,
+	type TextureViewHandle,
+	type BufferHandle,
 	type FrameGraphCompilationReport,
 	type FrameGraphRecording,
 	type ImportTextureOptions,
@@ -36,6 +39,15 @@ test('public recording and compiled-frame types enforce lifecycle and typed-use 
 		const swapchainTexture = null as unknown as GPUTexture;
 		const textureView = recorder.createTextureView(texture);
 		const buffer = recorder.createBuffer({ size: 4 });
+		// @ts-expect-error Private handle brand rejects plain texture objects.
+		const forgedTexture: TextureHandle = { id: texture.id, kind: 'texture', __brand: 'TextureHandle' };
+		// @ts-expect-error Private handle brand rejects plain view objects.
+		const forgedView: TextureViewHandle = { id: textureView.id, kind: 'texture-view', __brand: 'TextureViewHandle' };
+		// @ts-expect-error Private handle brand rejects plain buffer objects.
+		const forgedBuffer: BufferHandle = { id: buffer.id, kind: 'buffer', __brand: 'BufferHandle' };
+		// @ts-expect-error Handle structural brands are not public fields.
+		texture.__brand;
+		void [forgedTexture, forgedView, forgedBuffer];
 		recorder.copy({
 			operations: [
 				{
