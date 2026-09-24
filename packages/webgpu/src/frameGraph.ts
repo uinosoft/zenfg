@@ -2217,15 +2217,15 @@ class FrameGraphRecorderImpl implements FrameGraphRecorder {
 
 	private validateDeclaredUsage(): void {
 		for (const resource of this.resources.values()) {
-			const declaredUsage = resource.desc.usage ?? 0;
-			const missingUsage = resource.requiredUsage & ~declaredUsage;
-			if (declaredUsage !== 0 && missingUsage !== 0) {
+			const declaredUsage = resource.desc.usage;
+			const missingUsage = resource.requiredUsage & ~(declaredUsage ?? 0);
+			if (declaredUsage !== undefined && missingUsage !== 0) {
 				throw this.missingDeclaredUsageError('Resource', resource, declaredUsage, missingUsage);
 			}
 			if (resource.origin !== 'transient') {
 				this.validateImportedDescriptor(resource);
 				if (missingUsage !== 0) {
-					throw this.missingDeclaredUsageError('Imported resource', resource, declaredUsage, missingUsage);
+					throw this.missingDeclaredUsageError('Imported resource', resource, declaredUsage ?? 0, missingUsage);
 				}
 			}
 		}

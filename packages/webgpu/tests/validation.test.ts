@@ -211,6 +211,55 @@ test('compile rejects transient resources whose explicit usage omits required We
 	);
 });
 
+test('compile rejects transient resources with explicit zero usage when retained', () => {
+	const graph = new FrameGraph(mockDevice()).beginFrame();
+	const transient = graph.createBuffer({
+		label: 'zero-usage-transient',
+		size: 64,
+		usage: 0,
+	});
+
+	graph.command({
+		label: 'write-transient',
+		sideEffect: true,
+		uses: [graph.use(transient, BufferAccess.StorageWrite, { contents: 'overwrite' })],
+	});
+
+	assert.throws(
+		() => graph.compile({ report: true }).compilationReport,
+		(error) => error instanceof FrameGraphError
+			&& error.code === 'FG1101'
+			&& error.phase === 'compile'
+			&& error.resourceId === transient.id
+			&& error.context?.declaredUsage === 0
+			&& error.context?.missingUsage === bufferUsage.STORAGE
+			&& error.message.includes('Required usage: 0x80'),
+	);
+});
+
+test('compile permits explicit zero usage for culled-only transient resources', () => {
+	const graph = new FrameGraph(mockDevice()).beginFrame();
+	const transient = graph.createBuffer({
+		label: 'culled-zero-usage-transient',
+		size: 64,
+		usage: 0,
+	});
+
+	graph.command({
+		label: 'culled-write',
+		sideEffect: false,
+		uses: [graph.use(transient, BufferAccess.StorageWrite, { contents: 'overwrite' })],
+	});
+
+	const compiled = graph.compile({ report: true }).compilationReport;
+	const resource = compiled.resources.find((entry) => entry.id === transient.id);
+
+	assert.deepEqual(compiled.nodes, []);
+	assert.deepEqual(compiled.culledNodes.map((node) => node.label), ['culled-write']);
+	assert.equal(resource?.usage, 0);
+	assert.equal(resource?.physicalAllocationId, undefined);
+});
+
 test('compile preserves imported-resource diagnostics when declared usage is zero', () => {
 	const graph = new FrameGraph(mockDevice()).beginFrame();
 	const imported = graph.importTexture(texture('asset', 0, { format: 'rgba8unorm', size: [1, 1] }), { label: 'asset', exposedUsage: 0 });
