@@ -38,14 +38,7 @@ test('FrameGraphError exposes stable diagnostic fields and preserves its cause',
 
 test('recording validation reports descriptor and use failures with stable metadata', () => {
 	const recorder = new FrameGraph(mockDevice()).beginFrame();
-	assert.throws(
-		() => recorder.createTexture({ format: 'rgba8unorm', size: [1, 1], sampleCount: 2 }),
-		(error) => error instanceof FrameGraphError
-			&& error.code === 'FG1102'
-			&& error.phase === 'record'
-			&& error.nodeId === undefined
-			&& error.resourceId === undefined,
-	);
+	assert.doesNotThrow(() => recorder.createTexture({ format: 'rgba8unorm', size: [1, 1], sampleCount: 2 }));
 	const buffer = recorder.createBuffer({ size: 16 });
 	assert.throws(
 		() => recorder.use(buffer, BufferAccess.StorageWrite, { contents: 'invalid' as 'overwrite' }),
@@ -55,10 +48,9 @@ test('recording validation reports descriptor and use failures with stable metad
 			&& error.resourceId === buffer.id,
 	);
 	const texture = recorder.createTexture({ format: 'rgba8unorm', size: [1, 1] });
-	recorder.createTextureView(texture);
-	recorder.createTextureView(texture);
+	const firstView = recorder.createTextureView(texture);
 	const secondView = recorder.createTextureView(texture);
-	assert.notEqual(secondView.id, texture.id);
+	assert.notEqual(secondView.id, firstView.id);
 	assert.throws(
 		() => recorder.use(secondView, TextureAccess.StorageWrite, { contents: 'invalid' as 'overwrite' }),
 		(error) => error instanceof FrameGraphError

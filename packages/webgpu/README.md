@@ -78,9 +78,10 @@ function renderFrame(): void {
 
 Imported GPU objects must belong to the `GPUDevice` passed to `FrameGraph`.
 ZenFG checks graph dependencies, logical ranges, content flow, access
-declarations, usage contracts, and resource planning. Native render-pass,
-texture-view, copy-command, device-limit, and command validation remains a
-WebGPU responsibility, including native copy alignment, format, aspect, and
+declarations, usage contracts, bounded resource planning, and format
+categories. Native resource-descriptor, render-pass, texture-view,
+copy-command, device-limit, and command validation remains a WebGPU
+responsibility, including native copy alignment, format, aspect, and
 same-resource overlap rules. Native WebGPU validation errors may be reported
 asynchronously through error scopes or `uncapturederror`; ordinary execution
 does not wait for those results and does not convert them to ZenFG error codes.

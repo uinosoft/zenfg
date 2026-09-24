@@ -883,13 +883,18 @@ test('compile validates alternate texture view formats against viewFormats', () 
 		});
 		assert.throws(() => graph.compile(), /was not declared in viewFormats/);
 	}
-	assert.throws(
-		() => new FrameGraph(mockDevice()).beginFrame().createTexture({
+	assert.doesNotThrow(() => new FrameGraph(mockDevice()).beginFrame().createTexture({
 			format: 'rgba8unorm',
 			viewFormats: ['rgba16float'],
 			size: [1, 1],
+	}));
+	assert.throws(
+		() => new FrameGraph(mockDevice()).beginFrame().createTexture({
+			format: 'rgba8unorm',
+			viewFormats: ['depth32float'],
+			size: [1, 1],
 		}),
-		/not compatible/,
+		/changes the FrameGraph format category/,
 	);
 });
 
@@ -1765,9 +1770,9 @@ test('failed native import validation does not reserve the native identity', () 
 	const nativeTexture = texture('retry-texture', textureUsage.TEXTURE_BINDING);
 	assert.throws(
 		() => graph.importTexture(nativeTexture, {
-			viewFormats: ['rgba8unorm-srgb', 'rgba8unorm-srgb'],
+			viewFormats: ['depth32float'],
 		}),
-		/duplicate format/,
+		/changes the FrameGraph format category/,
 	);
 	assert.doesNotThrow(() => graph.importTexture(nativeTexture));
 

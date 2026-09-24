@@ -241,10 +241,6 @@ function astcBlockInfo(format: GPUTextureFormat): TextureFormatBlockInfo | undef
 	};
 }
 
-function stripSrgbSuffix(format: GPUTextureFormat): string {
-	return format.endsWith('-srgb') ? format.slice(0, -'-srgb'.length) : format;
-}
-
 export function getTextureFormatInfo(format: GPUTextureFormat): TextureFormatInfo {
 	const info = textureFormatInfo.get(format);
 	if (info) {
@@ -280,8 +276,4 @@ export function isDepthFormat(format: GPUTextureFormat): boolean {
 export function hasStencilAspect(format: GPUTextureFormat): boolean {
 	const kind = getTextureFormatInfo(format).kind;
 	return kind === 'stencil' || kind === 'depth-stencil';
-}
-
-export function areTextureViewFormatsCompatible(textureFormat: GPUTextureFormat, viewFormat: GPUTextureFormat): boolean {
-	return textureFormat === viewFormat || stripSrgbSuffix(textureFormat) === stripSrgbSuffix(viewFormat);
 }

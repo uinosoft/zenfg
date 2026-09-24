@@ -54,7 +54,6 @@ import {
 import {
 	bufferAccessValues,
 	getTextureFormatInfo,
-	areTextureViewFormatsCompatible,
 	hasStencilAspect,
 	isDepthFormat,
 	textureAccessValues,
@@ -2169,19 +2168,11 @@ class FrameGraphRecorderImpl implements FrameGraphRecorder {
 			const depthFormat = formatKind === 'depth'
 				|| formatKind === 'depth-stencil'
 				|| formatKind === 'stencil';
-			const sampleCount = (resource.desc as TextureDesc).sampleCount ?? 1;
 			if ((textureAccess === TextureAccess.DepthRead || textureAccess === TextureAccess.DepthWrite) && !depthFormat) {
 				throw new FrameGraphError(FRAME_GRAPH_ERROR_CODES.UnsupportedTextureFormatUsage, `Node "${node.label ?? node.id}" declares texture "${access.resource.label ?? access.resource.id}" access "${textureAccess}" with format "${format}". Depth attachment access requires a depth or depth-stencil format.`, { phase: 'compile', nodeId: node.id, resourceId: access.resource.id });
 			}
 			if (textureAccess === TextureAccess.ColorAttachmentWrite && depthFormat) {
 				throw new FrameGraphError(FRAME_GRAPH_ERROR_CODES.UnsupportedTextureFormatUsage, `Node "${node.label ?? node.id}" declares texture "${access.resource.label ?? access.resource.id}" access "${textureAccess}" with depth format "${format}". ColorAttachment access requires a color format.`, { phase: 'compile', nodeId: node.id, resourceId: access.resource.id });
-			}
-			if (
-				(textureAccess === TextureAccess.StorageRead
-					|| textureAccess === TextureAccess.StorageWrite)
-				&& sampleCount > 1
-			) {
-				throw new FrameGraphError(FRAME_GRAPH_ERROR_CODES.InvalidNodeOperation, `Node "${node.label ?? node.id}" declares texture "${access.resource.label ?? access.resource.id}" access "${textureAccess}" with sampleCount ${sampleCount}. This WebGPU access requires a single-sampled texture.`, { phase: 'compile', nodeId: node.id, resourceId: access.resource.id });
 			}
 			if (access.textureViewDescriptor) {
 				this.validateTextureViewDescriptor(access.resource, access.textureViewDescriptor, access.textureRegion!, textureAccess, node);
@@ -2481,9 +2472,6 @@ class FrameGraphRecorderImpl implements FrameGraphRecorder {
 		if (offset > desc.size || resolvedSize > desc.size - offset) {
 			throw new FrameGraphError(FRAME_GRAPH_ERROR_CODES.InvalidBufferRange, `Buffer clear range exceeds buffer "${handle.label ?? handle.id}" size.`, { phase: 'compile', nodeId: node.id, resourceId: handle.id });
 		}
-		if (offset % 4 !== 0 || resolvedSize % 4 !== 0) {
-			throw new FrameGraphError(FRAME_GRAPH_ERROR_CODES.InvalidNodeOperation, 'Buffer clear offset and size must be 4-byte aligned.', { phase: 'compile', nodeId: node.id, resourceId: handle.id });
-		}
 	}
 
 	private validateBufferAccessRange(handle: BufferHandle, range: BufferRange, node: InternalNode): void {
@@ -2677,27 +2665,19 @@ class FrameGraphRecorderImpl implements FrameGraphRecorder {
 		assertPositiveUint32(mipLevelCount, `${prefix} mipLevelCount`, { code: FRAME_GRAPH_ERROR_CODES.InvalidResourceDescriptor, phase: 'record' });
 		const maximumMipLevelCount = this.maximumMipLevelCount(desc, width, height, depthOrArrayLayers);
 		if (mipLevelCount > maximumMipLevelCount) {
-			throw new FrameGraphError(FRAME_GRAPH_ERROR_CODES.InvalidResourceDescriptor, `${prefix} mipLevelCount must not exceed ${maximumMipLevelCount} for its declared size and dimension. Received ${mipLevelCount}.`, { phase: 'record' });
+			throw new FrameGraphError(FRAME_GRAPH_ERROR_CODES.InvalidResourceDescriptor, `${prefix} mipLevelCount must not exceed ${maximumMipLevelCount} for bounded FrameGraph range planning. Received ${mipLevelCount}.`, { phase: 'record' });
 		}
 		const sampleCount = desc.sampleCount ?? 1;
 		assertPositiveUint32(sampleCount, `${prefix} sampleCount`, { code: FRAME_GRAPH_ERROR_CODES.InvalidResourceDescriptor, phase: 'record' });
-		if (sampleCount !== 1 && sampleCount !== 4) {
-			throw new FrameGraphError(FRAME_GRAPH_ERROR_CODES.InvalidResourceDescriptor, `${prefix} sampleCount must be either 1 or 4. Received ${sampleCount}.`, { phase: 'record' });
-		}
 		if (hasStencilAspect(desc.format)) {
 			throw new FrameGraphError(FRAME_GRAPH_ERROR_CODES.InvalidResourceDescriptor, `FrameGraph does not support stencil texture format "${desc.format}".`, { phase: 'record' });
 		}
-		const seen = new Set<GPUTextureFormat>();
 		for (const viewFormat of desc.viewFormats ?? []) {
-			if (seen.has(viewFormat)) {
-				throw new FrameGraphError(FRAME_GRAPH_ERROR_CODES.InvalidResourceDescriptor, `Texture viewFormats contains duplicate format "${viewFormat}".`, { phase: 'record' });
-			}
-			seen.add(viewFormat);
 			if (hasStencilAspect(viewFormat)) {
 				throw new FrameGraphError(FRAME_GRAPH_ERROR_CODES.InvalidResourceDescriptor, `FrameGraph does not support stencil view format "${viewFormat}".`, { phase: 'record' });
 			}
-			if (!areTextureViewFormatsCompatible(desc.format, viewFormat)) {
-				throw new FrameGraphError(FRAME_GRAPH_ERROR_CODES.InvalidResourceDescriptor, `Texture view format "${viewFormat}" is not compatible with texture format "${desc.format}".`, { phase: 'record' });
+			if (!this.areTextureFormatCategoriesCompatible(desc.format, viewFormat)) {
+				throw new FrameGraphError(FRAME_GRAPH_ERROR_CODES.InvalidResourceDescriptor, `Texture view format "${viewFormat}" changes the FrameGraph format category of texture format "${desc.format}".`, { phase: 'record' });
 			}
 		}
 	}
@@ -2715,6 +2695,26 @@ class FrameGraphRecorderImpl implements FrameGraphRecorder {
 				? Math.max(width, height, depthOrArrayLayers)
 				: Math.max(width, height);
 		return Math.floor(Math.log2(maximumDimension)) + 1;
+	}
+
+	private areTextureFormatCategoriesCompatible(
+		textureFormat: GPUTextureFormat,
+		viewFormat: GPUTextureFormat,
+	): boolean {
+		return this.textureFormatCategory(textureFormat) === this.textureFormatCategory(viewFormat);
+	}
+
+	private textureFormatCategory(format: GPUTextureFormat): 'color' | 'depth' | 'stencil' | 'depth-stencil' {
+		switch (getTextureFormatInfo(format).kind) {
+			case 'depth':
+				return 'depth';
+			case 'stencil':
+				return 'stencil';
+			case 'depth-stencil':
+				return 'depth-stencil';
+			default:
+				return 'color';
+		}
 	}
 
 	private validateBufferDescriptor(desc: BufferDesc, transient: boolean): void {
@@ -2737,8 +2737,8 @@ class FrameGraphRecorderImpl implements FrameGraphRecorder {
 		if (format !== desc.format && !(desc.viewFormats ?? []).includes(format)) {
 			throw new FrameGraphError(FRAME_GRAPH_ERROR_CODES.InvalidTextureView, `Texture view format "${format}" for "${handle.label ?? handle.id}" was not declared in viewFormats.`, { phase: node ? 'compile' : 'record', nodeId: node?.id, resourceId: handle.id });
 		}
-		if (!areTextureViewFormatsCompatible(desc.format, format)) {
-			throw new FrameGraphError(FRAME_GRAPH_ERROR_CODES.InvalidTextureView, `Texture view format "${format}" is not compatible with texture format "${desc.format}".`, { phase: node ? 'compile' : 'record', nodeId: node?.id, resourceId: handle.id });
+		if (!this.areTextureFormatCategoriesCompatible(desc.format, format)) {
+			throw new FrameGraphError(FRAME_GRAPH_ERROR_CODES.InvalidTextureView, `Texture view format "${format}" changes the FrameGraph format category of texture format "${desc.format}".`, { phase: node ? 'compile' : 'record', nodeId: node?.id, resourceId: handle.id });
 		}
 		const dimension = descriptor.dimension!;
 		const textureDimension = desc.dimension ?? '2d';
