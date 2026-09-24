@@ -74,12 +74,12 @@ test('recording validation reports descriptor and use failures with stable metad
 	);
 });
 
-test('compilation reports texture capability and copy validation with node context', () => {
+test('compilation reports format-category and copy validation with node context', () => {
 	const formatGraph = new FrameGraph(mockDevice()).beginFrame();
 	const depth = formatGraph.createTexture({ format: 'depth24plus', size: [1, 1] });
 	formatGraph.command({
 		sideEffect: true,
-		uses: [formatGraph.use(depth, TextureAccess.StorageWrite, { contents: 'overwrite' })],
+		uses: [formatGraph.use(depth, TextureAccess.ColorAttachmentWrite, { contents: 'overwrite' })],
 	});
 	assert.throws(
 		() => formatGraph.compile(),

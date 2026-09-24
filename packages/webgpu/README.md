@@ -77,11 +77,12 @@ function renderFrame(): void {
 ```
 
 Imported GPU objects must belong to the `GPUDevice` passed to `FrameGraph`.
-ZenFG checks its own graph descriptors and accesses; device-specific limits
-and native object ownership may be validated later by WebGPU. Native WebGPU
-validation errors may be reported asynchronously through error scopes or
-`uncapturederror`; ordinary execution does not wait for those results and
-does not convert them to ZenFG error codes.
+ZenFG checks graph dependencies, logical ranges, content flow, access
+declarations, usage contracts, and resource planning. Native render-pass,
+texture-view, device-limit, and command validation remains a WebGPU
+responsibility. Native WebGPU validation errors may be reported asynchronously
+through error scopes or `uncapturederror`; ordinary execution does not wait for
+those results and does not convert them to ZenFG error codes.
 
 `markPresent()` makes the final surface value observable. Without a resource
 root or a side-effect node, work that contributes to no result is culled.

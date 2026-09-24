@@ -438,7 +438,7 @@ test('compile normalizes depth attachment omitted aspect to depth-only', () => {
 	}]);
 });
 
-test('compile validates depth attachment load, store, and clear state', () => {
+test('compile preserves depth content declarations while deferring native clear validation', () => {
 	const compileInvalidDepthAttachment = (
 		label: string,
 		attachment: Omit<RenderDepthStencilAttachmentDesc, 'target'> | Record<string, unknown>,
@@ -456,26 +456,20 @@ test('compile validates depth attachment load, store, and clear state', () => {
 		graph.compile({ report: true }).compilationReport;
 	};
 
-	assert.throws(
-		() => compileInvalidDepthAttachment('missing-clear-value', {
+	assert.doesNotThrow(() => compileInvalidDepthAttachment('missing-clear-value', {
 			depthLoadOp: 'clear',
 			depthStoreOp: 'store',
-		}),
-		/Render node "missing-clear-value" cleared depth attachment "depth" must provide depthClearValue/,
-	);
+	}));
 	for (const [label, depthClearValue] of [
 		['nan-clear-value', Number.NaN],
 		['negative-clear-value', -0.01],
 		['large-clear-value', 1.01],
 	] as const) {
-		assert.throws(
-			() => compileInvalidDepthAttachment(label, {
+		assert.doesNotThrow(() => compileInvalidDepthAttachment(label, {
 				depthLoadOp: 'clear',
 				depthStoreOp: 'store',
 				depthClearValue,
-			}),
-			new RegExp(`Render node "${label}" cleared depth attachment "depth" depthClearValue must be between 0 and 1`),
-		);
+		}));
 	}
 	assert.throws(
 		() => compileInvalidDepthAttachment('missing-load-op', {
@@ -899,7 +893,7 @@ test('compile validates alternate texture view formats against viewFormats', () 
 	);
 });
 
-test('compile validates view aspect, swizzle, and storage dimension', () => {
+test('compile validates view aspect while deferring native swizzle and storage-dimension validation', () => {
 	{
 		const graph = new FrameGraph(mockDevice()).beginFrame();
 		const color = graph.importTexture(texture('color', textureUsage.TEXTURE_BINDING, { format: 'rgba8unorm', size: [1, 1] }), { label: 'color', exposedUsage: textureUsage.TEXTURE_BINDING });
@@ -918,7 +912,7 @@ test('compile validates view aspect, swizzle, and storage dimension', () => {
 			sideEffect: true,
 			uses: [graph.use(malformed, TextureAccess.Sampled)],
 		});
-		assert.throws(() => graph.compile(), /invalid component swizzle/);
+		assert.doesNotThrow(() => graph.compile());
 	}
 	{
 		const graph = new FrameGraph(mockDevice()).beginFrame();
@@ -928,7 +922,7 @@ test('compile validates view aspect, swizzle, and storage dimension', () => {
 			sideEffect: true,
 			uses: [graph.use(swizzled, TextureAccess.Sampled)],
 		});
-		assert.throws(() => graph.compile(), /without the "texture-component-swizzle" device feature/);
+		assert.doesNotThrow(() => graph.compile());
 	}
 	{
 		const device = {
@@ -952,7 +946,7 @@ test('compile validates view aspect, swizzle, and storage dimension', () => {
 				storeOp: 'store',
 			}],
 		});
-		assert.throws(() => graph.compile(), /attachment views cannot use component swizzle/);
+		assert.doesNotThrow(() => graph.compile());
 	}
 	{
 		const graph = new FrameGraph(mockDevice()).beginFrame();
@@ -965,7 +959,7 @@ test('compile validates view aspect, swizzle, and storage dimension', () => {
 			sideEffect: true,
 			uses: [graph.use(cube, TextureAccess.StorageRead)],
 		});
-		assert.throws(() => graph.compile(), /cannot use "cube" dimension/);
+		assert.doesNotThrow(() => graph.compile());
 	}
 });
 
@@ -1015,7 +1009,7 @@ test('compile validates 3d color attachment depth slices and reports them separa
 	}
 });
 
-test('compile rejects 3d resolve targets', () => {
+test('compile defers native resolve-target dimension validation', () => {
 	const graph = new FrameGraph(mockDevice()).beginFrame();
 	const source = graph.createTexture({
 		label: 'source',
@@ -1043,7 +1037,7 @@ test('compile rejects 3d resolve targets', () => {
 	});
 	graph.markOutput(volume);
 
-	assert.throws(() => graph.compile(), /resolve target.*2d or 2d-array view/);
+	assert.doesNotThrow(() => graph.compile());
 });
 
 test('compile rejects ordinary buffer access ranges outside the descriptor', () => {
@@ -1096,7 +1090,7 @@ test('markReadback requires caller-owned imported staging buffers', () => {
 	}
 });
 
-test('compile rejects incompatible render attachments and resolve targets', () => {
+test('compile preserves format-category checks while deferring resolve compatibility', () => {
 	{
 		const graph = new FrameGraph(mockDevice()).beginFrame();
 		const color = graph.createTexture({ label: 'color', format: 'rgba8unorm', size: [1, 1] });
@@ -1107,7 +1101,7 @@ test('compile rejects incompatible render attachments and resolve targets', () =
 		});
 		graph.markOutput(resolve);
 
-		assert.throws(() => graph.compile({ report: true }).compilationReport, /resolve source must be multisampled/);
+		assert.doesNotThrow(() => graph.compile({ report: true }).compilationReport);
 	}
 	{
 		const graph = new FrameGraph(mockDevice()).beginFrame();
@@ -1119,7 +1113,7 @@ test('compile rejects incompatible render attachments and resolve targets', () =
 		});
 		graph.markOutput(resolve);
 
-		assert.throws(() => graph.compile({ report: true }).compilationReport, /resolve target format must match/);
+		assert.doesNotThrow(() => graph.compile({ report: true }).compilationReport);
 	}
 	{
 		const graph = new FrameGraph(mockDevice()).beginFrame();
@@ -1141,7 +1135,7 @@ test('compile rejects incompatible render attachments and resolve targets', () =
 	}
 });
 
-test('compile rejects render attachment collection extent and sample count mismatches', () => {
+test('compile defers render attachment extent and sample count compatibility', () => {
 	{
 		const graph = new FrameGraph(mockDevice()).beginFrame();
 		const first = graph.createTexture({ label: 'first-color', format: 'rgba8unorm', size: [4, 4] });
@@ -1155,12 +1149,7 @@ test('compile rejects render attachment collection extent and sample count misma
 		});
 		graph.markOutput(first);
 
-		assert.throws(
-			() => graph.compile({ report: true }).compilationReport,
-			(error) => error instanceof Error
-				&& error.message.includes('Render node "mrt-extent" attachment "second-color" mip 0 render extent 8x8')
-				&& error.message.includes('attachment "first-color" mip 0 render extent 4x4'),
-		);
+		assert.doesNotThrow(() => graph.compile({ report: true }).compilationReport);
 	}
 	{
 		const graph = new FrameGraph(mockDevice()).beginFrame();
@@ -1175,10 +1164,7 @@ test('compile rejects render attachment collection extent and sample count misma
 		});
 		graph.markOutput(first);
 
-		assert.throws(
-			() => graph.compile({ report: true }).compilationReport,
-			/Render node "mrt-samples" attachment "single-color" sampleCount 1 does not match attachment "msaa-color" sampleCount 4/,
-		);
+		assert.doesNotThrow(() => graph.compile({ report: true }).compilationReport);
 	}
 	{
 		const graph = new FrameGraph(mockDevice()).beginFrame();
@@ -1191,10 +1177,7 @@ test('compile rejects render attachment collection extent and sample count misma
 		});
 		graph.markOutput(color);
 
-		assert.throws(
-			() => graph.compile({ report: true }).compilationReport,
-			/Render node "color-depth-extent" attachment "depth" mip 0 render extent 8x8 does not match attachment "color" mip 0 render extent 4x4/,
-		);
+		assert.doesNotThrow(() => graph.compile({ report: true }).compilationReport);
 	}
 	{
 		const graph = new FrameGraph(mockDevice()).beginFrame();
@@ -1207,14 +1190,11 @@ test('compile rejects render attachment collection extent and sample count misma
 		});
 		graph.markOutput(color);
 
-		assert.throws(
-			() => graph.compile({ report: true }).compilationReport,
-			/Render node "color-depth-samples" attachment "depth" sampleCount 1 does not match attachment "color" sampleCount 4/,
-		);
+		assert.doesNotThrow(() => graph.compile({ report: true }).compilationReport);
 	}
 });
 
-test('compile compares render attachment extents at the selected mip level', () => {
+test('compile retains render attachment subresource ranges without checking native extents', () => {
 	const graph = new FrameGraph(mockDevice()).beginFrame();
 	const mipColor = graph.createTexture({ label: 'mip-color', format: 'rgba8unorm', size: [8, 8], mipLevelCount: 2 });
 	const baseColor = graph.createTexture({ label: 'base-color', format: 'rgba8unorm', size: [4, 4] });
@@ -1235,7 +1215,7 @@ test('compile compares render attachment extents at the selected mip level', () 
 	assert.doesNotThrow(() => graph.compile({ report: true }).compilationReport);
 });
 
-test('compile compares resolve source and target extents at their selected mip levels', () => {
+test('compile retains resolve subresource ranges without checking native extents', () => {
 	{
 		const graph = new FrameGraph(mockDevice()).beginFrame();
 		const color = graph.createTexture({ label: 'msaa-color', format: 'rgba8unorm', size: [4, 4], sampleCount: 4 });
@@ -1270,17 +1250,11 @@ test('compile compares resolve source and target extents at their selected mip l
 		});
 		graph.markOutput(resolveView);
 
-		assert.throws(
-			() => graph.compile({ report: true }).compilationReport,
-			(error) => error instanceof Error
-				&& error.message.includes('Render node "mismatched-resolve-mip" resolve target "resolve-color" render extent mismatch')
-				&& error.message.includes('color attachment "msaa-color" mip 0 is 8x8')
-				&& error.message.includes('resolve target mip 1 is 4x4'),
-		);
+		assert.doesNotThrow(() => graph.compile({ report: true }).compilationReport);
 	}
 });
 
-test('compile rejects texture access formats outside declared capabilities', () => {
+test('compile preserves format categories while deferring device capabilities', () => {
 	{
 		const graph = new FrameGraph(mockDevice()).beginFrame();
 		const color = graph.createTexture({ label: 'color', format: 'depth24plus', size: [1, 1] });
@@ -1290,17 +1264,20 @@ test('compile rejects texture access formats outside declared capabilities', () 
 		});
 		graph.markOutput(color);
 
-		assert.throws(() => graph.compile({ report: true }).compilationReport, /color-pass.*color.*renderable color format.*depth24plus/);
+		assert.throws(() => graph.compile({ report: true }).compilationReport, /color-pass.*color.*requires a color format.*depth24plus/);
 	}
 	{
 		const graph = new FrameGraph(mockDevice()).beginFrame();
-		const compressed = graph.createTexture({ label: 'compressed', format: 'bc1-rgba-unorm', size: [4, 4] });
+		const compressed = graph.importTexture(
+			texture('compressed', textureUsage.TEXTURE_BINDING, { format: 'bc1-rgba-unorm', size: [4, 4] }),
+			{ label: 'compressed', exposedUsage: textureUsage.TEXTURE_BINDING },
+		);
 		graph.command({
 			sideEffect: true,
 			uses: [graph.use(compressed, TextureAccess.Sampled)],
 		});
 
-		assert.throws(() => graph.compile({ report: true }).compilationReport, /compressed.*Sampled access.*sampleable format.*bc1-rgba-unorm/);
+		assert.doesNotThrow(() => graph.compile({ report: true }).compilationReport);
 	}
 	{
 		const graph = new FrameGraph(mockDevice()).beginFrame();
@@ -1310,7 +1287,7 @@ test('compile rejects texture access formats outside declared capabilities', () 
 			uses: [graph.use(depth, TextureAccess.StorageWrite, { contents: 'overwrite' })],
 		});
 
-		assert.throws(() => graph.compile({ report: true }).compilationReport, /depth.*storage-write access.*storage-capable format.*depth32float/);
+		assert.doesNotThrow(() => graph.compile({ report: true }).compilationReport);
 	}
 	{
 		const graph = new FrameGraph(mockDevice()).beginFrame();
@@ -1320,7 +1297,7 @@ test('compile rejects texture access formats outside declared capabilities', () 
 			uses: [graph.use(srgb, TextureAccess.StorageWrite, { contents: 'overwrite' })],
 		});
 
-		assert.throws(() => graph.compile({ report: true }).compilationReport, /srgb-storage.*storage-write access.*storage-capable format.*rgba8unorm-srgb/);
+		assert.doesNotThrow(() => graph.compile({ report: true }).compilationReport);
 	}
 	{
 		const graph = new FrameGraph(mockDevice()).beginFrame();
@@ -1330,7 +1307,7 @@ test('compile rejects texture access formats outside declared capabilities', () 
 			uses: [graph.use(bgra, TextureAccess.StorageWrite, { contents: 'overwrite' })],
 		});
 
-		assert.throws(() => graph.compile({ report: true }).compilationReport, /bgra-storage.*storage-write access.*storage-capable format.*bgra8unorm/);
+		assert.doesNotThrow(() => graph.compile({ report: true }).compilationReport);
 	}
 	{
 		const graph = new FrameGraph(mockDevice()).beginFrame();
@@ -1341,7 +1318,7 @@ test('compile rejects texture access formats outside declared capabilities', () 
 		});
 		graph.markOutput(featureGatedColor);
 
-		assert.throws(() => graph.compile({ report: true }).compilationReport, /rg11b10ufloat-color.*renderable color format.*rg11b10ufloat/);
+		assert.doesNotThrow(() => graph.compile({ report: true }).compilationReport);
 	}
 	{
 		const graph = new FrameGraph(mockDevice()).beginFrame();
@@ -2048,7 +2025,7 @@ test('compile rejects imported exposed bounds against native resource fields wit
 	}
 });
 
-test('compile reports render resolve descriptor mismatches with node and resource context', () => {
+test('compile defers render resolve descriptor mismatch validation to WebGPU', () => {
 	const graph = new FrameGraph(mockDevice()).beginFrame();
 	const color = graph.createTexture({ label: 'msaa-color', format: 'rgba8unorm', size: [2, 2], sampleCount: 4 });
 	const resolve = graph.createTexture({ label: 'resolve-color', format: 'rgba16float', size: [2, 2] });
@@ -2059,14 +2036,7 @@ test('compile reports render resolve descriptor mismatches with node and resourc
 	});
 	graph.markOutput(resolve);
 
-	assert.throws(
-		() => graph.compile({ report: true }).compilationReport,
-		(error) => error instanceof Error
-			&& error.message.includes('Render node "resolve-pass" resolve target "resolve-color" format mismatch')
-			&& error.message.includes('color attachment "msaa-color" is "rgba8unorm"')
-			&& error.message.includes('resolve target is "rgba16float"')
-			&& error.message.includes('WebGPU resolve target format must match'),
-	);
+	assert.doesNotThrow(() => graph.compile({ report: true }).compilationReport);
 });
 
 test('compile reports copy layout diagnostics with concrete WebGPU boundary values', () => {

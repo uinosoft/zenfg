@@ -15,7 +15,7 @@ import {
 } from './types.ts';
 import { FRAME_GRAPH_ERROR_CODES, FrameGraphError } from './error.ts';
 import { bufferAllocationSize, estimateTextureByteSize, textureSizeTuple } from './resourceDescriptors.ts';
-import { getTextureFormatCapabilities } from './formatCaps.ts';
+import { getTextureFormatInfo } from './formatCaps.ts';
 import type {
 	InternalAccess,
 	InternalNode,
@@ -886,7 +886,7 @@ function resolveTextureAspectMask(format: GPUTextureFormat, aspect: GPUTextureAs
 	if (aspect === 'stencil-only') {
 		return TEXTURE_ASPECT_STENCIL;
 	}
-	switch (getTextureFormatCapabilities(format).kind) {
+	switch (getTextureFormatInfo(format).kind) {
 		case 'depth':
 			return TEXTURE_ASPECT_DEPTH;
 		case 'stencil':
