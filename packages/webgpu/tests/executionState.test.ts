@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { BufferAccess, FrameGraph, FrameGraphError, type CompiledFrame } from '../src/index.ts';
+import { BufferAccess, FrameGraph, FrameGraphError, TextureAccess, type CompiledFrame } from '../src/index.ts';
 import { mockCommandEncoder, mockDevice } from './testUtils.ts';
 
 for (const source of ['node', 'external-submission', 'beforeSubmit', 'afterSubmit'] as const) {
@@ -119,6 +119,59 @@ test('execution errors release transients and leave a compiled frame reusable', 
 	assert.throws(() => compiled.execute(), /encode failed/);
 	assert.equal(runtime.getResourcePoolStats().retainedCount, 1);
 	assert.doesNotThrow(() => compiled.execute());
+});
+
+test('native transient creation failure releases earlier resources and leaves execution retryable', () => {
+	const creationError = new Error('createTexture failed');
+	const baseDevice = mockDevice();
+	let shouldFail = true;
+	let bufferCreateCount = 0;
+	const device = {
+		...baseDevice,
+		createBuffer(desc: GPUBufferDescriptor) {
+			bufferCreateCount++;
+			return baseDevice.createBuffer(desc);
+		},
+		createTexture(desc: GPUTextureDescriptor) {
+			if (shouldFail) {
+				shouldFail = false;
+				throw creationError;
+			}
+			return baseDevice.createTexture(desc);
+		},
+	} as unknown as GPUDevice;
+	const runtime = new FrameGraph(device);
+	const recorder = runtime.beginFrame();
+	const transientBuffer = recorder.createBuffer({ label: 'transient-buffer', size: 16 });
+	const transientTexture = recorder.createTexture({ label: 'transient-texture', format: 'rgba8unorm', size: [1, 1] });
+	recorder.command({
+		sideEffect: true,
+		uses: [
+			recorder.use(transientBuffer, BufferAccess.StorageWrite, { contents: 'overwrite' }),
+			recorder.use(transientTexture, TextureAccess.StorageWrite, { contents: 'overwrite' }),
+		],
+	});
+	const compiled = recorder.compile();
+
+	assert.throws(() => compiled.execute(), (error) => error === creationError);
+	assert.deepEqual(runtime.getResourcePoolStats(), {
+		acquireCount: 2,
+		reuseCount: 0,
+		createdCount: 1,
+		retainedCount: 1,
+		estimatedRetainedBytes: 16,
+	});
+	assert.equal(bufferCreateCount, 1);
+
+	assert.doesNotThrow(() => compiled.execute());
+	assert.equal(bufferCreateCount, 1);
+	assert.deepEqual(runtime.getResourcePoolStats(), {
+		acquireCount: 4,
+		reuseCount: 1,
+		createdCount: 2,
+		retainedCount: 2,
+		estimatedRetainedBytes: 20,
+	});
 });
 
 test('GPU debug group state does not leak into re-execution after an encode error', () => {
