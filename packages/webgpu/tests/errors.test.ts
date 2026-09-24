@@ -90,22 +90,6 @@ test('compilation reports format-category and copy validation with node context'
 			&& error.resourceId === depth.id,
 	);
 
-	const alignmentGraph = new FrameGraph(mockDevice()).beginFrame();
-	const source = alignmentGraph.createBuffer({ size: 16 });
-	const destination = alignmentGraph.createBuffer({ size: 16 });
-	alignmentGraph.copy({
-		operations: [{ type: 'buffer-to-buffer', source, destination, sourceOffset: 1, size: 4 }],
-	});
-	assert.throws(
-		() => alignmentGraph.compile(),
-		(error) => error instanceof FrameGraphError
-			&& error.code === 'FG1106'
-			&& error.phase === 'compile'
-			&& error.nodeId === 1
-			&& error.context?.sourceResourceId === source.id
-			&& error.context?.destinationResourceId === destination.id,
-	);
-
 	const rangeGraph = new FrameGraph(mockDevice()).beginFrame();
 	const rangeSource = rangeGraph.createBuffer({ size: 8 });
 	const rangeDestination = rangeGraph.createBuffer({ size: 16 });

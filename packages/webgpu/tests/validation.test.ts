@@ -1355,37 +1355,6 @@ test('compile rejects invalid copy ranges and buffer-texture layout', () => {
 			},
 		},
 		{
-			name: 'buffer offsets require 4-byte alignment',
-			expected: /4-byte aligned/,
-			createGraph() {
-				const graph = new FrameGraph(mockDevice()).beginFrame();
-				const source = graph.importBuffer(buffer('source', bufferUsage.COPY_SRC), { label: 'source', exposedSize: 64, exposedUsage: bufferUsage.COPY_SRC });
-				const destination = graph.createBuffer({ label: 'destination', size: 64 });
-				graph.copy({
-					label: 'copy',
-					operations: [{ type: 'buffer-to-buffer', source, destination, sourceOffset: 2, size: 16 }],
-				});
-				graph.markOutput(destination);
-
-				return graph;
-			},
-		},
-		{
-			name: 'same-buffer copy ranges must not overlap',
-			expected: /must not overlap/,
-			createGraph() {
-				const graph = new FrameGraph(mockDevice()).beginFrame();
-				const shared = graph.importBuffer(buffer('shared', bufferUsage.COPY_SRC | bufferUsage.COPY_DST), { label: 'shared', exposedSize: 64, exposedUsage: bufferUsage.COPY_SRC | bufferUsage.COPY_DST });
-				graph.copy({
-					label: 'copy',
-					operations: [{ type: 'buffer-to-buffer', source: shared, destination: shared, sourceOffset: 0, destinationOffset: 16, size: 32 }],
-				});
-				graph.markOutput(shared);
-
-				return graph;
-			},
-		},
-		{
 			name: 'texture origin and extent exceed bounds',
 			expected: /copy range exceeds texture/,
 			createGraph() {
@@ -1441,129 +1410,6 @@ test('compile rejects invalid copy ranges and buffer-texture layout', () => {
 						sourceOrigin: [0, 0, 3],
 						destinationOrigin: [0, 0, 3],
 						copySize: [1, 1, 2],
-					}],
-				});
-				graph.markOutput(destination);
-
-				return graph;
-			},
-		},
-		{
-			name: 'texture aspect must match format',
-			expected: /copy aspect "depth-only" is not valid/,
-			createGraph() {
-				const graph = new FrameGraph(mockDevice()).beginFrame();
-				const source = graph.importTexture(texture('source', textureUsage.COPY_SRC, { format: 'rgba8unorm', size: [4, 4] }), { label: 'source', exposedUsage: textureUsage.COPY_SRC });
-				const destination = graph.createTexture({ label: 'destination', format: 'rgba8unorm', size: [4, 4] });
-				graph.copy({
-					label: 'copy',
-					operations: [{ type: 'texture-to-texture', source, destination, sourceAspect: 'depth-only', copySize: [1, 1] }],
-				});
-				graph.markOutput(destination);
-
-				return graph;
-			},
-		},
-		{
-			name: 'texture formats must be copy-compatible',
-			expected: /not copy-compatible/,
-			createGraph() {
-				const graph = new FrameGraph(mockDevice()).beginFrame();
-				const source = graph.importTexture(texture('source', textureUsage.COPY_SRC, { format: 'rgba8unorm', size: [4, 4] }), { label: 'source', exposedUsage: textureUsage.COPY_SRC });
-				const destination = graph.createTexture({ label: 'destination', format: 'rgba16float', size: [4, 4] });
-				graph.copy({
-					label: 'copy',
-					operations: [{ type: 'texture-to-texture', source, destination, copySize: [1, 1] }],
-				});
-				graph.markOutput(destination);
-
-				return graph;
-			},
-		},
-		{
-			name: 'same-texture subresources must not overlap',
-			expected: /subresources must be disjoint/,
-			createGraph() {
-				const graph = new FrameGraph(mockDevice()).beginFrame();
-				const shared = graph.importTexture(texture('shared', textureUsage.COPY_SRC | textureUsage.COPY_DST, { format: 'rgba8unorm', size: [4, 4] }), { label: 'shared', exposedUsage: textureUsage.COPY_SRC | textureUsage.COPY_DST });
-				graph.copy({
-					label: 'copy',
-					operations: [{ type: 'texture-to-texture', source: shared, destination: shared, sourceOrigin: [0, 0], destinationOrigin: [2, 2], copySize: [1, 1] }],
-				});
-				graph.markOutput(shared);
-
-				return graph;
-			},
-		},
-		{
-			name: 'compressed texture origin aligns to blocks',
-			expected: /origin .* texel blocks/,
-			createGraph() {
-				const graph = new FrameGraph(mockDevice()).beginFrame();
-				const source = graph.createTexture({ label: 'source', format: 'bc1-rgba-unorm', size: [8, 8] });
-				const destination = graph.createTexture({ label: 'destination', format: 'bc1-rgba-unorm', size: [8, 8] });
-				graph.copy({
-					label: 'copy',
-					operations: [{ type: 'texture-to-texture', source, destination, sourceOrigin: [2, 0], copySize: [4, 4] }],
-				});
-				graph.markOutput(destination);
-
-				return graph;
-			},
-		},
-		{
-			name: 'compressed texture size aligns to blocks',
-			expected: /size .* texel blocks/,
-			createGraph() {
-				const graph = new FrameGraph(mockDevice()).beginFrame();
-				const source = graph.createTexture({ label: 'source', format: 'bc1-rgba-unorm', size: [8, 8] });
-				const destination = graph.createTexture({ label: 'destination', format: 'bc1-rgba-unorm', size: [8, 8] });
-				graph.copy({
-					label: 'copy',
-					operations: [{ type: 'texture-to-texture', source, destination, copySize: [6, 4] }],
-				});
-				graph.markOutput(destination);
-
-				return graph;
-			},
-		},
-		{
-			name: 'bytesPerRow requires 256-byte alignment',
-			expected: /bytesPerRow must be 256-byte aligned/,
-			createGraph() {
-				const graph = new FrameGraph(mockDevice()).beginFrame();
-				const source = graph.importBuffer(buffer('source', bufferUsage.COPY_SRC), { label: 'source', exposedSize: 2048, exposedUsage: bufferUsage.COPY_SRC });
-				const destination = graph.createTexture({ label: 'destination', format: 'rgba8unorm', size: [4, 4] });
-				graph.copy({
-					label: 'copy',
-					operations: [{
-						type: 'buffer-to-texture',
-						source,
-						destination,
-						sourceLayout: { bytesPerRow: 128 },
-						copySize: [4, 4],
-					}],
-				});
-				graph.markOutput(destination);
-
-				return graph;
-			},
-		},
-		{
-			name: 'buffer offset aligns to texel block size',
-			expected: /offset must align/,
-			createGraph() {
-				const graph = new FrameGraph(mockDevice()).beginFrame();
-				const source = graph.importBuffer(buffer('source', bufferUsage.COPY_SRC), { label: 'source', exposedSize: 2048, exposedUsage: bufferUsage.COPY_SRC });
-				const destination = graph.createTexture({ label: 'destination', format: 'rgba16float', size: [1, 1] });
-				graph.copy({
-					label: 'copy',
-					operations: [{
-						type: 'buffer-to-texture',
-						source,
-						destination,
-						sourceLayout: { offset: 4 },
-						copySize: [1, 1],
 					}],
 				});
 				graph.markOutput(destination);
@@ -1703,7 +1549,7 @@ test('compile uses mip-specific depth for 3d copies without shrinking 2d array l
 	}
 });
 
-test('compile treats different z ranges of one 3d mip as aliased copy subresources', () => {
+test('compile defers same-3d-mip copy alias validation to WebGPU', () => {
 	const graph = new FrameGraph(mockDevice()).beginFrame();
 	const physical = {
 		...texture('volume', textureUsage.COPY_SRC | textureUsage.COPY_DST),
@@ -1726,13 +1572,13 @@ test('compile treats different z ranges of one 3d mip as aliased copy subresourc
 	});
 	graph.markOutput(volume);
 
-	assert.throws(() => graph.compile(), /subresources must be disjoint/);
+	assert.doesNotThrow(() => graph.compile());
 });
 
-test('compile permits texture-to-texture copy formats that only differ by srgb suffix', () => {
+test('compile defers texture-to-texture copy format compatibility to WebGPU', () => {
 	const graph = new FrameGraph(mockDevice()).beginFrame();
 	const source = graph.createTexture({ label: 'source', format: 'rgba8unorm-srgb', size: [4, 4] });
-	const destination = graph.createTexture({ label: 'destination', format: 'rgba8unorm', size: [4, 4] });
+	const destination = graph.createTexture({ label: 'destination', format: 'rgba16float', size: [4, 4] });
 
 	graph.render({
 		label: 'write-source',
@@ -2039,7 +1885,7 @@ test('compile defers render resolve descriptor mismatch validation to WebGPU', (
 	assert.doesNotThrow(() => graph.compile({ report: true }).compilationReport);
 });
 
-test('compile reports copy layout diagnostics with concrete WebGPU boundary values', () => {
+test('compile defers native copy layout alignment to WebGPU', () => {
 	const graph = new FrameGraph(mockDevice()).beginFrame();
 	const source = graph.importBuffer(buffer('source', bufferUsage.COPY_SRC), { label: 'source', exposedSize: 64, exposedUsage: bufferUsage.COPY_SRC });
 	const destination = graph.createTexture({ label: 'destination', format: 'rgba8unorm', size: [2, 2] });
@@ -2055,10 +1901,10 @@ test('compile reports copy layout diagnostics with concrete WebGPU boundary valu
 	});
 	graph.markOutput(destination);
 
-	assert.throws(
-		() => graph.compile({ report: true }).compilationReport,
-			(error) => error instanceof Error
-				&& error.message.includes('Copy node "upload-texture" buffer-texture copy bytesPerRow must be 256-byte aligned; actual bytesPerRow 4'),
+	const report = graph.compile({ report: true }).compilationReport;
+	assert.deepEqual(
+		report.accesses.find((access) => access.resourceId === source.id && access.access === BufferAccess.CopySrc)?.bufferRange,
+		{ offset: 0, size: 16 },
 	);
 });
 
@@ -2078,7 +1924,7 @@ test('compile permits sampled access on multisampled textures for explicit multi
 	assert.doesNotThrow(() => graph.compile({ report: true }).compilationReport);
 });
 
-test('compile rejects copy access on multisampled textures', () => {
+test('compile defers multisampled copy validation to WebGPU', () => {
 	const graph = new FrameGraph(mockDevice()).beginFrame();
 	const color = graph.createTexture({ label: 'color', format: 'rgba8unorm', size: [1, 1], sampleCount: 4 });
 	const copyTarget = graph.createTexture({ label: 'copy-target', format: 'rgba8unorm', size: [1, 1] });
@@ -2093,12 +1939,15 @@ test('compile rejects copy access on multisampled textures', () => {
 	});
 	graph.markOutput(copyTarget);
 
-	assert.throws(() => graph.compile({ report: true }).compilationReport, /requires a single-sampled texture/);
+	assert.doesNotThrow(() => graph.compile({ report: true }).compilationReport);
 });
 
-test('compile still validates access declarations on culled nodes', () => {
+test('compile defers native copy validation on culled nodes', () => {
 	const graph = new FrameGraph(mockDevice()).beginFrame();
-	const color = graph.createTexture({ label: 'color', format: 'rgba8unorm', size: [1, 1], sampleCount: 4 });
+	const color = graph.importTexture(
+		texture('color', textureUsage.COPY_SRC, { format: 'rgba8unorm', size: [1, 1], sampleCount: 4 }),
+		{ label: 'color', exposedUsage: textureUsage.COPY_SRC },
+	);
 
 	graph.command({
 		label: 'culled-copy',
@@ -2106,7 +1955,48 @@ test('compile still validates access declarations on culled nodes', () => {
 		uses: [graph.use(color, TextureAccess.CopySrc)],
 	});
 
-	assert.throws(() => graph.compile({ report: true }).compilationReport, /requires a single-sampled texture/);
+	assert.doesNotThrow(() => graph.compile({ report: true }).compilationReport);
+});
+
+test('compile defers native copy aspect, alignment, and overlap validation', () => {
+	{
+		const graph = new FrameGraph(mockDevice()).beginFrame();
+		const source = graph.importTexture(texture('source', textureUsage.COPY_SRC, { format: 'rgba8unorm', size: [4, 4] }), { label: 'source', exposedUsage: textureUsage.COPY_SRC });
+		const destination = graph.importTexture(texture('destination', textureUsage.COPY_DST, { format: 'rgba8unorm', size: [4, 4] }), { label: 'destination', exposedUsage: textureUsage.COPY_DST });
+		graph.copy({
+			label: 'aspect-mismatch',
+			operations: [{ type: 'texture-to-texture', source, destination, sourceAspect: 'depth-only', copySize: [1, 1] }],
+		});
+		graph.markOutput(destination);
+
+		const report = graph.compile({ report: true }).compilationReport;
+		assert.equal(
+			report.accesses.find((access) => access.resourceId === source.id && access.access === TextureAccess.CopySrc)?.textureRegion?.aspect,
+			'all',
+		);
+	}
+	{
+		const graph = new FrameGraph(mockDevice()).beginFrame();
+		const shared = graph.importBuffer(buffer('shared', bufferUsage.COPY_SRC | bufferUsage.COPY_DST), { label: 'shared', exposedSize: 64, exposedUsage: bufferUsage.COPY_SRC | bufferUsage.COPY_DST });
+		graph.copy({
+			label: 'overlapping-buffer-copy',
+			operations: [{ type: 'buffer-to-buffer', source: shared, destination: shared, sourceOffset: 0, destinationOffset: 2, size: 16 }],
+		});
+		graph.markOutput(shared);
+
+		assert.doesNotThrow(() => graph.compile({ report: true }).compilationReport);
+	}
+	{
+		const graph = new FrameGraph(mockDevice()).beginFrame();
+		const shared = graph.importTexture(texture('shared', textureUsage.COPY_SRC | textureUsage.COPY_DST, { format: 'bc1-rgba-unorm', size: [8, 8] }), { label: 'shared', exposedUsage: textureUsage.COPY_SRC | textureUsage.COPY_DST });
+		graph.copy({
+			label: 'compressed-copy',
+			operations: [{ type: 'texture-to-texture', source: shared, destination: shared, sourceOrigin: [2, 0], destinationOrigin: [0, 0], copySize: [4, 4] }],
+		});
+		graph.markOutput(shared);
+
+		assert.doesNotThrow(() => graph.compile({ report: true }).compilationReport);
+	}
 });
 
 test('resource handles reject colliding graph-local ids from another FrameGraph recording', () => {

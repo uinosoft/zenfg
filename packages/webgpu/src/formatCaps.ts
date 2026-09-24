@@ -269,7 +269,7 @@ export function getTextureFormatBlockInfo(format: GPUTextureFormat, options: Fra
 	if (blockInfo) {
 		return blockInfo;
 	}
-	throw new FrameGraphError(FRAME_GRAPH_ERROR_CODES.UnsupportedTextureFormatUsage, `Unsupported texture format "${format}" for buffer-texture copy validation.`, options);
+	throw new FrameGraphError(FRAME_GRAPH_ERROR_CODES.UnsupportedTextureFormatUsage, `Unsupported texture format "${format}" for buffer-texture byte-range planning.`, options);
 }
 
 export function isDepthFormat(format: GPUTextureFormat): boolean {
@@ -284,8 +284,4 @@ export function hasStencilAspect(format: GPUTextureFormat): boolean {
 
 export function areTextureViewFormatsCompatible(textureFormat: GPUTextureFormat, viewFormat: GPUTextureFormat): boolean {
 	return textureFormat === viewFormat || stripSrgbSuffix(textureFormat) === stripSrgbSuffix(viewFormat);
-}
-
-export function areTextureCopyFormatsCompatible(source: GPUTextureFormat, destination: GPUTextureFormat): boolean {
-	return source === destination || stripSrgbSuffix(source) === stripSrgbSuffix(destination);
 }

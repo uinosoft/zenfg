@@ -2178,9 +2178,7 @@ class FrameGraphRecorderImpl implements FrameGraphRecorder {
 			}
 			if (
 				(textureAccess === TextureAccess.StorageRead
-					|| textureAccess === TextureAccess.StorageWrite
-					|| textureAccess === TextureAccess.CopySrc
-					|| textureAccess === TextureAccess.CopyDst)
+					|| textureAccess === TextureAccess.StorageWrite)
 				&& sampleCount > 1
 			) {
 				throw new FrameGraphError(FRAME_GRAPH_ERROR_CODES.InvalidNodeOperation, `Node "${node.label ?? node.id}" declares texture "${access.resource.label ?? access.resource.id}" access "${textureAccess}" with sampleCount ${sampleCount}. This WebGPU access requires a single-sampled texture.`, { phase: 'compile', nodeId: node.id, resourceId: access.resource.id });
