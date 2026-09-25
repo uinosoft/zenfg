@@ -95,6 +95,16 @@ runtime       recording         retained CPU plan        optional, one-shot
 - Dropping `FrameGraph` releases retained pool and profiler resources, but not
   caller-owned imported resources.
 
+## Validation Boundary
+
+ZenFG validates graph semantics: logical resource ranges, content flow, usage
+contracts, format categories, and bounded planning inputs. Device features,
+device limits, native descriptor validity, render-pass compatibility, texture
+view compatibility, and copy-command alignment remain wgpu responsibilities.
+Native wgpu validation may therefore be reported during allocation or command
+encoding rather than during graph recording. The graph does not take ownership
+of the caller's error handling or device-loss policy.
+
 ## Common tasks
 
 | Task | Public API |

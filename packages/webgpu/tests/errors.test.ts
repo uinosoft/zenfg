@@ -38,14 +38,7 @@ test('FrameGraphError exposes stable diagnostic fields and preserves its cause',
 
 test('recording validation reports descriptor and use failures with stable metadata', () => {
 	const recorder = new FrameGraph(mockDevice()).beginFrame();
-	assert.throws(
-		() => recorder.createTexture({ format: 'rgba8unorm', size: [1, 1], sampleCount: 2 }),
-		(error) => error instanceof FrameGraphError
-			&& error.code === 'FG1102'
-			&& error.phase === 'record'
-			&& error.nodeId === undefined
-			&& error.resourceId === undefined,
-	);
+	assert.doesNotThrow(() => recorder.createTexture({ format: 'rgba8unorm', size: [1, 1], sampleCount: 2 }));
 	const buffer = recorder.createBuffer({ size: 16 });
 	assert.throws(
 		() => recorder.use(buffer, BufferAccess.StorageWrite, { contents: 'invalid' as 'overwrite' }),
@@ -55,10 +48,9 @@ test('recording validation reports descriptor and use failures with stable metad
 			&& error.resourceId === buffer.id,
 	);
 	const texture = recorder.createTexture({ format: 'rgba8unorm', size: [1, 1] });
-	recorder.createTextureView(texture);
-	recorder.createTextureView(texture);
+	const firstView = recorder.createTextureView(texture);
 	const secondView = recorder.createTextureView(texture);
-	assert.notEqual(secondView.id, texture.id);
+	assert.notEqual(secondView.id, firstView.id);
 	assert.throws(
 		() => recorder.use(secondView, TextureAccess.StorageWrite, { contents: 'invalid' as 'overwrite' }),
 		(error) => error instanceof FrameGraphError
@@ -74,12 +66,12 @@ test('recording validation reports descriptor and use failures with stable metad
 	);
 });
 
-test('compilation reports texture capability and copy validation with node context', () => {
+test('compilation reports format-category and copy validation with node context', () => {
 	const formatGraph = new FrameGraph(mockDevice()).beginFrame();
 	const depth = formatGraph.createTexture({ format: 'depth24plus', size: [1, 1] });
 	formatGraph.command({
 		sideEffect: true,
-		uses: [formatGraph.use(depth, TextureAccess.StorageWrite, { contents: 'overwrite' })],
+		uses: [formatGraph.use(depth, TextureAccess.ColorAttachmentWrite, { contents: 'overwrite' })],
 	});
 	assert.throws(
 		() => formatGraph.compile(),
@@ -88,22 +80,6 @@ test('compilation reports texture capability and copy validation with node conte
 			&& error.phase === 'compile'
 			&& error.nodeId === 1
 			&& error.resourceId === depth.id,
-	);
-
-	const alignmentGraph = new FrameGraph(mockDevice()).beginFrame();
-	const source = alignmentGraph.createBuffer({ size: 16 });
-	const destination = alignmentGraph.createBuffer({ size: 16 });
-	alignmentGraph.copy({
-		operations: [{ type: 'buffer-to-buffer', source, destination, sourceOffset: 1, size: 4 }],
-	});
-	assert.throws(
-		() => alignmentGraph.compile(),
-		(error) => error instanceof FrameGraphError
-			&& error.code === 'FG1106'
-			&& error.phase === 'compile'
-			&& error.nodeId === 1
-			&& error.context?.sourceResourceId === source.id
-			&& error.context?.destinationResourceId === destination.id,
 	);
 
 	const rangeGraph = new FrameGraph(mockDevice()).beginFrame();

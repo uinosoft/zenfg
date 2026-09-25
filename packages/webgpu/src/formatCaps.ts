@@ -12,21 +12,18 @@ export type TextureFormatBlockInfo = {
 
 export type TextureFormatKind = 'color' | 'depth' | 'stencil' | 'depth-stencil' | 'compressed' | 'unknown';
 
-export type TextureFormatCapabilities = {
+export type TextureFormatInfo = {
 	readonly format: GPUTextureFormat;
 	readonly kind: TextureFormatKind;
-	readonly colorRenderable: boolean;
-	readonly sampleable: boolean;
-	readonly storage: boolean;
 	readonly blockInfo?: TextureFormatBlockInfo;
 };
 
-type TextureFormatCapabilityInit = Omit<TextureFormatCapabilities, 'format'>;
+type TextureFormatInfoInit = Omit<TextureFormatInfo, 'format'>;
 
-const textureFormatCapabilities = new Map<GPUTextureFormat, TextureFormatCapabilities>();
+const textureFormatInfo = new Map<GPUTextureFormat, TextureFormatInfo>();
 
-// Baseline capabilities are intentionally package-local and conservative. They cover the
-// formats FrameGraph currently validates without modeling device-specific format tiers.
+// FrameGraph tracks format aspects and texel blocks for dependency ranges and
+// byte footprints. Device-dependent usage capabilities remain native WebGPU validation.
 const plainColorFormatList = [
 	'r8unorm',
 	'r8snorm',
@@ -73,63 +70,6 @@ const plainColorFormatList = [
 	'rgba32float',
 ] as const satisfies readonly GPUTextureFormat[];
 
-const colorRenderableFormatList = [
-	'r8unorm',
-	'r8uint',
-	'r8sint',
-	'r16uint',
-	'r16sint',
-	'r16float',
-	'rg8unorm',
-	'rg8uint',
-	'rg8sint',
-	'r32uint',
-	'r32sint',
-	'r32float',
-	'rg16uint',
-	'rg16sint',
-	'rg16float',
-	'rgba8unorm',
-	'rgba8unorm-srgb',
-	'rgba8uint',
-	'rgba8sint',
-	'bgra8unorm',
-	'bgra8unorm-srgb',
-	'rgb10a2uint',
-	'rgb10a2unorm',
-	'rg32uint',
-	'rg32sint',
-	'rg32float',
-	'rgba16uint',
-	'rgba16sint',
-	'rgba16float',
-	'rgba32uint',
-	'rgba32sint',
-	'rgba32float',
-] as const satisfies readonly GPUTextureFormat[];
-
-const storageTextureFormatList = [
-	'r32uint',
-	'r32sint',
-	'r32float',
-	'rg32uint',
-	'rg32sint',
-	'rg32float',
-	'rgba8unorm',
-	'rgba8snorm',
-	'rgba8uint',
-	'rgba8sint',
-	'rgba16uint',
-	'rgba16sint',
-	'rgba16float',
-	'rgba32uint',
-	'rgba32sint',
-	'rgba32float',
-] as const satisfies readonly GPUTextureFormat[];
-
-const colorRenderableFormats = new Set<GPUTextureFormat>(colorRenderableFormatList);
-const storageTextureFormats = new Set<GPUTextureFormat>(storageTextureFormatList);
-
 const depthTextureFormatList = [
 	'depth16unorm',
 	'depth24plus',
@@ -145,22 +85,19 @@ const stencilTextureFormatList = [
 	'stencil8',
 ] as const satisfies readonly GPUTextureFormat[];
 
-function registerFormat(format: GPUTextureFormat, init: TextureFormatCapabilityInit): void {
-	textureFormatCapabilities.set(format, {
+function registerFormat(format: GPUTextureFormat, init: TextureFormatInfoInit): void {
+	textureFormatInfo.set(format, {
 		format,
 		...init,
 	});
 }
 
-function updateFormat(format: GPUTextureFormat, init: Partial<TextureFormatCapabilityInit>): void {
-	const current = textureFormatCapabilities.get(format) ?? {
+function updateFormat(format: GPUTextureFormat, init: Partial<TextureFormatInfoInit>): void {
+	const current = textureFormatInfo.get(format) ?? {
 		format,
 		kind: 'unknown',
-		colorRenderable: false,
-		sampleable: false,
-		storage: false,
 	};
-	textureFormatCapabilities.set(format, {
+	textureFormatInfo.set(format, {
 		...current,
 		...init,
 	});
@@ -169,23 +106,18 @@ function updateFormat(format: GPUTextureFormat, init: Partial<TextureFormatCapab
 for (const format of plainColorFormatList) {
 	registerFormat(format, {
 		kind: 'color',
-		colorRenderable: colorRenderableFormats.has(format),
-		sampleable: true,
-		storage: storageTextureFormats.has(format),
 	});
 }
 
 for (const format of depthTextureFormatList) {
 	updateFormat(format, {
 		kind: 'depth',
-		sampleable: true,
 	});
 }
 
 for (const format of depthStencilTextureFormatList) {
 	updateFormat(format, {
 		kind: 'depth-stencil',
-		sampleable: true,
 	});
 }
 
@@ -291,8 +223,8 @@ addBlockInfo([
 	'eac-rg11snorm',
 ], { width: 4, height: 4, bytes: 16 });
 
-for (const [format, capability] of textureFormatCapabilities) {
-	if (capability.blockInfo && (format.startsWith('bc') || format.startsWith('etc') || format.startsWith('eac'))) {
+for (const [format, info] of textureFormatInfo) {
+	if (info.blockInfo && (format.startsWith('bc') || format.startsWith('etc') || format.startsWith('eac'))) {
 		updateFormat(format, { kind: 'compressed' });
 	}
 }
@@ -309,69 +241,39 @@ function astcBlockInfo(format: GPUTextureFormat): TextureFormatBlockInfo | undef
 	};
 }
 
-function stripSrgbSuffix(format: GPUTextureFormat): string {
-	return format.endsWith('-srgb') ? format.slice(0, -'-srgb'.length) : format;
-}
-
-export function getTextureFormatCapabilities(format: GPUTextureFormat): TextureFormatCapabilities {
-	const capability = textureFormatCapabilities.get(format);
-	if (capability) {
-		return capability;
+export function getTextureFormatInfo(format: GPUTextureFormat): TextureFormatInfo {
+	const info = textureFormatInfo.get(format);
+	if (info) {
+		return info;
 	}
 	const blockInfo = astcBlockInfo(format);
 	if (blockInfo) {
 		return {
 			format,
 			kind: 'compressed',
-			colorRenderable: false,
-			sampleable: false,
-			storage: false,
 			blockInfo,
 		};
 	}
 	return {
 		format,
 		kind: 'unknown',
-		colorRenderable: false,
-		sampleable: false,
-		storage: false,
 	};
 }
 
 export function getTextureFormatBlockInfo(format: GPUTextureFormat, options: FrameGraphErrorOptions = { phase: 'compile' }): TextureFormatBlockInfo {
-	const blockInfo = getTextureFormatCapabilities(format).blockInfo;
+	const blockInfo = getTextureFormatInfo(format).blockInfo;
 	if (blockInfo) {
 		return blockInfo;
 	}
-	throw new FrameGraphError(FRAME_GRAPH_ERROR_CODES.UnsupportedTextureFormatUsage, `Unsupported texture format "${format}" for buffer-texture copy validation.`, options);
+	throw new FrameGraphError(FRAME_GRAPH_ERROR_CODES.UnsupportedTextureFormatUsage, `Unsupported texture format "${format}" for buffer-texture byte-range planning.`, options);
 }
 
 export function isDepthFormat(format: GPUTextureFormat): boolean {
-	const kind = getTextureFormatCapabilities(format).kind;
+	const kind = getTextureFormatInfo(format).kind;
 	return kind === 'depth' || kind === 'depth-stencil' || kind === 'stencil';
 }
 
 export function hasStencilAspect(format: GPUTextureFormat): boolean {
-	const kind = getTextureFormatCapabilities(format).kind;
+	const kind = getTextureFormatInfo(format).kind;
 	return kind === 'stencil' || kind === 'depth-stencil';
-}
-
-export function areTextureViewFormatsCompatible(textureFormat: GPUTextureFormat, viewFormat: GPUTextureFormat): boolean {
-	return textureFormat === viewFormat || stripSrgbSuffix(textureFormat) === stripSrgbSuffix(viewFormat);
-}
-
-export function isColorRenderableFormat(format: GPUTextureFormat): boolean {
-	return getTextureFormatCapabilities(format).colorRenderable;
-}
-
-export function isSampleableTextureFormat(format: GPUTextureFormat): boolean {
-	return getTextureFormatCapabilities(format).sampleable;
-}
-
-export function isStorageTextureFormat(format: GPUTextureFormat): boolean {
-	return getTextureFormatCapabilities(format).storage;
-}
-
-export function areTextureCopyFormatsCompatible(source: GPUTextureFormat, destination: GPUTextureFormat): boolean {
-	return source === destination || stripSrgbSuffix(source) === stripSrgbSuffix(destination);
 }

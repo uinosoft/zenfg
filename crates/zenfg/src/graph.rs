@@ -30,7 +30,6 @@ pub struct FrameGraph {
     owner: u64,
     next_recording: u64,
     pub(crate) device: Option<wgpu::Device>,
-    pub(crate) device_features: Option<wgpu::Features>,
     pub(crate) resource_pool: ResourcePool,
     pub(crate) gpu_profiler: GpuProfiler,
 }
@@ -46,7 +45,6 @@ impl FrameGraph {
             owner: NEXT_OWNER_ID.fetch_add(1, Ordering::Relaxed),
             next_recording: 1,
             device: None,
-            device_features: None,
             resource_pool: ResourcePool::default(),
             gpu_profiler: GpuProfiler::default(),
         }
@@ -58,13 +56,14 @@ impl FrameGraph {
     /// queue, imported resources, pipelines, bind groups, and surface remain
     /// caller-owned. Native objects supplied for execution must belong to this
     /// device. Device-specific limits and native object ownership are checked
-    /// by wgpu during allocation or execution, not by graph recording.
+    /// by wgpu during allocation or execution, not by graph recording. Graph
+    /// recording still validates logical ranges, content flow, usage contracts,
+    /// format categories, and bounded planning inputs.
     pub fn with_device(device: &wgpu::Device) -> Self {
         Self {
             owner: NEXT_OWNER_ID.fetch_add(1, Ordering::Relaxed),
             next_recording: 1,
             device: Some(device.clone()),
-            device_features: Some(device.features()),
             resource_pool: ResourcePool::default(),
             gpu_profiler: GpuProfiler::default(),
         }
@@ -299,7 +298,8 @@ impl<'frame> Frame<'frame> {
     /// Binds a native caller-owned texture to an imported or surface texture.
     ///
     /// Size, format, dimension, mip count, sample count, and exposed usage must
-    /// match the logical descriptor. The graph never acquires or presents a surface.
+    /// match the logical descriptor. Native capability validity is deferred to
+    /// wgpu. The graph never acquires or presents a surface.
     pub fn bind_imported_texture(
         &mut self,
         texture: Texture<'frame>,
@@ -562,10 +562,10 @@ impl<'frame> Frame<'frame> {
         self.debug_group_stack.last().copied()
     }
 
-    /// Records one aligned zero-fill operation as a graph node.
+    /// Records one zero-fill operation as a graph node. Native alignment is
+    /// validated by wgpu during command encoding.
     ///
-    /// The range must be non-empty, within the logical buffer, and aligned to
-    /// [`wgpu::COPY_BUFFER_ALIGNMENT`].
+    /// The range must be non-empty and within the logical buffer.
     pub fn clear_buffer(
         &mut self,
         label: impl Into<String>,
@@ -603,14 +603,11 @@ impl<'frame> Frame<'frame> {
                 .range
                 .resolve(operation.target.id, descriptor.size)?;
             let size = resolved.end - resolved.start;
-            if size == 0
-                || !resolved.start.is_multiple_of(wgpu::COPY_BUFFER_ALIGNMENT)
-                || !size.is_multiple_of(wgpu::COPY_BUFFER_ALIGNMENT)
-            {
+            if size == 0 {
                 return Err(FrameGraphError::InvalidNodeOperation {
                     pass: id,
                     resource: Some(operation.target.id),
-                    message: "clear range must be non-empty and 4-byte aligned".into(),
+                    message: "clear range must be non-empty".into(),
                 });
             }
             resolved_operations.push(ClearBufferOperation {
@@ -892,6 +889,11 @@ pub(crate) fn validate_texture_desc(desc: &TextureDesc) -> Result<(), FrameGraph
             message: format!("texture {} has zero mip levels", desc.label),
         });
     }
+    if desc.sample_count == 0 {
+        return Err(FrameGraphError::InvalidResourceDescriptor {
+            message: format!("texture {} has zero samples", desc.label),
+        });
+    }
     let largest = match desc.dimension {
         wgpu::TextureDimension::D1 => size.width,
         wgpu::TextureDimension::D2 => size.width.max(size.height),
@@ -901,33 +903,8 @@ pub(crate) fn validate_texture_desc(desc: &TextureDesc) -> Result<(), FrameGraph
     if desc.mip_level_count > max_mips {
         return Err(FrameGraphError::InvalidResourceDescriptor {
             message: format!(
-                "texture {} has {} mips, maximum for its extent is {max_mips}",
+                "texture {} has {} mips, maximum for bounded range planning is {max_mips}",
                 desc.label, desc.mip_level_count
-            ),
-        });
-    }
-    if !matches!(desc.sample_count, 1 | 4) {
-        return Err(FrameGraphError::InvalidResourceDescriptor {
-            message: format!("texture {} sample count must be 1 or 4", desc.label),
-        });
-    }
-    if desc.sample_count > 1
-        && (desc.dimension != wgpu::TextureDimension::D2 || desc.mip_level_count != 1)
-    {
-        return Err(FrameGraphError::InvalidResourceDescriptor {
-            message: format!(
-                "multisampled texture {} must be 2D with one mip",
-                desc.label
-            ),
-        });
-    }
-    if desc.dimension == wgpu::TextureDimension::D1
-        && (size.height != 1 || size.depth_or_array_layers != 1)
-    {
-        return Err(FrameGraphError::InvalidResourceDescriptor {
-            message: format!(
-                "1D texture {} must have height and depth equal to 1",
-                desc.label
             ),
         });
     }
@@ -935,6 +912,23 @@ pub(crate) fn validate_texture_desc(desc: &TextureDesc) -> Result<(), FrameGraph
         return Err(FrameGraphError::InvalidResourceDescriptor {
             message: format!("stencil formats are not supported in v0.1 ({})", desc.label),
         });
+    }
+    for view_format in &desc.view_formats {
+        if view_format.has_stencil_aspect() {
+            return Err(FrameGraphError::InvalidResourceDescriptor {
+                message: format!(
+                    "stencil view formats are not supported in v0.1 ({view_format:?})"
+                ),
+            });
+        }
+        if texture_format_category(desc.format) != texture_format_category(*view_format) {
+            return Err(FrameGraphError::InvalidResourceDescriptor {
+                message: format!(
+                    "view format {view_format:?} changes the format category of texture format {:?}",
+                    desc.format
+                ),
+            });
+        }
     }
     Ok(())
 }
@@ -949,6 +943,21 @@ fn normalize_view(
         return Err(FrameGraphError::InvalidTextureView {
             resource,
             message: format!("format {format:?} is not in view_formats"),
+        });
+    }
+    if format.has_stencil_aspect() {
+        return Err(FrameGraphError::InvalidTextureView {
+            resource,
+            message: format!("stencil view formats are not supported in v0.1 ({format:?})"),
+        });
+    }
+    if texture_format_category(texture.format) != texture_format_category(format) {
+        return Err(FrameGraphError::InvalidTextureView {
+            resource,
+            message: format!(
+                "view format {format:?} changes the format category of texture format {:?}",
+                texture.format
+            ),
         });
     }
     let mip_count = view
@@ -1048,12 +1057,8 @@ fn validate_view_dimension(
             }
         }
         wgpu::TextureViewDimension::Cube | wgpu::TextureViewDimension::CubeArray => {
-            if texture.dimension != wgpu::TextureDimension::D2
-                || texture.size.width != texture.size.height
-                || texture.sample_count != 1
-                || mip_count == 0
-            {
-                return fail("cube views require a square, single-sampled D2 texture");
+            if texture.dimension != wgpu::TextureDimension::D2 || mip_count == 0 {
+                return fail("cube views require a D2 texture");
             }
             if (dimension == wgpu::TextureViewDimension::Cube && layer_count != 6)
                 || (dimension == wgpu::TextureViewDimension::CubeArray
@@ -1074,6 +1079,16 @@ fn validate_view_dimension(
         }
     }
     Ok(())
+}
+
+fn texture_format_category(format: wgpu::TextureFormat) -> u8 {
+    if format.has_stencil_aspect() {
+        2
+    } else if format.has_depth_aspect() {
+        1
+    } else {
+        0
+    }
 }
 
 pub(crate) fn full_texture_range(desc: &TextureDesc) -> Vec<TextureSubresourceRange> {

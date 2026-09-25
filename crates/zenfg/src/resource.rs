@@ -375,7 +375,7 @@ define_handle!(
 pub struct ClearBufferOp<'frame> {
     /// Logical buffer to clear.
     pub target: Buffer<'frame>,
-    /// Non-empty, four-byte-aligned byte range to clear.
+    /// Non-empty byte range to clear. Native alignment is validated by wgpu.
     pub range: BufferRange,
 }
 

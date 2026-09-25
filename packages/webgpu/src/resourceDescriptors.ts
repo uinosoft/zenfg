@@ -78,15 +78,6 @@ export function textureSizeTuple(size: TextureSize): readonly [number, number, n
 	return [objectSize.width, objectSize.height ?? 1, objectSize.depthOrArrayLayers ?? 1];
 }
 
-export function textureRenderExtent(desc: TextureDesc, baseMipLevel: number): readonly [number, number] {
-	const [baseWidth, baseHeight] = textureSizeTuple(desc.size);
-	const divisor = 2 ** baseMipLevel;
-	return [
-		Math.max(1, Math.floor(baseWidth / divisor)),
-		Math.max(1, Math.floor(baseHeight / divisor)),
-	];
-}
-
 /** Estimates the graph-visible byte footprint of a texture descriptor. */
 export function estimateTextureByteSize(desc: TextureDesc): number {
 	const blockInfo = textureEstimateBlockInfo(desc.format);

@@ -485,8 +485,8 @@ impl<'a, 'frame> PassBuilder<'a, 'frame> {
 
     /// Appends one validated buffer-to-buffer operation to a copy node.
     ///
-    /// Offsets and the non-zero size must be four-byte aligned. Source and
-    /// destination ranges are declared automatically.
+    /// Source and destination ranges are declared automatically. Native copy
+    /// alignment is validated by wgpu.
     pub fn copy_buffer_to_buffer(
         &mut self,
         source: Buffer<'frame>,
@@ -496,15 +496,8 @@ impl<'a, 'frame> PassBuilder<'a, 'frame> {
         size: u64,
     ) -> Result<&mut Self, FrameGraphError> {
         self.require_kind(NodeKind::Copy, "buffer-to-buffer copy")?;
-        if size == 0
-            || !source_offset.is_multiple_of(wgpu::COPY_BUFFER_ALIGNMENT)
-            || !destination_offset.is_multiple_of(wgpu::COPY_BUFFER_ALIGNMENT)
-            || !size.is_multiple_of(wgpu::COPY_BUFFER_ALIGNMENT)
-        {
-            return Err(self.invalid_operation(
-                None,
-                "buffer copy offsets and non-zero size must be 4-byte aligned",
-            ));
+        if size == 0 {
+            return Err(self.invalid_operation(None, "buffer copy size must be non-zero"));
         }
         let source_range = BufferRange::new(source_offset, size);
         let destination_range = BufferRange::new(destination_offset, size);
@@ -525,10 +518,12 @@ impl<'a, 'frame> PassBuilder<'a, 'frame> {
         Ok(self)
     }
 
-    /// Appends one validated buffer-to-texture operation to a copy node.
+    /// Appends one buffer-to-texture operation to a copy node. Native layout
+    /// compatibility is validated by wgpu; FrameGraph tracks the conservative
+    /// buffer footprint needed for dependency analysis.
     ///
-    /// Copy footprint alignment, bounds, format, aspect, and affected resource
-    /// ranges are validated and declared automatically.
+    /// Logical bounds and conservative buffer footprints are calculated for
+    /// dependency analysis; native format and layout validation remains with wgpu.
     pub fn copy_buffer_to_texture(
         &mut self,
         source: BufferTextureCopyLocation<'frame>,
@@ -543,7 +538,7 @@ impl<'a, 'frame> PassBuilder<'a, 'frame> {
             self.id(),
             source,
             destination.format,
-            destination.record.aspect,
+            destination.byte_aspect,
             copy_size,
         )?;
         let checkpoint = self.access_checkpoint();
@@ -592,7 +587,7 @@ impl<'a, 'frame> PassBuilder<'a, 'frame> {
             self.id(),
             destination,
             source.format,
-            source.record.aspect,
+            source.byte_aspect,
             copy_size,
         )?;
         let checkpoint = self.access_checkpoint();
@@ -629,8 +624,8 @@ impl<'a, 'frame> PassBuilder<'a, 'frame> {
 
     /// Appends one validated texture-to-texture operation to a copy node.
     ///
-    /// Source and destination formats, dimensions, aspects, and bounds must be
-    /// copy-compatible.
+    /// Source and destination logical ranges are tracked by FrameGraph. Native
+    /// format, dimension, aspect, and overlap compatibility is validated by wgpu.
     pub fn copy_texture_to_texture(
         &mut self,
         source: TextureCopyLocation<'frame>,
@@ -641,18 +636,6 @@ impl<'a, 'frame> PassBuilder<'a, 'frame> {
         let source = validate_texture_copy_location(self.frame, self.id(), source, copy_size)?;
         let destination =
             validate_texture_copy_location(self.frame, self.id(), destination, copy_size)?;
-        if source.format.remove_srgb_suffix() != destination.format.remove_srgb_suffix()
-            || source.dimension != destination.dimension
-            || source.record.aspect != destination.record.aspect
-        {
-            return Err(self.invalid_operation(
-                Some(destination.record.resource),
-                format!(
-                    "copy formats {:?} and {:?} are not copy-compatible",
-                    source.format, destination.format
-                ),
-            ));
-        }
         let checkpoint = self.access_checkpoint();
         let _ = self.add_access::<TextureCopySrc>(
             source.record.resource,
@@ -1124,33 +1107,6 @@ fn validate_texture_role(
         .and_then(|view| view.descriptor.format)
         .unwrap_or(desc.format);
     let depth = format.has_depth_aspect();
-    let features = format.guaranteed_format_features(
-        frame
-            .graph
-            .device_features
-            .unwrap_or_else(wgpu::Features::all),
-    );
-    let required_usage = role
-        .texture_usage()
-        .ok_or_else(|| FrameGraphError::Internal {
-            message: format!("texture role {role:?} has no texture usage"),
-        })?;
-    if !features.allowed_usages.contains(required_usage) {
-        return Err(FrameGraphError::UnsupportedTextureFormatUsage {
-            resource,
-            role,
-            format,
-            message: format!("required usage {required_usage:?} is not supported"),
-        });
-    }
-    if desc.sample_count > 1 && !features.flags.sample_count_supported(desc.sample_count) {
-        return Err(FrameGraphError::UnsupportedTextureFormatUsage {
-            resource,
-            role,
-            format,
-            message: format!("sample count {} is not supported", desc.sample_count),
-        });
-    }
     match role {
         AccessRole::ColorAttachment if depth => Err(FrameGraphError::InvalidTextureView {
             resource,
@@ -1160,42 +1116,6 @@ fn validate_texture_role(
             resource,
             message: "color formats cannot be depth attachments".into(),
         }),
-        AccessRole::StorageTextureRead | AccessRole::StorageTextureWrite if depth => {
-            Err(FrameGraphError::InvalidTextureView {
-                resource,
-                message: "depth storage textures are not supported".into(),
-            })
-        }
-        AccessRole::StorageTextureRead
-            if !features
-                .flags
-                .contains(wgpu::TextureFormatFeatureFlags::STORAGE_READ_ONLY) =>
-        {
-            Err(FrameGraphError::UnsupportedTextureFormatUsage {
-                resource,
-                role,
-                format,
-                message: "storage reads are not supported".into(),
-            })
-        }
-        AccessRole::StorageTextureWrite
-            if !features
-                .flags
-                .contains(wgpu::TextureFormatFeatureFlags::STORAGE_WRITE_ONLY) =>
-        {
-            Err(FrameGraphError::UnsupportedTextureFormatUsage {
-                resource,
-                role,
-                format,
-                message: "storage writes are not supported".into(),
-            })
-        }
-        AccessRole::TextureCopySrc | AccessRole::TextureCopyDst if desc.sample_count > 1 => {
-            Err(FrameGraphError::InvalidTextureView {
-                resource,
-                message: "multisampled textures cannot be copied".into(),
-            })
-        }
         _ => Ok(()),
     }
 }
@@ -1205,7 +1125,7 @@ struct ValidatedTextureCopy {
     record: TextureCopyLocationRecord,
     range: Vec<TextureSubresourceRange>,
     format: wgpu::TextureFormat,
-    dimension: wgpu::TextureDimension,
+    byte_aspect: wgpu::TextureAspect,
     full_subresources: bool,
 }
 
@@ -1244,38 +1164,22 @@ fn validate_texture_copy_location(
             location.mip_level, desc.mip_level_count
         )));
     }
-    if desc.sample_count != 1 {
-        return Err(invalid("multisampled textures cannot be copied".into()));
-    }
     let aspect = if desc.format.has_depth_aspect() {
-        if !matches!(
-            location.aspect,
-            wgpu::TextureAspect::All | wgpu::TextureAspect::DepthOnly
-        ) {
-            return Err(invalid(
-                "depth copies require All or DepthOnly aspect".into(),
-            ));
-        }
         wgpu::TextureAspect::DepthOnly
     } else {
-        if location.aspect != wgpu::TextureAspect::All {
-            return Err(invalid("color copies require the All aspect".into()));
-        }
         wgpu::TextureAspect::All
     };
-    if desc.format.block_copy_size(Some(aspect)).is_none() {
-        return Err(invalid(format!(
-            "format {:?} cannot be copied for aspect {:?}",
-            desc.format, aspect
-        )));
-    }
-
     let mip = location.mip_level;
     let mip_width = (desc.size.width >> mip).max(1);
     let mip_height = match desc.dimension {
         wgpu::TextureDimension::D1 => 1,
         _ => (desc.size.height >> mip).max(1),
     };
+    let (block_width, block_height) = desc.format.block_dimensions();
+    let physical_width =
+        u64::from(mip_width).div_ceil(u64::from(block_width)) * u64::from(block_width);
+    let physical_height =
+        u64::from(mip_height).div_ceil(u64::from(block_height)) * u64::from(block_height);
     let mip_slices = crate::graph::slices_at_mip(desc, mip);
     let end_x = location
         .origin
@@ -1292,43 +1196,19 @@ fn validate_texture_copy_location(
         .z
         .checked_add(copy_size.depth_or_array_layers)
         .ok_or_else(|| invalid("texture copy z range overflows".into()))?;
-    if end_x > mip_width || end_y > mip_height || end_z > mip_slices {
+    if u64::from(end_x) > physical_width || u64::from(end_y) > physical_height || end_z > mip_slices
+    {
         return Err(invalid(format!(
             "copy region {:?}+{:?} exceeds mip extent {}x{}x{}",
             location.origin, copy_size, mip_width, mip_height, mip_slices
         )));
     }
-    match desc.dimension {
-        wgpu::TextureDimension::D1
-            if location.origin.y != 0
-                || location.origin.z != 0
-                || copy_size.height != 1
-                || copy_size.depth_or_array_layers != 1 =>
-        {
-            return Err(invalid(
-                "D1 copies require y/z origin 0 and height/depth 1".into(),
-            ));
-        }
-        _ => {}
-    }
-    let (block_width, block_height) = desc.format.block_dimensions();
-    let x_aligned = location.origin.x.is_multiple_of(block_width)
-        && (copy_size.width.is_multiple_of(block_width) || end_x == mip_width);
-    let y_aligned = location.origin.y.is_multiple_of(block_height)
-        && (copy_size.height.is_multiple_of(block_height) || end_y == mip_height);
-    if !x_aligned || !y_aligned {
-        return Err(invalid(format!(
-            "copy origin and extent must respect the {}x{} texel block",
-            block_width, block_height
-        )));
-    }
-
     Ok(ValidatedTextureCopy {
         record: TextureCopyLocationRecord {
             resource,
             mip_level: mip,
             origin: location.origin,
-            aspect,
+            aspect: location.aspect,
         },
         range: vec![TextureSubresourceRange {
             base_mip_level: mip,
@@ -1338,11 +1218,11 @@ fn validate_texture_copy_location(
             aspect,
         }],
         format: desc.format,
-        dimension: desc.dimension,
+        byte_aspect: aspect,
         full_subresources: location.origin.x == 0
             && location.origin.y == 0
-            && copy_size.width == mip_width
-            && copy_size.height == mip_height,
+            && u64::from(copy_size.width) == physical_width
+            && u64::from(copy_size.height) == physical_height,
     })
 }
 
@@ -1367,49 +1247,41 @@ fn validate_buffer_texture_copy(
         resource: Some(resource),
         message,
     };
-    let block_size = u64::from(
-        format
-            .block_copy_size(Some(aspect))
-            .ok_or_else(|| invalid(format!("format {format:?} cannot be copied")))?,
-    );
-    if !location.layout.offset.is_multiple_of(block_size)
-        || !location
+    let bytes_per_block = u64::from(format.block_copy_size(Some(aspect)).ok_or_else(|| {
+        invalid(format!(
+            "format {format:?} cannot be copied for byte-range planning"
+        ))
+    })?);
+    let (block_width, block_height) = format.block_dimensions();
+    let width_blocks = copy_size.width.div_ceil(block_width);
+    let height_blocks = copy_size.height.div_ceil(block_height);
+    let bytes_in_last_row = u64::from(width_blocks) * bytes_per_block;
+    let row_stride = u64::from(location.layout.bytes_per_row.unwrap_or(0)).max(bytes_in_last_row);
+    let image_rows = u64::from(
+        location
             .layout
-            .offset
-            .is_multiple_of(wgpu::COPY_BUFFER_ALIGNMENT)
-    {
-        return Err(invalid(format!(
-            "buffer offset {} must be aligned to block size {} and COPY_BUFFER_ALIGNMENT",
-            location.layout.offset, block_size
-        )));
-    }
-    let info = location
-        .layout
-        .get_buffer_texture_copy_info(format, aspect, &copy_size)
-        .map_err(|error| invalid(format!("invalid buffer texture layout: {error:?}")))?;
-    if (info.height_blocks > 1 || info.depth_or_array_layers > 1)
-        && location.layout.bytes_per_row.is_none()
-    {
-        return Err(invalid(
-            "bytes_per_row is required for multi-row or multi-layer copies".into(),
-        ));
-    }
-    if info.depth_or_array_layers > 1 && location.layout.rows_per_image.is_none() {
-        return Err(invalid(
-            "rows_per_image is required for multi-layer copies".into(),
-        ));
-    }
-    if let Some(bytes_per_row) = location.layout.bytes_per_row
-        && !bytes_per_row.is_multiple_of(wgpu::COPY_BYTES_PER_ROW_ALIGNMENT)
-    {
-        return Err(invalid(format!(
-            "bytes_per_row {bytes_per_row} must be aligned to COPY_BYTES_PER_ROW_ALIGNMENT"
-        )));
-    }
+            .rows_per_image
+            .unwrap_or(0)
+            .max(height_blocks),
+    );
+    let bytes_in_copy = if copy_size.depth_or_array_layers == 0 {
+        0
+    } else {
+        row_stride
+            .checked_mul(image_rows)
+            .and_then(|stride| stride.checked_mul(u64::from(copy_size.depth_or_array_layers - 1)))
+            .and_then(|images| {
+                row_stride
+                    .checked_mul(u64::from(height_blocks.saturating_sub(1)))
+                    .and_then(|rows| images.checked_add(rows))
+            })
+            .and_then(|bytes| bytes.checked_add(bytes_in_last_row))
+            .ok_or_else(|| invalid("buffer texture copy range overflows".into()))?
+    };
     let end = location
         .layout
         .offset
-        .checked_add(info.bytes_in_copy)
+        .checked_add(bytes_in_copy)
         .ok_or_else(|| invalid("buffer texture copy range overflows".into()))?;
     if end > desc.size {
         return Err(invalid(format!(
@@ -1420,184 +1292,32 @@ fn validate_buffer_texture_copy(
     Ok(ValidatedBufferTextureCopy {
         resource,
         range: location.layout.offset..end,
-        tightly_packed: info.row_stride_bytes == info.row_bytes_dense
-            && info.image_stride_rows == info.image_rows_dense,
+        tightly_packed: row_stride == bytes_in_last_row && image_rows == u64::from(height_blocks),
     })
 }
 
 fn validate_render_attachments(
-    frame: &Frame<'_>,
+    _frame: &Frame<'_>,
     pass: PassId,
-    colors: &[RenderColorAttachment],
+    _colors: &[RenderColorAttachment],
     depth: Option<RenderDepthAttachment>,
-    node: &NodeRecord,
+    _node: &NodeRecord,
 ) -> Result<(), FrameGraphError> {
     let invalid = |resource, message: String| FrameGraphError::InvalidNodeOperation {
         pass,
         resource,
         message,
     };
-    let mut reference_extent = None;
-    for color in colors {
-        if let crate::ColorAttachmentLoadOp::Clear(value) = color.ops.load
-            && ![value.r, value.g, value.b, value.a]
-                .into_iter()
-                .all(f64::is_finite)
-        {
-            return Err(invalid(None, "color clear values must be finite".into()));
-        }
-        let extent = attachment_extent(frame, node, color.access)?;
-        if let Some(reference) = reference_extent
-            && reference != (extent.0, extent.1, extent.2)
-        {
-            return Err(invalid(
-                Some(extent.3),
-                "all render attachments must have matching width, height, and sample count".into(),
-            ));
-        }
-        reference_extent = Some((extent.0, extent.1, extent.2));
-        if let Some(resolve_access) = color.resolve_access {
-            let resolve_extent = attachment_extent(frame, node, resolve_access)?;
-            let source_format = attachment_format(frame, node, color.access)?;
-            let resolve_format = attachment_format(frame, node, resolve_access)?;
-            if extent.2 == 1 {
-                return Err(invalid(
-                    Some(extent.3),
-                    "resolve sources must be multisampled".into(),
-                ));
-            }
-            if resolve_extent.2 != 1 {
-                return Err(invalid(
-                    Some(resolve_extent.3),
-                    "resolve targets must be single-sampled".into(),
-                ));
-            }
-            if (extent.0, extent.1) != (resolve_extent.0, resolve_extent.1) {
-                return Err(invalid(
-                    Some(resolve_extent.3),
-                    "resolve source and target extents must match".into(),
-                ));
-            }
-            if source_format != resolve_format {
-                return Err(invalid(
-                    Some(resolve_extent.3),
-                    format!(
-                        "resolve source format {source_format:?} does not match target format {resolve_format:?}"
-                    ),
-                ));
-            }
-            let format_features = source_format.guaranteed_format_features(
-                frame
-                    .graph
-                    .device_features
-                    .unwrap_or_else(wgpu::Features::all),
-            );
-            if !format_features
-                .flags
-                .contains(wgpu::TextureFormatFeatureFlags::MULTISAMPLE_RESOLVE)
-            {
-                return Err(FrameGraphError::UnsupportedTextureFormatUsage {
-                    resource: extent.3,
-                    role: AccessRole::ColorAttachment,
-                    format: source_format,
-                    message: "format does not support multisample resolve".into(),
-                });
-            }
-        }
-    }
-    if let Some(depth) = depth {
-        if let Some(ops) = depth.ops {
-            if let crate::DepthAttachmentLoadOp::Clear(value) = ops.load
-                && (!value.is_finite() || !(0.0..=1.0).contains(&value))
-            {
-                return Err(invalid(
-                    None,
-                    "depth clear value must be finite and within 0..=1".into(),
-                ));
-            }
-        } else if !depth.read_only {
-            return Err(invalid(
-                None,
-                "writable depth attachments require load/store operations".into(),
-            ));
-        }
-        let extent = attachment_extent(frame, node, depth.access)?;
-        if let Some(reference) = reference_extent
-            && reference != (extent.0, extent.1, extent.2)
-        {
-            return Err(invalid(
-                Some(extent.3),
-                "all render attachments must have matching width, height, and sample count".into(),
-            ));
-        }
+    if let Some(depth) = depth
+        && depth.ops.is_none()
+        && !depth.read_only
+    {
+        return Err(invalid(
+            None,
+            "writable depth attachments require load/store operations".into(),
+        ));
     }
     Ok(())
-}
-
-fn attachment_format(
-    frame: &Frame<'_>,
-    node: &NodeRecord,
-    access: AccessId,
-) -> Result<wgpu::TextureFormat, FrameGraphError> {
-    let access = node
-        .accesses
-        .iter()
-        .find(|record| record.id == access)
-        .ok_or_else(|| FrameGraphError::Internal {
-            message: format!("attachment references unknown access {access}"),
-        })?;
-    let resource = frame.resource(access.resource)?;
-    let desc = resource
-        .texture()
-        .ok_or_else(|| FrameGraphError::Internal {
-            message: "attachment access resolved to a buffer".into(),
-        })?;
-    Ok(access
-        .view
-        .and_then(|id| frame.views.get(id.get() as usize))
-        .and_then(|view| view.descriptor.format)
-        .unwrap_or(desc.format))
-}
-
-fn attachment_extent(
-    frame: &Frame<'_>,
-    node: &NodeRecord,
-    access: AccessId,
-) -> Result<(u32, u32, u32, ResourceId), FrameGraphError> {
-    let access = node
-        .accesses
-        .iter()
-        .find(|record| record.id == access)
-        .ok_or_else(|| FrameGraphError::Internal {
-            message: format!("attachment references unknown access {access}"),
-        })?;
-    let desc =
-        frame
-            .resource(access.resource)?
-            .texture()
-            .ok_or_else(|| FrameGraphError::Internal {
-                message: "attachment access resolved to a buffer".into(),
-            })?;
-    let NormalizedRange::Texture(regions) = &access.range else {
-        return Err(FrameGraphError::Internal {
-            message: "attachment access has a buffer range".into(),
-        });
-    };
-    let mip = regions
-        .first()
-        .ok_or_else(|| FrameGraphError::Internal {
-            message: "attachment access has an empty range".into(),
-        })?
-        .base_mip_level;
-    Ok((
-        (desc.size.width >> mip).max(1),
-        match desc.dimension {
-            wgpu::TextureDimension::D1 => 1,
-            _ => (desc.size.height >> mip).max(1),
-        },
-        desc.sample_count,
-        access.resource,
-    ))
 }
 
 #[cfg(test)]

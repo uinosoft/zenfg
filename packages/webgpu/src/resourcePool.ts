@@ -33,6 +33,8 @@ export class ResourcePool {
 
 	acquireTexture(desc: TextureDesc, usage: GPUTextureUsageFlags, key = texturePoolKey(desc, usage)): GPUTexture {
 		const pooled = this.textures.get(key)?.pop();
+		const statsKey = `texture|${key}`;
+		const hadMetadata = this.metadata.has(statsKey);
 		const metadata = this.bucketMetadata('texture', key, estimateTextureByteSize(desc));
 		this.acquireCount++;
 		if (pooled) {
@@ -44,21 +46,32 @@ export class ResourcePool {
 			}
 			return pooled;
 		}
-		this.createdCount++;
-		return this.device.createTexture({
-			label: desc.label,
-			format: desc.format,
-			viewFormats: desc.viewFormats ? [...desc.viewFormats] : undefined,
-			size: normalizeTextureSize(desc.size),
-			dimension: desc.dimension,
-			mipLevelCount: desc.mipLevelCount,
-			sampleCount: desc.sampleCount,
-			usage,
-		});
+		try {
+			const texture = this.device.createTexture({
+				label: desc.label,
+				format: desc.format,
+				viewFormats: desc.viewFormats ? [...desc.viewFormats] : undefined,
+				size: normalizeTextureSize(desc.size),
+				dimension: desc.dimension,
+				mipLevelCount: desc.mipLevelCount,
+				sampleCount: desc.sampleCount,
+				usage,
+			});
+			this.createdCount++;
+			return texture;
+		}
+		catch (error) {
+			if (!hadMetadata) {
+				this.metadata.delete(statsKey);
+			}
+			throw error;
+		}
 	}
 
 	acquireBuffer(desc: BufferDesc, usage: GPUBufferUsageFlags, key = bufferPoolKey(desc, usage, { code: FRAME_GRAPH_ERROR_CODES.InvalidResourceDescriptor, phase: 'execute' })): GPUBuffer {
 		const pooled = this.buffers.get(key)?.pop();
+		const statsKey = `buffer|${key}`;
+		const hadMetadata = this.metadata.has(statsKey);
 		const metadata = this.bucketMetadata('buffer', key, bufferAllocationSize(desc.size, { code: FRAME_GRAPH_ERROR_CODES.InvalidResourceDescriptor, phase: 'execute' }));
 		this.acquireCount++;
 		if (pooled) {
@@ -70,12 +83,21 @@ export class ResourcePool {
 			}
 			return pooled;
 		}
-		this.createdCount++;
-		return this.device.createBuffer({
-			label: desc.label,
-			size: bufferAllocationSize(desc.size, { code: FRAME_GRAPH_ERROR_CODES.InvalidResourceDescriptor, phase: 'execute' }),
-			usage,
-		});
+		try {
+			const buffer = this.device.createBuffer({
+				label: desc.label,
+				size: bufferAllocationSize(desc.size, { code: FRAME_GRAPH_ERROR_CODES.InvalidResourceDescriptor, phase: 'execute' }),
+				usage,
+			});
+			this.createdCount++;
+			return buffer;
+		}
+		catch (error) {
+			if (!hadMetadata) {
+				this.metadata.delete(statsKey);
+			}
+			throw error;
+		}
 	}
 
 	release(resources: readonly { readonly resource: GPUTexture | GPUBuffer; readonly key: string }[]): void {

@@ -77,16 +77,22 @@ test('resource registration validates texture extent, mip count, and sample coun
 			`mipLevelCount ${mipLevelCount}`,
 		);
 	}
-	assert.throws(
-		() => new FrameGraph(mockDevice()).beginFrame().createTexture({
-			label: 'too-many-mips',
-			format: 'rgba8unorm',
-			size: [8, 8],
-			mipLevelCount: 5,
-		}),
-		/mipLevelCount must not exceed 4/,
-	);
+	assert.throws(() => new FrameGraph(mockDevice()).beginFrame().createTexture({
+		label: 'too-many-mips',
+		format: 'rgba8unorm',
+		size: [8, 8],
+		mipLevelCount: 5,
+	}), /mipLevelCount must not exceed 4/);
 	for (const sampleCount of [0, 2, ...invalidUint32Values] as const) {
+		if (sampleCount === 2) {
+			assert.doesNotThrow(() => new FrameGraph(mockDevice()).beginFrame().createTexture({
+				label: 'non-baseline-samples',
+				format: 'rgba8unorm',
+				size: [1, 1],
+				sampleCount,
+			}));
+			continue;
+		}
 		assert.throws(
 			() => new FrameGraph(mockDevice()).beginFrame().createTexture({
 				label: 'invalid-samples',
@@ -94,7 +100,7 @@ test('resource registration validates texture extent, mip count, and sample coun
 				size: [1, 1],
 				sampleCount,
 			}),
-			/sampleCount must be either 1 or 4|sampleCount must be a positive uint32 integer/,
+			/sampleCount must be a positive uint32 integer/,
 			`sampleCount ${sampleCount}`,
 		);
 	}
@@ -104,6 +110,12 @@ test('resource registration validates texture extent, mip count, and sample coun
 		size: [8, 8],
 		mipLevelCount: 4,
 		sampleCount: 4,
+	}));
+	assert.doesNotThrow(() => new FrameGraph(mockDevice()).beginFrame().createTexture({
+		label: 'non-baseline-sample-count',
+		format: 'rgba8unorm',
+		size: [8, 8],
+		sampleCount: 8,
 	}));
 	assert.doesNotThrow(() => new FrameGraph(mockDevice()).beginFrame().createTexture({
 		label: 'valid-1d-mips',

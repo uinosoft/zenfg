@@ -71,6 +71,39 @@ test('ResourcePool release rejects unknown bucket keys', () => {
 	);
 });
 
+test('native creation failures do not count created resources or retain bucket metadata', () => {
+	const textureError = new Error('createTexture failed');
+	const bufferError = new Error('createBuffer failed');
+	const device = {
+		createTexture() {
+			throw textureError;
+		},
+		createBuffer() {
+			throw bufferError;
+		},
+	} as unknown as GPUDevice;
+	const pool = new ResourcePool(device);
+	const textureDesc = { format: 'rgba8unorm' as const, size: [1, 1] as const };
+	const bufferDesc = { size: 16 };
+	const textureUsage = 0x10;
+	const bufferUsage = 0x80;
+
+	assert.throws(() => pool.acquireTexture(textureDesc, textureUsage), (error) => error === textureError);
+	assert.throws(() => pool.acquireBuffer(bufferDesc, bufferUsage), (error) => error === bufferError);
+
+	const metadata = (pool as unknown as {
+		readonly metadata: ReadonlyMap<string, unknown>;
+	}).metadata;
+	assert.equal(metadata.size, 0);
+	assert.deepEqual(pool.getStats(), {
+		acquireCount: 2,
+		reuseCount: 0,
+		createdCount: 0,
+		retainedCount: 0,
+		estimatedRetainedBytes: 0,
+	});
+});
+
 test('texture pool compatibility includes normalized viewFormats', () => {
 	const base = {
 		format: 'rgba8unorm' as const,

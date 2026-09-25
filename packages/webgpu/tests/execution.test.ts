@@ -363,14 +363,18 @@ test('clear buffer node records native clear commands and validates ranges', () 
 	assert.deepEqual(calls, ['target:4:16']);
 
 	const invalid = new FrameGraph(device).beginFrame();
-	const invalidTarget = invalid.createBuffer({ label: 'invalid', size: 64 });
+	const invalidTarget = invalid.importBuffer(buffer('invalid', bufferUsage.COPY_DST), {
+		label: 'invalid',
+		exposedSize: 64,
+		exposedUsage: bufferUsage.COPY_DST,
+	});
 	invalid.clearBuffer({
 		label: 'invalid-clear',
 		operations: [{ target: invalidTarget, offset: 2, size: 16 }],
 	});
 	invalid.markOutput(invalidTarget);
 
-	assert.throws(() => invalid.compile({ report: true }).compilationReport, /4-byte aligned/);
+	assert.doesNotThrow(() => invalid.compile({ report: true }).compilationReport);
 });
 
 test('clear buffer snapshots operation objects and the operations array', () => {

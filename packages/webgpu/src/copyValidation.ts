@@ -7,11 +7,7 @@ import type {
 	TextureDesc,
 	TextureHandle,
 } from './types.ts';
-import {
-	areTextureCopyFormatsCompatible,
-	getTextureFormatBlockInfo,
-	isDepthFormat,
-} from './formatCaps.ts';
+import { getTextureFormatBlockInfo, getTextureFormatInfo } from './formatCaps.ts';
 import {
 	originTuple,
 	snapshotExtent3D,
@@ -23,7 +19,6 @@ import {
 	assertNonNegativeUint32,
 	assertPositiveUint32,
 } from './numericValidation.ts';
-import { sameResource } from './handles.ts';
 import { FRAME_GRAPH_ERROR_CODES, FrameGraphError } from './error.ts';
 import type {
 	InternalNode,
@@ -31,10 +26,6 @@ import type {
 	InternalResource,
 	InternalTextureRegion,
 } from './internalTypes.ts';
-import {
-	bufferRangesOverlap,
-	textureSubresourcesAlias,
-} from './graphCompiler.ts';
 
 export type ResourceResolver = (handle: ResourceHandle) => InternalResource;
 
@@ -72,12 +63,34 @@ export function defaultTextureCopyAspect(
 	handle: TextureHandle,
 ): GPUTextureAspect {
 	const desc = resourceFor(handle).desc as TextureDesc;
-	if (desc.format === 'stencil8') {
-		return 'stencil-only';
+	switch (getTextureFormatInfo(desc.format).kind) {
+		case 'stencil':
+			return 'stencil-only';
+		case 'depth':
+		case 'depth-stencil':
+			return 'depth-only';
+		default:
+			return 'all';
 	}
-	if (desc.format.includes('depth')) {
-		return 'depth-only';
+}
+
+function textureCopyAspectForRange(
+	resourceFor: ResourceResolver,
+	handle: TextureHandle,
+	aspect: GPUTextureAspect | undefined,
+): GPUTextureAspect {
+	if (aspect === undefined || aspect === 'all') {
+		return aspect ?? defaultTextureCopyAspect(resourceFor, handle);
 	}
+	const kind = getTextureFormatInfo((resourceFor(handle).desc as TextureDesc).format).kind;
+	if (aspect === 'depth-only' && (kind === 'depth' || kind === 'depth-stencil')) {
+		return aspect;
+	}
+	if (aspect === 'stencil-only' && (kind === 'stencil' || kind === 'depth-stencil')) {
+		return aspect;
+	}
+	// Keep invalid native aspects conservative in the graph model. WebGPU still
+	// receives the original aspect and remains responsible for rejecting it.
 	return 'all';
 }
 
@@ -100,7 +113,7 @@ export function textureCopyRange(
 		arrayLayerCount: dimension === '2d' ? copyDepth : 1,
 		baseDepthSlice: dimension === '3d' ? originZ : 0,
 		depthSliceCount: dimension === '3d' ? copyDepth : 1,
-		aspect: aspect ?? defaultTextureCopyAspect(resourceFor, handle),
+		aspect: textureCopyAspectForRange(resourceFor, handle, aspect),
 	};
 }
 
@@ -145,66 +158,20 @@ export function validateCopyNodeDescriptor(
 			case 'buffer-to-buffer':
 				validateBufferCopyRange(resourceFor, node, operation.source, operation.sourceOffset ?? 0, operation.size, 'source');
 				validateBufferCopyRange(resourceFor, node, operation.destination, operation.destinationOffset ?? 0, operation.size, 'destination');
-				validateBufferToBufferCopy(node, operation.source, operation.sourceOffset ?? 0, operation.destination, operation.destinationOffset ?? 0, operation.size);
 				break;
 			case 'texture-to-texture': {
-				validateTextureCopyRange(resourceFor, node, operation.source, operation.sourceMipLevel, operation.sourceOrigin, operation.copySize, operation.sourceAspect);
-				validateTextureCopyRange(resourceFor, node, operation.destination, operation.destinationMipLevel, operation.destinationOrigin, operation.copySize, operation.destinationAspect);
-				validateTextureToTextureCopy(resourceFor, node, operation);
-				const sourceAspect = operation.sourceAspect ?? defaultTextureCopyAspect(resourceFor, operation.source);
-				const destinationAspect = operation.destinationAspect ?? defaultTextureCopyAspect(resourceFor, operation.destination);
-				if (sourceAspect !== destinationAspect) {
-					throw new FrameGraphError(FRAME_GRAPH_ERROR_CODES.InvalidNodeOperation, `Copy node "${node.label ?? node.id}" texture-to-texture copy aspect mismatch: source aspect "${sourceAspect}" and destination aspect "${destinationAspect}" must match.`, { phase: 'compile', nodeId: node.id, context: { sourceResourceId: operation.source.id, destinationResourceId: operation.destination.id } });
-				}
+				validateTextureCopyRange(resourceFor, node, operation.source, operation.sourceMipLevel, operation.sourceOrigin, operation.copySize);
+				validateTextureCopyRange(resourceFor, node, operation.destination, operation.destinationMipLevel, operation.destinationOrigin, operation.copySize);
 				break;
 			}
 			case 'buffer-to-texture':
-				validateTextureCopyRange(resourceFor, node, operation.destination, operation.destinationMipLevel, operation.destinationOrigin, operation.copySize, operation.destinationAspect);
+				validateTextureCopyRange(resourceFor, node, operation.destination, operation.destinationMipLevel, operation.destinationOrigin, operation.copySize);
 				validateBufferTextureLayout(resourceFor, node, operation.source, operation.destination, operation.sourceLayout, operation.copySize);
 				break;
 			case 'texture-to-buffer':
-				validateTextureCopyRange(resourceFor, node, operation.source, operation.sourceMipLevel, operation.sourceOrigin, operation.copySize, operation.sourceAspect);
+				validateTextureCopyRange(resourceFor, node, operation.source, operation.sourceMipLevel, operation.sourceOrigin, operation.copySize);
 				validateBufferTextureLayout(resourceFor, node, operation.destination, operation.source, operation.destinationLayout, operation.copySize);
 				break;
-		}
-	}
-}
-
-function validateBufferToBufferCopy(
-	node: InternalNode,
-	source: BufferHandle,
-	sourceOffset: GPUSize64,
-	destination: BufferHandle,
-	destinationOffset: GPUSize64,
-	size: GPUSize64,
-): void {
-	if (Number(sourceOffset) % 4 !== 0 || Number(destinationOffset) % 4 !== 0 || Number(size) % 4 !== 0) {
-		throw new FrameGraphError(FRAME_GRAPH_ERROR_CODES.InvalidNodeOperation, `Copy node "${node.label ?? node.id}" buffer-to-buffer copy from "${source.label ?? source.id}" to "${destination.label ?? destination.id}" must use 4-byte aligned sourceOffset, destinationOffset, and size. Received sourceOffset ${sourceOffset}, destinationOffset ${destinationOffset}, size ${size}.`, { phase: 'compile', nodeId: node.id, context: { sourceResourceId: source.id, destinationResourceId: destination.id } });
-	}
-	if (sameResource(source, destination)) {
-		const sourceRange = { offset: Number(sourceOffset), size: Number(size) };
-		const destinationRange = { offset: Number(destinationOffset), size: Number(size) };
-		if (bufferRangesOverlap(sourceRange, destinationRange)) {
-			throw new FrameGraphError(FRAME_GRAPH_ERROR_CODES.InvalidNodeOperation, `Copy node "${node.label ?? node.id}" buffer-to-buffer copy ranges must not overlap when source and destination are the same buffer "${source.label ?? source.id}": source [${sourceRange.offset}, ${sourceRange.offset + sourceRange.size}) and destination [${destinationRange.offset}, ${destinationRange.offset + destinationRange.size}). WebGPU requires same-buffer copy ranges to be disjoint.`, { phase: 'compile', nodeId: node.id, context: { sourceResourceId: source.id, destinationResourceId: destination.id } });
-		}
-	}
-}
-
-function validateTextureToTextureCopy(
-	resourceFor: ResourceResolver,
-	node: InternalNode,
-	operation: Extract<InternalCopyOperation, { type: 'texture-to-texture' }>,
-): void {
-	const sourceDesc = resourceFor(operation.source).desc as TextureDesc;
-	const destinationDesc = resourceFor(operation.destination).desc as TextureDesc;
-	if (!areTextureCopyFormatsCompatible(sourceDesc.format, destinationDesc.format)) {
-		throw new FrameGraphError(FRAME_GRAPH_ERROR_CODES.InvalidNodeOperation, `Copy node "${node.label ?? node.id}" texture-to-texture copy formats are not copy-compatible: source "${operation.source.label ?? operation.source.id}" uses "${sourceDesc.format}", destination "${operation.destination.label ?? operation.destination.id}" uses "${destinationDesc.format}". WebGPU texture copy formats must match or differ only by sRGB suffix.`, { phase: 'compile', nodeId: node.id, context: { sourceResourceId: operation.source.id, destinationResourceId: operation.destination.id } });
-	}
-	if (sameResource(operation.source, operation.destination)) {
-		const sourceRange = textureCopyRange(resourceFor, operation.source, operation.sourceMipLevel, operation.sourceOrigin, operation.copySize, operation.sourceAspect);
-		const destinationRange = textureCopyRange(resourceFor, operation.destination, operation.destinationMipLevel, operation.destinationOrigin, operation.copySize, operation.destinationAspect);
-		if (textureSubresourcesAlias(sourceRange, destinationRange)) {
-			throw new FrameGraphError(FRAME_GRAPH_ERROR_CODES.InvalidNodeOperation, `Copy node "${node.label ?? node.id}" texture-to-texture copy uses the same texture "${operation.source.label ?? operation.source.id}" with overlapping subresources; subresources must be disjoint. WebGPU requires same-texture copy subresources to be disjoint.`, { phase: 'compile', nodeId: node.id, context: { sourceResourceId: operation.source.id, destinationResourceId: operation.destination.id } });
 		}
 	}
 }
@@ -234,7 +201,6 @@ function validateTextureCopyRange(
 	mipLevel: number | undefined,
 	origin: GPUOrigin3D | undefined,
 	copySize: GPUExtent3D,
-	aspect: GPUTextureAspect | undefined,
 ): void {
 	const resource = resourceFor(handle);
 	const desc = resource.desc as TextureDesc;
@@ -250,7 +216,6 @@ function validateTextureCopyRange(
 	assertPositiveUint32(copyWidth, `${prefix} copySize.width`, { code: FRAME_GRAPH_ERROR_CODES.InvalidNodeOperation, phase: 'compile', nodeId: node.id, resourceId: handle.id });
 	assertPositiveUint32(copyHeight, `${prefix} copySize.height`, { code: FRAME_GRAPH_ERROR_CODES.InvalidNodeOperation, phase: 'compile', nodeId: node.id, resourceId: handle.id });
 	assertPositiveUint32(copyDepth, `${prefix} copySize.depthOrArrayLayers`, { code: FRAME_GRAPH_ERROR_CODES.InvalidNodeOperation, phase: 'compile', nodeId: node.id, resourceId: handle.id });
-	validateTextureCopyAspect(resourceFor, node, handle, aspect);
 	if (resolvedMipLevel >= mipLevelCount) {
 		throw new FrameGraphError(FRAME_GRAPH_ERROR_CODES.InvalidNodeOperation, `Texture copy range for "${handle.label ?? handle.id}" exceeds declared mip levels.`, { phase: 'compile', nodeId: node.id, resourceId: handle.id });
 	}
@@ -260,36 +225,11 @@ function validateTextureCopyRange(
 	const depth = desc.dimension === '3d'
 		? Math.max(1, Math.floor(depthOrArrayLayers / (2 ** resolvedMipLevel)))
 		: depthOrArrayLayers;
-	const blockInfo = getTextureFormatBlockInfo(desc.format, { phase: 'compile', nodeId: node.id, resourceId: handle.id });
-	if (originX % blockInfo.width !== 0 || originY % blockInfo.height !== 0) {
-		throw new FrameGraphError(FRAME_GRAPH_ERROR_CODES.InvalidNodeOperation, `Texture copy origin for "${handle.label ?? handle.id}" must align to texture format "${desc.format}" texel blocks.`, { phase: 'compile', nodeId: node.id, resourceId: handle.id });
-	}
-	if (copyWidth % blockInfo.width !== 0 || copyHeight % blockInfo.height !== 0) {
-		throw new FrameGraphError(FRAME_GRAPH_ERROR_CODES.InvalidNodeOperation, `Texture copy size for "${handle.label ?? handle.id}" must align to texture format "${desc.format}" texel blocks.`, { phase: 'compile', nodeId: node.id, resourceId: handle.id });
-	}
-	const physicalWidth = Math.ceil(width / blockInfo.width) * blockInfo.width;
-	const physicalHeight = Math.ceil(height / blockInfo.height) * blockInfo.height;
+	const blockInfo = getTextureFormatInfo(desc.format).blockInfo;
+	const physicalWidth = blockInfo ? Math.ceil(width / blockInfo.width) * blockInfo.width : width;
+	const physicalHeight = blockInfo ? Math.ceil(height / blockInfo.height) * blockInfo.height : height;
 	if (originX + copyWidth > physicalWidth || originY + copyHeight > physicalHeight || originZ + copyDepth > depth) {
 		throw new FrameGraphError(FRAME_GRAPH_ERROR_CODES.InvalidNodeOperation, `Texture copy range exceeds texture "${handle.label ?? handle.id}" size.`, { phase: 'compile', nodeId: node.id, resourceId: handle.id });
-	}
-}
-
-function validateTextureCopyAspect(
-	resourceFor: ResourceResolver,
-	node: InternalNode,
-	handle: TextureHandle,
-	aspect: GPUTextureAspect | undefined,
-): void {
-	const desc = resourceFor(handle).desc as TextureDesc;
-	const resolvedAspect = aspect ?? defaultTextureCopyAspect(resourceFor, handle);
-	if (resolvedAspect === 'stencil-only' && !desc.format.includes('stencil')) {
-		throw new FrameGraphError(FRAME_GRAPH_ERROR_CODES.InvalidNodeOperation, `Texture copy aspect "stencil-only" is not valid for texture "${handle.label ?? handle.id}".`, { phase: 'compile', nodeId: node.id, resourceId: handle.id });
-	}
-	if (resolvedAspect === 'depth-only' && !desc.format.includes('depth')) {
-		throw new FrameGraphError(FRAME_GRAPH_ERROR_CODES.InvalidNodeOperation, `Texture copy aspect "depth-only" is not valid for texture "${handle.label ?? handle.id}".`, { phase: 'compile', nodeId: node.id, resourceId: handle.id });
-	}
-	if (resolvedAspect === 'all' && isDepthFormat(desc.format)) {
-		throw new FrameGraphError(FRAME_GRAPH_ERROR_CODES.InvalidNodeOperation, `Texture copy aspect "all" is not valid for depth/stencil texture "${handle.label ?? handle.id}".`, { phase: 'compile', nodeId: node.id, resourceId: handle.id });
 	}
 }
 
@@ -301,44 +241,16 @@ function validateBufferTextureLayout(
 	layout: Omit<GPUTexelCopyBufferLayout, 'buffer'>,
 	copySize: GPUExtent3D,
 ): void {
-	const textureResource = resourceFor(textureHandle);
-	const textureDesc = textureResource.desc as TextureDesc;
 	const resource = resourceFor(bufferHandle);
 	const desc = resource.desc as BufferDesc;
-	const [copyWidth, copyHeight, copyDepth] = textureSizeTuple(copySize);
-	const blockInfo = getTextureFormatBlockInfo(textureDesc.format, { phase: 'compile', nodeId: node.id, resourceId: textureHandle.id });
-	if (copyWidth % blockInfo.width !== 0 || copyHeight % blockInfo.height !== 0) {
-		throw new FrameGraphError(FRAME_GRAPH_ERROR_CODES.InvalidNodeOperation, `Copy node "${node.label ?? node.id}" buffer-texture copy for texture "${textureHandle.label ?? textureHandle.id}" size ${copyWidth}x${copyHeight} must align to format "${textureDesc.format}" texel blocks ${blockInfo.width}x${blockInfo.height}.`, { phase: 'compile', nodeId: node.id, resourceId: bufferHandle.id, context: { textureResourceId: textureHandle.id } });
-	}
-	const widthInBlocks = copyWidth / blockInfo.width;
-	const heightInBlocks = copyHeight / blockInfo.height;
-	const bytesInLastRow = widthInBlocks * blockInfo.bytes;
-	const bytesPerRow = layout.bytesPerRow;
 	const prefix = `Copy node "${node.label ?? node.id}" buffer-texture layout for buffer "${bufferHandle.label ?? bufferHandle.id}"`;
 	assertNonNegativeSafeInteger(layout.offset ?? 0, `${prefix} offset`, { code: FRAME_GRAPH_ERROR_CODES.InvalidNodeOperation, phase: 'compile', nodeId: node.id, resourceId: bufferHandle.id, context: { textureResourceId: textureHandle.id } });
+	const bytesPerRow = layout.bytesPerRow;
 	if (bytesPerRow !== undefined) {
 		assertNonNegativeUint32(bytesPerRow, `${prefix} bytesPerRow`, { code: FRAME_GRAPH_ERROR_CODES.InvalidNodeOperation, phase: 'compile', nodeId: node.id, resourceId: bufferHandle.id, context: { textureResourceId: textureHandle.id } });
 	}
 	if (layout.rowsPerImage !== undefined) {
 		assertNonNegativeUint32(layout.rowsPerImage, `${prefix} rowsPerImage`, { code: FRAME_GRAPH_ERROR_CODES.InvalidNodeOperation, phase: 'compile', nodeId: node.id, resourceId: bufferHandle.id, context: { textureResourceId: textureHandle.id } });
-	}
-	if (layout.offset !== undefined && Number(layout.offset) % blockInfo.bytes !== 0) {
-		throw new FrameGraphError(FRAME_GRAPH_ERROR_CODES.InvalidNodeOperation, `Copy node "${node.label ?? node.id}" buffer-texture copy offset must align to format "${textureDesc.format}" texel block size ${blockInfo.bytes} bytes; actual offset ${layout.offset} for buffer "${bufferHandle.label ?? bufferHandle.id}".`, { phase: 'compile', nodeId: node.id, resourceId: bufferHandle.id, context: { textureResourceId: textureHandle.id } });
-	}
-	if (heightInBlocks > 1 && bytesPerRow === undefined) {
-		throw new FrameGraphError(FRAME_GRAPH_ERROR_CODES.InvalidNodeOperation, `Copy node "${node.label ?? node.id}" buffer-texture copy requires bytesPerRow because copied height is ${heightInBlocks} texel block rows.`, { phase: 'compile', nodeId: node.id, resourceId: bufferHandle.id, context: { textureResourceId: textureHandle.id } });
-	}
-	if (copyDepth > 1 && (bytesPerRow === undefined || layout.rowsPerImage === undefined)) {
-		throw new FrameGraphError(FRAME_GRAPH_ERROR_CODES.InvalidNodeOperation, `Copy node "${node.label ?? node.id}" buffer-texture copy requires bytesPerRow and rowsPerImage because copy depth is ${copyDepth}.`, { phase: 'compile', nodeId: node.id, resourceId: bufferHandle.id, context: { textureResourceId: textureHandle.id } });
-	}
-	if (bytesPerRow !== undefined && bytesPerRow % 256 !== 0) {
-		throw new FrameGraphError(FRAME_GRAPH_ERROR_CODES.InvalidNodeOperation, `Copy node "${node.label ?? node.id}" buffer-texture copy bytesPerRow must be 256-byte aligned; actual bytesPerRow ${bytesPerRow}.`, { phase: 'compile', nodeId: node.id, resourceId: bufferHandle.id, context: { textureResourceId: textureHandle.id } });
-	}
-	if (bytesPerRow !== undefined && bytesPerRow < bytesInLastRow) {
-		throw new FrameGraphError(FRAME_GRAPH_ERROR_CODES.InvalidNodeOperation, `Copy node "${node.label ?? node.id}" buffer-texture copy bytesPerRow ${bytesPerRow} is smaller than the copied texture row ${bytesInLastRow} bytes.`, { phase: 'compile', nodeId: node.id, resourceId: bufferHandle.id, context: { textureResourceId: textureHandle.id } });
-	}
-	if (layout.rowsPerImage !== undefined && layout.rowsPerImage < heightInBlocks) {
-		throw new FrameGraphError(FRAME_GRAPH_ERROR_CODES.InvalidNodeOperation, `Copy node "${node.label ?? node.id}" buffer-texture copy rowsPerImage ${layout.rowsPerImage} is smaller than copied height ${heightInBlocks} texel block rows.`, { phase: 'compile', nodeId: node.id, resourceId: bufferHandle.id, context: { textureResourceId: textureHandle.id } });
 	}
 	const offset = Number(layout.offset ?? 0);
 	const requiredBytesInCopy = bufferTextureCopyByteSize(resourceFor, 'compile', textureHandle, layout, copySize);
@@ -358,16 +270,16 @@ function bufferTextureCopyByteSize(
 	const textureDesc = resourceFor(textureHandle).desc as TextureDesc;
 	const [copyWidth, copyHeight, copyDepth] = textureSizeTuple(copySize);
 	const blockInfo = getTextureFormatBlockInfo(textureDesc.format, { phase, resourceId: textureHandle.id });
-	const widthInBlocks = copyWidth / blockInfo.width;
-	const heightInBlocks = copyHeight / blockInfo.height;
+	const widthInBlocks = Math.ceil(copyWidth / blockInfo.width);
+	const heightInBlocks = Math.ceil(copyHeight / blockInfo.height);
 	const bytesInLastRow = widthInBlocks * blockInfo.bytes;
-	const bytesPerRow = layout.bytesPerRow;
-	const rowsPerImage = layout.rowsPerImage ?? 0;
+	const bytesPerRow = Math.max(layout.bytesPerRow ?? 0, bytesInLastRow);
+	const rowsPerImage = Math.max(layout.rowsPerImage ?? 0, heightInBlocks);
 	let requiredBytesInCopy = 0;
 	if (copyDepth > 0) {
-		requiredBytesInCopy += (bytesPerRow ?? 0) * rowsPerImage * (copyDepth - 1);
+		requiredBytesInCopy += bytesPerRow * rowsPerImage * (copyDepth - 1);
 		if (heightInBlocks > 0) {
-			requiredBytesInCopy += (bytesPerRow ?? 0) * (heightInBlocks - 1) + bytesInLastRow;
+			requiredBytesInCopy += bytesPerRow * (heightInBlocks - 1) + bytesInLastRow;
 		}
 	}
 	return requiredBytesInCopy;

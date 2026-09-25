@@ -112,7 +112,7 @@ pub enum FrameGraphError {
         message: String,
     },
 
-    /// A texture format does not support a declared access role.
+    /// A texture format category or graph usage policy is incompatible with an access role.
     #[error(
         "texture resource {resource} with format {format:?} cannot be used as {role:?}: {message}"
     )]
@@ -121,9 +121,9 @@ pub enum FrameGraphError {
         resource: ResourceId,
         /// Declared pipeline role.
         role: AccessRole,
-        /// Texture format checked against device-independent capabilities.
+        /// Texture format category or graph usage policy mismatch.
         format: wgpu::TextureFormat,
-        /// Human-readable capability mismatch.
+        /// Human-readable graph contract mismatch.
         message: String,
     },
 
