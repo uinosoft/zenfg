@@ -232,7 +232,7 @@ fn roots_enforce_resource_kind_origin_and_readback_usage() {
 }
 
 #[test]
-fn unsupported_texture_roles_fail_even_when_the_node_would_be_culled() {
+fn native_texture_role_capabilities_are_deferred_even_when_the_node_would_be_culled() {
     let mut graph = FrameGraph::new();
     let mut frame = graph.begin_frame();
     let texture = frame
@@ -244,22 +244,84 @@ fn unsupported_texture_roles_fail_even_when_the_node_would_be_culled() {
         ))
         .unwrap();
     let mut pass = frame.compute_pass("unused-invalid-storage");
-    let error = pass
+    let _ = pass
         .storage_texture_write(texture, WriteContents::Overwrite)
-        .unwrap_err();
-    assert_eq!(error.code(), "FG1108");
+        .unwrap();
+    pass.finish().unwrap();
+    frame.compile(full_options()).unwrap();
 }
 
 #[test]
-fn unsupported_texture_sample_count_fails_even_when_the_node_would_be_culled() {
+fn native_texture_sample_count_capabilities_are_deferred_even_when_the_node_would_be_culled() {
     let mut graph = FrameGraph::new();
     let mut frame = graph.begin_frame();
     let mut desc = TextureDesc::new_2d("compressed-msaa", 4, 4, wgpu::TextureFormat::Bc1RgbaUnorm);
     desc.sample_count = 4;
-    let texture = frame.create_texture(desc).unwrap();
+    let texture = frame
+        .import_texture(desc, ImportTextureOptions::new(InitialContents::Defined))
+        .unwrap();
     let mut pass = frame.compute_pass("unused-invalid-sample-count");
-    let error = pass.sampled_texture(texture).unwrap_err();
-    assert_eq!(error.code(), "FG1108");
+    let _ = pass.sampled_texture(texture).unwrap();
+    pass.finish().unwrap();
+    frame.compile(full_options()).unwrap();
+}
+
+#[test]
+fn native_view_format_compatibility_is_deferred_but_categories_are_preserved() {
+    let mut graph = FrameGraph::new();
+    let mut frame = graph.begin_frame();
+    let mut desc = TextureDesc::new_2d("color", 4, 4, wgpu::TextureFormat::Rgba8Unorm);
+    desc.view_formats = vec![wgpu::TextureFormat::Rgba16Float];
+    let texture = frame.create_texture(desc).unwrap();
+    frame
+        .create_texture_view(
+            texture,
+            TextureViewDesc {
+                format: Some(wgpu::TextureFormat::Rgba16Float),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+
+    let mut invalid_desc =
+        TextureDesc::new_2d("invalid-category", 4, 4, wgpu::TextureFormat::Rgba8Unorm);
+    invalid_desc.view_formats = vec![wgpu::TextureFormat::Depth32Float];
+    let error = frame.create_texture(invalid_desc).unwrap_err();
+    assert!(error.to_string().contains("format category"));
+}
+
+#[test]
+fn native_texture_copy_format_compatibility_is_deferred() {
+    let mut graph = FrameGraph::new();
+    let mut frame = graph.begin_frame();
+    let source = frame
+        .import_texture(
+            TextureDesc::new_2d("source", 4, 4, wgpu::TextureFormat::Rgba8Unorm),
+            ImportTextureOptions::new(InitialContents::Defined),
+        )
+        .unwrap();
+    let destination = frame
+        .import_texture(
+            TextureDesc::new_2d("destination", 4, 4, wgpu::TextureFormat::Bgra8Unorm),
+            ImportTextureOptions::new(InitialContents::Defined),
+        )
+        .unwrap();
+    let mut copy = frame.copy_pass("format-mismatch-copy");
+    copy.copy_texture_to_texture(
+        TextureCopyLocation::new(source),
+        TextureCopyLocation::new(destination),
+        wgpu::Extent3d {
+            width: 4,
+            height: 4,
+            depth_or_array_layers: 1,
+        },
+    )
+    .unwrap();
+    copy.finish().unwrap();
+    frame
+        .mark_texture_root(destination, RootReason::Output)
+        .unwrap();
+    frame.compile(full_options()).unwrap();
 }
 
 #[test]
@@ -362,7 +424,7 @@ fn resolve_target_is_an_overwrite_value_with_render_attachment_usage() {
 }
 
 #[test]
-fn resolve_rejects_single_sample_source() {
+fn resolve_source_sample_count_validation_is_deferred_to_native_webgpu() {
     let mut graph = FrameGraph::new();
     let mut frame = graph.begin_frame();
     let source = frame
@@ -389,11 +451,11 @@ fn resolve_rejects_single_sample_source() {
             ColorAttachmentOps::clear_store(wgpu::Color::BLACK),
         )
         .unwrap();
-    assert_eq!(pass.finish().unwrap_err().code(), "FG1106");
+    pass.finish().unwrap();
 }
 
 #[test]
-fn resolve_rejects_multisampled_target() {
+fn resolve_target_sample_count_validation_is_deferred_to_native_webgpu() {
     let mut graph = FrameGraph::new();
     let mut frame = graph.begin_frame();
     let mut source_desc = TextureDesc::new_2d("source", 4, 4, wgpu::TextureFormat::Rgba8Unorm);
@@ -409,11 +471,11 @@ fn resolve_rejects_multisampled_target() {
             ColorAttachmentOps::clear_store(wgpu::Color::BLACK),
         )
         .unwrap();
-    assert_eq!(pass.finish().unwrap_err().code(), "FG1106");
+    pass.finish().unwrap();
 }
 
 #[test]
-fn resolve_rejects_mismatched_extent_and_format() {
+fn resolve_extent_and_format_validation_is_deferred_to_native_webgpu() {
     for target_desc in [
         TextureDesc::new_2d("wrong-extent", 2, 4, wgpu::TextureFormat::Rgba8Unorm),
         TextureDesc::new_2d("wrong-format", 4, 4, wgpu::TextureFormat::Bgra8Unorm),
@@ -432,7 +494,7 @@ fn resolve_rejects_mismatched_extent_and_format() {
                 ColorAttachmentOps::clear_store(wgpu::Color::BLACK),
             )
             .unwrap();
-        assert_eq!(pass.finish().unwrap_err().code(), "FG1106");
+        pass.finish().unwrap();
     }
 }
 
@@ -979,20 +1041,18 @@ fn grouped_clear_records_ordered_precise_accesses() {
 }
 
 #[test]
-fn clear_and_copy_operations_report_stable_validation_errors() {
+fn clear_and_copy_native_alignment_validation_is_deferred() {
     let mut graph = FrameGraph::new();
     let mut frame = graph.begin_frame();
     let buffer = frame
-        .create_buffer(BufferDesc::new("buffer", 1024))
+        .import_buffer(
+            BufferDesc::new("buffer", 1024),
+            ImportBufferOptions::new(InitialContents::Defined),
+        )
         .unwrap();
-    let error = frame
+    frame
         .clear_buffer("misaligned-clear", buffer, BufferRange::new(2, 4))
-        .unwrap_err();
-    assert_eq!(error.code(), "FG1106");
-    assert!(matches!(
-        error,
-        FrameGraphError::InvalidNodeOperation { .. }
-    ));
+        .unwrap();
     let error = frame
         .clear_buffers("empty-clear", core::iter::empty())
         .unwrap_err();
@@ -1005,12 +1065,12 @@ fn clear_and_copy_operations_report_stable_validation_errors() {
         )
         .unwrap();
     let mut copy = frame.copy_pass("misaligned-copy");
-    let error = match copy.copy_buffer_to_texture(
+    copy.copy_buffer_to_texture(
         BufferTextureCopyLocation::new(
             buffer,
             wgpu::TexelCopyBufferLayout {
                 offset: 0,
-                bytes_per_row: Some(16),
+                bytes_per_row: Some(4),
                 rows_per_image: Some(4),
             },
         ),
@@ -1020,11 +1080,23 @@ fn clear_and_copy_operations_report_stable_validation_errors() {
             height: 4,
             depth_or_array_layers: 1,
         },
-    ) {
-        Ok(_) => panic!("misaligned bytes_per_row must be rejected"),
-        Err(error) => error,
-    };
-    assert_eq!(error.code(), "FG1106");
+    )
+    .unwrap();
+    copy.finish().unwrap();
+    let compiled = frame.compile(full_options()).unwrap();
+    let report = compiled.report().unwrap().full.as_ref().unwrap();
+    let source_access = report
+        .accesses
+        .iter()
+        .find(|access| access.resource == buffer.id() && access.role == AccessRole::BufferCopySrc)
+        .unwrap();
+    assert!(matches!(
+        source_access.range,
+        zenfg::ResourceRange::Buffer(BufferRange {
+            offset: 0,
+            size: Some(64),
+        })
+    ));
 }
 
 #[test]
@@ -1470,7 +1542,7 @@ fn failed_resolve_declaration_rolls_back_source_access() {
 }
 
 #[test]
-fn finish_render_validates_attachments_and_preserves_original_error() {
+fn native_render_attachment_validation_is_deferred_and_preserves_graph_errors() {
     let mut graph = FrameGraph::new();
     let mut frame = graph.begin_frame();
     let texture = frame
@@ -1493,10 +1565,6 @@ fn finish_render_validates_attachments_and_preserves_original_error() {
             }),
         )
         .unwrap();
-    let original = pass.finish_render(|_| Ok(())).unwrap_err();
-    assert!(matches!(
-        original,
-        FrameGraphError::InvalidNodeOperation { .. }
-    ));
-    assert_eq!(frame.compile(full_options()).unwrap_err(), original);
+    pass.finish_render(|_| Ok(())).unwrap();
+    frame.compile(full_options()).unwrap();
 }
