@@ -1100,6 +1100,131 @@ fn clear_and_copy_native_alignment_validation_is_deferred() {
 }
 
 #[test]
+fn buffer_texture_copies_require_a_known_footprint_but_texture_copies_do_not() {
+    let extent = wgpu::Extent3d {
+        width: 4,
+        height: 4,
+        depth_or_array_layers: 1,
+    };
+    let layout = wgpu::TexelCopyBufferLayout {
+        offset: 0,
+        bytes_per_row: None,
+        rows_per_image: None,
+    };
+
+    {
+        let mut graph = FrameGraph::new();
+        let mut frame = graph.begin_frame();
+        let buffer = frame.create_buffer(BufferDesc::new("upload", 64)).unwrap();
+        let depth = frame
+            .create_texture(TextureDesc::new_2d(
+                "depth24plus",
+                4,
+                4,
+                wgpu::TextureFormat::Depth24Plus,
+            ))
+            .unwrap();
+        let color = frame
+            .create_texture(TextureDesc::new_2d(
+                "color",
+                4,
+                4,
+                wgpu::TextureFormat::Rgba8Unorm,
+            ))
+            .unwrap();
+        let mut copy = frame.copy_pass("depth-upload");
+        let error = match copy.copy_buffer_to_texture(
+            BufferTextureCopyLocation::new(buffer, layout),
+            TextureCopyLocation::new(depth),
+            extent,
+        ) {
+            Ok(_) => panic!("depth24plus buffer copies must be rejected"),
+            Err(error) => error,
+        };
+        assert!(matches!(
+            error,
+            FrameGraphError::InvalidNodeOperation { .. }
+        ));
+        assert!(
+            error
+                .to_string()
+                .contains("no buffer-texture copy footprint")
+        );
+        assert_eq!(error.resource(), Some(depth.id()));
+        copy.copy_buffer_to_texture(
+            BufferTextureCopyLocation::new(buffer, layout),
+            TextureCopyLocation::new(color),
+            extent,
+        )
+        .unwrap();
+        copy.finish().unwrap();
+    }
+
+    {
+        let mut graph = FrameGraph::new();
+        let mut frame = graph.begin_frame();
+        let depth = frame
+            .import_texture(
+                TextureDesc::new_2d("depth24plus", 4, 4, wgpu::TextureFormat::Depth24Plus),
+                ImportTextureOptions::new(InitialContents::Defined),
+            )
+            .unwrap();
+        let buffer = frame
+            .create_buffer(BufferDesc::new("readback", 64))
+            .unwrap();
+        let mut copy = frame.copy_pass("depth-readback");
+        let error = match copy.copy_texture_to_buffer(
+            TextureCopyLocation::new(depth),
+            BufferTextureCopyLocation::new(buffer, layout),
+            extent,
+        ) {
+            Ok(_) => panic!("depth24plus buffer copies must be rejected"),
+            Err(error) => error,
+        };
+        assert!(matches!(
+            error,
+            FrameGraphError::InvalidNodeOperation { .. }
+        ));
+        assert!(
+            error
+                .to_string()
+                .contains("no buffer-texture copy footprint")
+        );
+    }
+
+    {
+        let mut graph = FrameGraph::new();
+        let mut frame = graph.begin_frame();
+        let source = frame
+            .import_texture(
+                TextureDesc::new_2d("source-depth", 4, 4, wgpu::TextureFormat::Depth24Plus),
+                ImportTextureOptions::new(InitialContents::Defined),
+            )
+            .unwrap();
+        let destination = frame
+            .create_texture(TextureDesc::new_2d(
+                "destination-depth",
+                4,
+                4,
+                wgpu::TextureFormat::Depth24Plus,
+            ))
+            .unwrap();
+        let mut copy = frame.copy_pass("depth-copy");
+        copy.copy_texture_to_texture(
+            TextureCopyLocation::new(source),
+            TextureCopyLocation::new(destination),
+            extent,
+        )
+        .unwrap();
+        copy.finish().unwrap();
+        frame
+            .mark_texture_root(destination, RootReason::Output)
+            .unwrap();
+        frame.compile(full_options()).unwrap();
+    }
+}
+
+#[test]
 fn partial_texture_copy_preserves_the_previous_subresource_value() {
     let mut graph = FrameGraph::new();
     let mut frame = graph.begin_frame();

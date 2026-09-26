@@ -119,6 +119,7 @@ test('compilation reports are opt-in snapshots', () => {
 
 test('texture byte estimates account for defaults, mip levels, samples, dimensions, and compressed blocks', () => {
 	assert.equal(estimateTextureByteSize({ format: 'rgba8unorm', size: [8, 4] }), 128);
+	assert.equal(estimateTextureByteSize({ format: 'depth24plus', size: [4, 4] }), 64);
 	assert.equal(estimateTextureByteSize({
 		format: 'rgba8unorm',
 		size: [8, 4],

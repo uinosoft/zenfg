@@ -704,8 +704,10 @@ export type ComputePassNodeDesc = {
 /**
  * A declarative WebGPU copy operation recorded by FrameGraph.
  *
- * Copy ranges must satisfy WebGPU alignment and texture format block rules.
- * Source and destination handles must belong to the current recording.
+ * FrameGraph tracks logical resource ranges and requires a known buffer-copy
+ * footprint for buffer-texture copies. Native command alignment, format,
+ * aspect, and overlap validation remains with WebGPU. Handles must belong to
+ * the current recording.
  *
  * @beta
  */

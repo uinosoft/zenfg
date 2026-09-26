@@ -7,7 +7,10 @@ import type {
 	TextureDesc,
 	TextureHandle,
 } from './types.ts';
-import { getTextureFormatBlockInfo, getTextureFormatInfo } from './formatCaps.ts';
+import {
+	getTextureFormatBufferCopyInfo,
+	getTextureFormatInfo,
+} from './formatCaps.ts';
 import {
 	originTuple,
 	snapshotExtent3D,
@@ -269,7 +272,7 @@ function bufferTextureCopyByteSize(
 ): number {
 	const textureDesc = resourceFor(textureHandle).desc as TextureDesc;
 	const [copyWidth, copyHeight, copyDepth] = textureSizeTuple(copySize);
-	const blockInfo = getTextureFormatBlockInfo(textureDesc.format, { phase, resourceId: textureHandle.id });
+	const blockInfo = getTextureFormatBufferCopyInfo(textureDesc.format, { phase, resourceId: textureHandle.id });
 	const widthInBlocks = Math.ceil(copyWidth / blockInfo.width);
 	const heightInBlocks = Math.ceil(copyHeight / blockInfo.height);
 	const bytesInLastRow = widthInBlocks * blockInfo.bytes;

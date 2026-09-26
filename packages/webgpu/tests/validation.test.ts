@@ -1963,6 +1963,48 @@ test('compile defers native copy validation on culled nodes', () => {
 	assert.doesNotThrow(() => graph.compile({ report: true }).compilationReport);
 });
 
+test('recording rejects buffer-texture copies without a known format footprint', () => {
+	for (const type of ['buffer-to-texture', 'texture-to-buffer'] as const) {
+		const graph = new FrameGraph(mockDevice()).beginFrame();
+		const depth = graph.createTexture({ label: 'depth24plus', format: 'depth24plus', size: [4, 4] });
+		const data = graph.createBuffer({ label: 'data', size: 64 });
+		const operation = type === 'buffer-to-texture'
+			? { type, source: data, destination: depth, sourceLayout: {}, copySize: [4, 4] as const }
+			: { type, source: depth, destination: data, destinationLayout: {}, copySize: [4, 4] as const };
+
+		assert.throws(
+			() => graph.copy({ label: type, operations: [operation] }),
+			(error) => error instanceof FrameGraphError
+				&& error.code === 'FG1106'
+				&& error.phase === 'record'
+				&& error.resourceId === depth.id
+				&& /no buffer-texture copy footprint/.test(error.message),
+		);
+		assert.doesNotThrow(() => graph.copy({
+			label: 'valid-buffer-copy-after-rejection',
+			operations: [{ type: 'buffer-to-buffer', source: data, destination: graph.createBuffer({ size: 64 }), size: 16 }],
+		}));
+	}
+});
+
+test('depth24plus texture copies remain recordable without buffer-copy metadata', () => {
+	const graph = new FrameGraph(mockDevice()).beginFrame();
+	const source = graph.createTexture({ label: 'source-depth', format: 'depth24plus', size: [4, 4] });
+	const destination = graph.createTexture({ label: 'destination-depth', format: 'depth24plus', size: [4, 4] });
+	graph.command({
+		label: 'write-source-depth',
+		sideEffect: true,
+		uses: [graph.use(source, TextureAccess.DepthWrite, { contents: 'overwrite' })],
+	});
+
+	assert.doesNotThrow(() => graph.copy({
+		label: 'copy-depth',
+		operations: [{ type: 'texture-to-texture', source, destination, copySize: [4, 4] }],
+	}));
+	graph.markOutput(destination);
+	assert.doesNotThrow(() => graph.compile({ report: true }).compilationReport);
+});
+
 test('compile defers native copy aspect, alignment, and overlap validation', () => {
 	{
 		const graph = new FrameGraph(mockDevice()).beginFrame();

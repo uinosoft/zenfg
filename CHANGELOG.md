@@ -5,6 +5,9 @@ packages use independent versions; component tags identify each release.
 
 ## Unreleased
 
+- Reject buffer-texture copies during recording when the texture format has no
+  known copy footprint for FrameGraph dependency tracking. Texture memory-size
+  estimates remain separate from buffer-copy layout metadata.
 - Give ZenFG-detected `@zenfg/webgpu` validation failures structured
   `FrameGraphError` codes and phase/location metadata. Code that checked for
   exact `TypeError` or plain `Error` types should check `FrameGraphError.code`.
