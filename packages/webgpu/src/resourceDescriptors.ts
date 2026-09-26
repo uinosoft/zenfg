@@ -4,7 +4,7 @@ import type {
 	TextureOrigin,
 	TextureSize,
 } from './types.ts';
-import { getTextureFormatBlockInfo } from './formatCaps.ts';
+import { getTextureFormatEstimateInfo } from './formatCaps.ts';
 import { assertNonNegativeSafeInteger, type NumericValidationContext } from './numericValidation.ts';
 import { FRAME_GRAPH_ERROR_CODES, FrameGraphError } from './error.ts';
 
@@ -105,7 +105,7 @@ export function estimateTextureByteSize(desc: TextureDesc): number {
 
 function textureEstimateBlockInfo(format: GPUTextureFormat): { readonly width: number; readonly height: number; readonly bytes: number } {
 	try {
-		return getTextureFormatBlockInfo(format);
+		return getTextureFormatEstimateInfo(format);
 	}
 	catch {
 		// Diagnostics stay available for implementation-defined formats that

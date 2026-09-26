@@ -978,12 +978,13 @@ class FrameGraphRecorderImpl implements FrameGraphRecorder {
 	 * Adds declarative WebGPU copy commands to the current recording.
 	 *
 	 * Dependencies and exact ranges are derived from snapshots of the operations.
-	 * Iterable texture extents and origins are materialized when this method is
-	 * called.
+	 * Buffer-texture copies require a known format footprint for buffer dependency
+	 * tracking. Iterable texture extents and origins are materialized when this
+	 * method is called.
 	 *
 	 * @param desc - Ordered copy operations.
-	 * @throws If the runtime is destroyed, this recorder was consumed, or a copy range
-	 * is invalid.
+	 * @throws If the runtime is destroyed, this recorder was consumed, a copy range
+	 * is invalid, or a buffer-texture copy format has no known footprint.
 	 *
 	 * @beta
 	 */
@@ -992,7 +993,17 @@ class FrameGraphRecorderImpl implements FrameGraphRecorder {
 		const resourceFor = (handle: ResourceHandle) => this.resourceFor(handle);
 		const accesses: InternalAccess[] = [];
 		const operations = desc.operations.map((operation, index) => snapshotCopyOperation(operation, index));
-		for (const operation of operations) {
+		const bufferCopyRanges = operations.map((operation) => {
+			switch (operation.type) {
+				case 'buffer-to-texture':
+					return bufferTextureCopyRange(resourceFor, operation.destination, operation.sourceLayout, operation.copySize);
+				case 'texture-to-buffer':
+					return bufferTextureCopyRange(resourceFor, operation.source, operation.destinationLayout, operation.copySize);
+				default:
+					return undefined;
+			}
+		});
+		for (const [operationIndex, operation] of operations.entries()) {
 			switch (operation.type) {
 				case 'texture-to-texture': {
 					accesses.push(this.createTextureAccess(operation.source, TextureAccess.CopySrc, textureCopyRange(resourceFor, operation.source, operation.sourceMipLevel, operation.sourceOrigin, operation.copySize, operation.sourceAspect)));
@@ -1008,7 +1019,7 @@ class FrameGraphRecorderImpl implements FrameGraphRecorder {
 					accesses.push(this.createAccess({ resource: operation.destination, access: BufferAccess.CopyDst, bufferRange: { offset: operation.destinationOffset ?? 0, size: operation.size }, contents: 'overwrite' }));
 					break;
 				case 'buffer-to-texture': {
-					accesses.push(this.createAccess({ resource: operation.source, access: BufferAccess.CopySrc, bufferRange: bufferTextureCopyRange(resourceFor, operation.destination, operation.sourceLayout, operation.copySize) }));
+					accesses.push(this.createAccess({ resource: operation.source, access: BufferAccess.CopySrc, bufferRange: bufferCopyRanges[operationIndex]! }));
 					const destinationRange = textureCopyRange(resourceFor, operation.destination, operation.destinationMipLevel, operation.destinationOrigin, operation.copySize, operation.destinationAspect);
 					const contents = textureCopyOverwritesSubresource(resourceFor, operation.destination, operation.destinationMipLevel, operation.destinationOrigin, operation.copySize)
 						? 'overwrite'
@@ -1018,7 +1029,7 @@ class FrameGraphRecorderImpl implements FrameGraphRecorder {
 				}
 				case 'texture-to-buffer':
 					accesses.push(this.createTextureAccess(operation.source, TextureAccess.CopySrc, textureCopyRange(resourceFor, operation.source, operation.sourceMipLevel, operation.sourceOrigin, operation.copySize, operation.sourceAspect)));
-					accesses.push(this.createAccess({ resource: operation.destination, access: BufferAccess.CopyDst, bufferRange: bufferTextureCopyRange(resourceFor, operation.source, operation.destinationLayout, operation.copySize), contents: 'overwrite' }));
+					accesses.push(this.createAccess({ resource: operation.destination, access: BufferAccess.CopyDst, bufferRange: bufferCopyRanges[operationIndex]!, contents: 'overwrite' }));
 					break;
 			}
 		}

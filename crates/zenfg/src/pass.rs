@@ -519,11 +519,12 @@ impl<'a, 'frame> PassBuilder<'a, 'frame> {
     }
 
     /// Appends one buffer-to-texture operation to a copy node. Native layout
-    /// compatibility is validated by wgpu; FrameGraph tracks the conservative
-    /// buffer footprint needed for dependency analysis.
+    /// compatibility is validated by wgpu; FrameGraph requires a known format
+    /// footprint to track the buffer range needed for dependency analysis.
     ///
     /// Logical bounds and conservative buffer footprints are calculated for
-    /// dependency analysis; native format and layout validation remains with wgpu.
+    /// dependency analysis; formats without a buffer-copy footprint are rejected.
+    /// Native format and layout validity otherwise remains with wgpu.
     pub fn copy_buffer_to_texture(
         &mut self,
         source: BufferTextureCopyLocation<'frame>,
@@ -537,6 +538,7 @@ impl<'a, 'frame> PassBuilder<'a, 'frame> {
             self.frame,
             self.id(),
             source,
+            destination.record.resource,
             destination.format,
             destination.byte_aspect,
             copy_size,
@@ -573,7 +575,9 @@ impl<'a, 'frame> PassBuilder<'a, 'frame> {
         Ok(self)
     }
 
-    /// Appends one validated texture-to-buffer operation to a copy node.
+    /// Appends one texture-to-buffer operation to a copy node. FrameGraph
+    /// requires a known format footprint to track the destination buffer range;
+    /// native format and layout validity otherwise remains with wgpu.
     pub fn copy_texture_to_buffer(
         &mut self,
         source: TextureCopyLocation<'frame>,
@@ -586,6 +590,7 @@ impl<'a, 'frame> PassBuilder<'a, 'frame> {
             self.frame,
             self.id(),
             destination,
+            source.record.resource,
             source.format,
             source.byte_aspect,
             copy_size,
@@ -1230,6 +1235,7 @@ fn validate_buffer_texture_copy(
     frame: &Frame<'_>,
     pass: PassId,
     location: BufferTextureCopyLocation<'_>,
+    texture_resource: ResourceId,
     format: wgpu::TextureFormat,
     aspect: wgpu::TextureAspect,
     copy_size: wgpu::Extent3d,
@@ -1248,9 +1254,13 @@ fn validate_buffer_texture_copy(
         message,
     };
     let bytes_per_block = u64::from(format.block_copy_size(Some(aspect)).ok_or_else(|| {
-        invalid(format!(
-            "format {format:?} cannot be copied for byte-range planning"
-        ))
+        FrameGraphError::InvalidNodeOperation {
+            pass,
+            resource: Some(texture_resource),
+            message: format!(
+                "texture format {format:?} has no buffer-texture copy footprint for dependency planning"
+            ),
+        }
     })?);
     let (block_width, block_height) = format.block_dimensions();
     let width_blocks = copy_size.width.div_ceil(block_width);

@@ -1287,6 +1287,8 @@ fn estimate_texture_bytes(desc: &crate::TextureDesc) -> u64 {
     } else {
         None
     };
+    // This is a planning estimate only; copy validation uses block_copy_size
+    // directly and rejects formats without a buffer-copy footprint.
     let block_bytes = desc.format.block_copy_size(aspect).unwrap_or(4) as u64;
     let mut total = 0u64;
     for mip in 0..desc.mip_level_count {
@@ -1561,6 +1563,12 @@ mod tests {
         ImportBufferOptions, ImportTextureOptions, InitialContents, TextureDesc, TextureViewDesc,
         WriteContents,
     };
+
+    #[test]
+    fn depth24plus_estimate_is_independent_of_buffer_copy_footprint() {
+        let desc = TextureDesc::new_2d("depth24plus", 4, 4, wgpu::TextureFormat::Depth24Plus);
+        assert_eq!(super::estimate_texture_bytes(&desc), 64);
+    }
 
     #[test]
     fn explicit_execution_view_unions_only_retained_usage() {

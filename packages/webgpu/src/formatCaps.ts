@@ -7,8 +7,14 @@ export const bufferAccessValues = new Set<string>(Object.values(BufferAccess));
 export type TextureFormatBlockInfo = {
 	readonly width: number;
 	readonly height: number;
+};
+
+type TextureFormatByteBlockInfo = TextureFormatBlockInfo & {
 	readonly bytes: number;
 };
+
+export type TextureFormatEstimateInfo = TextureFormatByteBlockInfo;
+export type TextureFormatBufferCopyInfo = TextureFormatByteBlockInfo;
 
 export type TextureFormatKind = 'color' | 'depth' | 'stencil' | 'depth-stencil' | 'compressed' | 'unknown';
 
@@ -16,14 +22,16 @@ export type TextureFormatInfo = {
 	readonly format: GPUTextureFormat;
 	readonly kind: TextureFormatKind;
 	readonly blockInfo?: TextureFormatBlockInfo;
+	readonly estimatedBytesPerBlock?: number;
+	readonly bufferCopyBytesPerBlock?: number;
 };
 
 type TextureFormatInfoInit = Omit<TextureFormatInfo, 'format'>;
 
 const textureFormatInfo = new Map<GPUTextureFormat, TextureFormatInfo>();
 
-// FrameGraph tracks format aspects and texel blocks for dependency ranges and
-// byte footprints. Device-dependent usage capabilities remain native WebGPU validation.
+// FrameGraph tracks format aspects and texel blocks for dependency ranges.
+// Device-dependent usage capabilities remain native WebGPU validation.
 const plainColorFormatList = [
 	'r8unorm',
 	'r8snorm',
@@ -125,9 +133,13 @@ for (const format of stencilTextureFormatList) {
 	updateFormat(format, { kind: 'stencil' });
 }
 
-function addBlockInfo(formats: readonly GPUTextureFormat[], info: TextureFormatBlockInfo): void {
+function addBlockInfo(formats: readonly GPUTextureFormat[], info: TextureFormatEstimateInfo): void {
 	for (const format of formats) {
-		updateFormat(format, { blockInfo: info });
+		updateFormat(format, {
+			blockInfo: { width: info.width, height: info.height },
+			estimatedBytesPerBlock: info.bytes,
+			bufferCopyBytesPerBlock: info.bytes,
+		});
 	}
 }
 
@@ -172,9 +184,15 @@ addBlockInfo([
 	'rgb10a2uint',
 	'rgb10a2unorm',
 	'rg11b10ufloat',
-	'depth24plus',
 	'depth32float',
 ], { width: 1, height: 1, bytes: 4 });
+
+// The depth24plus memory size is implementation-defined. Keep its existing
+// estimate for planning, but do not treat it as a buffer-texture copy footprint.
+updateFormat('depth24plus', {
+	blockInfo: { width: 1, height: 1 },
+	estimatedBytesPerBlock: 4,
+});
 
 addBlockInfo([
 	'rg32uint',
@@ -229,7 +247,7 @@ for (const [format, info] of textureFormatInfo) {
 	}
 }
 
-function astcBlockInfo(format: GPUTextureFormat): TextureFormatBlockInfo | undefined {
+function astcBlockInfo(format: GPUTextureFormat): TextureFormatEstimateInfo | undefined {
 	const astc = /^astc-(\d+)x(\d+)-unorm(?:-srgb)?$/.exec(format);
 	if (!astc) {
 		return undefined;
@@ -251,7 +269,9 @@ export function getTextureFormatInfo(format: GPUTextureFormat): TextureFormatInf
 		return {
 			format,
 			kind: 'compressed',
-			blockInfo,
+			blockInfo: { width: blockInfo.width, height: blockInfo.height },
+			estimatedBytesPerBlock: blockInfo.bytes,
+			bufferCopyBytesPerBlock: blockInfo.bytes,
 		};
 	}
 	return {
@@ -260,12 +280,26 @@ export function getTextureFormatInfo(format: GPUTextureFormat): TextureFormatInf
 	};
 }
 
-export function getTextureFormatBlockInfo(format: GPUTextureFormat, options: FrameGraphErrorOptions = { phase: 'compile' }): TextureFormatBlockInfo {
-	const blockInfo = getTextureFormatInfo(format).blockInfo;
-	if (blockInfo) {
-		return blockInfo;
+export function getTextureFormatEstimateInfo(
+	format: GPUTextureFormat,
+	options: FrameGraphErrorOptions = { phase: 'compile' },
+): TextureFormatEstimateInfo {
+	const info = getTextureFormatInfo(format);
+	if (info.blockInfo && info.estimatedBytesPerBlock !== undefined) {
+		return { ...info.blockInfo, bytes: info.estimatedBytesPerBlock };
 	}
-	throw new FrameGraphError(FRAME_GRAPH_ERROR_CODES.UnsupportedTextureFormatUsage, `Unsupported texture format "${format}" for buffer-texture byte-range planning.`, options);
+	throw new FrameGraphError(FRAME_GRAPH_ERROR_CODES.UnsupportedTextureFormatUsage, `Unsupported texture format "${format}" for memory-size estimation.`, options);
+}
+
+export function getTextureFormatBufferCopyInfo(
+	format: GPUTextureFormat,
+	options: FrameGraphErrorOptions,
+): TextureFormatBufferCopyInfo {
+	const info = getTextureFormatInfo(format);
+	if (info.blockInfo && info.bufferCopyBytesPerBlock !== undefined) {
+		return { ...info.blockInfo, bytes: info.bufferCopyBytesPerBlock };
+	}
+	throw new FrameGraphError(FRAME_GRAPH_ERROR_CODES.InvalidNodeOperation, `Texture format "${format}" has no buffer-texture copy footprint for dependency planning.`, options);
 }
 
 export function isDepthFormat(format: GPUTextureFormat): boolean {
