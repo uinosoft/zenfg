@@ -112,6 +112,7 @@ export type InternalAccess = {
 	readonly resource: ResourceHandle;
 	readonly access: ResourceAccess['access'];
 	readonly mode: ResourceAccessMode;
+	readonly graphEffect?: boolean;
 	readonly consumesPreviousValue: boolean;
 	readonly producesValue: boolean;
 	readonly contents?: WriteContents;

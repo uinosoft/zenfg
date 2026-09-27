@@ -483,7 +483,9 @@ impl<'a, 'frame> PassBuilder<'a, 'frame> {
         )
     }
 
-    /// Appends one validated buffer-to-buffer operation to a copy node.
+    /// Appends one buffer-to-buffer operation to a copy node. A retained
+    /// zero-sized copy is encoded for native validation but has no graph content
+    /// effect.
     ///
     /// Source and destination ranges are declared automatically. Native copy
     /// alignment is validated by wgpu.
@@ -496,9 +498,6 @@ impl<'a, 'frame> PassBuilder<'a, 'frame> {
         size: u64,
     ) -> Result<&mut Self, FrameGraphError> {
         self.require_kind(NodeKind::Copy, "buffer-to-buffer copy")?;
-        if size == 0 {
-            return Err(self.invalid_operation(None, "buffer copy size must be non-zero"));
-        }
         let source_range = BufferRange::new(source_offset, size);
         let destination_range = BufferRange::new(destination_offset, size);
         let checkpoint = self.access_checkpoint();
@@ -508,6 +507,9 @@ impl<'a, 'frame> PassBuilder<'a, 'frame> {
             .inspect_err(|_| {
                 self.rollback_accesses(checkpoint);
             })?;
+        if size == 0 {
+            self.set_access_graph_effect(checkpoint.0, false);
+        }
         self.copy_operations.push(CopyOperation::BufferToBuffer {
             source: source.id,
             source_offset,
@@ -518,9 +520,11 @@ impl<'a, 'frame> PassBuilder<'a, 'frame> {
         Ok(self)
     }
 
-    /// Appends one buffer-to-texture operation to a copy node. Native layout
-    /// compatibility is validated by wgpu; FrameGraph requires a known format
-    /// footprint to track the buffer range needed for dependency analysis.
+    /// Appends one buffer-to-texture operation to a copy node. Retained
+    /// zero-sized copies are encoded for native validation but have no graph
+    /// content effect. Native layout compatibility is validated by wgpu;
+    /// non-empty copies require a known
+    /// format footprint to track the buffer range needed for dependency analysis.
     ///
     /// Logical bounds and conservative buffer footprints are calculated for
     /// dependency analysis; formats without a buffer-copy footprint are rejected.
@@ -566,6 +570,9 @@ impl<'a, 'frame> PassBuilder<'a, 'frame> {
             .inspect_err(|_| {
                 self.rollback_accesses(checkpoint);
             })?;
+        if texture_copy_is_empty(copy_size) {
+            self.set_access_graph_effect(checkpoint.0, false);
+        }
         self.copy_operations.push(CopyOperation::BufferToTexture {
             source: buffer.resource,
             source_layout: source.layout,
@@ -575,9 +582,11 @@ impl<'a, 'frame> PassBuilder<'a, 'frame> {
         Ok(self)
     }
 
-    /// Appends one texture-to-buffer operation to a copy node. FrameGraph
-    /// requires a known format footprint to track the destination buffer range;
-    /// native format and layout validity otherwise remains with wgpu.
+    /// Appends one texture-to-buffer operation to a copy node. Retained
+    /// zero-sized copies are encoded for native validation but have no graph
+    /// content effect. Non-empty copies require a known format footprint to track the
+    /// destination buffer range; native format and layout validity otherwise
+    /// remains with wgpu.
     pub fn copy_texture_to_buffer(
         &mut self,
         source: TextureCopyLocation<'frame>,
@@ -618,6 +627,9 @@ impl<'a, 'frame> PassBuilder<'a, 'frame> {
             .inspect_err(|_| {
                 self.rollback_accesses(checkpoint);
             })?;
+        if texture_copy_is_empty(copy_size) {
+            self.set_access_graph_effect(checkpoint.0, false);
+        }
         self.copy_operations.push(CopyOperation::TextureToBuffer {
             source: source.record,
             destination: buffer.resource,
@@ -627,7 +639,9 @@ impl<'a, 'frame> PassBuilder<'a, 'frame> {
         Ok(self)
     }
 
-    /// Appends one validated texture-to-texture operation to a copy node.
+    /// Appends one texture-to-texture operation to a copy node. Retained
+    /// zero-sized copies are encoded for native validation but have no graph
+    /// content effect.
     ///
     /// Source and destination logical ranges are tracked by FrameGraph. Native
     /// format, dimension, aspect, and overlap compatibility is validated by wgpu.
@@ -664,6 +678,9 @@ impl<'a, 'frame> PassBuilder<'a, 'frame> {
             .inspect_err(|_| {
                 self.rollback_accesses(checkpoint);
             })?;
+        if texture_copy_is_empty(copy_size) {
+            self.set_access_graph_effect(checkpoint.0, false);
+        }
         self.copy_operations.push(CopyOperation::TextureToTexture {
             source: source.record,
             destination: destination.record,
@@ -1064,6 +1081,7 @@ impl<'a, 'frame> PassBuilder<'a, 'frame> {
             resource,
             role,
             mode,
+            graph_effect: true,
             consumes_previous,
             produces_value,
             range,
@@ -1076,6 +1094,16 @@ impl<'a, 'frame> PassBuilder<'a, 'frame> {
             resource,
             marker: PhantomData,
         })
+    }
+
+    fn set_access_graph_effect(&mut self, start: usize, graph_effect: bool) {
+        for access in &mut self.node.as_mut().expect("open pass").accesses[start..] {
+            access.graph_effect = graph_effect;
+            if !graph_effect {
+                access.consumes_previous = false;
+                access.produces_value = false;
+            }
+        }
     }
 }
 
@@ -1160,9 +1188,6 @@ fn validate_texture_copy_location(
         resource: Some(resource),
         message,
     };
-    if copy_size.width == 0 || copy_size.height == 0 || copy_size.depth_or_array_layers == 0 {
-        return Err(invalid("texture copy extent must be non-zero".into()));
-    }
     if location.mip_level >= desc.mip_level_count {
         return Err(invalid(format!(
             "mip {} is outside {} mip levels",
@@ -1219,7 +1244,11 @@ fn validate_texture_copy_location(
             base_mip_level: mip,
             mip_level_count: 1,
             base_slice: location.origin.z,
-            slice_count: copy_size.depth_or_array_layers,
+            slice_count: if texture_copy_is_empty(copy_size) {
+                0
+            } else {
+                copy_size.depth_or_array_layers
+            },
             aspect,
         }],
         format: desc.format,
@@ -1229,6 +1258,10 @@ fn validate_texture_copy_location(
             && u64::from(copy_size.width) == physical_width
             && u64::from(copy_size.height) == physical_height,
     })
+}
+
+fn texture_copy_is_empty(copy_size: wgpu::Extent3d) -> bool {
+    copy_size.width == 0 || copy_size.height == 0 || copy_size.depth_or_array_layers == 0
 }
 
 fn validate_buffer_texture_copy(
@@ -1253,6 +1286,19 @@ fn validate_buffer_texture_copy(
         resource: Some(resource),
         message,
     };
+    if texture_copy_is_empty(copy_size) && format.block_copy_size(Some(aspect)).is_none() {
+        if location.layout.offset > desc.size {
+            return Err(invalid(format!(
+                "copy offset {} exceeds buffer size {}",
+                location.layout.offset, desc.size
+            )));
+        }
+        return Ok(ValidatedBufferTextureCopy {
+            resource,
+            range: location.layout.offset..location.layout.offset,
+            tightly_packed: true,
+        });
+    }
     let bytes_per_block = u64::from(format.block_copy_size(Some(aspect)).ok_or_else(|| {
         FrameGraphError::InvalidNodeOperation {
             pass,
@@ -1276,29 +1322,49 @@ fn validate_buffer_texture_copy(
     );
     let bytes_in_copy = if copy_size.depth_or_array_layers == 0 {
         0
+    } else if copy_size.depth_or_array_layers == 1 {
+        if height_blocks == 0 {
+            0
+        } else {
+            row_stride
+                .checked_mul(u64::from(height_blocks - 1))
+                .and_then(|rows| rows.checked_add(bytes_in_last_row))
+                .ok_or_else(|| invalid("buffer texture copy range overflows".into()))?
+        }
     } else {
-        row_stride
+        let image_stride = row_stride
             .checked_mul(image_rows)
-            .and_then(|stride| stride.checked_mul(u64::from(copy_size.depth_or_array_layers - 1)))
+            .ok_or_else(|| invalid("buffer texture copy range overflows".into()))?;
+        image_stride
+            .checked_mul(u64::from(copy_size.depth_or_array_layers - 1))
             .and_then(|images| {
-                row_stride
-                    .checked_mul(u64::from(height_blocks.saturating_sub(1)))
-                    .and_then(|rows| images.checked_add(rows))
+                if height_blocks == 0 {
+                    Some(images)
+                } else {
+                    row_stride
+                        .checked_mul(u64::from(height_blocks - 1))
+                        .and_then(|rows| images.checked_add(rows))
+                        .and_then(|bytes| bytes.checked_add(bytes_in_last_row))
+                }
             })
-            .and_then(|bytes| bytes.checked_add(bytes_in_last_row))
             .ok_or_else(|| invalid("buffer texture copy range overflows".into()))?
     };
-    let end = location
+    let validation_end = location
         .layout
         .offset
         .checked_add(bytes_in_copy)
         .ok_or_else(|| invalid("buffer texture copy range overflows".into()))?;
-    if end > desc.size {
+    if validation_end > desc.size {
         return Err(invalid(format!(
             "copy range {}..{} exceeds buffer size {}",
-            location.layout.offset, end, desc.size
+            location.layout.offset, validation_end, desc.size
         )));
     }
+    let end = if texture_copy_is_empty(copy_size) {
+        location.layout.offset
+    } else {
+        validation_end
+    };
     Ok(ValidatedBufferTextureCopy {
         resource,
         range: location.layout.offset..end,

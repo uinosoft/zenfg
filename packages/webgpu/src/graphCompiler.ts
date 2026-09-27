@@ -189,6 +189,7 @@ function analyzeGraphAccesses(input: GraphCompilerInput): DependencyAnalysis {
 
 	for (const node of input.nodes) {
 		for (const access of node.accesses) {
+			if (access.graphEffect === false) continue;
 			if (access.resource.kind === 'buffer') {
 				recordBufferDependency(input.resourceFor, access, node.id, bufferStates, dependencies);
 				continue;
@@ -500,36 +501,38 @@ function buildCompilationReport(
 	const recordingOrderByNodeId = new Map(input.nodes.map((node, order) => [node.id, order]));
 	const orderByNodeId = new Map(orderedNodes.map((node, order) => [node.id, order]));
 	let nextAccessId = 1;
-	const accesses = input.nodes.flatMap((node) => node.accesses.map((access): FrameGraphCompilationAccess => {
-		const order = orderByNodeId.get(node.id);
-		const textureRegion = access.resource.kind === 'texture'
-			? toCompiledTextureRegion(
-				resolveTextureAccessRange(input.resourceFor, access),
-				input.resourceFor(access.resource).desc as TextureDesc,
-			)
-			: undefined;
-		const bufferRange = access.resource.kind === 'buffer'
-			? resolveBufferAccessRange(input.resourceFor, access)
-			: undefined;
-		const common = {
-			id: nextAccessId++,
-			nodeId: node.id,
-			resourceId: access.resource.id,
-			access: access.access,
-			textureViewId: access.textureView?.id,
-			textureRegion,
-			bufferRange,
-			...(order !== undefined ? { order } : {}),
-		};
-		return access.mode === 'read'
-			? { ...common, mode: 'read', producesValue: false }
-			: {
-				...common,
-				mode: 'write',
-				contents: access.contents!,
-				producesValue: access.producesValue,
+	const accesses = input.nodes.flatMap((node) => node.accesses
+		.filter((access) => access.graphEffect !== false)
+		.map((access): FrameGraphCompilationAccess => {
+			const order = orderByNodeId.get(node.id);
+			const textureRegion = access.resource.kind === 'texture'
+				? toCompiledTextureRegion(
+					resolveTextureAccessRange(input.resourceFor, access),
+					input.resourceFor(access.resource).desc as TextureDesc,
+				)
+				: undefined;
+			const bufferRange = access.resource.kind === 'buffer'
+				? resolveBufferAccessRange(input.resourceFor, access)
+				: undefined;
+			const common = {
+				id: nextAccessId++,
+				nodeId: node.id,
+				resourceId: access.resource.id,
+				access: access.access,
+				textureViewId: access.textureView?.id,
+				textureRegion,
+				bufferRange,
+				...(order !== undefined ? { order } : {}),
 			};
-	}));
+			return access.mode === 'read'
+				? { ...common, mode: 'read', producesValue: false }
+				: {
+					...common,
+					mode: 'write',
+					contents: access.contents!,
+					producesValue: access.producesValue,
+				};
+		}));
 	const compatibilityClassByKey = new Map<string, number>();
 	const uniqueAllocations = new Map<number, PhysicalAllocation>();
 	for (const allocation of physicalAllocations.values()) {

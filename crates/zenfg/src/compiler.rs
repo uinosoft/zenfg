@@ -709,7 +709,7 @@ fn analyze_nodes(
 ) -> Result<(), FrameGraphError> {
     for node in nodes {
         for access in &mut node.accesses {
-            if access.range.is_empty() {
+            if !access.graph_effect || access.range.is_empty() {
                 continue;
             }
             let new_value = if access.mode == AccessMode::Write && access.produces_value {
@@ -1362,7 +1362,16 @@ fn build_summary(
         culled_node_count: frame.nodes.len() - retained.len(),
         resource_count: frame.resources.len(),
         view_count: frame.views.len(),
-        access_count: frame.nodes.iter().map(|node| node.accesses.len()).sum(),
+        access_count: frame
+            .nodes
+            .iter()
+            .map(|node| {
+                node.accesses
+                    .iter()
+                    .filter(|access| access.graph_effect)
+                    .count()
+            })
+            .sum(),
         value_count: analysis.values.len(),
         dependency_count: analysis.dependencies.len(),
         allocation_count: allocations.len(),
@@ -1447,7 +1456,7 @@ fn build_full_report(
         accesses: frame
             .nodes
             .iter()
-            .flat_map(|node| node.accesses.iter())
+            .flat_map(|node| node.accesses.iter().filter(|access| access.graph_effect))
             .map(|access| AccessReport {
                 id: access.id,
                 pass: access.pass,

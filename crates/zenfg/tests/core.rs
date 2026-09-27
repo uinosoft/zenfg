@@ -1100,6 +1100,227 @@ fn clear_and_copy_native_alignment_validation_is_deferred() {
 }
 
 #[test]
+fn zero_sized_copies_are_native_noops_without_graph_value_effects() {
+    let mut graph = FrameGraph::new();
+    let mut frame = graph.begin_frame();
+    let buffer_src = frame
+        .import_buffer(
+            BufferDesc::new("buffer-src", 64),
+            ImportBufferOptions {
+                initial_contents: InitialContents::Undefined,
+                exposed_usage: Some(wgpu::BufferUsages::COPY_SRC),
+            },
+        )
+        .unwrap();
+    let buffer_dst = frame
+        .create_buffer(BufferDesc::new("buffer-dst", 64))
+        .unwrap();
+    let texture_src = frame
+        .import_texture(
+            TextureDesc::new_2d("texture-src", 4, 4, wgpu::TextureFormat::Rgba8Unorm),
+            ImportTextureOptions {
+                initial_contents: InitialContents::Undefined,
+                exposed_usage: Some(wgpu::TextureUsages::COPY_SRC),
+            },
+        )
+        .unwrap();
+    let texture_dst = frame
+        .create_texture(TextureDesc::new_2d(
+            "texture-dst",
+            4,
+            4,
+            wgpu::TextureFormat::Rgba8Unorm,
+        ))
+        .unwrap();
+    let readback = frame
+        .create_buffer(BufferDesc::new("readback", 64))
+        .unwrap();
+    let layout = wgpu::TexelCopyBufferLayout {
+        offset: 0,
+        bytes_per_row: None,
+        rows_per_image: None,
+    };
+    let mut copy = frame.copy_pass("no-op-copies");
+    copy.set_side_effect(true);
+    copy.copy_buffer_to_buffer(buffer_src, 0, buffer_dst, 0, 0)
+        .unwrap();
+    copy.copy_buffer_to_texture(
+        BufferTextureCopyLocation::new(buffer_src, layout),
+        TextureCopyLocation::new(texture_dst),
+        wgpu::Extent3d {
+            width: 0,
+            height: 1,
+            depth_or_array_layers: 1,
+        },
+    )
+    .unwrap();
+    copy.copy_texture_to_buffer(
+        TextureCopyLocation::new(texture_src),
+        BufferTextureCopyLocation::new(readback, layout),
+        wgpu::Extent3d {
+            width: 1,
+            height: 0,
+            depth_or_array_layers: 1,
+        },
+    )
+    .unwrap();
+    copy.copy_texture_to_texture(
+        TextureCopyLocation::new(texture_src),
+        TextureCopyLocation::new(texture_dst),
+        wgpu::Extent3d {
+            width: 1,
+            height: 1,
+            depth_or_array_layers: 0,
+        },
+    )
+    .unwrap();
+    copy.finish().unwrap();
+
+    let compiled = frame.compile(full_options()).unwrap();
+    assert_eq!(compiled.retained_node_count(), 1);
+    assert_eq!(
+        compiled.resource_usage(buffer_src.id()),
+        Some(zenfg::ResourceUsage::Buffer(wgpu::BufferUsages::COPY_SRC))
+    );
+    assert_eq!(
+        compiled.resource_usage(buffer_dst.id()),
+        Some(zenfg::ResourceUsage::Buffer(wgpu::BufferUsages::COPY_DST))
+    );
+    assert_eq!(
+        compiled.resource_usage(texture_src.id()),
+        Some(zenfg::ResourceUsage::Texture(wgpu::TextureUsages::COPY_SRC))
+    );
+    assert_eq!(
+        compiled.resource_usage(texture_dst.id()),
+        Some(zenfg::ResourceUsage::Texture(wgpu::TextureUsages::COPY_DST))
+    );
+    assert!(
+        compiled
+            .report()
+            .unwrap()
+            .full
+            .as_ref()
+            .unwrap()
+            .accesses
+            .is_empty()
+    );
+    for resource in [buffer_dst.id(), texture_dst.id(), readback.id()] {
+        let report = compiled
+            .report()
+            .unwrap()
+            .full
+            .as_ref()
+            .unwrap()
+            .resources
+            .iter()
+            .find(|entry| entry.id == resource)
+            .unwrap();
+        assert!(report.lifetime.is_some());
+        assert!(report.allocation.is_some());
+    }
+}
+
+#[test]
+fn zero_sized_copy_does_not_define_an_output_root() {
+    let mut graph = FrameGraph::new();
+    let mut frame = graph.begin_frame();
+    let source = frame
+        .import_texture(
+            TextureDesc::new_2d("source", 4, 4, wgpu::TextureFormat::Rgba8Unorm),
+            ImportTextureOptions {
+                initial_contents: InitialContents::Defined,
+                exposed_usage: Some(wgpu::TextureUsages::COPY_SRC),
+            },
+        )
+        .unwrap();
+    let destination = frame
+        .create_texture(TextureDesc::new_2d(
+            "destination",
+            4,
+            4,
+            wgpu::TextureFormat::Rgba8Unorm,
+        ))
+        .unwrap();
+    let mut copy = frame.copy_pass("empty-copy");
+    copy.copy_texture_to_texture(
+        TextureCopyLocation::new(source),
+        TextureCopyLocation::new(destination),
+        wgpu::Extent3d {
+            width: 0,
+            height: 4,
+            depth_or_array_layers: 1,
+        },
+    )
+    .unwrap();
+    copy.finish().unwrap();
+    frame
+        .mark_texture_root(destination, RootReason::Output)
+        .unwrap();
+
+    assert!(matches!(
+        frame.compile(full_options()),
+        Err(FrameGraphError::RootReferencesUndefinedContents { .. })
+    ));
+}
+
+#[test]
+fn zero_sized_buffer_copy_does_not_define_an_output_root() {
+    let mut graph = FrameGraph::new();
+    let mut frame = graph.begin_frame();
+    let source = frame
+        .import_buffer(
+            BufferDesc::new("source", 64),
+            ImportBufferOptions {
+                initial_contents: InitialContents::Defined,
+                exposed_usage: Some(wgpu::BufferUsages::COPY_SRC),
+            },
+        )
+        .unwrap();
+    let destination = frame
+        .create_buffer(BufferDesc::new("destination", 64))
+        .unwrap();
+    let mut copy = frame.copy_pass("empty-copy");
+    copy.copy_buffer_to_buffer(source, 0, destination, 0, 0)
+        .unwrap();
+    copy.finish().unwrap();
+    frame
+        .mark_buffer_root(destination, BufferRange::whole(), RootReason::Output)
+        .unwrap();
+
+    assert!(matches!(
+        frame.compile(full_options()),
+        Err(FrameGraphError::RootReferencesUndefinedContents { .. })
+    ));
+}
+
+#[test]
+fn zero_sized_copies_still_validate_logical_endpoints() {
+    let mut graph = FrameGraph::new();
+    let mut frame = graph.begin_frame();
+    let source = frame
+        .import_buffer(
+            BufferDesc::new("source", 64),
+            ImportBufferOptions {
+                initial_contents: InitialContents::Defined,
+                exposed_usage: Some(wgpu::BufferUsages::COPY_SRC),
+            },
+        )
+        .unwrap();
+    let destination = frame
+        .create_buffer(BufferDesc::new("destination", 64))
+        .unwrap();
+    let mut copy = frame.copy_pass("empty-copy-out-of-bounds");
+    assert!(matches!(
+        copy.copy_buffer_to_buffer(source, 65, destination, 0, 0),
+        Err(FrameGraphError::InvalidBufferRange { .. })
+    ));
+    copy.copy_buffer_to_buffer(source, 64, destination, 64, 0)
+        .unwrap();
+    copy.finish().unwrap();
+    assert!(frame.compile(full_options()).is_ok());
+}
+
+#[test]
 fn buffer_texture_copies_require_a_known_footprint_but_texture_copies_do_not() {
     let extent = wgpu::Extent3d {
         width: 4,
