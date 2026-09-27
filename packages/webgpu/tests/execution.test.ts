@@ -1043,6 +1043,53 @@ test('copy node records declarative buffer copy operations', () => {
 	assert.deepEqual(calls, ['source:4->destination:8:16']);
 });
 
+test('execute forwards every zero-sized copy kind to WebGPU for native validation', () => {
+	const calls: string[] = [];
+	const commandEncoder = mockCommandEncoder({
+		copyBufferToBuffer(_source: GPUBuffer, _sourceOffset: GPUSize64, _destination: GPUBuffer, _destinationOffset: GPUSize64, size: GPUSize64) {
+			calls.push(`buffer-buffer:${size}`);
+		},
+		copyBufferToTexture() {
+			calls.push('buffer-texture');
+		},
+		copyTextureToBuffer() {
+			calls.push('texture-buffer');
+		},
+		copyTextureToTexture() {
+			calls.push('texture-texture');
+		},
+	});
+	const graph = new FrameGraph(mockDevice(commandEncoder)).beginFrame();
+	const source = graph.importBuffer(buffer('source', bufferUsage.COPY_SRC), { label: 'source', exposedSize: 64, exposedUsage: bufferUsage.COPY_SRC });
+	const destination = graph.importBuffer(buffer('destination', bufferUsage.COPY_DST), { label: 'destination', exposedSize: 64, exposedUsage: bufferUsage.COPY_DST });
+	const textureSource = graph.importTexture(texture('texture-source', textureUsage.COPY_SRC, {
+		format: 'rgba8unorm', size: [4, 4],
+	}), { label: 'texture-source', exposedUsage: textureUsage.COPY_SRC });
+	const textureDestination = graph.importTexture(texture('texture-destination', textureUsage.COPY_DST, {
+		format: 'rgba8unorm', size: [4, 4],
+	}), { label: 'texture-destination', exposedUsage: textureUsage.COPY_DST });
+	const readback = graph.importBuffer(buffer('readback', bufferUsage.COPY_DST), { label: 'readback', exposedSize: 64, exposedUsage: bufferUsage.COPY_DST });
+	graph.copy({
+		label: 'no-op-copy',
+		sideEffect: true,
+		operations: [
+			{ type: 'buffer-to-buffer', source, destination, size: 0 },
+			{ type: 'buffer-to-texture', source, destination: textureDestination, sourceLayout: {}, copySize: [0, 1] },
+			{ type: 'texture-to-buffer', source: textureSource, destination: readback, destinationLayout: {}, copySize: [1, 0] },
+			{ type: 'texture-to-texture', source: textureSource, destination: textureDestination, copySize: [1, 1, 0] },
+		],
+	});
+
+	executeCompiled(graph);
+
+	assert.deepEqual(calls, [
+		'buffer-buffer:0',
+		'buffer-texture',
+		'texture-buffer',
+		'texture-texture',
+	]);
+});
+
 test('execute rejects resolving resources not declared by the node', () => {
 	const device = mockDevice();
 	const graph = new FrameGraph(device).beginFrame();

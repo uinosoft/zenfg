@@ -102,6 +102,7 @@ pub(crate) struct AccessRecord {
     pub resource: ResourceId,
     pub role: AccessRole,
     pub mode: AccessMode,
+    pub graph_effect: bool,
     pub consumes_previous: bool,
     pub produces_value: bool,
     pub range: NormalizedRange,

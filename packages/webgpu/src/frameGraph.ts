@@ -111,6 +111,7 @@ import {
 	defaultTextureCopyAspect,
 	snapshotCopyOperation,
 	textureCopyOverwritesSubresource,
+	textureCopyIsEmpty,
 	textureCopyRange,
 	validateCopyNodeDescriptor,
 } from './copyValidation.ts';
@@ -978,13 +979,15 @@ class FrameGraphRecorderImpl implements FrameGraphRecorder {
 	 * Adds declarative WebGPU copy commands to the current recording.
 	 *
 	 * Dependencies and exact ranges are derived from snapshots of the operations.
-	 * Buffer-texture copies require a known format footprint for buffer dependency
-	 * tracking. Iterable texture extents and origins are materialized when this
-	 * method is called.
+	 * Retained zero-sized copies remain executable for native validation but have
+	 * no graph read or write effect.
+	 * Non-empty buffer-texture copies require a known format footprint for buffer
+	 * dependency tracking. Iterable texture extents and origins are materialized
+	 * when this method is called.
 	 *
 	 * @param desc - Ordered copy operations.
 	 * @throws If the runtime is destroyed, this recorder was consumed, a copy range
-	 * is invalid, or a buffer-texture copy format has no known footprint.
+	 * is invalid, or a non-empty buffer-texture copy format has no known footprint.
 	 *
 	 * @beta
 	 */
@@ -1004,33 +1007,70 @@ class FrameGraphRecorderImpl implements FrameGraphRecorder {
 			}
 		});
 		for (const [operationIndex, operation] of operations.entries()) {
+			const graphEffect = operation.type === 'buffer-to-buffer'
+				? operation.size !== 0
+				: !textureCopyIsEmpty(operation.copySize);
+			const textureCopyAccess = (
+				handle: TextureHandle,
+				access: TextureAccess,
+				copySize: GPUExtent3D,
+				mipLevel: number | undefined,
+				origin: GPUOrigin3D | undefined,
+				aspect: GPUTextureAspect | undefined,
+				producesValue: boolean,
+				contents?: WriteContents,
+			) => this.createTextureAccess(
+				handle,
+				access,
+				graphEffect ? textureCopyRange(resourceFor, handle, mipLevel, origin, copySize, aspect) : undefined,
+				undefined,
+				undefined,
+				producesValue,
+				contents,
+				graphEffect,
+			);
 			switch (operation.type) {
 				case 'texture-to-texture': {
-					accesses.push(this.createTextureAccess(operation.source, TextureAccess.CopySrc, textureCopyRange(resourceFor, operation.source, operation.sourceMipLevel, operation.sourceOrigin, operation.copySize, operation.sourceAspect)));
-					const destinationRange = textureCopyRange(resourceFor, operation.destination, operation.destinationMipLevel, operation.destinationOrigin, operation.copySize, operation.destinationAspect);
-					const contents = textureCopyOverwritesSubresource(resourceFor, operation.destination, operation.destinationMipLevel, operation.destinationOrigin, operation.copySize)
+					const contents = graphEffect && textureCopyOverwritesSubresource(resourceFor, operation.destination, operation.destinationMipLevel, operation.destinationOrigin, operation.copySize)
 						? 'overwrite'
 						: 'preserve';
-					accesses.push(this.createTextureAccess(operation.destination, TextureAccess.CopyDst, destinationRange, undefined, undefined, undefined, contents));
+					accesses.push(textureCopyAccess(operation.source, TextureAccess.CopySrc, operation.copySize, operation.sourceMipLevel, operation.sourceOrigin, operation.sourceAspect, false));
+					accesses.push(textureCopyAccess(operation.destination, TextureAccess.CopyDst, operation.copySize, operation.destinationMipLevel, operation.destinationOrigin, operation.destinationAspect, graphEffect, contents));
 					break;
 				}
 				case 'buffer-to-buffer':
-					accesses.push(this.createAccess({ resource: operation.source, access: BufferAccess.CopySrc, bufferRange: { offset: operation.sourceOffset ?? 0, size: operation.size } }));
-					accesses.push(this.createAccess({ resource: operation.destination, access: BufferAccess.CopyDst, bufferRange: { offset: operation.destinationOffset ?? 0, size: operation.size }, contents: 'overwrite' }));
+					accesses.push(this.createAccess(
+						{ resource: operation.source, access: BufferAccess.CopySrc, bufferRange: { offset: operation.sourceOffset ?? 0, size: operation.size } },
+						false,
+						graphEffect,
+					));
+					accesses.push(this.createAccess(
+						{ resource: operation.destination, access: BufferAccess.CopyDst, bufferRange: { offset: operation.destinationOffset ?? 0, size: operation.size }, contents: 'overwrite' },
+						undefined,
+						graphEffect,
+					));
 					break;
 				case 'buffer-to-texture': {
-					accesses.push(this.createAccess({ resource: operation.source, access: BufferAccess.CopySrc, bufferRange: bufferCopyRanges[operationIndex]! }));
-					const destinationRange = textureCopyRange(resourceFor, operation.destination, operation.destinationMipLevel, operation.destinationOrigin, operation.copySize, operation.destinationAspect);
-					const contents = textureCopyOverwritesSubresource(resourceFor, operation.destination, operation.destinationMipLevel, operation.destinationOrigin, operation.copySize)
+					const contents = graphEffect && textureCopyOverwritesSubresource(resourceFor, operation.destination, operation.destinationMipLevel, operation.destinationOrigin, operation.copySize)
 						? 'overwrite'
 						: 'preserve';
-					accesses.push(this.createTextureAccess(operation.destination, TextureAccess.CopyDst, destinationRange, undefined, undefined, undefined, contents));
+					accesses.push(this.createAccess(
+						{ resource: operation.source, access: BufferAccess.CopySrc, bufferRange: bufferCopyRanges[operationIndex]! },
+						false,
+						graphEffect,
+					));
+					accesses.push(textureCopyAccess(operation.destination, TextureAccess.CopyDst, operation.copySize, operation.destinationMipLevel, operation.destinationOrigin, operation.destinationAspect, graphEffect, contents));
 					break;
 				}
-				case 'texture-to-buffer':
-					accesses.push(this.createTextureAccess(operation.source, TextureAccess.CopySrc, textureCopyRange(resourceFor, operation.source, operation.sourceMipLevel, operation.sourceOrigin, operation.copySize, operation.sourceAspect)));
-					accesses.push(this.createAccess({ resource: operation.destination, access: BufferAccess.CopyDst, bufferRange: bufferCopyRanges[operationIndex]!, contents: 'overwrite' }));
+				case 'texture-to-buffer': {
+					accesses.push(textureCopyAccess(operation.source, TextureAccess.CopySrc, operation.copySize, operation.sourceMipLevel, operation.sourceOrigin, operation.sourceAspect, false));
+					accesses.push(this.createAccess(
+						{ resource: operation.destination, access: BufferAccess.CopyDst, bufferRange: bufferCopyRanges[operationIndex]!, contents: 'overwrite' },
+						undefined,
+						graphEffect,
+					));
 					break;
+				}
 			}
 		}
 		this.addNode({
@@ -2031,7 +2071,7 @@ class FrameGraphRecorderImpl implements FrameGraphRecorder {
 		return result;
 	}
 
-	private createAccess(access: ResourceAccess, producesValue?: boolean): InternalAccess {
+	private createAccess(access: ResourceAccess, producesValue?: boolean, graphEffect = true): InternalAccess {
 		const mode = this.accessMode(access);
 		const contents = mode === 'write' ? access.contents : undefined;
 		if (mode === 'write' && contents === undefined) {
@@ -2050,6 +2090,7 @@ class FrameGraphRecorderImpl implements FrameGraphRecorder {
 				view.descriptor,
 				producesValue,
 				access.contents,
+				graphEffect,
 			);
 		}
 		if (access.resource.kind === 'texture') {
@@ -2062,6 +2103,7 @@ class FrameGraphRecorderImpl implements FrameGraphRecorder {
 					undefined,
 					producesValue,
 					access.contents,
+					graphEffect,
 				);
 			}
 			const textureAccess = access.access as TextureAccess;
@@ -2081,8 +2123,9 @@ class FrameGraphRecorderImpl implements FrameGraphRecorder {
 			access: access.access as BufferAccess,
 			bufferRange: 'bufferRange' in access ? access.bufferRange : undefined,
 			mode,
-			consumesPreviousValue: mode === 'read' || contents === 'preserve',
-			producesValue: producesValue ?? mode === 'write',
+			consumesPreviousValue: graphEffect && (mode === 'read' || contents === 'preserve'),
+			producesValue: graphEffect && (producesValue ?? mode === 'write'),
+			graphEffect,
 			contents,
 		};
 	}
@@ -2120,11 +2163,12 @@ class FrameGraphRecorderImpl implements FrameGraphRecorder {
 	private createTextureAccess(
 		resource: TextureHandle,
 		access: TextureAccess,
-		textureRegion: InternalTextureRegion,
+		textureRegion: InternalTextureRegion | undefined,
 		textureView?: TextureViewHandle,
 		textureViewDescriptor?: GPUTextureViewDescriptor,
 		producesValue?: boolean,
 		contents?: WriteContents,
+		graphEffect = true,
 	): InternalAccess {
 		const mode = textureAccessMode(access);
 		const normalizedContents = mode === 'write' ? contents : undefined;
@@ -2135,8 +2179,9 @@ class FrameGraphRecorderImpl implements FrameGraphRecorder {
 			resource,
 			access,
 			mode,
-			consumesPreviousValue: mode === 'read' || normalizedContents === 'preserve',
-			producesValue: producesValue ?? mode === 'write',
+			consumesPreviousValue: graphEffect && (mode === 'read' || normalizedContents === 'preserve'),
+			producesValue: graphEffect && (producesValue ?? mode === 'write'),
+			graphEffect,
 			contents: normalizedContents,
 			textureView,
 			textureViewDescriptor,
@@ -2169,6 +2214,7 @@ class FrameGraphRecorderImpl implements FrameGraphRecorder {
 		// Compile-time validation covers resource semantics. Access kind was already
 		// validated when the internal access edge was recorded.
 		const resource = this.resourceFor(access.resource);
+		if (access.graphEffect === false) return resource;
 		if (access.resource.kind === 'texture') {
 			this.validateTextureRegion(access.resource, access.textureRegion!, node);
 			const textureAccess = access.access as TextureAccess;

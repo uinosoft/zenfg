@@ -98,14 +98,19 @@ runtime       recording         retained CPU plan        optional, one-shot
 ## Validation Boundary
 
 ZenFG validates graph semantics: logical resource ranges, content flow, usage
-contracts, format categories, and bounded planning inputs. Buffer-texture copies
-also require a known format footprint so ZenFG can track the buffer byte range
-used by the copy. Device features, device limits, native descriptor validity,
-render-pass compatibility, texture-view compatibility, and native copy-command
-alignment and format validity remain wgpu responsibilities. Native wgpu
+contracts, format categories, and bounded planning inputs. Non-empty
+buffer-texture copies also require a known format footprint so ZenFG can track
+the buffer byte range used by the copy. Device features, device limits, native
+descriptor validity, render-pass compatibility, texture-view compatibility,
+and native copy-command alignment and format validity remain wgpu
+responsibilities. Native wgpu
 validation may therefore be reported during allocation or command encoding
 rather than during graph recording. The graph does not take ownership of the
 caller's error handling or device-loss policy.
+
+Zero-sized copies are retained as native no-op commands when their node is
+retained, but they have no graph content effect and cannot produce an output
+value.
 
 ## Common tasks
 

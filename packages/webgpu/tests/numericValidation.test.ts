@@ -290,6 +290,109 @@ test('compile preserves zero-length buffer ranges, copies, and clears', () => {
 	assert.doesNotThrow(() => graph.compile());
 });
 
+test('zero-sized texture copies remain native no-ops without graph value effects', () => {
+	const graph = new FrameGraph(mockDevice()).beginFrame();
+	const bufferSource = graph.importBuffer(buffer('buffer-source', bufferUsage.COPY_SRC), {
+		label: 'buffer-source', exposedSize: 64, exposedUsage: bufferUsage.COPY_SRC,
+	});
+	const bufferDestination = graph.createBuffer({ label: 'buffer-destination', size: 64 });
+	const textureSource = graph.importTexture(texture('texture-source', textureUsage.COPY_SRC, {
+		format: 'rgba8unorm', size: [4, 4],
+	}), { label: 'texture-source', exposedUsage: textureUsage.COPY_SRC });
+	const textureDestination = graph.createTexture({ label: 'texture-destination', format: 'rgba8unorm', size: [4, 4] });
+	const readback = graph.createBuffer({ label: 'readback', size: 64 });
+	graph.copy({
+		label: 'no-op-copies',
+		sideEffect: true,
+		operations: [
+			{ type: 'buffer-to-buffer', source: bufferSource, destination: bufferDestination, size: 0 },
+			{ type: 'buffer-to-texture', source: bufferSource, destination: textureDestination, sourceLayout: {}, copySize: [0, 1] },
+			{ type: 'texture-to-buffer', source: textureSource, destination: readback, destinationLayout: {}, copySize: [1, 0] },
+			{ type: 'texture-to-texture', source: textureSource, destination: textureDestination, copySize: [1, 1, 0] },
+		],
+	});
+
+	const report = graph.compile({ report: true }).compilationReport;
+	assert.deepEqual(report.nodes.map((node) => node.label), ['no-op-copies']);
+	assert.equal(report.accesses.length, 0);
+	assert.equal(report.resources.find((resource) => resource.id === bufferSource.id)?.usage, bufferUsage.COPY_SRC);
+	assert.equal(report.resources.find((resource) => resource.id === bufferDestination.id)?.usage, bufferUsage.COPY_DST);
+	assert.equal(report.resources.find((resource) => resource.id === textureSource.id)?.usage, textureUsage.COPY_SRC);
+	assert.equal(report.resources.find((resource) => resource.id === textureDestination.id)?.usage, textureUsage.COPY_DST);
+	for (const handle of [bufferDestination, textureDestination, readback]) {
+		const resource = report.resources.find((entry) => entry.id === handle.id);
+		assert.ok(resource?.lifetime);
+		assert.ok(resource?.physicalAllocationId);
+	}
+});
+
+test('zero-sized texture copy does not define an output root', () => {
+	const graph = new FrameGraph(mockDevice()).beginFrame();
+	const source = graph.importTexture(texture('source', textureUsage.COPY_SRC, {
+		format: 'rgba8unorm', size: [4, 4],
+	}), { label: 'source', exposedUsage: textureUsage.COPY_SRC });
+	const destination = graph.createTexture({ label: 'destination', format: 'rgba8unorm', size: [4, 4] });
+	graph.copy({
+		operations: [{ type: 'texture-to-texture', source, destination, copySize: [0, 4] }],
+	});
+	graph.markOutput(destination);
+
+	assert.throws(() => graph.compile({ report: true }), /Root references undefined contents/);
+});
+
+test('zero-sized buffer copy does not define an output root', () => {
+	const graph = new FrameGraph(mockDevice()).beginFrame();
+	const source = graph.importBuffer(buffer('source', bufferUsage.COPY_SRC), {
+		label: 'source', exposedSize: 64, exposedUsage: bufferUsage.COPY_SRC,
+	});
+	const destination = graph.createBuffer({ label: 'destination', size: 64 });
+	graph.copy({
+		operations: [{ type: 'buffer-to-buffer', source, destination, size: 0 }],
+	});
+	graph.markOutput(destination);
+
+	assert.throws(() => graph.compile({ report: true }), /Root references undefined contents/);
+});
+
+test('zero-sized copies still validate logical endpoints and buffer layout bounds', () => {
+	{
+		const graph = new FrameGraph(mockDevice()).beginFrame();
+		const source = graph.importTexture(texture('source', textureUsage.COPY_SRC, {
+			format: 'rgba8unorm', size: [4, 4],
+		}), { label: 'source', exposedUsage: textureUsage.COPY_SRC });
+		const destination = graph.createTexture({ label: 'destination', format: 'rgba8unorm', size: [4, 4] });
+		graph.copy({
+			operations: [{ type: 'texture-to-texture', source, destination, sourceOrigin: [5, 0], copySize: [0, 1] }],
+		});
+		assert.throws(() => graph.compile(), /copy range exceeds texture/);
+	}
+	{
+		const graph = new FrameGraph(mockDevice()).beginFrame();
+		const source = graph.importBuffer(buffer('source', bufferUsage.COPY_SRC), {
+			label: 'source', exposedSize: 64, exposedUsage: bufferUsage.COPY_SRC,
+		});
+		const destination = graph.createBuffer({ label: 'destination', size: 64 });
+		graph.copy({
+			operations: [{ type: 'buffer-to-buffer', source, destination, sourceOffset: 65, size: 0 }],
+		});
+		assert.throws(() => graph.compile(), /copy range exceeds buffer/);
+	}
+	{
+		const graph = new FrameGraph(mockDevice()).beginFrame();
+		const source = graph.importBuffer(buffer('source', bufferUsage.COPY_SRC), {
+			label: 'source', exposedSize: 64, exposedUsage: bufferUsage.COPY_SRC,
+		});
+		const destination = graph.createTexture({ label: 'destination', format: 'rgba8unorm', size: [4, 4] });
+		graph.copy({
+			operations: [{
+				type: 'buffer-to-texture', source, destination,
+				sourceLayout: { offset: 65 }, copySize: [0, 1],
+			}],
+		});
+		assert.throws(() => graph.compile(), /layout exceeds buffer/);
+	}
+});
+
 test('compile explicitly rejects invalid texture copy coordinates and layout values', () => {
 	const invalidOperations: readonly CopyOperation[] = [
 		{

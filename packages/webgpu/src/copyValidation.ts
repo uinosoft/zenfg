@@ -20,7 +20,6 @@ import {
 import {
 	assertNonNegativeSafeInteger,
 	assertNonNegativeUint32,
-	assertPositiveUint32,
 } from './numericValidation.ts';
 import { FRAME_GRAPH_ERROR_CODES, FrameGraphError } from './error.ts';
 import type {
@@ -31,6 +30,11 @@ import type {
 } from './internalTypes.ts';
 
 export type ResourceResolver = (handle: ResourceHandle) => InternalResource;
+
+export function textureCopyIsEmpty(copySize: GPUExtent3D): boolean {
+	const [width, height, depth] = textureSizeTuple(copySize);
+	return width === 0 || height === 0 || depth === 0;
+}
 
 export function snapshotCopyOperation(operation: CopyOperation, index: number): InternalCopyOperation {
 	const prefix = `Copy operation ${index}`;
@@ -216,9 +220,9 @@ function validateTextureCopyRange(
 	assertNonNegativeUint32(originY, `${prefix} origin.y`, { code: FRAME_GRAPH_ERROR_CODES.InvalidNodeOperation, phase: 'compile', nodeId: node.id, resourceId: handle.id });
 	assertNonNegativeUint32(originZ, `${prefix} origin.z`, { code: FRAME_GRAPH_ERROR_CODES.InvalidNodeOperation, phase: 'compile', nodeId: node.id, resourceId: handle.id });
 	const [copyWidth, copyHeight, copyDepth] = textureSizeTuple(copySize);
-	assertPositiveUint32(copyWidth, `${prefix} copySize.width`, { code: FRAME_GRAPH_ERROR_CODES.InvalidNodeOperation, phase: 'compile', nodeId: node.id, resourceId: handle.id });
-	assertPositiveUint32(copyHeight, `${prefix} copySize.height`, { code: FRAME_GRAPH_ERROR_CODES.InvalidNodeOperation, phase: 'compile', nodeId: node.id, resourceId: handle.id });
-	assertPositiveUint32(copyDepth, `${prefix} copySize.depthOrArrayLayers`, { code: FRAME_GRAPH_ERROR_CODES.InvalidNodeOperation, phase: 'compile', nodeId: node.id, resourceId: handle.id });
+	assertNonNegativeUint32(copyWidth, `${prefix} copySize.width`, { code: FRAME_GRAPH_ERROR_CODES.InvalidNodeOperation, phase: 'compile', nodeId: node.id, resourceId: handle.id });
+	assertNonNegativeUint32(copyHeight, `${prefix} copySize.height`, { code: FRAME_GRAPH_ERROR_CODES.InvalidNodeOperation, phase: 'compile', nodeId: node.id, resourceId: handle.id });
+	assertNonNegativeUint32(copyDepth, `${prefix} copySize.depthOrArrayLayers`, { code: FRAME_GRAPH_ERROR_CODES.InvalidNodeOperation, phase: 'compile', nodeId: node.id, resourceId: handle.id });
 	if (resolvedMipLevel >= mipLevelCount) {
 		throw new FrameGraphError(FRAME_GRAPH_ERROR_CODES.InvalidNodeOperation, `Texture copy range for "${handle.label ?? handle.id}" exceeds declared mip levels.`, { phase: 'compile', nodeId: node.id, resourceId: handle.id });
 	}
@@ -270,8 +274,9 @@ function bufferTextureCopyByteSize(
 	layout: Omit<GPUTexelCopyBufferLayout, 'buffer'>,
 	copySize: GPUExtent3D,
 ): number {
-	const textureDesc = resourceFor(textureHandle).desc as TextureDesc;
 	const [copyWidth, copyHeight, copyDepth] = textureSizeTuple(copySize);
+	const textureDesc = resourceFor(textureHandle).desc as TextureDesc;
+	if (textureCopyIsEmpty(copySize) && getTextureFormatInfo(textureDesc.format).bufferCopyBytesPerBlock === undefined) return 0;
 	const blockInfo = getTextureFormatBufferCopyInfo(textureDesc.format, { phase, resourceId: textureHandle.id });
 	const widthInBlocks = Math.ceil(copyWidth / blockInfo.width);
 	const heightInBlocks = Math.ceil(copyHeight / blockInfo.height);
@@ -279,11 +284,13 @@ function bufferTextureCopyByteSize(
 	const bytesPerRow = Math.max(layout.bytesPerRow ?? 0, bytesInLastRow);
 	const rowsPerImage = Math.max(layout.rowsPerImage ?? 0, heightInBlocks);
 	let requiredBytesInCopy = 0;
-	if (copyDepth > 0) {
+	if (copyDepth > 1) {
 		requiredBytesInCopy += bytesPerRow * rowsPerImage * (copyDepth - 1);
-		if (heightInBlocks > 0) {
-			requiredBytesInCopy += bytesPerRow * (heightInBlocks - 1) + bytesInLastRow;
-		}
+	}
+	if (copyDepth > 0) {
+		requiredBytesInCopy += heightInBlocks === 0
+			? 0
+			: bytesPerRow * (heightInBlocks - 1) + bytesInLastRow;
 	}
 	return requiredBytesInCopy;
 }
