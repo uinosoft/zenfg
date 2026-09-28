@@ -63,8 +63,9 @@ impl<'a> CreateFrameGraphSnapshotOptions<'a> {
 ///
 /// The returned value is entirely in memory; file naming and persistence remain
 /// caller-owned. The report must come from [`CompileOptions::full_report`](crate::CompileOptions::full_report).
-/// Optional timing data must carry the same frame index as `options`. A successful
-/// result has passed the complete Snapshot 1.2 typed validation pipeline.
+/// Optional timing data must carry the same frame index as `options` and contain
+/// an ordered subset of the retained execution sequence. A successful result has
+/// passed the complete Snapshot 1.2 typed validation pipeline.
 pub fn create_frame_graph_snapshot(
     report: &CompilationReport,
     options: CreateFrameGraphSnapshotOptions<'_>,
@@ -838,21 +839,37 @@ impl<'a> ExportContext<'a> {
                 timing_frame: timing.frame_index,
             });
         }
-        let mut seen = HashSet::new();
         let mut nodes = Vec::with_capacity(timing.nodes.len());
-        for node in &timing.nodes {
-            if !self.retained.contains(&node.pass)
-                || !seen.insert(node.pass)
-                || !self
-                    .full
-                    .nodes
-                    .iter()
-                    .any(|report| report.id == node.pass && report.kind == node.kind)
-            {
-                return invalid(format!(
-                    "invalid, duplicate or mismatched CPU timed node {}",
-                    node.pass
-                ));
+        let mut next_expected_index = 0;
+        for (index, node) in timing.nodes.iter().enumerate() {
+            let Some(&expected_index) = self.execution_order.get(&node.pass) else {
+                return invalid_timing(
+                    "CPU",
+                    format!(
+                        "node at timing index {index} is not an ordered retained node sequence: {}",
+                        node.pass
+                    ),
+                );
+            };
+            if expected_index < next_expected_index {
+                return invalid_timing(
+                    "CPU",
+                    format!(
+                        "node at timing index {index} is out of retained execution order: {}",
+                        node.pass
+                    ),
+                );
+            }
+            next_expected_index = expected_index + 1;
+            let expected = &self.full.nodes[expected_index];
+            if node.kind != expected.kind {
+                return invalid_timing(
+                    "CPU",
+                    format!(
+                        "node {} has timing kind {:?}; expected {:?}",
+                        node.pass, node.kind, expected.kind
+                    ),
+                );
             }
             nodes.push(SnapshotCpuNodeTiming {
                 node_id: node_id(node.pass.get()),
@@ -901,28 +918,53 @@ impl<'a> ExportContext<'a> {
                 nodes,
                 ..
             } => {
-                let mut seen = HashSet::with_capacity(nodes.len());
+                let expected = self
+                    .full
+                    .nodes
+                    .iter()
+                    .filter(|node| matches!(node.kind, NodeKind::Render | NodeKind::Compute))
+                    .collect::<Vec<_>>();
+                let expected_index_by_id = expected
+                    .iter()
+                    .enumerate()
+                    .map(|(index, node)| (node.id, index))
+                    .collect::<HashMap<_, _>>();
                 let mut output = Vec::with_capacity(nodes.len());
-                for node in nodes {
-                    if !self.retained.contains(&node.pass) || !seen.insert(node.pass) {
-                        return invalid(format!("invalid or duplicate timed node {}", node.pass));
+                let mut next_expected_index = 0;
+                for (index, node) in nodes.iter().enumerate() {
+                    let Some(&expected_index) = expected_index_by_id.get(&node.pass) else {
+                        return invalid_timing(
+                            "GPU",
+                            format!(
+                                "node at timing index {index} is not an ordered retained render or compute sequence: {}",
+                                node.pass
+                            ),
+                        );
+                    };
+                    if expected_index < next_expected_index {
+                        return invalid_timing(
+                            "GPU",
+                            format!(
+                                "node at timing index {index} is out of retained render or compute order: {}",
+                                node.pass
+                            ),
+                        );
                     }
-                    let expected_kind = self
-                        .full
-                        .nodes
-                        .iter()
-                        .find(|report| report.id == node.pass)
-                        .map(|report| report.kind)
-                        .ok_or_else(|| SnapshotExportError::InvalidReport {
-                            message: format!("timed node {} is not retained", node.pass),
-                        })?;
+                    next_expected_index = expected_index + 1;
+                    let expected = expected[expected_index];
                     let valid_kind = matches!(
-                        (node.kind, expected_kind),
+                        (node.kind, expected.kind),
                         (GpuTimingNodeKind::Render, NodeKind::Render)
                             | (GpuTimingNodeKind::Compute, NodeKind::Compute)
                     );
                     if !valid_kind {
-                        return invalid(format!("timed node {} kind mismatch", node.pass));
+                        return invalid_timing(
+                            "GPU",
+                            format!(
+                                "node {} has timing kind {:?}; expected {:?}",
+                                node.pass, node.kind, expected.kind
+                            ),
+                        );
                     }
                     output.push(SnapshotGpuNodeTiming {
                         node_id: node_id(node.pass.get()),
@@ -1006,6 +1048,16 @@ fn duration_micros(field: &'static str, duration: Duration) -> Result<f64, Snaps
 
 fn invalid<T>(message: impl Into<String>) -> Result<T, SnapshotExportError> {
     Err(SnapshotExportError::InvalidReport {
+        message: message.into(),
+    })
+}
+
+fn invalid_timing<T>(
+    family: &'static str,
+    message: impl Into<String>,
+) -> Result<T, SnapshotExportError> {
+    Err(SnapshotExportError::InvalidTimingReport {
+        family,
         message: message.into(),
     })
 }

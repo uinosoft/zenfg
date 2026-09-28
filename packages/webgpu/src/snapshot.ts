@@ -119,9 +119,9 @@ export function stringifyFrameGraphSnapshot(
  * deep JSON clone and does not retain references to the supplied reports.
  *
  * @throws {@link @zenfg/snapshot!index.FrameGraphSnapshotValidationError | FrameGraphSnapshotValidationError} if the projected draft does
- * not satisfy Snapshot 1.2, or if an available timing kind disagrees with its
- * compilation node. Also throws if a compilation resource contains WebGPU usage
- * bits that Snapshot 1.2 cannot represent.
+ * not satisfy Snapshot 1.2, or if supplied timing nodes are not an ordered
+ * subset of the retained execution sequence. Also throws if a compilation
+ * resource contains WebGPU usage bits that Snapshot 1.2 cannot represent.
  *
  * @example
  * ```ts
@@ -154,14 +154,7 @@ export function createFrameGraphSnapshot(options: CreateFrameGraphSnapshotOption
 		if (report && report.frameIndex !== frameIndex) throw new FrameGraphSnapshotValidationError([{ severity: 'error', code: 'timing-frame-mismatch', path: '/capture/frameIndex', message: 'Timing frame must match capture frame.' }]);
 	}
 	validateGpuTimingCoherence(compilation, gpuTiming);
-	if (cpuTiming) {
-		const nodes = new Map(compilation.nodes.map(node => [node.id, node]));
-		const issues: FrameGraphSnapshotIssue[] = [];
-		cpuTiming.nodes.forEach((timing, index) => {
-			if (nodes.has(timing.nodeId) && nodes.get(timing.nodeId)!.kind !== timing.kind) issues.push({ severity: 'error', code: 'timing-kind-mismatch', path: '/timings/cpu/nodes/' + index, message: 'CPU timing kind must match compilation node kind.' });
-		});
-		if (issues.length) throw new FrameGraphSnapshotValidationError(issues);
-	}
+	if (cpuTiming) validateCpuTimingCoherence(compilation, cpuTiming);
 	const executionOrderByNodeId = new Map(compilation.nodes.map((node, order) => [node.id, order]));
 	const nodes = [...compilation.nodes, ...compilation.culledNodes]
 		.sort((a, b) => a.recordingOrder - b.recordingOrder)
@@ -319,17 +312,48 @@ function validateGpuTimingCoherence(
 	gpuTiming: FrameGraphGpuTimingReport,
 ): void {
 	if (gpuTiming.status !== 'available') return;
-	const nodeById = new Map(compilation.nodes.map((node) => [node.id, node]));
+	validateTimingSequence(
+		compilation.nodes.filter((node) => node.kind === 'render' || node.kind === 'compute'),
+		gpuTiming.nodes,
+		'gpu',
+	);
+}
+
+function validateCpuTimingCoherence(
+	compilation: FrameGraphCompilationReport,
+	cpuTiming: FrameGraphCpuTimingReport,
+): void {
+	validateTimingSequence(compilation.nodes, cpuTiming.nodes, 'cpu');
+}
+
+function validateTimingSequence(
+	expectedNodes: readonly FrameGraphCompilationReport['nodes'][number][],
+	actualNodes: readonly { readonly nodeId: number; readonly kind: string }[],
+	family: 'cpu' | 'gpu',
+): void {
 	const issues: FrameGraphSnapshotIssue[] = [];
-	for (let index = 0; index < gpuTiming.nodes.length; index++) {
-		const timing = gpuTiming.nodes[index]!;
-		const node = nodeById.get(timing.nodeId);
-		if (node !== undefined && node.kind !== timing.kind) {
+	const expectedIndexByNodeId = new Map(expectedNodes.map((node, index) => [node.id, index]));
+	let nextExpectedIndex = 0;
+	for (let index = 0; index < actualNodes.length; index++) {
+		const actual = actualNodes[index]!;
+		const expectedIndex = expectedIndexByNodeId.get(actual.nodeId);
+		if (expectedIndex === undefined || expectedIndex < nextExpectedIndex) {
+			issues.push({
+				severity: 'error',
+				code: 'timing-node-mismatch',
+				path: `/timings/${family}/nodes/${index}/nodeId`,
+				message: `${family.toUpperCase()} timing node ${actual.nodeId} is not an ordered retained node sequence.`,
+			});
+			continue;
+		}
+		const expected = expectedNodes[expectedIndex]!;
+		nextExpectedIndex = expectedIndex + 1;
+		if (actual.kind !== expected.kind) {
 			issues.push({
 				severity: 'error',
 				code: 'timing-kind-mismatch',
-				path: `/timings/gpu/nodes/${index}`,
-				message: `GPU timing kind "${timing.kind}" does not match compilation node kind "${node.kind}".`,
+				path: `/timings/${family}/nodes/${index}`,
+				message: `${family.toUpperCase()} timing kind "${actual.kind}" does not match compilation node kind "${expected.kind}".`,
 			});
 		}
 	}
