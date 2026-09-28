@@ -291,7 +291,7 @@ export type TextureDesc = {
 	 * @defaultValue `1`
 	 */
 	readonly sampleCount?: number;
-	/** Explicit allocation usage, or derived usage when omitted. */
+	/** Explicit allocation usage, or derived usage when omitted. `TRANSIENT_ATTACHMENT` is not supported. */
 	readonly usage?: GPUTextureUsageFlags;
 };
 
@@ -353,7 +353,7 @@ export type ImportTextureOptions = {
 	/** Alternate view formats available on the physical texture. */
 	readonly viewFormats?: readonly GPUTextureFormat[];
 	/**
-	 * Graph-visible usage flags.
+	 * Graph-visible usage flags. `TRANSIENT_ATTACHMENT` is not supported.
 	 *
 	 * @defaultValue The native texture usage.
 	 */

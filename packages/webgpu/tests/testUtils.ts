@@ -13,10 +13,12 @@ export const textureUsage = {
 	TEXTURE_BINDING: 0x04,
 	STORAGE_BINDING: 0x08,
 	RENDER_ATTACHMENT: 0x10,
+	TRANSIENT_ATTACHMENT: 0x20,
 };
 
 export const bufferUsage = {
 	MAP_READ: 0x0001,
+	MAP_WRITE: 0x0002,
 	COPY_SRC: 0x0004,
 	COPY_DST: 0x0008,
 	INDEX: 0x0010,

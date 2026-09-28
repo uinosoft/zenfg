@@ -40,6 +40,7 @@ const textureUsage = {
 	TEXTURE_BINDING: 0x04,
 	STORAGE_BINDING: 0x08,
 	RENDER_ATTACHMENT: 0x10,
+	TRANSIENT_ATTACHMENT: 0x20,
 } as const;
 
 const bufferUsage = {
@@ -55,12 +56,26 @@ const bufferUsage = {
 	QUERY_RESOLVE: 0x0200,
 } as const;
 
-function textureUsageFlag(flag: keyof typeof textureUsage): GPUTextureUsageFlags {
+export function textureUsageFlag(flag: keyof typeof textureUsage): GPUTextureUsageFlags {
 	return (globalThis.GPUTextureUsage?.[flag] ?? textureUsage[flag]) as GPUTextureUsageFlags;
 }
 
 export function bufferUsageFlag(flag: keyof typeof bufferUsage): GPUBufferUsageFlags {
 	return (globalThis.GPUBufferUsage?.[flag] ?? bufferUsage[flag]) as GPUBufferUsageFlags;
+}
+
+export function allTextureUsageFlags(): GPUTextureUsageFlags {
+	return Object.keys(textureUsage).reduce(
+		(mask, flag) => mask | textureUsageFlag(flag as keyof typeof textureUsage),
+		0,
+	) as GPUTextureUsageFlags;
+}
+
+export function allBufferUsageFlags(): GPUBufferUsageFlags {
+	return Object.keys(bufferUsage).reduce(
+		(mask, flag) => mask | bufferUsageFlag(flag as keyof typeof bufferUsage),
+		0,
+	) as GPUBufferUsageFlags;
 }
 
 export function textureAccessUsage(access: TextureAccess): GPUTextureUsageFlags {

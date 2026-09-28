@@ -1101,6 +1101,9 @@ fn derive_usages(
                         available: available.bits() as u64,
                     });
                 }
+                if resource.origin == ResourceOrigin::Transient && !required.is_empty() {
+                    validate_transient_texture_usage(desc, available)?;
+                }
                 result.insert(resource.id, ResourceUsage::Texture(available));
             }
             ResourceDescriptor::Buffer(desc) => {
@@ -1129,6 +1132,41 @@ fn derive_usages(
         }
     }
     Ok(result)
+}
+
+fn validate_transient_texture_usage(
+    desc: &crate::TextureDesc,
+    usage: wgpu::TextureUsages,
+) -> Result<(), FrameGraphError> {
+    if usage.contains(wgpu::TextureUsages::RENDER_ATTACHMENT)
+        && desc.dimension == wgpu::TextureDimension::D1
+    {
+        return Err(FrameGraphError::InvalidResourceDescriptor {
+            message: format!(
+                "texture {} RENDER_ATTACHMENT usage requires a 2D or 3D texture",
+                desc.label
+            ),
+        });
+    }
+    if desc.sample_count > 1 {
+        if !usage.contains(wgpu::TextureUsages::RENDER_ATTACHMENT) {
+            return Err(FrameGraphError::InvalidResourceDescriptor {
+                message: format!(
+                    "multisampled texture {} usage must include RENDER_ATTACHMENT",
+                    desc.label
+                ),
+            });
+        }
+        if usage.contains(wgpu::TextureUsages::STORAGE_BINDING) {
+            return Err(FrameGraphError::InvalidResourceDescriptor {
+                message: format!(
+                    "multisampled texture {} usage must not include STORAGE_BINDING",
+                    desc.label
+                ),
+            });
+        }
+    }
+    Ok(())
 }
 
 fn compute_lifetimes(

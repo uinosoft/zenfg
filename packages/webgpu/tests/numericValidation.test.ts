@@ -83,16 +83,7 @@ test('resource registration validates texture extent, mip count, and sample coun
 		size: [8, 8],
 		mipLevelCount: 5,
 	}), /mipLevelCount must not exceed 4/);
-	for (const sampleCount of [0, 2, ...invalidUint32Values] as const) {
-		if (sampleCount === 2) {
-			assert.doesNotThrow(() => new FrameGraph(mockDevice()).beginFrame().createTexture({
-				label: 'non-baseline-samples',
-				format: 'rgba8unorm',
-				size: [1, 1],
-				sampleCount,
-			}));
-			continue;
-		}
+	for (const sampleCount of [0, ...invalidUint32Values] as const) {
 		assert.throws(
 			() => new FrameGraph(mockDevice()).beginFrame().createTexture({
 				label: 'invalid-samples',
@@ -104,18 +95,29 @@ test('resource registration validates texture extent, mip count, and sample coun
 			`sampleCount ${sampleCount}`,
 		);
 	}
+	for (const sampleCount of [2, 8] as const) {
+		assert.throws(
+			() => new FrameGraph(mockDevice()).beginFrame().createTexture({
+				label: 'unsupported-samples',
+				format: 'rgba8unorm',
+				size: [1, 1],
+				sampleCount,
+			}),
+			/sampleCount must be either 1 or 4/,
+		);
+	}
 	assert.doesNotThrow(() => new FrameGraph(mockDevice()).beginFrame().createTexture({
 		label: 'valid-boundaries',
 		format: 'rgba8unorm',
 		size: [8, 8],
 		mipLevelCount: 4,
-		sampleCount: 4,
+		sampleCount: 1,
 	}));
 	assert.doesNotThrow(() => new FrameGraph(mockDevice()).beginFrame().createTexture({
-		label: 'non-baseline-sample-count',
+		label: 'valid-multisample',
 		format: 'rgba8unorm',
 		size: [8, 8],
-		sampleCount: 8,
+		sampleCount: 4,
 	}));
 	assert.doesNotThrow(() => new FrameGraph(mockDevice()).beginFrame().createTexture({
 		label: 'valid-1d-mips',
@@ -124,6 +126,28 @@ test('resource registration validates texture extent, mip count, and sample coun
 		size: [8],
 		mipLevelCount: 4,
 	}));
+	for (const desc of [
+		{ label: 'invalid-1d-height', dimension: '1d', size: [8, 2] },
+		{ label: 'invalid-1d-layers', dimension: '1d', size: [8, 1, 2] },
+		{ label: 'invalid-1d-samples', dimension: '1d', size: [8], sampleCount: 4 },
+		{ label: 'invalid-3d-samples', dimension: '3d', size: [8, 8, 8], sampleCount: 4 },
+		{ label: 'invalid-msaa-mips', size: [8, 8], mipLevelCount: 2, sampleCount: 4 },
+		{ label: 'invalid-msaa-layers', size: [8, 8, 2], sampleCount: 4 },
+	] as const) {
+		assert.throws(
+			() => new FrameGraph(mockDevice()).beginFrame().createTexture({ format: 'rgba8unorm', ...desc }),
+			/1D textures require|3D textures require|multisampled textures require/,
+			desc.label,
+		);
+	}
+	assert.throws(
+		() => new FrameGraph(mockDevice()).beginFrame().createTexture({ label: 'invalid-1d-depth', format: 'depth32float', dimension: '1d', size: [8] }),
+		/1D textures do not support compressed or depth\/stencil format/,
+	);
+	assert.throws(
+		() => new FrameGraph(mockDevice()).beginFrame().createTexture({ label: 'invalid-dimension', format: 'rgba8unorm', dimension: '4d' as GPUTextureDimension, size: [8] }),
+		/dimension must be "1d", "2d", or "3d"/,
+	);
 
 	const invalidImportedTexture = texture('invalid-import', textureUsage.COPY_SRC, { width: Number.NaN });
 	assert.throws(
@@ -133,6 +157,27 @@ test('resource registration validates texture extent, mip count, and sample coun
 	assert.throws(
 		() => new FrameGraph(mockDevice()).beginFrame().importSwapchainTexture(invalidImportedTexture),
 		/Texture descriptor "invalid-import" size\.width must be a positive uint32 integer/,
+	);
+});
+
+test('resource registration rejects malformed and unknown usage flags', () => {
+	for (const usage of [Number.NaN, -1, 1.5, 0x1_0000_0000]) {
+		assert.throws(
+			() => new FrameGraph(mockDevice()).beginFrame().createBuffer({ label: 'invalid-buffer-usage', size: 16, usage }),
+			/usage must be a non-negative uint32 integer/,
+		);
+	}
+	assert.throws(
+		() => new FrameGraph(mockDevice()).beginFrame().createBuffer({ label: 'unknown-buffer-usage', size: 16, usage: 0x0400 }),
+		/unknown WebGPU usage bits 0x400/,
+	);
+	assert.throws(
+		() => new FrameGraph(mockDevice()).beginFrame().createTexture({ label: 'unknown-texture-usage', format: 'rgba8unorm', size: [1, 1], usage: 0x40 }),
+		/unknown WebGPU usage bits 0x40/,
+	);
+	assert.throws(
+		() => new FrameGraph(mockDevice()).beginFrame().createTexture({ label: 'high-texture-usage', format: 'rgba8unorm', size: [1, 1], usage: 0x8000_0000 }),
+		/unknown WebGPU usage bits 0x80000000/,
 	);
 });
 

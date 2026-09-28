@@ -267,6 +267,208 @@ fn native_texture_sample_count_capabilities_are_deferred_even_when_the_node_woul
 }
 
 #[test]
+fn texture_descriptors_enforce_device_independent_webgpu_structure() {
+    let mut graph = FrameGraph::new();
+    let mut frame = graph.begin_frame();
+    let mut zero_samples =
+        TextureDesc::new_2d("invalid-samples", 4, 4, wgpu::TextureFormat::Rgba8Unorm);
+    zero_samples.sample_count = 0;
+    assert!(matches!(
+        frame.create_texture(zero_samples),
+        Err(FrameGraphError::InvalidResourceDescriptor { .. })
+    ));
+
+    for sample_count in [2, 8] {
+        let mut graph = FrameGraph::new();
+        let mut frame = graph.begin_frame();
+        let mut desc =
+            TextureDesc::new_2d("native-sample-count", 4, 4, wgpu::TextureFormat::Rgba8Unorm);
+        desc.sample_count = sample_count;
+        assert!(frame.create_texture(desc).is_ok());
+    }
+
+    for (label, dimension, size, mip_level_count, sample_count) in [
+        (
+            "invalid-1d-height",
+            wgpu::TextureDimension::D1,
+            wgpu::Extent3d {
+                width: 8,
+                height: 2,
+                depth_or_array_layers: 1,
+            },
+            1,
+            1,
+        ),
+        (
+            "invalid-1d-layers",
+            wgpu::TextureDimension::D1,
+            wgpu::Extent3d {
+                width: 8,
+                height: 1,
+                depth_or_array_layers: 2,
+            },
+            1,
+            1,
+        ),
+        (
+            "invalid-3d-samples",
+            wgpu::TextureDimension::D3,
+            wgpu::Extent3d {
+                width: 8,
+                height: 8,
+                depth_or_array_layers: 8,
+            },
+            1,
+            4,
+        ),
+        (
+            "invalid-msaa-mips",
+            wgpu::TextureDimension::D2,
+            wgpu::Extent3d {
+                width: 8,
+                height: 8,
+                depth_or_array_layers: 1,
+            },
+            2,
+            4,
+        ),
+    ] {
+        let mut graph = FrameGraph::new();
+        let mut frame = graph.begin_frame();
+        let desc = TextureDesc {
+            label: label.into(),
+            size,
+            mip_level_count,
+            sample_count,
+            dimension,
+            format: wgpu::TextureFormat::Rgba8Unorm,
+            view_formats: vec![],
+            usage: UsagePolicy::Infer,
+        };
+        assert!(matches!(
+            frame.create_texture(desc),
+            Err(FrameGraphError::InvalidResourceDescriptor { .. })
+        ));
+    }
+
+    let mut graph = FrameGraph::new();
+    let mut frame = graph.begin_frame();
+    let mut multisample_array =
+        TextureDesc::new_2d("multisample-array", 8, 8, wgpu::TextureFormat::Rgba8Unorm);
+    multisample_array.sample_count = 4;
+    multisample_array.size.depth_or_array_layers = 2;
+    assert!(frame.create_texture(multisample_array).is_ok());
+
+    let mut graph = FrameGraph::new();
+    let mut frame = graph.begin_frame();
+    let depth_1d = TextureDesc {
+        label: "invalid-1d-depth".into(),
+        size: wgpu::Extent3d {
+            width: 8,
+            height: 1,
+            depth_or_array_layers: 1,
+        },
+        mip_level_count: 1,
+        sample_count: 1,
+        dimension: wgpu::TextureDimension::D1,
+        format: wgpu::TextureFormat::Depth32Float,
+        view_formats: vec![],
+        usage: UsagePolicy::Infer,
+    };
+    assert!(matches!(
+        frame.create_texture(depth_1d),
+        Err(FrameGraphError::InvalidResourceDescriptor { .. })
+    ));
+}
+
+#[test]
+fn retained_transient_texture_usage_enforces_native_descriptor_constraints() {
+    {
+        let mut graph = FrameGraph::new();
+        let mut frame = graph.begin_frame();
+        let desc = TextureDesc {
+            label: "one-dimensional-attachment".into(),
+            size: wgpu::Extent3d {
+                width: 4,
+                height: 1,
+                depth_or_array_layers: 1,
+            },
+            mip_level_count: 1,
+            sample_count: 1,
+            dimension: wgpu::TextureDimension::D1,
+            format: wgpu::TextureFormat::Rgba8Unorm,
+            view_formats: vec![],
+            usage: UsagePolicy::Infer,
+        };
+        let texture = frame.create_texture(desc).unwrap();
+        let mut pass = frame.render_pass("invalid-render");
+        pass.set_side_effect(true);
+        let _ = pass
+            .color_attachment(texture, ColorAttachmentOps::clear_store(wgpu::Color::BLACK))
+            .unwrap();
+        pass.finish().unwrap();
+        assert!(matches!(
+            frame.compile(CompileOptions::default()),
+            Err(FrameGraphError::InvalidResourceDescriptor { .. })
+        ));
+    }
+
+    {
+        let mut graph = FrameGraph::new();
+        let mut frame = graph.begin_frame();
+        let mut desc = TextureDesc::new_2d(
+            "multisampled-storage",
+            4,
+            4,
+            wgpu::TextureFormat::Rgba8Unorm,
+        );
+        desc.sample_count = 4;
+        let texture = frame.create_texture(desc).unwrap();
+        let mut pass = frame.compute_pass("write-storage");
+        pass.set_side_effect(true);
+        let _ = pass
+            .storage_texture_write(texture, WriteContents::Overwrite)
+            .unwrap();
+        pass.finish().unwrap();
+        assert!(matches!(
+            frame.compile(CompileOptions::default()),
+            Err(FrameGraphError::InvalidResourceDescriptor { .. })
+        ));
+    }
+
+    {
+        let mut graph = FrameGraph::new();
+        let mut frame = graph.begin_frame();
+        let usage =
+            wgpu::TextureUsages::TRANSIENT_ATTACHMENT | wgpu::TextureUsages::RENDER_ATTACHMENT;
+        let mut desc = TextureDesc::new_2d(
+            "invalid-memoryless-color",
+            4,
+            4,
+            wgpu::TextureFormat::Rgba8Unorm,
+        );
+        desc.usage = UsagePolicy::Fixed(usage);
+        assert!(matches!(
+            frame.create_texture(desc),
+            Err(FrameGraphError::InvalidResourceDescriptor { .. })
+        ));
+
+        let imported_desc =
+            TextureDesc::new_2d("memoryless-import", 4, 4, wgpu::TextureFormat::Rgba8Unorm);
+        assert!(matches!(
+            frame.import_texture(
+                imported_desc,
+                ImportTextureOptions {
+                    initial_contents: InitialContents::Defined,
+                    exposed_usage: Some(usage),
+                },
+            ),
+            Err(FrameGraphError::InvalidResourceDescriptor { .. })
+        ));
+    }
+}
+
+#[test]
 fn native_view_format_compatibility_is_deferred_but_categories_are_preserved() {
     let mut graph = FrameGraph::new();
     let mut frame = graph.begin_frame();

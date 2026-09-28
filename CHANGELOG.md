@@ -5,6 +5,11 @@ packages use independent versions; component tags identify each release.
 
 ## Unreleased
 
+- Validate device-independent texture descriptor structure and retained
+  transient allocation usage before native allocation. Browser WebGPU keeps
+  sample counts 1 and 4; Rust preserves native wgpu sample-count capabilities.
+  `TRANSIENT_ATTACHMENT` is explicitly unsupported until the Snapshot contract
+  can represent it.
 - Preserve zero-sized buffer and texture copies as native no-op commands while
   excluding them from FrameGraph content dependencies, output production, and
   access reports.
