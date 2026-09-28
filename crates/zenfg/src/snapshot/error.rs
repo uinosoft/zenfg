@@ -47,6 +47,15 @@ pub enum SnapshotExportError {
         timing_frame: u64,
     },
 
+    /// The supplied timing node sequence does not match the retained plan.
+    #[error("invalid {family} timing report for Snapshot export: {message}")]
+    InvalidTimingReport {
+        /// Timing family being exported.
+        family: &'static str,
+        /// Human-readable sequence mismatch.
+        message: String,
+    },
+
     /// The projected value does not satisfy Snapshot 1.2 invariants.
     #[error("invalid FrameGraph Snapshot: {source}")]
     InvalidSnapshot {

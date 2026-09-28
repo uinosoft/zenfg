@@ -237,4 +237,44 @@ test('CPU-only snapshots use explicit frame identity and validate CPU coherence'
  assert.equal(noTiming.timings.cpu.status,'unavailable');
  assert.deepEqual(structuredClone(noTiming.memory.poolReport), {status:'unavailable',reason:'not-requested'});
  assert.deepEqual(validateFrameGraphSnapshot(noTiming), []);
+ });
+
+test('accepts partial and rejects reordered runtime timing sequences', () => {
+	const recorder = new FrameGraph(mockDevice()).beginFrame();
+	const first = recorder.createTexture({ label: 'first', format: 'rgba8unorm', size: [1, 1] });
+	const second = recorder.createTexture({ label: 'second', format: 'rgba8unorm', size: [1, 1] });
+	for (const [label, target] of [['first', first] as const, ['second', second] as const]) {
+		recorder.render({
+			label,
+			sideEffect: true,
+			colorAttachments: [{ target, loadOp: 'clear', storeOp: 'store' }],
+		});
+		if (label === 'first') recorder.command({ label: 'opaque', sideEffect: true });
+	}
+	const compilation = recorder.compile({ report: true }).compilationReport;
+	const cpuNodes = compilation.nodes.map((node, index) => ({ nodeId: node.id, kind: node.kind, label: node.label, durationMicros: index + 1 }));
+	const gpuNodes = compilation.nodes
+		.filter((node) => node.kind === 'render' || node.kind === 'compute')
+		.map((node, index) => ({ nodeId: node.id, kind: node.kind as 'render' | 'compute', label: node.label, durationMicros: index + 1 }));
+	const cpuOptions = { frameIndex: 4, compilation, cpuTiming: { frameIndex: 4, executionDurationMicros: 10, nodes: cpuNodes } };
+	assert.doesNotThrow(() => createFrameGraphSnapshot(cpuOptions));
+	assert.doesNotThrow(() => createFrameGraphSnapshot({ ...cpuOptions, cpuTiming: { ...cpuOptions.cpuTiming, nodes: cpuNodes.slice(1) } }));
+	assert.throws(
+		() => createFrameGraphSnapshot({ ...cpuOptions, cpuTiming: { ...cpuOptions.cpuTiming, nodes: [...cpuNodes].reverse() } }),
+		(error: unknown) => error instanceof FrameGraphSnapshotValidationError
+			&& error.issues.some((issue) => issue.code === 'timing-node-mismatch' && issue.path === '/timings/cpu/nodes/1/nodeId'),
+	);
+
+	const gpuOptions = {
+		frameIndex: 4,
+		compilation,
+		gpuTiming: { status: 'available' as const, frameIndex: 4, frameDurationMicros: 10, nodes: gpuNodes },
+	};
+	assert.doesNotThrow(() => createFrameGraphSnapshot(gpuOptions));
+	assert.doesNotThrow(() => createFrameGraphSnapshot({ ...gpuOptions, gpuTiming: { ...gpuOptions.gpuTiming, nodes: gpuNodes.slice(1) } }));
+	assert.throws(
+		() => createFrameGraphSnapshot({ ...gpuOptions, gpuTiming: { ...gpuOptions.gpuTiming, nodes: [...gpuNodes].reverse() } }),
+		(error: unknown) => error instanceof FrameGraphSnapshotValidationError
+			&& error.issues.some((issue) => issue.code === 'timing-node-mismatch' && issue.path === '/timings/gpu/nodes/1/nodeId'),
+	);
 });

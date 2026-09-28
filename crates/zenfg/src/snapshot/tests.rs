@@ -372,6 +372,67 @@ fn no_timed_nodes_maps_to_snapshot_unavailability() {
 }
 
 #[test]
+fn gpu_snapshot_checks_timing_sequence() {
+    let (mut report, mut timing, _) = fixture_report();
+    let added = PassId::new(3);
+    let full = report.full.as_mut().unwrap();
+    full.nodes.push(NodeReport {
+        id: added,
+        recording_order: 3,
+        kind: NodeKind::Render,
+        label: "Second Render".into(),
+        side_effect: true,
+        debug_group: None,
+    });
+    full.execution_segments.push(ExecutionSegmentReport {
+        kind: ExecutionSegmentKind::FrameGraph,
+        nodes: vec![added],
+    });
+    if let GpuTimingReport::Available { nodes, .. } = &mut timing {
+        nodes.push(GpuTimingNodeReport {
+            pass: added,
+            kind: GpuTimingNodeKind::Render,
+            label: "Second Render".into(),
+            debug_group: None,
+            duration: Duration::from_micros(500),
+        });
+    }
+
+    let mut options = CreateFrameGraphSnapshotOptions::new(7);
+    options.gpu_timing = Some(&timing);
+    assert!(create_frame_graph_snapshot(&report, options).is_ok());
+
+    let mut incomplete = timing.clone();
+    if let GpuTimingReport::Available { nodes, .. } = &mut incomplete {
+        nodes.remove(0);
+    }
+    let mut options = CreateFrameGraphSnapshotOptions::new(7);
+    options.gpu_timing = Some(&incomplete);
+    assert!(create_frame_graph_snapshot(&report, options).is_ok());
+
+    if let GpuTimingReport::Available { nodes, .. } = &mut timing {
+        nodes.swap(0, 1);
+    }
+    let mut options = CreateFrameGraphSnapshotOptions::new(7);
+    options.gpu_timing = Some(&timing);
+    assert!(matches!(
+        create_frame_graph_snapshot(&report, options),
+        Err(SnapshotExportError::InvalidTimingReport { family: "GPU", .. })
+    ));
+
+    let (report, mut timing, _) = fixture_report();
+    if let GpuTimingReport::Available { nodes, .. } = &mut timing {
+        nodes[0].kind = GpuTimingNodeKind::Compute;
+    }
+    let mut options = CreateFrameGraphSnapshotOptions::new(7);
+    options.gpu_timing = Some(&timing);
+    assert!(matches!(
+        create_frame_graph_snapshot(&report, options),
+        Err(SnapshotExportError::InvalidTimingReport { family: "GPU", .. })
+    ));
+}
+
+#[test]
 fn all_v1_enum_spellings_are_locked() {
     assert_json_strings(
         &[
@@ -983,11 +1044,51 @@ fn cpu_snapshot_is_independent_and_checks_frame_and_node_kind() {
         snapshot.timings.cpu,
         zenfg_snapshot::SnapshotCpuTimings::Available { .. }
     ));
+    let mut reordered = cpu.clone();
+    reordered.nodes.swap(0, 1);
+    let mut options = CreateFrameGraphSnapshotOptions::new(7);
+    options.cpu_timing = Some(&reordered);
+    assert!(matches!(
+        create_frame_graph_snapshot(&report, options),
+        Err(SnapshotExportError::InvalidTimingReport { family: "CPU", .. })
+    ));
     cpu.frame_index = 8;
     let mut options = CreateFrameGraphSnapshotOptions::new(7);
     options.cpu_timing = Some(&cpu);
     assert!(matches!(
         create_frame_graph_snapshot(&report, options),
         Err(SnapshotExportError::TimingFrameMismatch { .. })
+    ));
+
+    cpu.frame_index = 7;
+    cpu.nodes.remove(0);
+    let mut options = CreateFrameGraphSnapshotOptions::new(7);
+    options.cpu_timing = Some(&cpu);
+    assert!(create_frame_graph_snapshot(&report, options).is_ok());
+
+    let (report, _, _) = fixture_report();
+    let mut cpu = crate::CpuTimingReport {
+        frame_index: 7,
+        execution_duration: Duration::from_micros(100),
+        nodes: report
+            .full
+            .as_ref()
+            .unwrap()
+            .nodes
+            .iter()
+            .map(|node| crate::CpuTimingNodeReport {
+                pass: node.id,
+                kind: node.kind,
+                label: node.label.clone(),
+                duration: Duration::from_micros(1),
+            })
+            .collect(),
+    };
+    cpu.nodes[0].kind = NodeKind::Compute;
+    let mut options = CreateFrameGraphSnapshotOptions::new(7);
+    options.cpu_timing = Some(&cpu);
+    assert!(matches!(
+        create_frame_graph_snapshot(&report, options),
+        Err(SnapshotExportError::InvalidTimingReport { family: "CPU", .. })
     ));
 }

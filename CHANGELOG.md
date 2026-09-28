@@ -22,6 +22,9 @@ packages use independent versions; component tags identify each release.
   exact `TypeError` or plain `Error` types should check `FrameGraphError.code`.
 - Re-export `FrameGraphSnapshotValidationError` from
   `@zenfg/webgpu/snapshot` and report unknown usage bits as a Snapshot issue.
+- Reject runtime CPU and available GPU timing reports whose node IDs, order, or
+  kinds do not match the retained compilation sequence during Snapshot export,
+  while preserving the Snapshot 1.2 partial-coverage contract.
 
 ## [0.1.0] - 2026-09-15
 
