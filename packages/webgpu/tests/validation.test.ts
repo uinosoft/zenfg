@@ -260,6 +260,100 @@ test('compile permits explicit zero usage for culled-only transient resources', 
 	assert.equal(resource?.physicalAllocationId, undefined);
 });
 
+test('compile validates retained transient buffer mapping usage combinations', () => {
+	{
+		const graph = new FrameGraph(mockDevice()).beginFrame();
+		const staging = graph.createBuffer({
+			label: 'readback-staging',
+			size: 64,
+			usage: bufferUsage.MAP_READ | bufferUsage.COPY_DST,
+		});
+		graph.clearBuffer({
+			label: 'clear-staging',
+			sideEffect: true,
+			operations: [{ target: staging }],
+		});
+		assert.doesNotThrow(() => graph.compile());
+	}
+
+	{
+		const graph = new FrameGraph(mockDevice()).beginFrame();
+		const invalid = graph.createBuffer({
+			label: 'mapped-storage',
+			size: 64,
+			usage: bufferUsage.MAP_READ | bufferUsage.COPY_DST | bufferUsage.STORAGE,
+		});
+		graph.command({
+			label: 'write-storage',
+			sideEffect: true,
+			uses: [graph.use(invalid, BufferAccess.StorageWrite, { contents: 'overwrite' })],
+		});
+		assert.throws(
+			() => graph.compile(),
+			(error) => error instanceof FrameGraphError
+				&& error.code === 'FG1102'
+				&& error.phase === 'compile'
+				&& error.resourceId === invalid.id
+				&& /only combine MAP_READ with COPY_DST/.test(error.message),
+		);
+	}
+});
+
+test('compile validates retained render and multisample allocation usage', () => {
+	{
+		const graph = new FrameGraph(mockDevice()).beginFrame();
+		const color = graph.createTexture({
+			label: 'one-dimensional-attachment',
+			format: 'rgba8unorm',
+			dimension: '1d',
+			size: [4],
+		});
+		graph.render({
+			label: 'invalid-render',
+			sideEffect: true,
+			colorAttachments: [{ target: color, loadOp: 'clear', storeOp: 'store' }],
+		});
+		assert.throws(() => graph.compile(), /incompatible view dimension|RENDER_ATTACHMENT usage requires a 2D or 3D texture/);
+	}
+
+	{
+		const graph = new FrameGraph(mockDevice()).beginFrame();
+		const storage = graph.createTexture({
+			label: 'multisampled-storage',
+			format: 'rgba8unorm',
+			size: [4, 4],
+			sampleCount: 4,
+		});
+		graph.command({
+			label: 'write-storage',
+			sideEffect: true,
+			uses: [graph.use(storage, TextureAccess.StorageWrite, { contents: 'overwrite' })],
+		});
+		assert.throws(() => graph.compile(), /multisampled usage must include RENDER_ATTACHMENT/);
+	}
+
+});
+
+test('recording rejects graph-visible TRANSIENT_ATTACHMENT usage outside Snapshot 1.2', () => {
+	const usage = textureUsage.TRANSIENT_ATTACHMENT | textureUsage.RENDER_ATTACHMENT;
+	assert.throws(
+		() => new FrameGraph(mockDevice()).beginFrame().createTexture({
+			label: 'memoryless-color',
+			format: 'rgba8unorm',
+			size: [4, 4],
+			usage,
+		}),
+		/TRANSIENT_ATTACHMENT, which ZenFG does not support/,
+	);
+	assert.throws(
+		() => new FrameGraph(mockDevice()).beginFrame().importTexture(
+			texture('memoryless-import', usage),
+			{ exposedUsage: textureUsage.RENDER_ATTACHMENT },
+		),
+		/TRANSIENT_ATTACHMENT, which ZenFG does not support/,
+	);
+});
+
 test('compile preserves imported-resource diagnostics when declared usage is zero', () => {
 	const graph = new FrameGraph(mockDevice()).beginFrame();
 	const imported = graph.importTexture(texture('asset', 0, { format: 'rgba8unorm', size: [1, 1] }), { label: 'asset', exposedUsage: 0 });

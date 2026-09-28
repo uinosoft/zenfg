@@ -26,6 +26,10 @@ to bypass a failure. Formatting does not resolve dependencies. The packaging
 bootstrap and temporary consumer exceptions are described in
 [the release process](docs/release-process.md).
 
+See the [testing guide](docs/testing.md) for the local/CI/release test matrix,
+manual browser WebGPU acceptance commands, and the coverage boundaries of the
+TypeScript mock and Rust noop test layers.
+
 ## TypeScript test coverage
 
 `npm run typecheck` is the CI entrypoint. It checks the script Node tests,

@@ -58,6 +58,7 @@ pub struct TextureDesc {
     /// Additional formats permitted when creating texture views.
     pub view_formats: Vec<wgpu::TextureFormat>,
     /// Whether usage is inferred from retained work or fixed by the caller.
+    /// `TRANSIENT_ATTACHMENT` is not supported by the current Snapshot contract.
     pub usage: UsagePolicy<wgpu::TextureUsages>,
 }
 
@@ -116,6 +117,7 @@ pub struct ImportTextureOptions {
     /// Whether the caller guarantees readable contents at frame start.
     pub initial_contents: InitialContents,
     /// Native usage exposed to the graph, or `None` to infer retained requirements.
+    /// `TRANSIENT_ATTACHMENT` is not supported by the current Snapshot contract.
     pub exposed_usage: Option<wgpu::TextureUsages>,
 }
 

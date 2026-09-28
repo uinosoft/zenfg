@@ -148,6 +148,7 @@ impl<'frame> Frame<'frame> {
         desc: TextureDesc,
     ) -> Result<Texture<'frame>, FrameGraphError> {
         validate_texture_desc(&desc)?;
+        validate_transient_texture_usage_policy(&desc)?;
         self.register_texture(
             desc,
             ResourceOrigin::Transient,
@@ -167,6 +168,7 @@ impl<'frame> Frame<'frame> {
         options: ImportTextureOptions,
     ) -> Result<Texture<'frame>, FrameGraphError> {
         validate_texture_desc(&desc)?;
+        validate_exposed_texture_usage(options.exposed_usage)?;
         self.register_texture(
             desc,
             ResourceOrigin::Imported,
@@ -186,6 +188,7 @@ impl<'frame> Frame<'frame> {
         exposed_usage: Option<wgpu::TextureUsages>,
     ) -> Result<Texture<'frame>, FrameGraphError> {
         validate_texture_desc(&desc)?;
+        validate_exposed_texture_usage(exposed_usage)?;
         self.register_texture(
             desc,
             ResourceOrigin::Surface,
@@ -311,6 +314,15 @@ impl<'frame> Frame<'frame> {
             return Err(FrameGraphError::NativeDescriptorMismatch {
                 resource: texture.id,
                 message: "transient resources cannot be bound as imported resources".into(),
+            });
+        }
+        if native
+            .usage()
+            .contains(wgpu::TextureUsages::TRANSIENT_ATTACHMENT)
+        {
+            return Err(FrameGraphError::NativeDescriptorMismatch {
+                resource: texture.id,
+                message: "TRANSIENT_ATTACHMENT textures are not supported because Snapshot 1.2 cannot represent that usage flag".into(),
             });
         }
         let desc = resource
@@ -894,6 +906,44 @@ pub(crate) fn validate_texture_desc(desc: &TextureDesc) -> Result<(), FrameGraph
             message: format!("texture {} has zero samples", desc.label),
         });
     }
+
+    match desc.dimension {
+        wgpu::TextureDimension::D1 => {
+            if size.height != 1 || size.depth_or_array_layers != 1 || desc.sample_count != 1 {
+                return Err(FrameGraphError::InvalidResourceDescriptor {
+                    message: format!(
+                        "1D texture {} requires height 1, depth_or_array_layers 1, and sample_count 1",
+                        desc.label
+                    ),
+                });
+            }
+            if desc.format.is_compressed()
+                || desc.format.has_depth_aspect()
+                || desc.format.has_stencil_aspect()
+            {
+                return Err(FrameGraphError::InvalidResourceDescriptor {
+                    message: format!(
+                        "1D texture {} cannot use compressed or depth/stencil format {:?}",
+                        desc.label, desc.format
+                    ),
+                });
+            }
+        }
+        wgpu::TextureDimension::D3 if desc.sample_count != 1 => {
+            return Err(FrameGraphError::InvalidResourceDescriptor {
+                message: format!("3D texture {} requires sample_count 1", desc.label),
+            });
+        }
+        wgpu::TextureDimension::D2 | wgpu::TextureDimension::D3 => {}
+    }
+    if desc.sample_count > 1 && desc.mip_level_count != 1 {
+        return Err(FrameGraphError::InvalidResourceDescriptor {
+            message: format!(
+                "multisampled texture {} requires mip_level_count 1",
+                desc.label
+            ),
+        });
+    }
     let largest = match desc.dimension {
         wgpu::TextureDimension::D1 => size.width,
         wgpu::TextureDimension::D2 => size.width.max(size.height),
@@ -929,6 +979,31 @@ pub(crate) fn validate_texture_desc(desc: &TextureDesc) -> Result<(), FrameGraph
                 ),
             });
         }
+    }
+    Ok(())
+}
+
+fn validate_transient_texture_usage_policy(desc: &TextureDesc) -> Result<(), FrameGraphError> {
+    if let crate::UsagePolicy::Fixed(usage) = desc.usage
+        && usage.contains(wgpu::TextureUsages::TRANSIENT_ATTACHMENT)
+    {
+        return Err(FrameGraphError::InvalidResourceDescriptor {
+            message: format!(
+                "texture {} uses TRANSIENT_ATTACHMENT, which ZenFG does not support because Snapshot 1.2 cannot represent that usage flag",
+                desc.label
+            ),
+        });
+    }
+    Ok(())
+}
+
+fn validate_exposed_texture_usage(
+    usage: Option<wgpu::TextureUsages>,
+) -> Result<(), FrameGraphError> {
+    if usage.is_some_and(|usage| usage.contains(wgpu::TextureUsages::TRANSIENT_ATTACHMENT)) {
+        return Err(FrameGraphError::InvalidResourceDescriptor {
+            message: "TRANSIENT_ATTACHMENT is not supported as graph-visible usage because Snapshot 1.2 cannot represent that usage flag".into(),
+        });
     }
     Ok(())
 }

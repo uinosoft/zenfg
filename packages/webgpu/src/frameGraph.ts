@@ -89,11 +89,14 @@ import type {
 } from './internalTypes.ts';
 import { ResourcePool } from './resourcePool.ts';
 import {
+	allBufferUsageFlags,
+	allTextureUsageFlags,
 	bufferAccessMode,
 	bufferAccessUsage,
 	bufferUsageFlag,
 	textureAccessMode,
 	textureAccessUsage,
+	textureUsageFlag,
 } from './usage.ts';
 import {
 	abortGpuTimingFrame,
@@ -785,6 +788,9 @@ class FrameGraphRecorderImpl implements FrameGraphRecorder {
 		texture: GPUTexture,
 		options: ImportTextureOptions,
 	): TextureDesc {
+		if ((texture.usage & textureUsageFlag('TRANSIENT_ATTACHMENT')) !== 0) {
+			throw new FrameGraphError(FRAME_GRAPH_ERROR_CODES.InvalidResourceDescriptor, `Imported texture "${options.label ?? (texture.label || 'unlabeled')}" uses TRANSIENT_ATTACHMENT, which ZenFG does not support because Snapshot 1.2 cannot represent that usage flag.`, { phase: 'record' });
+		}
 		return {
 			label: options.label ?? (texture.label || undefined),
 			format: texture.format,
@@ -2255,6 +2261,41 @@ class FrameGraphRecorderImpl implements FrameGraphRecorder {
 					throw this.missingDeclaredUsageError('Imported resource', resource, declaredUsage ?? 0, missingUsage);
 				}
 			}
+			else if (resource.requiredUsage !== 0) {
+				this.validateTransientAllocationUsage(resource);
+			}
+		}
+	}
+
+	private validateTransientAllocationUsage(resource: InternalResource): void {
+		const usage = this.effectiveResourceUsage(resource);
+		const prefix = `${resource.handle.kind === 'texture' ? 'Texture' : 'Buffer'} descriptor "${resource.handle.label ?? resource.handle.id}"`;
+		if (resource.handle.kind === 'buffer') {
+			const mapRead = bufferUsageFlag('MAP_READ');
+			const mapWrite = bufferUsageFlag('MAP_WRITE');
+			const copySrc = bufferUsageFlag('COPY_SRC');
+			const copyDst = bufferUsageFlag('COPY_DST');
+			if ((usage & mapRead) !== 0 && (usage & ~(mapRead | copyDst)) !== 0) {
+				throw new FrameGraphError(FRAME_GRAPH_ERROR_CODES.InvalidResourceDescriptor, `${prefix} usage may only combine MAP_READ with COPY_DST.`, { phase: 'compile', resourceId: resource.handle.id });
+			}
+			if ((usage & mapWrite) !== 0 && (usage & ~(mapWrite | copySrc)) !== 0) {
+				throw new FrameGraphError(FRAME_GRAPH_ERROR_CODES.InvalidResourceDescriptor, `${prefix} usage may only combine MAP_WRITE with COPY_SRC.`, { phase: 'compile', resourceId: resource.handle.id });
+			}
+			return;
+		}
+
+		const desc = resource.desc as TextureDesc;
+		const sampleCount = desc.sampleCount ?? 1;
+		const renderAttachment = textureUsageFlag('RENDER_ATTACHMENT');
+		const storageBinding = textureUsageFlag('STORAGE_BINDING');
+		if ((usage & renderAttachment) !== 0 && (desc.dimension ?? '2d') === '1d') {
+			throw new FrameGraphError(FRAME_GRAPH_ERROR_CODES.InvalidResourceDescriptor, `${prefix} RENDER_ATTACHMENT usage requires a 2D or 3D texture.`, { phase: 'compile', resourceId: resource.handle.id });
+		}
+		if (sampleCount > 1 && (usage & renderAttachment) === 0) {
+			throw new FrameGraphError(FRAME_GRAPH_ERROR_CODES.InvalidResourceDescriptor, `${prefix} multisampled usage must include RENDER_ATTACHMENT.`, { phase: 'compile', resourceId: resource.handle.id });
+		}
+		if (sampleCount > 1 && (usage & storageBinding) !== 0) {
+			throw new FrameGraphError(FRAME_GRAPH_ERROR_CODES.InvalidResourceDescriptor, `${prefix} multisampled usage must not include STORAGE_BINDING.`, { phase: 'compile', resourceId: resource.handle.id });
 		}
 	}
 
@@ -2726,6 +2767,34 @@ class FrameGraphRecorderImpl implements FrameGraphRecorder {
 		}
 		const sampleCount = desc.sampleCount ?? 1;
 		assertPositiveUint32(sampleCount, `${prefix} sampleCount`, { code: FRAME_GRAPH_ERROR_CODES.InvalidResourceDescriptor, phase: 'record' });
+		if (sampleCount !== 1 && sampleCount !== 4) {
+			throw new FrameGraphError(FRAME_GRAPH_ERROR_CODES.InvalidResourceDescriptor, `${prefix} sampleCount must be either 1 or 4. Received ${sampleCount}.`, { phase: 'record' });
+		}
+		const dimension = desc.dimension ?? '2d';
+		if (dimension !== '1d' && dimension !== '2d' && dimension !== '3d') {
+			throw new FrameGraphError(FRAME_GRAPH_ERROR_CODES.InvalidResourceDescriptor, `${prefix} dimension must be "1d", "2d", or "3d". Received "${String(dimension)}".`, { phase: 'record' });
+		}
+		const formatKind = getTextureFormatInfo(desc.format).kind;
+		if (dimension === '1d') {
+			if (height !== 1 || depthOrArrayLayers !== 1 || sampleCount !== 1) {
+				throw new FrameGraphError(FRAME_GRAPH_ERROR_CODES.InvalidResourceDescriptor, `${prefix} 1D textures require height 1, depthOrArrayLayers 1, and sampleCount 1.`, { phase: 'record' });
+			}
+			if (formatKind === 'compressed' || formatKind === 'depth' || formatKind === 'stencil' || formatKind === 'depth-stencil') {
+				throw new FrameGraphError(FRAME_GRAPH_ERROR_CODES.InvalidResourceDescriptor, `${prefix} 1D textures do not support compressed or depth/stencil format "${desc.format}".`, { phase: 'record' });
+			}
+		}
+		if (dimension === '3d' && sampleCount !== 1) {
+			throw new FrameGraphError(FRAME_GRAPH_ERROR_CODES.InvalidResourceDescriptor, `${prefix} 3D textures require sampleCount 1.`, { phase: 'record' });
+		}
+		if (sampleCount > 1 && (mipLevelCount !== 1 || depthOrArrayLayers !== 1)) {
+			throw new FrameGraphError(FRAME_GRAPH_ERROR_CODES.InvalidResourceDescriptor, `${prefix} multisampled textures require mipLevelCount 1 and depthOrArrayLayers 1.`, { phase: 'record' });
+		}
+		if (desc.usage !== undefined) {
+			this.validateUsageFlags(desc.usage, allTextureUsageFlags(), `${prefix} usage`);
+			if ((desc.usage & textureUsageFlag('TRANSIENT_ATTACHMENT')) !== 0) {
+				throw new FrameGraphError(FRAME_GRAPH_ERROR_CODES.InvalidResourceDescriptor, `${prefix} uses TRANSIENT_ATTACHMENT, which ZenFG does not support because Snapshot 1.2 cannot represent that usage flag.`, { phase: 'record' });
+			}
+		}
 		if (hasStencilAspect(desc.format)) {
 			throw new FrameGraphError(FRAME_GRAPH_ERROR_CODES.InvalidResourceDescriptor, `FrameGraph does not support stencil texture format "${desc.format}".`, { phase: 'record' });
 		}
@@ -2777,8 +2846,19 @@ class FrameGraphRecorderImpl implements FrameGraphRecorder {
 	private validateBufferDescriptor(desc: BufferDesc, transient: boolean): void {
 		const prefix = `Buffer descriptor "${desc.label ?? 'unlabeled'}"`;
 		assertNonNegativeSafeInteger(desc.size, `${prefix} size`, { code: FRAME_GRAPH_ERROR_CODES.InvalidResourceDescriptor, phase: 'record' });
+		if (desc.usage !== undefined) {
+			this.validateUsageFlags(desc.usage, allBufferUsageFlags(), `${prefix} usage`);
+		}
 		if (transient) {
 			bufferAllocationSize(desc.size, { code: FRAME_GRAPH_ERROR_CODES.InvalidResourceDescriptor, phase: 'record' });
+		}
+	}
+
+	private validateUsageFlags(usage: number, allowed: number, field: string): void {
+		assertNonNegativeUint32(usage, field, { code: FRAME_GRAPH_ERROR_CODES.InvalidResourceDescriptor, phase: 'record' });
+		const unknown = (usage & ~allowed) >>> 0;
+		if (unknown !== 0) {
+			throw new FrameGraphError(FRAME_GRAPH_ERROR_CODES.InvalidResourceDescriptor, `${field} contains unknown WebGPU usage bits ${formatUsageFlags(unknown)}.`, { phase: 'record', context: { usage, unknownUsage: unknown } });
 		}
 	}
 

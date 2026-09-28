@@ -108,6 +108,13 @@ validation may therefore be reported during allocation or command encoding
 rather than during graph recording. The graph does not take ownership of the
 caller's error handling or device-loss policy.
 
+ZenFG validates device-independent texture shape rules and structural usage
+requirements for retained transient allocations. It preserves wgpu's
+format/backend-dependent multisample support rather than imposing the browser
+WebGPU sample-count set. `TRANSIENT_ATTACHMENT` is currently rejected because
+Snapshot 1.2 does not encode that usage; it is distinct from ZenFG's transient
+resource lifetime policy.
+
 Zero-sized copies are retained as native no-op commands when their node is
 retained, but they have no graph content effect and cannot produce an output
 value.

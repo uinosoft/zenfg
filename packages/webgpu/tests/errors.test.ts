@@ -38,7 +38,12 @@ test('FrameGraphError exposes stable diagnostic fields and preserves its cause',
 
 test('recording validation reports descriptor and use failures with stable metadata', () => {
 	const recorder = new FrameGraph(mockDevice()).beginFrame();
-	assert.doesNotThrow(() => recorder.createTexture({ format: 'rgba8unorm', size: [1, 1], sampleCount: 2 }));
+	assert.throws(
+		() => recorder.createTexture({ format: 'rgba8unorm', size: [1, 1], sampleCount: 2 }),
+		(error) => error instanceof FrameGraphError
+			&& error.code === 'FG1102'
+			&& error.phase === 'record',
+	);
 	const buffer = recorder.createBuffer({ size: 16 });
 	assert.throws(
 		() => recorder.use(buffer, BufferAccess.StorageWrite, { contents: 'invalid' as 'overwrite' }),
