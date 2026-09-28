@@ -90,6 +90,11 @@ validation.
 Native WebGPU validation errors may be reported
 asynchronously through error scopes or `uncapturederror`; ordinary execution
 does not wait for those results and does not convert them to ZenFG error codes.
+ZenFG also checks device-independent texture shape rules and structural usage
+requirements for retained transient allocations before creating native
+resources. Format capabilities and device limits remain native validation.
+WebGPU `TRANSIENT_ATTACHMENT` is currently rejected because Snapshot 1.2 does
+not encode it; it is distinct from a ZenFG transient resource.
 
 `markPresent()` makes the final surface value observable. Without a resource
 root or a side-effect node, work that contributes to no result is culled.
