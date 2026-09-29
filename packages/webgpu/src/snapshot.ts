@@ -43,7 +43,7 @@ import type {
 /** Inputs required to project one WebGPU frame into a portable snapshot. */
 export type CreateFrameGraphSnapshotOptions = {
 	/**
-	 * Full immutable report returned by `recorder.compile({ report: true })`.
+	 * Detached readonly report returned by `recorder.compile({ report: true })`.
 	 * It must describe the same compiled frame as all provided timing reports.
 	 */
 	readonly compilation: FrameGraphCompilationReport;
@@ -60,7 +60,8 @@ export type CreateFrameGraphSnapshotOptions = {
 	 */
 	readonly resourcePool?: FrameGraphResourcePoolStats;
 	/**
-	 * ISO-8601 capture timestamp.
+	 * Optional capture timestamp string. The default is an ISO-8601 timestamp
+	 * generated from the current time.
 	 *
 	 * @defaultValue The current time from `new Date().toISOString()`.
 	 */

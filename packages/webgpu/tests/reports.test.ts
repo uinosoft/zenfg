@@ -4,6 +4,7 @@ import test from 'node:test';
 import {
 	BufferAccess,
 	FrameGraph,
+	FrameGraphError,
 	TextureAccess,
 	type FrameGraphCompilationReport,
 	type FrameGraphGpuTimingReport,
@@ -466,7 +467,11 @@ test('destroy rejects a pending timing readback', async () => {
 	recordTimedGraph(recorder);
 	const report: Promise<FrameGraphGpuTimingReport> = recorder.compile().executeWithTiming({ timing: 'gpu' }).gpu!;
 	runtime.destroy();
-	await assert.rejects(report, /destroyed before GPU timing readback/);
+	await assert.rejects(report, (error) => error instanceof FrameGraphError
+		&& error.code === 'FG2006'
+		&& error.phase === 'execute'
+		&& error.context?.operation === 'gpu-timing-readback'
+		&& error.message === 'FrameGraph was destroyed before GPU timing readback completed.');
 });
 
 

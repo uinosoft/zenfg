@@ -244,7 +244,7 @@ type CompiledGpuDebugGroups = {
 export class FrameGraph {
 	private readonly runtime: FrameGraphRuntimeState;
 
-	/** Creates a CPU-only runtime bound permanently to `device`. */
+	/** Creates a FrameGraph runtime bound permanently to `device`. */
 	constructor(device: GPUDevice) {
 		this.runtime = {
 			device,

@@ -853,6 +853,10 @@ impl<'a, 'frame> PassBuilder<'a, 'frame> {
         error
     }
 
+    pub(crate) fn abort_with_error(&mut self, error: FrameGraphError) -> FrameGraphError {
+        self.fail_finish(error)
+    }
+
     fn attachment_access<Role: AccessMarker>(
         &mut self,
         target: TextureTarget<'frame>,
