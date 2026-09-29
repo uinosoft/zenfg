@@ -20,8 +20,8 @@ execution order, retention, transient allocation, and optional diagnostics.
 The caller owns scenes, pipelines, bind groups, samplers, long-lived resources,
 surface presentation, device-loss policy, and concrete draw or dispatch work.
 
-This is a public beta package. Pin the exact prerelease version while
-integrating. Import runtime APIs from the package root; the only supported
+This is a public beta package. Pin the exact package version while integrating.
+Import runtime APIs from the package root; the only supported
 diagnostic subpath is `@zenfg/webgpu/snapshot`.
 
 ## Installation
@@ -297,7 +297,7 @@ are processed locally in the browser and are not uploaded.
 | The same native object is imported twice | Import it once at the composition boundary and share the logical handle. |
 | A later presentation frame fails | Do not reuse an old current texture or compiled presentation frame. |
 | Work after an external node starts too early | Queue all declared external work on the shared device queue before the callback returns. |
-| Timing is unavailable | Treat `unsupported`, `busy`, and `readback-failed` as non-fatal results. |
+| Timing is unavailable | Treat `unsupported`, `busy`, `readback-failed`, and `no-timed-nodes` as non-fatal results. |
 
 ## Complete recipes
 

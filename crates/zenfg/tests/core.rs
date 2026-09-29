@@ -1243,6 +1243,30 @@ fn grouped_clear_records_ordered_precise_accesses() {
 }
 
 #[test]
+fn failed_grouped_clear_preserves_original_recording_error() {
+    let mut graph = FrameGraph::new();
+    let mut frame = graph.begin_frame();
+    let buffer = frame.create_buffer(BufferDesc::new("buffer", 16)).unwrap();
+
+    let error = frame
+        .clear_buffers(
+            "conflicting-clear",
+            [
+                ClearBufferOp::new(buffer, BufferRange::new(0, 8)),
+                ClearBufferOp::new(buffer, BufferRange::new(4, 8)),
+            ],
+        )
+        .unwrap_err();
+    assert!(matches!(error, FrameGraphError::ConflictingAccesses { .. }));
+
+    let compile_error = match frame.compile(CompileOptions::default()) {
+        Ok(_) => panic!("failed clear should prevent compilation"),
+        Err(error) => error,
+    };
+    assert_eq!(compile_error, error);
+}
+
+#[test]
 fn clear_and_copy_native_alignment_validation_is_deferred() {
     let mut graph = FrameGraph::new();
     let mut frame = graph.begin_frame();

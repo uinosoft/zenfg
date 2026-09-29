@@ -1317,6 +1317,8 @@ export interface CompiledFrame {
 	 * Executes synchronously with explicitly selected timing families.
 	 * CPU results do not await GPU completion. GPU unavailability is non-fatal.
 	 * Throws synchronously on execution failure; no partial CPU report is returned.
+	 * Destroying the runtime before GPU readback completes rejects the GPU timing
+	 * promise with a `FrameGraphError` whose code is `Destroyed`.
 	 */
 	executeWithTiming(options: CompiledFrameExecuteOptions & { readonly timing: 'cpu' }): FrameGraphCpuExecutionTiming;
 	executeWithTiming(options: CompiledFrameExecuteOptions & { readonly timing: 'gpu' }): FrameGraphGpuExecutionTiming;

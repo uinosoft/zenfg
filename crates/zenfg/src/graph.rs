@@ -630,11 +630,13 @@ impl<'frame> Frame<'frame> {
         }
         let mut pass = self.pass(NodeKind::ClearBuffer, label, false);
         for operation in operations {
-            let _ = pass.buffer_copy_dst(
+            if let Err(error) = pass.buffer_copy_dst(
                 operation.target,
                 operation.range,
                 crate::WriteContents::Overwrite,
-            )?;
+            ) {
+                return Err(pass.abort_with_error(error));
+            }
         }
         let id = pass.finish()?;
         self.executors

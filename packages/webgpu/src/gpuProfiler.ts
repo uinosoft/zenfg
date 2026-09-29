@@ -1,5 +1,6 @@
 import type { FrameGraphGpuTimingReport } from './types.ts';
 import type { InternalNode } from './internalTypes.ts';
+import { FRAME_GRAPH_ERROR_CODES, FrameGraphError } from './error.ts';
 
 export type GpuTimingNodeQuery = {
 	readonly nodeId: number;
@@ -292,7 +293,11 @@ function destroyGpuTimingResources(state: GpuProfilerState): void {
 
 export function destroyGpuProfiler(state: GpuProfilerState): void {
 	state.destroyed = true;
-	state.activeFrame?.reject(new Error('FrameGraph was destroyed before GPU timing readback completed.'));
+	state.activeFrame?.reject(new FrameGraphError(
+		FRAME_GRAPH_ERROR_CODES.Destroyed,
+		'FrameGraph was destroyed before GPU timing readback completed.',
+		{ phase: 'execute', context: { operation: 'gpu-timing-readback' } },
+	));
 	state.activeFrame = undefined;
 	destroyGpuTimingResources(state);
 }
