@@ -412,12 +412,15 @@ function collectRetainedNodes(input: GraphCompilerInput, dependencies: Dependenc
 	const retained = new Set<number>();
 	const roots: InternalGraphRoot[] = [];
 	const visit = (nodeId: number) => {
-		if (retained.has(nodeId)) {
-			return;
-		}
-		retained.add(nodeId);
-		for (const dependency of dependencies.valueReverseEdges.get(nodeId) ?? []) {
-			visit(dependency);
+		const stack = [nodeId];
+		while (stack.length > 0) {
+			const current = stack.pop()!;
+			if (retained.has(current)) continue;
+			retained.add(current);
+			const predecessors = [...(dependencies.valueReverseEdges.get(current) ?? [])];
+			for (let index = predecessors.length - 1; index >= 0; index--) {
+				stack.push(predecessors[index]);
+			}
 		}
 	};
 

@@ -1511,6 +1511,45 @@ fn extension_depth_exceeds_limit(value: &Value) -> bool {
     false
 }
 
+fn group_ancestor_intervals(
+    groups: &[crate::SnapshotGroup],
+    first_index_by_id: &HashMap<&str, usize>,
+) -> (Vec<Option<usize>>, Vec<usize>) {
+    let mut children = vec![Vec::new(); groups.len()];
+    let mut stack = Vec::new();
+    for (index, group) in groups.iter().enumerate() {
+        // Keep first-match reference behavior for duplicate IDs.
+        if first_index_by_id.get(group.id.as_str()) != Some(&index) {
+            continue;
+        }
+        let parent = group
+            .parent_id
+            .as_deref()
+            .and_then(|id| first_index_by_id.get(id));
+        if let Some(&parent) = parent {
+            children[parent].push(index);
+        } else {
+            stack.push((index, false));
+        }
+    }
+    let mut starts = vec![None; groups.len()];
+    let mut ends = vec![0; groups.len()];
+    let mut order = 0;
+    while let Some((index, exit)) = stack.pop() {
+        if exit {
+            ends[index] = order;
+        } else {
+            starts[index] = Some(order);
+            order += 1;
+            stack.push((index, true));
+            stack.extend(children[index].iter().map(|&child| (child, false)));
+        }
+    }
+    // Unvisited first declarations lead into cycles. Intervals additionally
+    // detect duplicate declarations whose parent chain reaches their own ID.
+    (starts, ends)
+}
+
 fn validate_references(snapshot: &FrameGraphSnapshotV1, issues: &mut Vec<SnapshotIssue>) {
     let unavailable = snapshot
         .capture
@@ -1559,12 +1598,11 @@ fn validate_references(snapshot: &FrameGraphSnapshotV1, issues: &mut Vec<Snapsho
         }
     }
 
-    let group_ids: HashSet<&str> = snapshot
-        .graph
-        .groups
-        .iter()
-        .map(|group| group.id.as_str())
-        .collect();
+    let mut group_ids = HashMap::new();
+    for (index, group) in snapshot.graph.groups.iter().enumerate() {
+        group_ids.entry(group.id.as_str()).or_insert(index);
+    }
+    let (group_starts, group_ends) = group_ancestor_intervals(&snapshot.graph.groups, &group_ids);
     let node_by_id: HashMap<&str, _> = snapshot
         .graph
         .nodes
@@ -1594,7 +1632,7 @@ fn validate_references(snapshot: &FrameGraphSnapshotV1, issues: &mut Vec<Snapsho
 
     for (index, group) in snapshot.graph.groups.iter().enumerate() {
         if let Some(parent_id) = group.parent_id.as_deref() {
-            if !group_ids.contains(parent_id) {
+            if !group_ids.contains_key(parent_id) {
                 missing(
                     &format!("/graph/groups/{index}/parentId"),
                     "group",
@@ -1602,36 +1640,29 @@ fn validate_references(snapshot: &FrameGraphSnapshotV1, issues: &mut Vec<Snapsho
                     issues,
                 );
             }
-            if snapshot
-                .graph
-                .groups
-                .iter()
-                .position(|candidate| candidate.id == parent_id)
-                .is_some_and(|parent_index| parent_index >= index)
-            {
+            let parent_index = group_ids.get(parent_id).copied();
+            if parent_index.is_some_and(|parent_index| parent_index >= index) {
                 issues.push(error(
                     "invalid-group-order",
                     format!("/graph/groups/{index}/parentId"),
                     "A group parent must appear before its child.",
                 ));
             }
-            let mut seen = HashSet::from([group.id.as_str()]);
-            let mut current = Some(parent_id);
-            while let Some(id) = current {
-                if !seen.insert(id) {
+            if let Some(parent_index) = parent_index {
+                let first_index = group_ids[group.id.as_str()];
+                let reaches_cycle = match group_starts[parent_index] {
+                    None => true,
+                    Some(parent_start) => group_starts[first_index].is_some_and(|start| {
+                        start <= parent_start && parent_start < group_ends[first_index]
+                    }),
+                };
+                if reaches_cycle {
                     issues.push(error(
                         "group-cycle",
                         format!("/graph/groups/{index}/parentId"),
                         "Group parent references form a cycle.",
                     ));
-                    break;
                 }
-                current = snapshot
-                    .graph
-                    .groups
-                    .iter()
-                    .find(|candidate| candidate.id == id)
-                    .and_then(|candidate| candidate.parent_id.as_deref());
             }
         }
     }
@@ -1639,7 +1670,7 @@ fn validate_references(snapshot: &FrameGraphSnapshotV1, issues: &mut Vec<Snapsho
     let mut retained = Vec::new();
     for (index, node) in snapshot.graph.nodes.iter().enumerate() {
         if let Some(group_id) = node.group_id.as_deref()
-            && !group_ids.contains(group_id)
+            && !group_ids.contains_key(group_id)
         {
             missing(
                 &format!("/graph/nodes/{index}/groupId"),
@@ -1672,7 +1703,7 @@ fn validate_references(snapshot: &FrameGraphSnapshotV1, issues: &mut Vec<Snapsho
             ));
         }
         if let Some(group_id) = resource.group_id.as_deref()
-            && !group_ids.contains(group_id)
+            && !group_ids.contains_key(group_id)
         {
             missing(
                 &format!("/graph/resources/{index}/groupId"),

@@ -86,7 +86,10 @@ impl_texture_marker!(
     TextureCopyDst,
 );
 
-/// A typed identity for one declared access in one pass.
+/// A typed identity for one declared access in one pass and recording.
+///
+/// Runtime resolution rejects tokens from another graph or recording with
+/// [`FrameGraphError::ForeignHandle`], even when their local IDs coincide.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 #[must_use = "the access is recorded even when the token is ignored; keep the token for execution"]
 pub struct AccessToken<'frame, Role: AccessMarker> {
@@ -588,7 +591,8 @@ impl<'a, 'frame> PassBuilder<'a, 'frame> {
     /// zero-sized copies are encoded for native validation but have no graph
     /// content effect. Non-empty copies require a known format footprint to track the
     /// destination buffer range; native format and layout validity otherwise
-    /// remains with wgpu.
+    /// remains with wgpu. Footprints containing row or layer padding preserve
+    /// previous buffer contents; contiguous footprints overwrite their range.
     pub fn copy_texture_to_buffer(
         &mut self,
         source: TextureCopyLocation<'frame>,

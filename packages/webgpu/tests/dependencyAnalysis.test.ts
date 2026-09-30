@@ -47,6 +47,30 @@ test('compile orders retained producer before present root and culls unused node
 	assert.equal(compiled.resources.some((resource) => resource.id === declaredOnly.id), false);
 });
 
+test('retention traverses a 10000-node content chain without changing order or culling', () => {
+	const graph = new FrameGraph(mockDevice()).beginFrame();
+	const target = graph.createBuffer({ size: 4 });
+	const unused = graph.createBuffer({ size: 4 });
+	const overwrite = graph.use(target, BufferAccess.StorageWrite, { contents: 'overwrite' });
+	const preserve = graph.use(target, BufferAccess.StorageWrite, { contents: 'preserve' });
+	graph.command({ label: 'replaced', sideEffect: false, uses: [overwrite] });
+	let executed = 0;
+	for (let index = 0; index < 10000; index++) {
+		graph.command({
+			label: `chain-${index}`, sideEffect: false, uses: [index === 0 ? overwrite : preserve],
+			encode: () => { executed++; },
+		});
+	}
+	graph.command({ label: 'unused', sideEffect: false, uses: [graph.use(unused, BufferAccess.StorageWrite, { contents: 'overwrite' })] });
+	graph.markOutput(target);
+	const compiled = graph.compile({ report: true });
+	assert.deepEqual(compiled.compilationReport.nodes.map((node) => node.label),
+		Array.from({ length: 10000 }, (_, index) => `chain-${index}`));
+	assert.deepEqual(compiled.compilationReport.culledNodes.map((node) => node.label), ['replaced', 'unused']);
+	compiled.execute();
+	assert.equal(executed, 10000);
+});
+
 test('compile rejects transient texture and buffer consumers recorded before producers', () => {
 	const textureGraph = new FrameGraph(mockDevice()).beginFrame();
 	const color = textureGraph.createTexture({ label: 'scene-color', format: 'rgba8unorm', size: [1, 1] });

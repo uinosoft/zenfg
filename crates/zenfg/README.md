@@ -182,6 +182,9 @@ frame.compile(CompileOptions::default())?.execute(queue)?;
 Resolved transient objects are valid only inside their execution callback.
 Imported objects remain caller-owned, but every graph-visible access still
 needs a matching declaration.
+Tokens from another graph or recording return `ForeignHandle` before local
+pass/access IDs are checked. Tokens from another pass in the same recording
+continue to return `WrongPassToken`.
 
 ## Resource and integration choices
 
@@ -197,12 +200,21 @@ For resources exposed to the graph:
 - Imported resources explicitly choose `InitialContents::Defined` or
   `InitialContents::Undefined`. The first write to a transient range must fully
   overwrite it.
+- Texture-to-buffer copies preserve their tracked buffer range when actual row
+  or layer padding remains unwritten. Initialize undefined destination contents
+  before such a copy; unused single-row or single-layer strides do not require
+  preservation. A whole-buffer clear uses the logical descriptor size.
 - Prefer structured render, compute, copy, and clear nodes. Use command passes
   for custom work on a graph-owned encoder.
 - Use external submissions for renderers that own and submit their encoders.
   The boundary orders queue submissions but is not a GPU-completion fence.
 - ZenFG performs no cross-frame dependency analysis and never acquires or
   presents a surface for the application.
+
+GPU timing uses two queries per retained render/compute pass. More than 2048
+timed passes returns `GpuTimingUnavailableReason::TooManyTimedNodes` before
+creating timing resources. Execution still proceeds, and `TimingMode::Both`
+keeps CPU results.
 
 See [Core concepts](https://github.com/uinosoft/zenfg/blob/cargo/zenfg/v0.1.0/docs/core-concepts.md)
 for the shared ownership, content, dependency, lifetime, and integration model.

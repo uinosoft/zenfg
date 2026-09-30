@@ -707,6 +707,8 @@ export type ComputePassNodeDesc = {
  * FrameGraph tracks logical resource ranges and requires a known buffer-copy
  * footprint for non-empty buffer-texture copies. Retained zero-sized copies are
  * encoded for native validation but do not produce graph reads or writes.
+ * Texture-to-buffer copies preserve previous contents when their byte footprint
+ * includes row or layer padding; contiguous footprints overwrite their range.
  * Native command alignment, format, aspect, and overlap validation remains with
  * WebGPU.
  * Handles must belong to the current recording.
@@ -1117,6 +1119,7 @@ export type FrameGraphGpuTimingReport =
 	| {
 		readonly status: 'unavailable';
 		readonly frameIndex: number;
+		/** Why timing is unavailable. `too-many-timed-nodes` means more than 2048 timed nodes; execution still proceeds. */
 		readonly reason: 'unsupported' | 'busy' | 'readback-failed' | 'no-timed-nodes' | 'too-many-timed-nodes';
 	};
 

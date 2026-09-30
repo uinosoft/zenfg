@@ -192,6 +192,11 @@ For resources exposed to the graph:
 - Transient and surface contents begin undefined. The first write to a
   transient range must fully overwrite it. Use preserve for partial,
   conditional, sparse, or atomic writes.
+- `clearBuffer()` with omitted `size` clears from `offset` (default zero) to
+  the logical buffer boundary, including when an import narrows the native size.
+  Texture-to-buffer copies with row or layer padding preserve previous contents
+  in their tracked byte range. Initialize that range before copying if its
+  contents are undefined; contiguous copies can initialize their own range.
 - Use structured render, compute, copy, and clear nodes whenever possible. Use
   `command()` for custom work on a FrameGraph-owned encoder.
 - Use `externalSubmission()` when a third-party renderer owns and submits its
@@ -236,6 +241,11 @@ available; consume `gpu` as a Promise only when requested. Ordinary `execute()`
 remains synchronous and does not collect timing. CPU duration is elapsed time,
 not thread CPU usage, and covers every executed node kind. Keep compilation,
 frame identity and pool counters from the same execution when exporting.
+
+GPU timing uses two queries per retained render/compute node. More than 2048
+timed nodes returns `unavailable` with reason `too-many-timed-nodes` before
+creating timing resources. Execution still proceeds, and `both` retains CPU
+results. Treat timing availability as optional when displaying or exporting it.
 
 ### Download a Snapshot for Inspector
 

@@ -1,0 +1,107 @@
+{
+  "format": "zenfg.frame-graph-snapshot",
+  "version": {
+    "major": 1,
+    "minor": 2
+  },
+  "producer": {
+    "name": "fixture",
+    "version": "1.0.0",
+    "language": "TypeScript"
+  },
+  "capture": {
+    "frameIndex": 0,
+    "capturedAt": "2026-01-01T00:00:00.000Z"
+  },
+  "graph": {
+    "groups": [
+      {
+        "id": "group:a",
+        "label": "a",
+        "parentId": "group:b"
+      },
+      {
+        "id": "group:b",
+        "label": "b",
+        "parentId": "group:a"
+      },
+      {
+        "id": "group:enters",
+        "label": "enters",
+        "parentId": "group:a"
+      },
+      {
+        "id": "group:self",
+        "label": "self",
+        "parentId": "group:self"
+      },
+      {
+        "id": "group:missing-parent",
+        "label": "missing-parent",
+        "parentId": "group:ghost"
+      },
+      {
+        "id": "group:root",
+        "label": "root"
+      },
+      {
+        "id": "group:child",
+        "label": "child",
+        "parentId": "group:root"
+      },
+      {
+        "id": "group:root",
+        "label": "root",
+        "parentId": "group:child"
+      },
+      {
+        "id": "group:a",
+        "label": "a"
+      },
+      {
+        "id": "group:leaf",
+        "label": "leaf",
+        "parentId": "group:a"
+      },
+      {
+        "id": "group:root",
+        "label": "root",
+        "parentId": "group:ghost"
+      },
+      {
+        "id": "group:child",
+        "label": "child",
+        "parentId": "group:missing-parent"
+      }
+    ],
+    "nodes": [],
+    "resources": [],
+    "textureViews": [],
+    "accesses": [],
+    "dependencies": [],
+    "roots": [],
+    "segments": []
+  },
+  "memory": {
+    "allocationReport": {
+      "status": "unavailable",
+      "reason": "not-requested"
+    },
+    "poolReport": {
+      "status": "unavailable",
+      "reason": "not-requested"
+    }
+  },
+  "timings": {
+    "cpu": {
+      "status": "unavailable",
+      "reason": "not-requested"
+    },
+    "gpu": {
+      "status": "unavailable",
+      "reason": "unsupported"
+    }
+  },
+  "diagnostics": [],
+  "extensions": {}
+}
