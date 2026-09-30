@@ -90,6 +90,8 @@ impl_texture_marker!(
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 #[must_use = "the access is recorded even when the token is ignored; keep the token for execution"]
 pub struct AccessToken<'frame, Role: AccessMarker> {
+    pub(crate) owner: u64,
+    pub(crate) recording: u64,
     pass: PassId,
     access: AccessId,
     resource: ResourceId,
@@ -1093,6 +1095,8 @@ impl<'a, 'frame> PassBuilder<'a, 'frame> {
             value: None,
         });
         Ok(AccessToken {
+            owner: self.frame.owner,
+            recording: self.frame.recording,
             pass: node.id,
             access: id,
             resource,

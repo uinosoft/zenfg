@@ -1117,7 +1117,7 @@ export type FrameGraphGpuTimingReport =
 	| {
 		readonly status: 'unavailable';
 		readonly frameIndex: number;
-		readonly reason: 'unsupported' | 'busy' | 'readback-failed' | 'no-timed-nodes';
+		readonly reason: 'unsupported' | 'busy' | 'readback-failed' | 'no-timed-nodes' | 'too-many-timed-nodes';
 	};
 
 /**

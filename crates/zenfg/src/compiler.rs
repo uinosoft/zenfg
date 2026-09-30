@@ -111,6 +111,8 @@ impl PhysicalAllocationPlan {
 /// consumes the value, performs a complete preflight, encodes retained work, and
 /// returns transient allocations to the owning graph's pool.
 pub struct CompiledFrame<'frame> {
+    pub(crate) owner: u64,
+    pub(crate) recording: u64,
     pub(crate) graph: &'frame mut crate::FrameGraph,
     pub(crate) plan: CompiledPlan,
     pub(crate) report: Option<CompilationReport>,
@@ -392,6 +394,8 @@ pub(crate) fn compile<'frame>(
 
     let Frame {
         graph,
+        owner,
+        recording,
         resources,
         views: _,
         native_resources,
@@ -416,6 +420,8 @@ pub(crate) fn compile<'frame>(
     executors.retain(|pass, _| retained.contains(pass));
 
     Ok(CompiledFrame {
+        owner,
+        recording,
         graph,
         plan,
         report,
