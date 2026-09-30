@@ -6,8 +6,9 @@ use std::{
 };
 
 use zenfg::{
-    BufferDesc, BufferRange, ColorAttachmentOps, CompilationReport, CompileOptions, Frame,
-    FrameGraph, RootReason, TextureDesc, TextureViewDesc, WriteContents,
+    BufferDesc, BufferRange, BufferTextureCopyLocation, ColorAttachmentOps, CompilationReport,
+    CompileOptions, Frame, FrameGraph, ImportTextureOptions, InitialContents, RootReason,
+    TextureCopyLocation, TextureDesc, TextureViewDesc, WriteContents,
     snapshot::{
         CreateFrameGraphSnapshotOptions, create_frame_graph_snapshot, parse_frame_graph_snapshot,
         to_json_pretty, validate_frame_graph_snapshot,
@@ -24,7 +25,60 @@ const CASES: &[ProducerCase] = &[
     ("texture-subresource", texture_subresource),
     ("external-submission", external_submission),
     ("aliasing", aliasing),
+    ("texture-buffer-contiguous", || texture_buffer_copies(false)),
+    ("texture-buffer-padding", || texture_buffer_copies(true)),
 ];
+
+fn texture_buffer_copies(padded: bool) -> CompilationReport {
+    compile(|frame| {
+        let prefix = if padded { "padding" } else { "contiguous" };
+        let mut desc = TextureDesc::new_2d(
+            format!("{prefix}.source"),
+            1,
+            2,
+            wgpu::TextureFormat::Rgba8Unorm,
+        );
+        desc.size.depth_or_array_layers = 2;
+        let source = frame
+            .import_texture(desc, ImportTextureOptions::new(InitialContents::Defined))
+            .unwrap();
+        let bytes_per_row = if padded { 256 } else { 4 };
+        let rows_per_image = if padded { 4 } else { 2 };
+        let size = u64::from(bytes_per_row * rows_per_image + bytes_per_row + 4);
+        let destination = frame
+            .create_buffer(BufferDesc::new(format!("{prefix}.destination"), 4 + size))
+            .unwrap();
+        frame
+            .clear_buffer(
+                format!("{prefix}.initialize"),
+                destination,
+                BufferRange::new(4, size),
+            )
+            .unwrap();
+        let mut copy = frame.copy_pass(format!("{prefix}.copy"));
+        copy.copy_texture_to_buffer(
+            TextureCopyLocation::new(source),
+            BufferTextureCopyLocation::new(
+                destination,
+                wgpu::TexelCopyBufferLayout {
+                    offset: 4,
+                    bytes_per_row: Some(bytes_per_row),
+                    rows_per_image: Some(rows_per_image),
+                },
+            ),
+            wgpu::Extent3d {
+                width: 1,
+                height: 2,
+                depth_or_array_layers: 2,
+            },
+        )
+        .unwrap();
+        copy.finish().unwrap();
+        frame
+            .mark_buffer_root(destination, BufferRange::new(4, size), RootReason::Output)
+            .unwrap();
+    })
+}
 
 #[test]
 fn mirror_producers_are_deterministic_and_cross_validate_typescript_output() {

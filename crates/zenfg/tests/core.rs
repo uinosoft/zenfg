@@ -11,6 +11,80 @@ fn full_options() -> CompileOptions {
 }
 
 #[test]
+fn texture_readback_preserves_only_actual_padding() {
+    for (width, height, depth, row_stride, image_rows, size, preserve) in [
+        (2, 2, 1, 8, None, 16, false),
+        (1, 1, 1, 256, Some(8), 4, false),
+        (2, 2, 1, 8, Some(8), 16, false),
+        (1, 2, 1, 256, None, 260, true),
+        (1, 1, 2, 256, Some(4), 1028, true),
+        (1, 2, 2, 4, Some(2), 16, false),
+    ] {
+        for initialized in [false, true] {
+            let mut graph = FrameGraph::new();
+            let mut frame = graph.begin_frame();
+            let mut desc =
+                TextureDesc::new_2d("source", width, height, wgpu::TextureFormat::Rgba8Unorm);
+            desc.size.depth_or_array_layers = depth;
+            let source = frame
+                .import_texture(desc, ImportTextureOptions::new(InitialContents::Defined))
+                .unwrap();
+            let destination = frame
+                .create_buffer(BufferDesc::new("destination", 4 + size))
+                .unwrap();
+            if initialized {
+                frame
+                    .clear_buffer("initialize", destination, BufferRange::new(4, size))
+                    .unwrap();
+            }
+            let mut copy = frame.copy_pass("readback");
+            copy.copy_texture_to_buffer(
+                TextureCopyLocation::new(source),
+                BufferTextureCopyLocation::new(
+                    destination,
+                    wgpu::TexelCopyBufferLayout {
+                        offset: 4,
+                        bytes_per_row: Some(row_stride),
+                        rows_per_image: image_rows,
+                    },
+                ),
+                wgpu::Extent3d {
+                    width,
+                    height,
+                    depth_or_array_layers: depth,
+                },
+            )
+            .unwrap();
+            copy.finish().unwrap();
+            frame
+                .mark_buffer_root(destination, BufferRange::new(4, size), RootReason::Output)
+                .unwrap();
+            let result = frame.compile(full_options());
+            if preserve && !initialized {
+                assert_eq!(result.unwrap_err().code(), "FG1002");
+                continue;
+            }
+            let compiled = result.unwrap();
+            let report = compiled.report().unwrap().full.as_ref().unwrap();
+            let expected = if preserve {
+                vec!["initialize", "readback"]
+            } else {
+                vec!["readback"]
+            };
+            assert_eq!(
+                report
+                    .nodes
+                    .iter()
+                    .map(|node| node.label.as_str())
+                    .collect::<Vec<_>>(),
+                expected
+            );
+            assert_eq!(report.accesses.last().unwrap().consumes_previous, preserve);
+        }
+    }
+}
+
+#[test]
 fn ranged_roots_resolve_initial_contents_multiple_producers_and_duplicates() {
     let mut graph = FrameGraph::new();
     let mut frame = graph.begin_frame();

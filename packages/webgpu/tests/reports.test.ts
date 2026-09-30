@@ -11,6 +11,7 @@ import {
 	type FrameGraphRecorder,
 } from '../src/index.ts';
 import { estimateTextureByteSize } from '../src/resourceDescriptors.ts';
+import { createFrameGraphSnapshot } from '../src/snapshot.ts';
 import { buffer, mockCommandEncoder, mockDevice, texture, textureUsage } from './testUtils.ts';
 
 function timingDevice(options: {
@@ -415,6 +416,58 @@ test('GPU timing is asynchronous while ordinary execution is synchronous', async
 		status: 'available', frameIndex: 7, frameDurationMicros: 5,
 		nodes: [{ nodeId: 1, kind: 'compute', label: 'compute-output', durationMicros: 5 }],
 	});
+});
+
+test('GPU timing query limit skips timing resources while preserving execution and CPU results', async () => {
+	for (const timing of ['gpu', 'both'] as const) {
+		for (const count of [2048, 2049]) {
+			let submitted = 0;
+			let executed = 0;
+			let bufferCreations = 0;
+			const queryCounts: number[] = [];
+			const device = timingDevice({
+				timestamps: Array.from({ length: 4096 }, (_, index) => BigInt(index)),
+				onSubmit: () => submitted++,
+			});
+			const createQuerySet = device.createQuerySet.bind(device);
+			const createBuffer = device.createBuffer.bind(device);
+			device.createQuerySet = (desc) => {
+				queryCounts.push(desc.count);
+				return createQuerySet(desc);
+			};
+			device.createBuffer = (desc) => {
+				bufferCreations++;
+				return createBuffer(desc);
+			};
+			const runtime = new FrameGraph(device);
+			const recorder = runtime.beginFrame();
+			for (let index = 0; index < count; index++) {
+				recorder.compute({ label: `timed-${index}`, sideEffect: true, encode: () => { executed++; } });
+			}
+			const compiled = recorder.compile({ report: true });
+			const result = compiled.executeWithTiming({ timing, frameIndex: 5 });
+			const gpu = await result.gpu!;
+			assert.equal(executed, count);
+			assert.equal(submitted, 1);
+			assert.equal(result.cpu?.nodes.length, timing === 'both' ? count : undefined);
+			assert.deepEqual(queryCounts, count === 2048 ? [4096] : []);
+			assert.equal(bufferCreations, count === 2048 ? 2 : 0);
+			if (count === 2048) {
+				assert.equal(gpu.status, 'available');
+			} else {
+				assert.deepEqual(gpu, { status: 'unavailable', frameIndex: 5, reason: 'too-many-timed-nodes' });
+				const snapshot = createFrameGraphSnapshot({
+					compilation: compiled.compilationReport, frameIndex: 5, gpuTiming: gpu,
+				});
+				assert.deepEqual({ ...snapshot.timings.gpu }, { status: 'unavailable', reason: 'too-many-timed-nodes' });
+				const small = runtime.beginFrame();
+				small.compute({ label: 'small', sideEffect: true });
+				assert.equal((await small.compile().executeWithTiming({ timing: 'gpu' }).gpu!).status, 'available');
+				assert.deepEqual(queryCounts, [2]);
+			}
+			runtime.destroy();
+		}
+	}
 });
 
 test('concurrent GPU timing requests execute and report busy', async () => {

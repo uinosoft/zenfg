@@ -215,6 +215,86 @@
       { "code": "legacy-root", "path": "/compilation/roots/0", "message": "Legacy root must reference exactly one node or resource." },
       { "code": "legacy-structure", "path": "/gpuTiming/nodes/0", "message": "Expected an object." }
     ] },
-    { "id": "malformed-json", "file": "invalid/malformed-json.txt", "input": "json-text", "category": "malformed-json", "schemaValid": "not-applicable", "runtimeValid": false, "issues": [{ "code": "invalid-json", "path": "", "message": "Invalid JSON." }] }
+    { "id": "malformed-json", "file": "invalid/malformed-json.txt", "input": "json-text", "category": "malformed-json", "schemaValid": "not-applicable", "runtimeValid": false, "issues": [{ "code": "invalid-json", "path": "", "message": "Invalid JSON." }] },
+    {
+      "id": "group-parent-chains",
+      "file": "invalid/group-parent-chains.json",
+      "input": "validator",
+      "category": "semantic-invalid",
+      "schemaValid": true,
+      "runtimeValid": false,
+      "issues": [
+        {
+          "code": "duplicate-id",
+          "path": "/graph/groups/7/id",
+          "message": "Entity id \"group:root\" is already declared at /graph/groups/5/id."
+        },
+        {
+          "code": "duplicate-id",
+          "path": "/graph/groups/8/id",
+          "message": "Entity id \"group:a\" is already declared at /graph/groups/0/id."
+        },
+        {
+          "code": "duplicate-id",
+          "path": "/graph/groups/10/id",
+          "message": "Entity id \"group:root\" is already declared at /graph/groups/5/id."
+        },
+        {
+          "code": "duplicate-id",
+          "path": "/graph/groups/11/id",
+          "message": "Entity id \"group:child\" is already declared at /graph/groups/6/id."
+        },
+        {
+          "code": "invalid-group-order",
+          "path": "/graph/groups/0/parentId",
+          "message": "A group parent must appear before its child."
+        },
+        {
+          "code": "group-cycle",
+          "path": "/graph/groups/0/parentId",
+          "message": "Group parent references form a cycle."
+        },
+        {
+          "code": "group-cycle",
+          "path": "/graph/groups/1/parentId",
+          "message": "Group parent references form a cycle."
+        },
+        {
+          "code": "group-cycle",
+          "path": "/graph/groups/2/parentId",
+          "message": "Group parent references form a cycle."
+        },
+        {
+          "code": "invalid-group-order",
+          "path": "/graph/groups/3/parentId",
+          "message": "A group parent must appear before its child."
+        },
+        {
+          "code": "group-cycle",
+          "path": "/graph/groups/3/parentId",
+          "message": "Group parent references form a cycle."
+        },
+        {
+          "code": "missing-reference",
+          "path": "/graph/groups/4/parentId",
+          "message": "Unknown group id \"group:ghost\"."
+        },
+        {
+          "code": "group-cycle",
+          "path": "/graph/groups/7/parentId",
+          "message": "Group parent references form a cycle."
+        },
+        {
+          "code": "group-cycle",
+          "path": "/graph/groups/9/parentId",
+          "message": "Group parent references form a cycle."
+        },
+        {
+          "code": "missing-reference",
+          "path": "/graph/groups/10/parentId",
+          "message": "Unknown group id \"group:ghost\"."
+        }
+      ]
+    }
   ]
 }

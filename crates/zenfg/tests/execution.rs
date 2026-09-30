@@ -637,6 +637,101 @@ fn wrong_pass_token_is_rejected_at_execution() {
 }
 
 #[test]
+fn foreign_buffer_tokens_with_colliding_local_ids_are_rejected() {
+    let (device, queue) = noop_device();
+    let native = native_buffer(&device, 4, wgpu::BufferUsages::STORAGE);
+    let mut first_graph = FrameGraph::with_device(&device);
+    let mut second_graph = FrameGraph::with_device(&device);
+    let mut first_frame = first_graph.begin_frame();
+    let mut second_frame = second_graph.begin_frame();
+    let options = ImportBufferOptions::new(InitialContents::Defined);
+    let first_buffer = first_frame
+        .import_buffer(BufferDesc::new("first", 4), options)
+        .unwrap();
+    let second_buffer = second_frame
+        .import_buffer(BufferDesc::new("second", 4), options)
+        .unwrap();
+    second_frame
+        .bind_imported_buffer(second_buffer, &native)
+        .unwrap();
+    let mut first = first_frame.command_pass("first");
+    let foreign = first
+        .storage_buffer_read(first_buffer, BufferRange::whole())
+        .unwrap();
+    first.finish_command(|_| Ok(())).unwrap();
+    let mut second = second_frame.command_pass("second");
+    let own = second
+        .storage_buffer_read(second_buffer, BufferRange::whole())
+        .unwrap();
+    assert_eq!(foreign.pass_id(), own.pass_id());
+    assert_eq!(foreign.access_id(), own.access_id());
+    assert_eq!(foreign.resource_id(), own.resource_id());
+    assert_ne!(foreign, own);
+    second
+        .finish_command(move |ctx| {
+            assert_eq!(ctx.resources.buffer(own)?, &native);
+            assert!(matches!(
+                ctx.resources.buffer(foreign),
+                Err(FrameGraphError::ForeignHandle { .. })
+            ));
+            Ok(())
+        })
+        .unwrap();
+    second_frame
+        .compile(CompileOptions::default())
+        .unwrap()
+        .execute(&queue)
+        .unwrap();
+}
+
+#[test]
+fn foreign_texture_tokens_are_rejected_in_external_resource_context() {
+    let (device, queue) = noop_device();
+    let native = native_texture(&device, wgpu::TextureUsages::TEXTURE_BINDING);
+    let mut first_graph = FrameGraph::with_device(&device);
+    let mut second_graph = FrameGraph::with_device(&device);
+    let mut first_frame = first_graph.begin_frame();
+    let mut second_frame = second_graph.begin_frame();
+    let descriptor = TextureDesc::new_2d("texture", 4, 4, wgpu::TextureFormat::Rgba8Unorm);
+    let options = ImportTextureOptions::new(InitialContents::Defined);
+    let first_texture = first_frame
+        .import_texture(descriptor.clone(), options)
+        .unwrap();
+    let second_texture = second_frame.import_texture(descriptor, options).unwrap();
+    second_frame
+        .bind_imported_texture(second_texture, &native)
+        .unwrap();
+    let mut first = first_frame.external_submission("first");
+    let foreign = first.sampled_texture(first_texture).unwrap();
+    first.finish_external(|_| Ok(())).unwrap();
+    let mut second = second_frame.external_submission("second");
+    let own = second.sampled_texture(second_texture).unwrap();
+    assert_eq!(foreign.pass_id(), own.pass_id());
+    assert_eq!(foreign.access_id(), own.access_id());
+    assert_eq!(foreign.resource_id(), own.resource_id());
+    second
+        .finish_external(move |ctx| {
+            assert_eq!(ctx.resources.texture(own)?, &native);
+            let _ = ctx.resources.texture_view(own)?;
+            assert!(matches!(
+                ctx.resources.texture(foreign),
+                Err(FrameGraphError::ForeignHandle { .. })
+            ));
+            assert!(matches!(
+                ctx.resources.texture_view(foreign),
+                Err(FrameGraphError::ForeignHandle { .. })
+            ));
+            Ok(())
+        })
+        .unwrap();
+    second_frame
+        .compile(CompileOptions::default())
+        .unwrap()
+        .execute(&queue)
+        .unwrap();
+}
+
+#[test]
 fn external_submission_is_an_ordered_segment() {
     let (device, queue) = noop_device();
     let order = Arc::new(Mutex::new(Vec::new()));
@@ -1516,27 +1611,67 @@ fn callback_panic_does_not_leave_gpu_timing_busy() {
 fn too_many_timed_nodes_is_non_fatal_and_immediately_reported() {
     let (device, queue) = timestamp_device();
     let mut graph = FrameGraph::with_device(&device);
-    let mut frame = graph.begin_frame();
-    for index in 0..(wgpu::QUERY_SET_MAX_QUERIES / 2 + 1) {
-        let mut pass = frame.compute_pass(format!("compute-{index}"));
-        pass.set_side_effect(true);
-        pass.finish_compute(|_| Ok(())).unwrap();
+    for mode in [zenfg::TimingMode::Gpu, zenfg::TimingMode::Both] {
+        for count in [
+            wgpu::QUERY_SET_MAX_QUERIES / 2,
+            wgpu::QUERY_SET_MAX_QUERIES / 2 + 1,
+        ] {
+            let executed = Arc::new(AtomicUsize::new(0));
+            let mut frame = graph.begin_frame();
+            for index in 0..count {
+                let mut pass = frame.compute_pass(format!("compute-{index}"));
+                pass.set_side_effect(true);
+                let executed = executed.clone();
+                pass.finish_compute(move |_| {
+                    executed.fetch_add(1, Ordering::SeqCst);
+                    Ok(())
+                })
+                .unwrap();
+            }
+            let timing = frame
+                .compile(CompileOptions::default())
+                .unwrap()
+                .execute_with_timing(
+                    &queue,
+                    ExecutionOptions::default().with_frame_index(88),
+                    mode,
+                )
+                .unwrap();
+            assert_eq!(executed.load(Ordering::SeqCst), count as usize);
+            assert_eq!(
+                timing.cpu.as_ref().map(|cpu| cpu.nodes.len()),
+                (mode == zenfg::TimingMode::Both).then_some(count as usize)
+            );
+            let mut readback = timing.gpu.expect("GPU timing requested");
+            if count > wgpu::QUERY_SET_MAX_QUERIES / 2 {
+                assert_eq!(
+                    readback.try_take(),
+                    Some(GpuTimingReport::Unavailable {
+                        frame_index: 88,
+                        reason: GpuTimingUnavailableReason::TooManyTimedNodes,
+                    })
+                );
+            } else {
+                assert!(matches!(
+                    take_timing(&mut readback),
+                    GpuTimingReport::Available { .. }
+                ));
+            }
+            let mut small = graph.begin_frame();
+            let mut pass = small.compute_pass("small");
+            pass.set_side_effect(true);
+            pass.finish_compute(|_| Ok(())).unwrap();
+            let mut readback = small
+                .compile(CompileOptions::default())
+                .unwrap()
+                .execute_with_timing(&queue, ExecutionOptions::default(), mode)
+                .unwrap()
+                .gpu
+                .unwrap();
+            assert!(matches!(
+                take_timing(&mut readback),
+                GpuTimingReport::Available { .. }
+            ));
+        }
     }
-    let mut readback = frame
-        .compile(CompileOptions::default())
-        .unwrap()
-        .execute_with_timing(
-            &queue,
-            ExecutionOptions::default().with_frame_index(88),
-            zenfg::TimingMode::Gpu,
-        )
-        .map(|timing| timing.gpu.expect("GPU timing requested"))
-        .unwrap();
-    assert_eq!(
-        readback.try_take(),
-        Some(GpuTimingReport::Unavailable {
-            frame_index: 88,
-            reason: GpuTimingUnavailableReason::TooManyTimedNodes,
-        })
-    );
 }

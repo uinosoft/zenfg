@@ -17,6 +17,8 @@ import {
 	stringifyFrameGraphSnapshot,
 	validateFrameGraphSnapshot,
 	type FrameGraphSnapshot,
+	type FrameGraphSnapshotGroup,
+	type FrameGraphSnapshotIssue,
 } from '../src/index.ts';
 
 const schema = readJson('../schema/frame-graph-snapshot-v1.schema.json');
@@ -274,6 +276,68 @@ test('rejects duplicate IDs, dangling and wrong-kind references, and group cycle
 	const cycle: any = clone(decodeFixture('full-webgpu.fgsnapshot.json'));
 	cycle.graph.groups[0]!.parentId = 'group:postfx';
 	assertIssue(cycle, 'group-cycle', '/graph/groups/0/parentId');
+});
+
+test('validates deep and wide group forests without recursive ancestor walks', () => {
+	const base = decodeFixture('minimal.fgsnapshot.json');
+	for (const shape of ['deep', 'wide'] as const) {
+		const groups = Array.from({ length: 10000 }, (_, index) => ({
+			id: `group:${index}`, label: `${index}`,
+			...(index === 0 ? {} : { parentId: `group:${shape === 'deep' ? index - 1 : 0}` }),
+		}));
+		const snapshot = { ...base, graph: { ...base.graph, groups } };
+		const decoded = parseFrameGraphSnapshot(JSON.stringify(snapshot));
+		assert.equal(decoded.ok, true, shape);
+		assert.deepEqual(validateFrameGraphSnapshot(snapshot), [], shape);
+	}
+});
+
+test('group issues retain their exact messages and output order', () => {
+	const manifest = readJson('../conformance/manifest.json') as {
+		cases: { id: string; file: string; issues: Pick<FrameGraphSnapshotIssue, 'code' | 'path' | 'message'>[] }[];
+	};
+	const entry = manifest.cases.find((entry) => entry.id === 'group-parent-chains')!;
+	const issues = validateFrameGraphSnapshot(readJson(`../conformance/${entry.file}`));
+	assert.deepEqual(issues.map(({ code, path, message }) => ({ code, path, message })), entry.issues);
+});
+
+test('group indexing matches first-match ancestor semantics across small graphs with duplicate IDs', () => {
+	const base = decodeFixture('minimal.fgsnapshot.json');
+	let seed = 37;
+	const random = (size: number) => {
+		seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
+		return Math.floor(seed / 0x100000000 * size);
+	};
+	for (let iteration = 0; iteration < 300; iteration++) {
+		const groups: FrameGraphSnapshotGroup[] = Array.from({ length: 12 }, (_, index) => {
+			const parent = random(10);
+			return { id: `group:${random(8)}`, label: `${index}`, ...(parent === 9 ? {} : { parentId: `group:${parent}` }) };
+		});
+		const expected: Pick<FrameGraphSnapshotIssue, 'code' | 'path' | 'message'>[] = [];
+		const paths = new Map<string, string>();
+		groups.forEach((group, index) => {
+			const path = `/graph/groups/${index}/id`;
+			if (paths.has(group.id)) expected.push({ code: 'duplicate-id', path, message: `Entity id "${group.id}" is already declared at ${paths.get(group.id)}.` });
+			else paths.set(group.id, path);
+		});
+		groups.forEach((group, index) => {
+			const path = `/graph/groups/${index}/parentId`;
+			if (group.parentId && !paths.has(group.parentId)) expected.push({ code: 'missing-reference', path, message: `Unknown group id "${group.parentId}".` });
+			if (group.parentId && groups.findIndex((candidate) => candidate.id === group.parentId) >= index) expected.push({ code: 'invalid-group-order', path, message: 'A group parent must appear before its child.' });
+			const seen = new Set([group.id]);
+			let parent = group.parentId;
+			while (parent) {
+				if (seen.has(parent)) {
+					expected.push({ code: 'group-cycle', path, message: 'Group parent references form a cycle.' });
+					break;
+				}
+				seen.add(parent);
+				parent = groups.find((candidate) => candidate.id === parent)?.parentId;
+			}
+		});
+		const actual = validateFrameGraphSnapshot({ ...base, graph: { ...base.graph, groups } });
+		assert.deepEqual(actual.map(({ code, path, message }) => ({ code, path, message })), expected, `iteration ${iteration}`);
+	}
 });
 
 test('rejects invalid integers, non-finite timing and extension values', () => {

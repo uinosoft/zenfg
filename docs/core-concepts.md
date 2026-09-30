@@ -280,6 +280,10 @@ including node-local preparation and cleanup, not thread CPU usage. External
 nodes include synchronous submission in their callbacks. Execution total also
 includes shared preparation, submission and transient release. It excludes
 recording, compilation, GPU waiting, report projection and Inspector updates.
+GPU timing uses two queries per retained render/compute pass. Above 2048 such
+passes, both runtimes return timing unavailability before allocating query
+resources and still execute the graph; `both` continues to provide CPU results.
+
 Only successful execution produces a CPU report. GPU timing spans the first
 retained render/compute pass start through the last such pass end; it does not
 measure other node kinds. When no such pass is retained, GPU timing is

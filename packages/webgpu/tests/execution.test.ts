@@ -415,6 +415,37 @@ test('clear buffer snapshots operation objects and the operations array', () => 
 	assert.deepEqual(calls, ['snapshot-target:4:8']);
 });
 
+test('clear defaults stop at the imported logical buffer boundary', () => {
+	for (const operation of [{}, { offset: 16 }, { offset: 8, size: 12 }, { offset: 64 }, { offset: 16, size: 0 }]) {
+		const bytes = new Uint8Array(128).fill(127);
+		const calls: { offset: number; size: number | undefined }[] = [];
+		const encoder = mockCommandEncoder({
+			clearBuffer(_target: GPUBuffer, offset = 0, size?: number) {
+				calls.push({ offset, size });
+				bytes.fill(0, offset, size === undefined ? bytes.length : offset + size);
+			},
+		});
+		const graph = new FrameGraph(mockDevice(encoder)).beginFrame();
+		const target = graph.importBuffer(buffer('native-128', bufferUsage.COPY_DST, 128), { exposedSize: 64 });
+		graph.clearBuffer({ sideEffect: true, operations: [{ target, ...operation }] });
+		const compiled = graph.compile({ report: true });
+		const offset = operation.offset ?? 0;
+		const size = operation.size ?? 64 - offset;
+		assert.deepEqual(compiled.compilationReport.accesses[0]?.bufferRange, { offset, size });
+		compiled.execute();
+		assert.deepEqual(calls, [{ offset, size }]);
+		const expected = new Uint8Array(128).fill(127);
+		expected.fill(0, offset, offset + size);
+		assert.deepEqual(bytes, expected);
+	}
+	for (const operation of [{ offset: 65 }, { offset: 60, size: 8 }, { size: -1 }]) {
+		const graph = new FrameGraph(mockDevice()).beginFrame();
+		const target = graph.importBuffer(buffer('native-128', bufferUsage.COPY_DST, 128), { exposedSize: 64 });
+		graph.clearBuffer({ sideEffect: true, operations: [{ target, ...operation }] });
+		assert.throws(() => graph.compile(), (error: unknown) => error instanceof FrameGraphError && error.code === 'FG1103');
+	}
+});
+
 test('command encode can only unwrap declared imported resources', () => {
 	const device = mockDevice();
 	const graph = new FrameGraph(device).beginFrame();

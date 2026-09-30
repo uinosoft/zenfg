@@ -203,6 +203,8 @@ pub struct ExternalSubmissionContext<'execute> {
 /// remain caller-owned and may also be held independently by the caller.
 #[derive(Clone, Copy)]
 pub struct ExecutionResources<'execute> {
+    owner: u64,
+    recording: u64,
     pass: PassId,
     accesses: &'execute HashMap<AccessId, AccessRecord>,
     native: &'execute HashMap<ResourceId, NativeResource>,
@@ -212,15 +214,15 @@ pub struct ExecutionResources<'execute> {
 impl<'execute> ExecutionResources<'execute> {
     /// Resolves a buffer access token declared by the executing pass.
     ///
-    /// Returns [`FrameGraphError::WrongPassToken`] if the token belongs to a
-    /// different pass, or [`FrameGraphError::MissingNativeBinding`] when an
-    /// imported buffer was not bound.
+    /// Returns [`FrameGraphError::ForeignHandle`] for another graph or recording,
+    /// [`FrameGraphError::WrongPassToken`] for another pass in this recording,
+    /// or [`FrameGraphError::MissingNativeBinding`] when an imported buffer was
+    /// not bound.
     pub fn buffer<Role: BufferAccessMarker>(
         &self,
         token: AccessToken<'_, Role>,
     ) -> Result<&'execute wgpu::Buffer, FrameGraphError> {
-        let access =
-            self.validate_token(token.pass_id(), token.access_id(), token.resource_id())?;
+        let access = self.validate_token(token)?;
         match self.native.get(&access.resource) {
             Some(NativeResource::Buffer(buffer)) => Ok(buffer),
             Some(NativeResource::Texture(_)) => Err(FrameGraphError::Internal {
@@ -240,8 +242,7 @@ impl<'execute> ExecutionResources<'execute> {
         &self,
         token: AccessToken<'_, Role>,
     ) -> Result<&'execute wgpu::Texture, FrameGraphError> {
-        let access =
-            self.validate_token(token.pass_id(), token.access_id(), token.resource_id())?;
+        let access = self.validate_token(token)?;
         match self.native.get(&access.resource) {
             Some(NativeResource::Texture(texture)) => Ok(texture),
             Some(NativeResource::Buffer(_)) => Err(FrameGraphError::Internal {
@@ -261,8 +262,7 @@ impl<'execute> ExecutionResources<'execute> {
         &self,
         token: AccessToken<'_, Role>,
     ) -> Result<&'execute wgpu::TextureView, FrameGraphError> {
-        let access =
-            self.validate_token(token.pass_id(), token.access_id(), token.resource_id())?;
+        let access = self.validate_token(token)?;
         self.views
             .get(&access.id)
             .ok_or_else(|| FrameGraphError::Internal {
@@ -270,12 +270,21 @@ impl<'execute> ExecutionResources<'execute> {
             })
     }
 
-    fn validate_token(
+    fn validate_token<Role: crate::AccessMarker>(
         &self,
-        token_pass: PassId,
-        access_id: AccessId,
-        resource: ResourceId,
+        token: AccessToken<'_, Role>,
     ) -> Result<&'execute AccessRecord, FrameGraphError> {
+        if token.owner != self.owner || token.recording != self.recording {
+            return Err(FrameGraphError::ForeignHandle {
+                expected_owner: self.owner,
+                expected_recording: self.recording,
+                actual_owner: token.owner,
+                actual_recording: token.recording,
+            });
+        }
+        let token_pass = token.pass_id();
+        let access_id = token.access_id();
+        let resource = token.resource_id();
         if token_pass != self.pass {
             return Err(FrameGraphError::WrongPassToken {
                 executing_pass: self.pass,
@@ -335,6 +344,8 @@ fn execute_internal(
     FrameGraphError,
 > {
     let CompiledFrame {
+        owner,
+        recording,
         graph,
         plan,
         report: _,
@@ -458,6 +469,8 @@ fn execute_internal(
                             })?;
                     let node_start = cpu_timing.then(cpu_now);
                     let resources = ExecutionResources {
+                        owner,
+                        recording,
                         pass: *pass,
                         accesses: &access_map,
                         native: &execution_native,
@@ -647,6 +660,8 @@ fn execute_internal(
                     device: &device,
                     queue,
                     resources: ExecutionResources {
+                        owner,
+                        recording,
                         pass,
                         accesses: &access_map,
                         native: &execution_native,
@@ -1104,4 +1119,42 @@ fn create_execution_views(
         }
     }
     Ok(result)
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::{
+        BufferDesc, BufferRange, CompileOptions, FrameGraph, FrameGraphError, WriteContents,
+    };
+
+    #[test]
+    fn token_recording_identity_is_checked_before_pass_identity() {
+        let (device, queue) = wgpu::Device::noop(&wgpu::DeviceDescriptor::default());
+        let mut graph = FrameGraph::with_device(&device);
+        let mut frame = graph.begin_frame();
+        let buffer = frame.create_buffer(BufferDesc::new("buffer", 4)).unwrap();
+        let mut first = frame.command_pass("first");
+        let mut foreign = first
+            .storage_buffer_write(buffer, BufferRange::whole(), WriteContents::Overwrite)
+            .unwrap();
+        // Public lifetimes prevent carrying tokens across this graph's recordings.
+        // Alter only the private recording identity to exercise the runtime check.
+        foreign.recording += 1;
+        first.finish_command(|_| Ok(())).unwrap();
+        frame
+            .command_pass("second")
+            .finish_command(move |ctx| {
+                assert!(matches!(
+                    ctx.resources.buffer(foreign),
+                    Err(FrameGraphError::ForeignHandle { .. })
+                ));
+                Ok(())
+            })
+            .unwrap();
+        frame
+            .compile(CompileOptions::default())
+            .unwrap()
+            .execute(&queue)
+            .unwrap();
+    }
 }

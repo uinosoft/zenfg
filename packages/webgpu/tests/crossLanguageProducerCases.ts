@@ -7,7 +7,7 @@ import {
 	TextureAccess,
 	type FrameGraphCompilationReport,
 } from '../src/index.ts';
-import { mockDevice } from './testUtils.ts';
+import { mockDevice, texture, textureUsage } from './testUtils.ts';
 
 export const CROSS_LANGUAGE_PRODUCER_CASES = [
 	'linear-dependency',
@@ -17,6 +17,8 @@ export const CROSS_LANGUAGE_PRODUCER_CASES = [
 	'texture-subresource',
 	'external-submission',
 	'aliasing',
+	'texture-buffer-contiguous',
+	'texture-buffer-padding',
 ] as const;
 
 export type CrossLanguageProducerCase = typeof CROSS_LANGUAGE_PRODUCER_CASES[number];
@@ -29,7 +31,26 @@ const CASE_BUILDERS: Record<CrossLanguageProducerCase, () => FrameGraphCompilati
 	'texture-subresource': textureSubresource,
 	'external-submission': externalSubmission,
 	'aliasing': aliasing,
+	'texture-buffer-contiguous': () => textureBufferCopies(false),
+	'texture-buffer-padding': () => textureBufferCopies(true),
 };
+
+function textureBufferCopies(padded: boolean): FrameGraphCompilationReport {
+	return compile((graph) => {
+		const prefix = padded ? 'padding' : 'contiguous';
+		const source = graph.importTexture(texture(`${prefix}.source`, textureUsage.COPY_SRC, { size: [1, 2, 2] }));
+		const bytesPerRow = padded ? 256 : 4;
+		const rowsPerImage = padded ? 4 : 2;
+		const size = bytesPerRow * rowsPerImage + bytesPerRow + 4;
+		const destination = graph.createBuffer({ label: `${prefix}.destination`, size: 4 + size });
+		graph.clearBuffer({ label: `${prefix}.initialize`, operations: [{ target: destination, offset: 4, size }] });
+		graph.copy({ label: `${prefix}.copy`, operations: [{
+			type: 'texture-to-buffer', source, destination,
+			destinationLayout: { offset: 4, bytesPerRow, rowsPerImage }, copySize: [1, 2, 2],
+		}] });
+		graph.markOutput(destination, { offset: 4, size });
+	});
+}
 
 /** Produces the runtime-derived TypeScript half of the cross-language corpus. */
 export function createTypeScriptProducerSnapshots(): ReadonlyMap<CrossLanguageProducerCase, FrameGraphSnapshot> {

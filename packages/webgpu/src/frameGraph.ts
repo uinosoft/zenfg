@@ -8,7 +8,6 @@ import {
 	type BufferUseOptions,
 	type BufferWriteUseOptions,
 	type ClearBufferNodeDesc,
-	type ClearBufferOperation,
 	type CommandEncodeContext,
 	type CommandNodeDesc,
 	type CompiledFrame,
@@ -80,6 +79,7 @@ import {
 } from './handles.ts';
 import type {
 	InternalAccess,
+	InternalClearBufferOperation,
 	InternalCopyOperation,
 	InternalNode,
 	InternalResource,
@@ -110,7 +110,7 @@ import {
 	type GpuTimingNodeQuery,
 } from './gpuProfiler.ts';
 import {
-	bufferTextureCopyRange,
+	bufferTextureCopyFootprint,
 	defaultTextureCopyAspect,
 	snapshotCopyOperation,
 	textureCopyOverwritesSubresource,
@@ -990,6 +990,8 @@ class FrameGraphRecorderImpl implements FrameGraphRecorder {
 	 * Non-empty buffer-texture copies require a known format footprint for buffer
 	 * dependency tracking. Iterable texture extents and origins are materialized
 	 * when this method is called.
+	 * Texture-to-buffer copies preserve row/image padding in their buffer range;
+	 * initialize undefined padding before copying when that range is observed.
 	 *
 	 * @param desc - Ordered copy operations.
 	 * @throws If the runtime is destroyed, this recorder was consumed, a copy range
@@ -1002,12 +1004,12 @@ class FrameGraphRecorderImpl implements FrameGraphRecorder {
 		const resourceFor = (handle: ResourceHandle) => this.resourceFor(handle);
 		const accesses: InternalAccess[] = [];
 		const operations = desc.operations.map((operation, index) => snapshotCopyOperation(operation, index));
-		const bufferCopyRanges = operations.map((operation) => {
+		const bufferCopyFootprints = operations.map((operation) => {
 			switch (operation.type) {
 				case 'buffer-to-texture':
-					return bufferTextureCopyRange(resourceFor, operation.destination, operation.sourceLayout, operation.copySize);
+					return bufferTextureCopyFootprint(resourceFor, operation.destination, operation.sourceLayout, operation.copySize);
 				case 'texture-to-buffer':
-					return bufferTextureCopyRange(resourceFor, operation.source, operation.destinationLayout, operation.copySize);
+					return bufferTextureCopyFootprint(resourceFor, operation.source, operation.destinationLayout, operation.copySize);
 				default:
 					return undefined;
 			}
@@ -1061,7 +1063,7 @@ class FrameGraphRecorderImpl implements FrameGraphRecorder {
 						? 'overwrite'
 						: 'preserve';
 					accesses.push(this.createAccess(
-						{ resource: operation.source, access: BufferAccess.CopySrc, bufferRange: bufferCopyRanges[operationIndex]! },
+						{ resource: operation.source, access: BufferAccess.CopySrc, bufferRange: bufferCopyFootprints[operationIndex]!.range },
 						false,
 						graphEffect,
 					));
@@ -1071,7 +1073,7 @@ class FrameGraphRecorderImpl implements FrameGraphRecorder {
 				case 'texture-to-buffer': {
 					accesses.push(textureCopyAccess(operation.source, TextureAccess.CopySrc, operation.copySize, operation.sourceMipLevel, operation.sourceOrigin, operation.sourceAspect, false));
 					accesses.push(this.createAccess(
-						{ resource: operation.destination, access: BufferAccess.CopyDst, bufferRange: bufferCopyRanges[operationIndex]!, contents: 'overwrite' },
+						{ resource: operation.destination, access: BufferAccess.CopyDst, bufferRange: bufferCopyFootprints[operationIndex]!.range, contents: bufferCopyFootprints[operationIndex]!.tightlyPacked ? 'overwrite' : 'preserve' },
 						undefined,
 						graphEffect,
 					));
@@ -1103,19 +1105,20 @@ class FrameGraphRecorderImpl implements FrameGraphRecorder {
 	 */
 	clearBuffer(desc: ClearBufferNodeDesc): void {
 		this.assertCanMutate('clearBuffer');
-		const operations: ClearBufferOperation[] = [];
+		const operations: InternalClearBufferOperation[] = [];
 		const accesses: InternalAccess[] = [];
 		for (const operation of desc.operations) {
-			const snapshot: ClearBufferOperation = {
+			const range = this.bufferClearRange(operation.target, operation.offset ?? 0, operation.size);
+			const snapshot: InternalClearBufferOperation = {
 				target: operation.target,
-				offset: operation.offset,
-				size: operation.size,
+				offset: range.offset,
+				size: range.size!,
 			};
 			operations.push(snapshot);
 			accesses.push(this.createAccess({
 				resource: snapshot.target,
 				access: BufferAccess.CopyDst,
-				bufferRange: this.bufferClearRange(snapshot.target, snapshot.offset ?? 0, snapshot.size),
+				bufferRange: range,
 				contents: 'overwrite',
 			}));
 		}
@@ -2004,7 +2007,7 @@ class FrameGraphRecorderImpl implements FrameGraphRecorder {
 		for (const operation of node.clearBufferOperations ?? []) {
 			commandEncoder.clearBuffer(
 				ctx.resolveBuffer(operation.target),
-				operation.offset ?? 0,
+				operation.offset,
 				operation.size,
 			);
 		}
@@ -2018,7 +2021,7 @@ class FrameGraphRecorderImpl implements FrameGraphRecorder {
 		readonly sideEffect: boolean;
 		readonly renderPass?: InternalNode['renderPass'];
 		readonly copyOperations?: readonly InternalCopyOperation[];
-		readonly clearBufferOperations?: readonly ClearBufferOperation[];
+		readonly clearBufferOperations?: readonly InternalClearBufferOperation[];
 		readonly renderEncode?: SynchronousCallback<RenderEncodeContext>;
 		readonly computeEncode?: SynchronousCallback<ComputeEncodeContext>;
 		readonly commandEncode?: SynchronousCallback<CommandEncodeContext>;

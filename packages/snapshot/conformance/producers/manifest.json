@@ -8,6 +8,8 @@
     { "name": "buffer-range", "golden": "goldens/buffer-range.projection.json" },
     { "name": "texture-subresource", "golden": "goldens/texture-subresource.projection.json" },
     { "name": "external-submission", "golden": "goldens/external-submission.projection.json" },
-    { "name": "aliasing", "golden": "goldens/aliasing.projection.json" }
+    { "name": "aliasing", "golden": "goldens/aliasing.projection.json" },
+    { "name": "texture-buffer-contiguous", "golden": "goldens/texture-buffer-contiguous.projection.json" },
+    { "name": "texture-buffer-padding", "golden": "goldens/texture-buffer-padding.projection.json" }
   ]
 }

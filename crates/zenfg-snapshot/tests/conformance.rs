@@ -169,6 +169,50 @@ fn matches_the_shared_conformance_issue_tuples() {
 }
 
 #[test]
+fn group_issues_keep_exact_output_order() {
+    let manifest: Value =
+        serde_json::from_str(&read(corpus().join("conformance/manifest.json"))).unwrap();
+    let case = manifest["cases"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|case| case["id"] == "group-parent-chains")
+        .unwrap();
+    let value: Value = serde_json::from_str(&read(
+        corpus()
+            .join("conformance")
+            .join(case["file"].as_str().unwrap()),
+    ))
+    .unwrap();
+    let actual: Vec<Value> = validate_frame_graph_snapshot(&value)
+        .iter()
+        .map(|issue| {
+            serde_json::json!({
+                "code": issue.code, "path": issue.path, "message": issue.message,
+            })
+        })
+        .collect();
+    assert_eq!(actual, *case["issues"].as_array().unwrap());
+}
+
+#[test]
+fn validates_deep_and_wide_group_forests() {
+    for deep in [true, false] {
+        let mut value: Value =
+            serde_json::from_str(&read(corpus().join("fixtures/minimal.fgsnapshot.json"))).unwrap();
+        value["graph"]["groups"] = Value::Array((0..10000).map(|index| {
+            let mut group = serde_json::json!({ "id": format!("group:{index}"), "label": index.to_string() });
+            if index > 0 {
+                group["parentId"] = Value::String(format!("group:{}", if deep { index - 1 } else { 0 }));
+            }
+            group
+        }).collect());
+        assert!(validate_frame_graph_snapshot(&value).is_empty());
+        assert!(parse_frame_graph_snapshot(&value.to_string()).is_ok());
+    }
+}
+
+#[test]
 fn rejects_unknown_format_and_version_and_validates_programmatic_values() {
     let mut value: Value =
         serde_json::from_str(&read(corpus().join("fixtures/minimal.fgsnapshot.json"))).unwrap();

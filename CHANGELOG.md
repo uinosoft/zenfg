@@ -5,6 +5,19 @@ packages use independent versions; component tags identify each release.
 
 ## Unreleased
 
+- Normalize omitted WebGPU clear ranges to the logical buffer boundary so
+  dependency reports and native commands clear the same bytes.
+- Preserve initialized buffer contents across texture readback footprints with
+  row or layer padding. Unused single-row or single-layer strides do not turn
+  a contiguous copy into a preserving write; both runtimes share these rules.
+- Return WebGPU GPU timing unavailability with `too-many-timed-nodes` when
+  more than 2048 retained render/compute nodes would exceed 4096 queries.
+  Execution still submits normally, and `both` mode retains CPU timing.
+- Reject Rust access tokens from another graph or recording with `ForeignHandle`
+  before resolving colliding local resource IDs.
+- Validate Snapshot group ancestry with a linear iterative traversal while
+  preserving issue messages, ordering, and first-match duplicate-ID references.
+  Traverse WebGPU node retention iteratively to support long dependency chains.
 - Validate device-independent texture descriptor structure and retained
   transient allocation usage before native allocation. Browser WebGPU keeps
   sample counts 1 and 4; Rust preserves native wgpu sample-count capabilities.

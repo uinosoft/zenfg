@@ -1,0 +1,163 @@
+{
+  "projectionVersion": 1,
+  "case": "texture-buffer-contiguous",
+  "graph": {
+    "groups": [],
+    "nodes": [
+      {
+        "label": "contiguous.initialize",
+        "recordingOrder": 0,
+        "kind": "clear-buffer",
+        "sideEffect": false,
+        "group": null,
+        "compileState": {
+          "status": "culled",
+          "reason": "not-reachable-from-root"
+        }
+      },
+      {
+        "label": "contiguous.copy",
+        "recordingOrder": 1,
+        "kind": "copy",
+        "sideEffect": false,
+        "group": null,
+        "compileState": {
+          "status": "retained",
+          "executionOrder": 0
+        }
+      }
+    ],
+    "resources": [
+      {
+        "label": "contiguous.destination",
+        "kind": "buffer",
+        "origin": "transient",
+        "initialContents": "undefined",
+        "group": null,
+        "descriptor": {
+          "kind": "buffer",
+          "size": 20
+        },
+        "usageFlags": [
+          "copy-dst"
+        ],
+        "lifetime": {
+          "firstUse": 0,
+          "lastUse": 0
+        }
+      },
+      {
+        "label": "contiguous.source",
+        "kind": "texture",
+        "origin": "imported",
+        "initialContents": "defined",
+        "group": null,
+        "descriptor": {
+          "kind": "texture",
+          "format": "rgba8unorm",
+          "size": {
+            "width": 1,
+            "height": 2,
+            "depthOrArrayLayers": 2
+          },
+          "dimension": "2d",
+          "mipLevelCount": 1,
+          "sampleCount": 1,
+          "viewFormats": []
+        },
+        "usageFlags": [
+          "copy-src"
+        ],
+        "lifetime": {
+          "firstUse": 0,
+          "lastUse": 0
+        }
+      }
+    ],
+    "textureViews": [],
+    "accesses": [
+      {
+        "node": "contiguous.initialize",
+        "resource": "contiguous.destination",
+        "access": "buffer-copy-dst",
+        "mode": "write",
+        "contents": "overwrite",
+        "producesValue": true,
+        "bufferRange": {
+          "offset": 4,
+          "size": 16
+        }
+      },
+      {
+        "node": "contiguous.copy",
+        "resource": "contiguous.destination",
+        "access": "buffer-copy-dst",
+        "mode": "write",
+        "contents": "overwrite",
+        "producesValue": true,
+        "bufferRange": {
+          "offset": 4,
+          "size": 16
+        }
+      },
+      {
+        "node": "contiguous.copy",
+        "resource": "contiguous.source",
+        "access": "texture-copy-src",
+        "mode": "read",
+        "producesValue": false,
+        "textureRegion": {
+          "baseMipLevel": 0,
+          "mipLevelCount": 1,
+          "baseArrayLayer": 0,
+          "arrayLayerCount": 2,
+          "aspect": "all"
+        }
+      }
+    ],
+    "dependencies": [],
+    "roots": [
+      {
+        "reason": "output",
+        "resource": "contiguous.destination",
+        "range": {
+          "kind": "buffer",
+          "offset": 4,
+          "size": 16
+        },
+        "resolution": {
+          "usesInitialContents": false,
+          "producerNodes": [
+            "contiguous.copy"
+          ]
+        }
+      }
+    ],
+    "segments": [
+      {
+        "order": 0,
+        "kind": "frame-graph",
+        "nodes": [
+          "contiguous.copy"
+        ]
+      }
+    ]
+  },
+  "memory": {
+    "allocationEquivalenceClasses": [
+      [
+        "contiguous.destination"
+      ]
+    ]
+  },
+  "cpuTiming": {
+    "status": "available",
+    "executionDurationMicros": 1000,
+    "nodes": [
+      {
+        "node": "contiguous.copy",
+        "durationMicros": 1
+      }
+    ]
+  }
+}

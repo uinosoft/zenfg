@@ -47,6 +47,30 @@ test('compile orders retained producer before present root and culls unused node
 	assert.equal(compiled.resources.some((resource) => resource.id === declaredOnly.id), false);
 });
 
+test('retention traverses a 10000-node content chain without changing order or culling', () => {
+	const graph = new FrameGraph(mockDevice()).beginFrame();
+	const target = graph.createBuffer({ size: 4 });
+	const unused = graph.createBuffer({ size: 4 });
+	const overwrite = graph.use(target, BufferAccess.StorageWrite, { contents: 'overwrite' });
+	const preserve = graph.use(target, BufferAccess.StorageWrite, { contents: 'preserve' });
+	graph.command({ label: 'replaced', sideEffect: false, uses: [overwrite] });
+	let executed = 0;
+	for (let index = 0; index < 10000; index++) {
+		graph.command({
+			label: `chain-${index}`, sideEffect: false, uses: [index === 0 ? overwrite : preserve],
+			encode: () => { executed++; },
+		});
+	}
+	graph.command({ label: 'unused', sideEffect: false, uses: [graph.use(unused, BufferAccess.StorageWrite, { contents: 'overwrite' })] });
+	graph.markOutput(target);
+	const compiled = graph.compile({ report: true });
+	assert.deepEqual(compiled.compilationReport.nodes.map((node) => node.label),
+		Array.from({ length: 10000 }, (_, index) => `chain-${index}`));
+	assert.deepEqual(compiled.compilationReport.culledNodes.map((node) => node.label), ['replaced', 'unused']);
+	compiled.execute();
+	assert.equal(executed, 10000);
+});
+
 test('compile rejects transient texture and buffer consumers recorded before producers', () => {
 	const textureGraph = new FrameGraph(mockDevice()).beginFrame();
 	const color = textureGraph.createTexture({ label: 'scene-color', format: 'rgba8unorm', size: [1, 1] });
@@ -1478,6 +1502,36 @@ test('compile retains a resolve pass when its stored MSAA attachment is marked a
 	graph.markOutput(colorAttachment);
 
 	assert.deepEqual(graph.compile({ report: true }).compilationReport.nodes.map((node) => node.label), ['scene.render-and-resolve']);
+});
+
+test('texture readback preserves actual padding but overwrites contiguous footprints', () => {
+	const cases = [
+		{ name: 'dense', extent: [2, 2, 1], layout: { offset: 4, bytesPerRow: 8 }, size: 16, preserve: false },
+		{ name: 'unused-row-stride', extent: [1, 1, 1], layout: { offset: 4, bytesPerRow: 256, rowsPerImage: 8 }, size: 4, preserve: false },
+		{ name: 'unused-image-stride', extent: [2, 2, 1], layout: { offset: 4, bytesPerRow: 8, rowsPerImage: 8 }, size: 16, preserve: false },
+		{ name: 'row-padding', extent: [1, 2, 1], layout: { offset: 4, bytesPerRow: 256 }, size: 260, preserve: true },
+		{ name: 'layer-padding', extent: [1, 1, 2], layout: { offset: 4, bytesPerRow: 256, rowsPerImage: 4 }, size: 1028, preserve: true },
+		{ name: 'dense-layers', extent: [1, 2, 2], layout: { offset: 4, bytesPerRow: 4, rowsPerImage: 2 }, size: 16, preserve: false },
+	];
+	for (const entry of cases) {
+		for (const initialized of [false, true]) {
+			const graph = new FrameGraph(mockDevice()).beginFrame();
+			const source = graph.importTexture(texture('source', textureUsage.COPY_SRC, { size: entry.extent }));
+			const destination = graph.createBuffer({ label: entry.name, size: entry.layout.offset + entry.size });
+			if (initialized) graph.clearBuffer({ label: 'initialize', operations: [{ target: destination, offset: entry.layout.offset, size: entry.size }] });
+			graph.copy({ label: 'readback', operations: [{ type: 'texture-to-buffer', source, destination, destinationLayout: entry.layout, copySize: entry.extent }] });
+			graph.markOutput(destination, { offset: entry.layout.offset, size: entry.size });
+			if (entry.preserve && !initialized) {
+				assert.throws(() => graph.compile(), (error: unknown) => error instanceof FrameGraphError && error.code === 'FG1002', entry.name);
+				continue;
+			}
+			const report = graph.compile({ report: true }).compilationReport;
+			assert.deepEqual(report.nodes.map((node) => node.label), entry.preserve ? ['initialize', 'readback'] : ['readback'], entry.name);
+			const write = report.accesses.filter((access) => access.mode === 'write').at(-1)!;
+			assert.equal(write.contents, entry.preserve ? 'preserve' : 'overwrite', entry.name);
+			assert.deepEqual(write.bufferRange, { offset: entry.layout.offset, size: entry.size }, entry.name);
+		}
+	}
 });
 
 test('copy node derives copy usage without inferring CPU mapping capability', () => {

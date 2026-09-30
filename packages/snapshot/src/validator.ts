@@ -758,6 +758,39 @@ function validateExtensions(value: unknown, issues: Issues): void {
 	}
 }
 
+function groupAncestorIntervals(
+	groups: FrameGraphSnapshot['graph']['groups'],
+	firstIndexById: ReadonlyMap<string, number>,
+): { readonly starts: readonly number[]; readonly ends: readonly number[] } {
+	const children: number[][] = Array.from({ length: groups.length }, () => []);
+	const roots: number[] = [];
+	groups.forEach((group, index) => {
+		// References have always resolved to the first declaration of an ID.
+		if (firstIndexById.get(group.id) !== index) return;
+		const parent = group.parentId === undefined ? undefined : firstIndexById.get(group.parentId);
+		if (parent === undefined) roots.push(index);
+		else children[parent].push(index);
+	});
+	const starts = Array<number>(groups.length).fill(-1);
+	const ends = Array<number>(groups.length).fill(-1);
+	const stack = roots.map((index) => ({ index, exit: false }));
+	let order = 0;
+	while (stack.length > 0) {
+		const { index, exit } = stack.pop()!;
+		if (exit) {
+			ends[index] = order;
+		} else {
+			starts[index] = order++;
+			stack.push({ index, exit: true });
+			for (const child of children[index]) stack.push({ index: child, exit: false });
+		}
+	}
+	// Any first declaration not reached from a root has a parent chain entering
+	// a cycle. Intervals also detect a duplicate declaration pointing back to its
+	// own ID even when the first declaration's parent chain is acyclic.
+	return { starts, ends };
+}
+
 function validateReferences(snapshot: FrameGraphSnapshot, issues: Issues): void {
 	const unavailable = new Set(snapshot.capture.migration?.unavailableFacts ?? []);
 	const ids = new Map<string, string>();
@@ -775,7 +808,11 @@ function validateReferences(snapshot: FrameGraphSnapshot, issues: Issues): void 
 	if (snapshot.memory.allocationReport.status === 'available') {
 		snapshot.memory.allocationReport.allocations.forEach((entry, index) => register(entry.id, `/memory/allocationReport/allocations/${index}/id`));
 	}
-	const groupIds = new Set(snapshot.graph.groups.map((group) => group.id));
+	const groupIds = new Map<string, number>();
+	snapshot.graph.groups.forEach((group, index) => {
+		if (!groupIds.has(group.id)) groupIds.set(group.id, index);
+	});
+	const groupAncestry = groupAncestorIntervals(snapshot.graph.groups, groupIds);
 	const nodeById = new Map(snapshot.graph.nodes.map((node) => [node.id, node]));
 	const resourceById = new Map(snapshot.graph.resources.map((resource) => [resource.id, resource]));
 	const viewById = new Map(snapshot.graph.textureViews.map((view) => [view.id, view]));
@@ -787,18 +824,14 @@ function validateReferences(snapshot: FrameGraphSnapshot, issues: Issues): void 
 		const group = snapshot.graph.groups[index];
 		if (group.parentId && !groupIds.has(group.parentId)) missing(`/graph/groups/${index}/parentId`, 'group', group.parentId, issues);
 		if (group.parentId) {
-			const parentIndex = snapshot.graph.groups.findIndex((candidate) => candidate.id === group.parentId);
-			if (parentIndex >= index) issues.push(issue('invalid-group-order', `/graph/groups/${index}/parentId`, 'A group parent must appear before its child.'));
-		}
-		const seen = new Set<string>([group.id]);
-		let parentId = group.parentId;
-		while (parentId) {
-			if (seen.has(parentId)) {
+			const parentIndex = groupIds.get(group.parentId);
+			if (parentIndex !== undefined && parentIndex >= index) issues.push(issue('invalid-group-order', `/graph/groups/${index}/parentId`, 'A group parent must appear before its child.'));
+			const firstIndex = groupIds.get(group.id)!;
+			if (parentIndex !== undefined && (groupAncestry.starts[parentIndex] < 0
+				|| (groupAncestry.starts[firstIndex] <= groupAncestry.starts[parentIndex]
+					&& groupAncestry.starts[parentIndex] < groupAncestry.ends[firstIndex]))) {
 				issues.push(issue('group-cycle', `/graph/groups/${index}/parentId`, 'Group parent references form a cycle.'));
-				break;
 			}
-			seen.add(parentId);
-			parentId = snapshot.graph.groups.find((candidate) => candidate.id === parentId)?.parentId;
 		}
 	}
 	const retainedNodes: { readonly node: FrameGraphSnapshot['graph']['nodes'][number]; readonly index: number }[] = [];

@@ -2,6 +2,9 @@ import type { FrameGraphGpuTimingReport } from './types.ts';
 import type { InternalNode } from './internalTypes.ts';
 import { FRAME_GRAPH_ERROR_CODES, FrameGraphError } from './error.ts';
 
+// WebGPU's fixed maximum query count; each timed pass uses two queries.
+const MAX_QUERY_COUNT = 4096;
+
 export type GpuTimingNodeQuery = {
 	readonly nodeId: number;
 	readonly kind: 'render' | 'compute';
@@ -102,6 +105,12 @@ export function beginGpuTimingFrame(
 		};
 	}
 
+	const queryCount = timedNodes.length * 2;
+	if (queryCount > MAX_QUERY_COUNT) {
+		return {
+			promise: Promise.resolve({ status: 'unavailable', frameIndex, reason: 'too-many-timed-nodes' }),
+		};
+	}
 	const nodeQueries = timedNodes.map((node, index): GpuTimingNodeQuery => ({
 		nodeId: node.id,
 		kind: node.kind,
@@ -109,7 +118,6 @@ export function beginGpuTimingFrame(
 		beginIndex: index * 2,
 		endIndex: index * 2 + 1,
 	}));
-	const queryCount = nodeQueries.length * 2;
 	const byteSize = alignTo(queryCount * 8, 256);
 	const resources = ensureGpuTimingResources(state, queryCount, byteSize);
 	if (!resources) {
