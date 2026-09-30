@@ -144,15 +144,16 @@ export function textureCopyOverwritesSubresource(
 		&& copyHeight === mipHeight;
 }
 
-export function bufferTextureCopyRange(
+export function bufferTextureCopyFootprint(
 	resourceFor: ResourceResolver,
 	textureHandle: TextureHandle,
 	layout: Omit<GPUTexelCopyBufferLayout, 'buffer'>,
 	copySize: GPUExtent3D,
-): BufferRange {
+): { readonly range: BufferRange; readonly tightlyPacked: boolean } {
+	const footprint = bufferTextureCopyFootprintInfo(resourceFor, 'record', textureHandle, layout, copySize);
 	return {
-		offset: layout.offset ?? 0,
-		size: bufferTextureCopyByteSize(resourceFor, 'record', textureHandle, layout, copySize),
+		range: { offset: layout.offset ?? 0, size: footprint.byteSize },
+		tightlyPacked: footprint.tightlyPacked,
 	};
 }
 
@@ -260,23 +261,23 @@ function validateBufferTextureLayout(
 		assertNonNegativeUint32(layout.rowsPerImage, `${prefix} rowsPerImage`, { code: FRAME_GRAPH_ERROR_CODES.InvalidNodeOperation, phase: 'compile', nodeId: node.id, resourceId: bufferHandle.id, context: { textureResourceId: textureHandle.id } });
 	}
 	const offset = Number(layout.offset ?? 0);
-	const requiredBytesInCopy = bufferTextureCopyByteSize(resourceFor, 'compile', textureHandle, layout, copySize);
+	const requiredBytesInCopy = bufferTextureCopyFootprintInfo(resourceFor, 'compile', textureHandle, layout, copySize).byteSize;
 	assertNonNegativeSafeInteger(requiredBytesInCopy, `${prefix} required byte size`, { code: FRAME_GRAPH_ERROR_CODES.InvalidNodeOperation, phase: 'compile', nodeId: node.id, resourceId: bufferHandle.id, context: { textureResourceId: textureHandle.id } });
 	if (offset > desc.size || requiredBytesInCopy > desc.size - offset) {
 		throw new FrameGraphError(FRAME_GRAPH_ERROR_CODES.InvalidNodeOperation, `Copy node "${node.label ?? node.id}" buffer-texture copy layout exceeds buffer "${bufferHandle.label ?? bufferHandle.id}" size: offset ${offset} + required bytes ${requiredBytesInCopy} > buffer size ${desc.size}.`, { phase: 'compile', nodeId: node.id, resourceId: bufferHandle.id, context: { textureResourceId: textureHandle.id } });
 	}
 }
 
-function bufferTextureCopyByteSize(
+function bufferTextureCopyFootprintInfo(
 	resourceFor: ResourceResolver,
 	phase: 'record' | 'compile',
 	textureHandle: TextureHandle,
 	layout: Omit<GPUTexelCopyBufferLayout, 'buffer'>,
 	copySize: GPUExtent3D,
-): number {
+): { readonly byteSize: number; readonly tightlyPacked: boolean } {
 	const [copyWidth, copyHeight, copyDepth] = textureSizeTuple(copySize);
 	const textureDesc = resourceFor(textureHandle).desc as TextureDesc;
-	if (textureCopyIsEmpty(copySize) && getTextureFormatInfo(textureDesc.format).bufferCopyBytesPerBlock === undefined) return 0;
+	if (textureCopyIsEmpty(copySize) && getTextureFormatInfo(textureDesc.format).bufferCopyBytesPerBlock === undefined) return { byteSize: 0, tightlyPacked: true };
 	const blockInfo = getTextureFormatBufferCopyInfo(textureDesc.format, { phase, resourceId: textureHandle.id });
 	const widthInBlocks = Math.ceil(copyWidth / blockInfo.width);
 	const heightInBlocks = Math.ceil(copyHeight / blockInfo.height);
@@ -292,5 +293,10 @@ function bufferTextureCopyByteSize(
 			? 0
 			: bytesPerRow * (heightInBlocks - 1) + bytesInLastRow;
 	}
-	return requiredBytesInCopy;
+	return {
+		byteSize: requiredBytesInCopy,
+		// Only strides between rows/images actually copied can leave holes.
+		tightlyPacked: (heightInBlocks <= 1 || bytesPerRow === bytesInLastRow)
+			&& (copyDepth <= 1 || (bytesPerRow === bytesInLastRow && rowsPerImage === heightInBlocks)),
+	};
 }

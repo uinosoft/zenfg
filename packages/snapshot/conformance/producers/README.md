@@ -1,6 +1,6 @@
 # Cross-language producer corpus
 
-The seven cases in `manifest.json` are recorded independently through the
+The nine cases in `manifest.json` are recorded independently through the
 public TypeScript/WebGPU and Rust/wgpu FrameGraph APIs. The harness validates
 both raw Snapshot V1 files in both language implementations, checks each
 producer for deterministic output, and compares a language-neutral semantic

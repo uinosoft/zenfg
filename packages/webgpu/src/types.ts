@@ -814,7 +814,7 @@ export type ClearBufferOperation = {
 	readonly target: BufferHandle;
 	/** Starting byte offset; defaults to `0`. */
 	readonly offset?: GPUSize64;
-	/** Number of bytes, or the remainder of the buffer when omitted. */
+	/** Bytes to clear; omitted means the remainder of the logical buffer range. */
 	readonly size?: GPUSize64;
 };
 

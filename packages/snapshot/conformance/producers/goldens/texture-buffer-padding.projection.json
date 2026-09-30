@@ -1,0 +1,175 @@
+{
+  "projectionVersion": 1,
+  "case": "texture-buffer-padding",
+  "graph": {
+    "groups": [],
+    "nodes": [
+      {
+        "label": "padding.initialize",
+        "recordingOrder": 0,
+        "kind": "clear-buffer",
+        "sideEffect": false,
+        "group": null,
+        "compileState": {
+          "status": "retained",
+          "executionOrder": 0
+        }
+      },
+      {
+        "label": "padding.copy",
+        "recordingOrder": 1,
+        "kind": "copy",
+        "sideEffect": false,
+        "group": null,
+        "compileState": {
+          "status": "retained",
+          "executionOrder": 1
+        }
+      }
+    ],
+    "resources": [
+      {
+        "label": "padding.destination",
+        "kind": "buffer",
+        "origin": "transient",
+        "initialContents": "undefined",
+        "group": null,
+        "descriptor": {
+          "kind": "buffer",
+          "size": 1288
+        },
+        "usageFlags": [
+          "copy-dst"
+        ],
+        "lifetime": {
+          "firstUse": 0,
+          "lastUse": 1
+        }
+      },
+      {
+        "label": "padding.source",
+        "kind": "texture",
+        "origin": "imported",
+        "initialContents": "defined",
+        "group": null,
+        "descriptor": {
+          "kind": "texture",
+          "format": "rgba8unorm",
+          "size": {
+            "width": 1,
+            "height": 2,
+            "depthOrArrayLayers": 2
+          },
+          "dimension": "2d",
+          "mipLevelCount": 1,
+          "sampleCount": 1,
+          "viewFormats": []
+        },
+        "usageFlags": [
+          "copy-src"
+        ],
+        "lifetime": {
+          "firstUse": 1,
+          "lastUse": 1
+        }
+      }
+    ],
+    "textureViews": [],
+    "accesses": [
+      {
+        "node": "padding.initialize",
+        "resource": "padding.destination",
+        "access": "buffer-copy-dst",
+        "mode": "write",
+        "contents": "overwrite",
+        "producesValue": true,
+        "bufferRange": {
+          "offset": 4,
+          "size": 1284
+        }
+      },
+      {
+        "node": "padding.copy",
+        "resource": "padding.destination",
+        "access": "buffer-copy-dst",
+        "mode": "write",
+        "contents": "preserve",
+        "producesValue": true,
+        "bufferRange": {
+          "offset": 4,
+          "size": 1284
+        }
+      },
+      {
+        "node": "padding.copy",
+        "resource": "padding.source",
+        "access": "texture-copy-src",
+        "mode": "read",
+        "producesValue": false,
+        "textureRegion": {
+          "baseMipLevel": 0,
+          "mipLevelCount": 1,
+          "baseArrayLayer": 0,
+          "arrayLayerCount": 2,
+          "aspect": "all"
+        }
+      }
+    ],
+    "dependencies": [
+      {
+        "from": "padding.initialize",
+        "to": "padding.copy",
+        "resource": "padding.destination",
+        "kind": "value"
+      }
+    ],
+    "roots": [
+      {
+        "reason": "output",
+        "resource": "padding.destination",
+        "range": {
+          "kind": "buffer",
+          "offset": 4,
+          "size": 1284
+        },
+        "resolution": {
+          "usesInitialContents": false,
+          "producerNodes": [
+            "padding.copy"
+          ]
+        }
+      }
+    ],
+    "segments": [
+      {
+        "order": 0,
+        "kind": "frame-graph",
+        "nodes": [
+          "padding.initialize",
+          "padding.copy"
+        ]
+      }
+    ]
+  },
+  "memory": {
+    "allocationEquivalenceClasses": [
+      [
+        "padding.destination"
+      ]
+    ]
+  },
+  "cpuTiming": {
+    "status": "available",
+    "executionDurationMicros": 1000,
+    "nodes": [
+      {
+        "node": "padding.initialize",
+        "durationMicros": 1
+      },
+      {
+        "node": "padding.copy",
+        "durationMicros": 2
+      }
+    ]
+  }
+}

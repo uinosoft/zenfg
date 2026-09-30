@@ -1372,7 +1372,9 @@ fn validate_buffer_texture_copy(
     Ok(ValidatedBufferTextureCopy {
         resource,
         range: location.layout.offset..end,
-        tightly_packed: row_stride == bytes_in_last_row && image_rows == u64::from(height_blocks),
+        tightly_packed: (height_blocks <= 1 || row_stride == bytes_in_last_row)
+            && (copy_size.depth_or_array_layers <= 1
+                || (row_stride == bytes_in_last_row && image_rows == u64::from(height_blocks))),
     })
 }
 

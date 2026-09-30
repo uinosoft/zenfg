@@ -1480,6 +1480,36 @@ test('compile retains a resolve pass when its stored MSAA attachment is marked a
 	assert.deepEqual(graph.compile({ report: true }).compilationReport.nodes.map((node) => node.label), ['scene.render-and-resolve']);
 });
 
+test('texture readback preserves actual padding but overwrites contiguous footprints', () => {
+	const cases = [
+		{ name: 'dense', extent: [2, 2, 1], layout: { offset: 4, bytesPerRow: 8 }, size: 16, preserve: false },
+		{ name: 'unused-row-stride', extent: [1, 1, 1], layout: { offset: 4, bytesPerRow: 256, rowsPerImage: 8 }, size: 4, preserve: false },
+		{ name: 'unused-image-stride', extent: [2, 2, 1], layout: { offset: 4, bytesPerRow: 8, rowsPerImage: 8 }, size: 16, preserve: false },
+		{ name: 'row-padding', extent: [1, 2, 1], layout: { offset: 4, bytesPerRow: 256 }, size: 260, preserve: true },
+		{ name: 'layer-padding', extent: [1, 1, 2], layout: { offset: 4, bytesPerRow: 256, rowsPerImage: 4 }, size: 1028, preserve: true },
+		{ name: 'dense-layers', extent: [1, 2, 2], layout: { offset: 4, bytesPerRow: 4, rowsPerImage: 2 }, size: 16, preserve: false },
+	];
+	for (const entry of cases) {
+		for (const initialized of [false, true]) {
+			const graph = new FrameGraph(mockDevice()).beginFrame();
+			const source = graph.importTexture(texture('source', textureUsage.COPY_SRC, { size: entry.extent }));
+			const destination = graph.createBuffer({ label: entry.name, size: entry.layout.offset + entry.size });
+			if (initialized) graph.clearBuffer({ label: 'initialize', operations: [{ target: destination, offset: entry.layout.offset, size: entry.size }] });
+			graph.copy({ label: 'readback', operations: [{ type: 'texture-to-buffer', source, destination, destinationLayout: entry.layout, copySize: entry.extent }] });
+			graph.markOutput(destination, { offset: entry.layout.offset, size: entry.size });
+			if (entry.preserve && !initialized) {
+				assert.throws(() => graph.compile(), (error: unknown) => error instanceof FrameGraphError && error.code === 'FG1002', entry.name);
+				continue;
+			}
+			const report = graph.compile({ report: true }).compilationReport;
+			assert.deepEqual(report.nodes.map((node) => node.label), entry.preserve ? ['initialize', 'readback'] : ['readback'], entry.name);
+			const write = report.accesses.filter((access) => access.mode === 'write').at(-1)!;
+			assert.equal(write.contents, entry.preserve ? 'preserve' : 'overwrite', entry.name);
+			assert.deepEqual(write.bufferRange, { offset: entry.layout.offset, size: entry.size }, entry.name);
+		}
+	}
+});
+
 test('copy node derives copy usage without inferring CPU mapping capability', () => {
 	const graph = new FrameGraph(mockDevice()).beginFrame();
 	const source = graph.importBuffer(buffer('source', bufferUsage.COPY_SRC), { label: 'source', exposedSize: 64, exposedUsage: bufferUsage.COPY_SRC });

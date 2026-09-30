@@ -3,7 +3,6 @@ import type {
 	BufferDesc,
 	BufferRange,
 	BufferHandle,
-	ClearBufferOperation,
 	CommandEncodeContext,
 	ComputeEncodeContext,
 	CopyOperation,
@@ -148,6 +147,12 @@ export type InternalRenderDepthStencilAttachment = {
 	readonly textureRegion: InternalTextureRegion;
 };
 
+export type InternalClearBufferOperation = {
+	readonly target: BufferHandle;
+	readonly offset: GPUSize64;
+	readonly size: GPUSize64;
+};
+
 export type InternalNode = {
 	readonly id: number;
 	readonly kind: NodeKind;
@@ -160,7 +165,7 @@ export type InternalNode = {
 		readonly depthStencilAttachment?: InternalRenderDepthStencilAttachment;
 	};
 	readonly copyOperations?: readonly InternalCopyOperation[];
-	readonly clearBufferOperations?: readonly ClearBufferOperation[];
+	readonly clearBufferOperations?: readonly InternalClearBufferOperation[];
 	readonly renderEncode?: SynchronousCallback<RenderEncodeContext>;
 	readonly computeEncode?: SynchronousCallback<ComputeEncodeContext>;
 	readonly commandEncode?: SynchronousCallback<CommandEncodeContext>;
