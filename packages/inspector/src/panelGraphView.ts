@@ -45,6 +45,8 @@ export function renderGraphView(
         onVisible: graphView.refreshTheme,
         selected,
         hovered,
+        focusRelations: graphView.focusRelations,
+        onViewportChange: graphView.onViewportChange,
         fit: graphView.fitOnNextRender,
         anchorElementId: graphView.anchorElementIdOnNextRender,
         reveal: graphView.revealOnNextRender,

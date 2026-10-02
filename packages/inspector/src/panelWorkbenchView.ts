@@ -9,6 +9,7 @@ import { ResourcesView } from './panelResourcesView.ts';
 import { renderGraphView, resizeGraph } from './panelGraphView.ts';
 import { DetailLayout } from './panelDetailLayout.ts';
 import { GraphSearch } from './panelGraphSearch.ts';
+import { GraphLegend } from './panelGraphLegend.ts';
 import type { GraphViewState, Selection, WorkbenchTab } from './panelTypes.ts';
 import { enableTabKeyboard, type WorkbenchCallbacks } from './panelWorkbenchHelpers.ts';
 
@@ -58,6 +59,7 @@ export class FrameGraphDebugWorkbench {
 	private readonly inspector: InspectorView;
 	private readonly detailLayout: DetailLayout;
 	private readonly graphSearch: GraphSearch;
+	private readonly graphLegend: GraphLegend | undefined;
 	private readonly dirtyViews = new Set<WorkbenchTab>();
 	private readonly inspectorOpenButton = document.createElement('button');
 	private readonly captureButton = document.createElement('button');
@@ -113,13 +115,10 @@ export class FrameGraphDebugWorkbench {
 		const graphViewport = document.createElement('div');
 		graphViewport.className = 'zenfg-inspector-graph-viewport';
 		graphViewport.append(this.graphView.host, this.graphView.toolbar);
+		if (this.graphView.viewportControls) graphViewport.append(this.graphView.viewportControls);
 		if (this.graphView.legend) {
-			const legend = document.createElement('details');
-			legend.className = 'zenfg-inspector-legend-details';
-			const title = document.createElement('summary');
-			title.textContent = 'Legend';
-			legend.append(title, this.graphView.legend);
-			graphViewport.append(legend);
+			this.graphLegend = new GraphLegend(this.graphView.legend, options.idPrefix);
+			graphViewport.append(this.graphLegend.root);
 		}
 		this.graphRoot.append(graphViewport);
 		this.passes = new PassesView(callbacks, options.idPrefix);
@@ -341,6 +340,7 @@ export class FrameGraphDebugWorkbench {
 		if (this.destroyed) return;
 		if (this.activeTab === tab) return;
 		if (this.activeTab === 'graph') {
+			this.graphLegend?.close();
 			this.graphView.revealOnNextRender = undefined;
 			this.graphView.renderer?.cancelReveal?.();
 		}
@@ -460,7 +460,7 @@ export class FrameGraphDebugWorkbench {
 		action.focus();
 	}
 
-	destroy(): void { this.destroyed = true; this.detailLayout.destroy(); }
+	destroy(): void { this.destroyed = true; this.detailLayout.destroy(); this.graphSearch.destroy(); this.graphLegend?.destroy(); }
 
 	private ensureActiveView(): void {
 		const snapshot = this.snapshot;

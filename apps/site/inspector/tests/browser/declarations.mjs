@@ -2,7 +2,14 @@ import assert from 'node:assert/strict';
 import { resolve } from 'node:path';
 
 export async function checkDeclarations(page, output) {
-    const control = page.getByRole('button', { name: 'Show resource declaration nodes', exact: true });
+    const control = page.locator('button[aria-label="Show resource declaration nodes"]');
+    const display = page.getByRole('button', { name: 'Display', exact: true });
+    const popover = page.locator('.zenfg-inspector-graph-display-popover');
+    const toggle = async () => {
+        if (await popover.isHidden()) await display.click();
+        await control.click();
+        await display.click();
+    };
     const canvas = page.locator('.zenfg-inspector-graph-canvas');
     const ready = async () => {
         await page.waitForFunction(() => document.querySelector('.zenfg-inspector-graph-status').hidden);
@@ -34,39 +41,43 @@ export async function checkDeclarations(page, output) {
             assert.ok(state.initialLabels.every(label => ['With initial contents', 'Initial contents only'].includes(label)), 'initial-content notes must remain fully readable');
             assert.ok(state.bounds.every(box => Number.isFinite(box.x1) && Number.isFinite(box.y1)));
             assert.equal(await page.locator('.zenfg-inspector-graph-legend').innerText().then(text => text.includes('Declaration')), false);
+            await display.click();
             const visible = await control.evaluate(el => {
                 const bounds = el.getBoundingClientRect();
                 return bounds.x >= 0 && bounds.right <= innerWidth;
             });
             assert.ok(visible, 'Declarations remains accessible in a narrow panel');
+            await display.click();
             await page.screenshot({ path: resolve(output, mode + '-' + width + '-declarations-hidden.png'), animations: 'disabled' });
             // Refreshing the theme must not restore the hidden legend category.
             await page.evaluate(() => themeQA.inspector.refreshTheme());
             assert.equal(await page.locator('.zenfg-inspector-graph-legend').innerText().then(text => text.includes('Declaration')), false);
-            await control.click();
+            await toggle();
             await ready();
             assert.equal(await control.getAttribute('aria-pressed'), 'true');
             assert.ok(await canvas.evaluate(el => el._cyreg.cy.nodes('[kind="resource"]').length > 0));
             await page.screenshot({ path: resolve(output, mode + '-' + width + '-declarations-shown.png'), animations: 'disabled' });
-            await control.click();
+            await toggle();
             await ready();
         }
     }
     await page.setViewportSize({ width: 1277, height: 920 });
     await ready();
     await page.getByRole('button', { name: 'Search', exact: true }).click();
-    await page.getByRole('searchbox', { name: 'Find in graph', exact: true }).fill('history');
-    await page.locator('.zenfg-inspector-graph-search-results button').filter({ hasText: /^Resource ·/ }).first().click();
+    await page.getByRole('combobox', { name: 'Find in graph', exact: true }).fill('history');
+    await page.locator('.zenfg-inspector-graph-search-results button[data-selection-kind="resource"]').first().click();
     await ready();
     assert.equal(await control.getAttribute('aria-pressed'), 'true');
     assert.ok(await canvas.evaluate(el => el._cyreg.cy.nodes('[kind="resource"].semantic-selected').length > 0));
     await page.getByRole('button', { name: 'Close inspector', exact: true }).click();
     // Consecutive structural requests must settle on the final projection.
+    await display.click();
     await control.evaluate(el => { el.click(); el.click(); el.click(); });
+    await display.click();
     await ready();
     assert.equal(await control.getAttribute('aria-pressed'), 'false');
     assert.equal(await canvas.evaluate(el => el._cyreg.cy.nodes('[kind="resource"]').length), 0);
-    await control.click();
+    await toggle();
     await ready();
     await page.evaluate(() => themeQA.inspector.setTheme(null));
     await ready();

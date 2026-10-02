@@ -1547,3 +1547,55 @@ test('graph fonts use spare box space without exceeding width or height limits',
     const multiline = graphLabelFontSize('A\nB\nC', 160, 50, GRAPH_VISUAL_THEME);
     assert.ok(multiline * 3 * 1.2 <= 50);
 });
+
+test('explicit relation focus fades unrelated work without changing selection, viewport or layout', async context => {
+    let layouts = 0;
+    const harness = createRendererHarness({ layoutScene: async (_elk, scene) => { layouts++; return testLayout(scene, 10); } });
+    const renderer = new CytoscapeGraphRenderer(harness.host, harness.environment);
+    context.after(() => renderer.destroy());
+    const scene = createGraphScene(createLegacyDebugViewModel(createNestedInternalCapture()), { groupsEnabled: false, expandedGroupPaths: new Set() });
+    const selected: Selection = { kind: 'node', id: 'node:1' };
+    renderer.render(graphRequest(scene, { selected }));
+    await waitFor(() => harness.core?.nodes().length === scene.nodes.length);
+    const core = harness.core!;
+    core.zoom(1.1); core.pan({ x: 35, y: 21 });
+    const before = { zoom: core.zoom(), pan: core.pan(), positions: core.nodes().map(node => [node.id(), node.position()]) };
+    renderer.render({ ...graphRequest(scene, { selected }), focusRelations: true });
+    assert.equal(core.getElementById('pass:node:1').hasClass('semantic-selected'), true);
+    assert.equal(core.getElementById('pass:node:2').hasClass('semantic-muted'), false);
+    assert.equal(core.getElementById('pass:node:3').hasClass('semantic-muted'), true);
+    assert.equal(core.getElementById('pass:node:3').style('opacity'), '0.24');
+    renderer.render({ ...graphRequest(scene, { selected, hovered: { kind: 'node', id: 'node:3' } }), focusRelations: true });
+    assert.equal(core.getElementById('pass:node:3').style('opacity'), '1', 'hover remains readable outside focus');
+    renderer.render(graphRequest(scene, { selected }));
+    assert.equal(core.elements('.semantic-muted').length, 0);
+    assert.equal(layouts, 1);
+    assert.deepEqual({ zoom: core.zoom(), pan: core.pan(), positions: core.nodes().map(node => [node.id(), node.position()]) }, before);
+});
+
+test('viewport controls report zoom, clamp limits and fit existing selection without expanding or relayout', async context => {
+    const harness = createRendererHarness();
+    const renderer = new CytoscapeGraphRenderer(harness.host, harness.environment);
+    context.after(() => renderer.destroy());
+    const scene = createGraphScene(createLegacyDebugViewModel(createNestedCapture()), { groupsEnabled: true, expandedGroupPaths: new Set() });
+    const selected: Selection = { kind: 'node', id: 'node:2' };
+    const reported: number[] = [];
+    renderer.render({ ...graphRequest(scene, { selected }), onViewportChange: zoom => reported.push(zoom) });
+    await waitFor(() => harness.core?.nodes().length === scene.nodes.length);
+    const core = harness.core!;
+    const positions = core.nodes().map(node => [node.id(), node.position()]);
+    renderer.resetZoom();
+    assert.equal(core.zoom(), 1);
+    renderer.zoomBy(1.25);
+    assert.equal(core.zoom(), 1.25);
+    assert.equal(reported.at(-1), 1.25);
+    renderer.zoomBy(1000);
+    assert.equal(core.zoom(), core.maxZoom());
+    renderer.zoomBy(0.00001);
+    assert.equal(core.zoom(), core.minZoom());
+    const fits = recordTargetFits(core);
+    renderer.fitSelection(selected);
+    assert.deepEqual(fits.at(-1)?.ids, [graphGroupElementId(createLegacyDebugViewModel(createNestedCapture()).debugGroups[0]!.pathKey)]);
+    assert.deepEqual(core.nodes().map(node => [node.id(), node.position()]), positions);
+    assert.equal(core.nodes('[kind="group"][collapsed=0]').length, 0);
+});

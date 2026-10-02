@@ -54,10 +54,18 @@ Diagnostics preserve capture order within each severity and offer separate
 node and resource links when a message references both. Culled-node links work
 the same way as retained-node links. The Diagnostics tab shows error/warning
 counts. Source, frame, and capture time are available under **Capture information**
-in Overview; an absent capture timestamp is shown as unknown. The collapsible
-graph legend floats inside the canvas without changing its size or viewport.
+in Overview; an absent capture timestamp is shown as unknown. The **Legend** button
+stays at the bottom left while its scrollable panel opens above it, preserving the
+canvas size and viewport. Click the button again, use the panel's close button,
+press Escape, or click outside to dismiss it.
 Graph controls also float over the canvas. **Search** opens the search field;
-**Escape** dismisses it. **Fit** frames the graph in the available viewport.
+**Escape** dismisses it. Results show object type, ID, and group path when available;
+exact names and IDs rank first. Arrow keys move through results and Enter locates
+the active result. **Display** contains Declarations, Groups, and Collapse All.
+Zoom controls show the current percentage, with zoom in/out, **100%** for readable
+scale, **Fit selection**, and **Fit** for the full graph. These controls preserve
+selection and do not expand groups. The selected-group action provides explicit
+Expand/Collapse controls alongside the existing double-click gesture.
 
 The selection pane has **Summary**, **Relations**, and **Raw** tabs. Summary
 explains compilation status, timing coverage, accesses, allocation relationships,
@@ -145,8 +153,11 @@ role colour independent of Buffer/Texture; pass categories have distinct colours
 Resources and Memory retain their resource-type colours. Hover and selection
 change border emphasis, not shape, text colour, or fill.
 
+Passes show the name first, followed by kind, the zero-based execution slot
+(``#n``), and segment index (``Sn``) when available. Horizontal layout expresses
+dependencies, not measured execution times or a timeline.
 Entrances show source/type first and the resource name second; outputs show their
-purpose first and name second. Names are truncated to one line, with full names
+purpose first and name second. Long names wrap within bounded labels, with full names
 available on hover and in details. Output ranges appear only to distinguish
 different ranges of the same resource and purpose. Exact ranges and final sources
 remain in hover/details. Semantic zoom hides auxiliary types and range summaries.
@@ -187,8 +198,16 @@ Selection does not switch workbench views, change filters, expand groups, or mov
 the viewport. A hidden entrance becomes selected when manually expanded; its
 visible cross-group edges remain selected while it is hidden. Hover previews are
 independent, with selection styling taking precedence, and never pin a tooltip.
-Edge hints show only the resource and distinct relationship types, including
-mixed types in aggregates. There is no independent edge detail or relationship list.
+Edge hints show their visible endpoints, resource, distinct relationship types,
+and underlying relation count, including mixed types in aggregates. Clicking an
+edge continues to select its logical resource.
+**Focus relations** explicitly emphasizes the selected pass's directly recorded
+relations and their visible endpoints, or a visible group's subtree and direct
+boundary neighbors. Unrelated work fades; hover and selection remain readable.
+Focus does not infer a continuous path from a shared resource ID, expand groups,
+change selection, move the viewport, or filter the Snapshot. Turn it off to restore
+the full graph. Selecting a different object updates the focus; unsupported
+selection kinds or an unavailable graph disable it.
 Double-clicking a group expands or collapses it without replacing selection;
 single-click group selection waits briefly to distinguish that gesture.
 Legacy outputs with unavailable

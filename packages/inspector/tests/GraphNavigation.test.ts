@@ -136,6 +136,8 @@ function mount(snapshot: FrameGraphSnapshot, maxGraphElements?: number, showReso
 function button(root: ParentNode, label: string): HTMLButtonElement {
 	const match = Array.from(root.querySelectorAll<HTMLButtonElement>('button')).find((candidate) => candidate.textContent === label);
 	assert.ok(match, `Expected button ${label}`);
+	const displayPopover = match.closest<HTMLElement>('.zenfg-inspector-graph-display-popover');
+	if (displayPopover?.hidden) root.querySelector<HTMLButtonElement>('[aria-label="Display"]')?.click();
 	return match;
 }
 
@@ -207,7 +209,7 @@ test('resource search restores declarations and failed explicit location rolls t
         const query = env.panel.dom.querySelector<HTMLInputElement>('input[aria-label="Find in graph"]')!;
         query.value = resource.id;
         query.dispatchEvent(new Event('input'));
-        button(env.panel.dom.querySelector('.zenfg-inspector-graph-search-results')!, 'Resource · ' + resource.label).click();
+        env.panel.dom.querySelector<HTMLButtonElement>(`.zenfg-inspector-graph-search-results button[data-selection-kind="resource"][data-selection-id="${resource.id}"]`)!.click();
         assert.equal(control.getAttribute('aria-pressed'), 'true');
         assert.equal(env.graph.showResourceDeclarations, true);
         assert.deepEqual(env.graph.revealOnNextRender?.selection, { kind: 'resource', id: resource.id });

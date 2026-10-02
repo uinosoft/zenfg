@@ -642,7 +642,7 @@ test('does not apply capture or import results after destruction', async () => {
 	testWindow.close();
 });
 
-test('renders graph controls in a dedicated toolbar and a collapsible canvas legend', () => {
+test('renders graph controls in a dedicated toolbar and a fixed canvas legend trigger', () => {
     const testWindow = installDom();
     const panel = new FrameGraphInspector();
     panel.setSnapshot(toSnapshot(createGroupedCapture()));
@@ -651,20 +651,84 @@ test('renders graph controls in a dedicated toolbar and a collapsible canvas leg
     const toolbar = graphPanel?.querySelector<HTMLElement>('.zenfg-inspector-graph-toolbar');
     const graph = graphPanel?.querySelector<HTMLElement>('.zenfg-inspector-graph');
     const viewport = graphPanel?.querySelector<HTMLElement>('.zenfg-inspector-graph-viewport');
-    const details = viewport?.querySelector<HTMLDetailsElement>('.zenfg-inspector-legend-details');
-    const legend = details?.querySelector<HTMLElement>('.zenfg-inspector-graph-legend');
-    assert.ok(graphPanel && toolbar && graph && viewport && details && legend);
+    const trigger = viewport?.querySelector<HTMLButtonElement>('.zenfg-inspector-graph-legend-toggle');
+    const popover = viewport?.querySelector<HTMLElement>('.zenfg-inspector-graph-legend-popover');
+    const legend = popover?.querySelector<HTMLElement>('.zenfg-inspector-graph-legend');
+    assert.ok(graphPanel && toolbar && graph && viewport && trigger && popover && legend);
     assert.equal(toolbar.parentElement, viewport);
     assert.equal(graphPanel.lastElementChild, viewport);
     assert.equal(viewport.firstElementChild, graph);
-    assert.equal(details.open, false);
+    assert.equal(popover.hidden, true);
+    assert.equal(trigger.getAttribute('aria-expanded'), 'false');
+    assert.equal(trigger.getAttribute('aria-controls'), popover.id);
     assert.equal(toolbar.getAttribute('role'), 'toolbar');
     assert.match(legend.textContent, /Render/);
     assert.match(legend.textContent, /Group/);
 	assert.equal(toolbar.querySelector('[aria-label="Relayout graph"]'), null);
-	assert.equal(toolbar.querySelector('[aria-label="Fit graph to view"]')?.textContent, 'Fit');
+	assert.equal(toolbar.querySelector('[aria-label="Fit graph to view"]'), null);
+	const zoomControls = viewport.querySelector<HTMLElement>('.zenfg-inspector-graph-zoom-controls');
+	assert.ok(zoomControls);
+	assert.equal(zoomControls.parentElement, viewport);
+	assert.ok(zoomControls.querySelector('[aria-label="Fit graph to view"] svg'));
 
     panel.destroy();
+    testWindow.close();
+});
+
+test('legend supports stable toggling, scrolling focus and Escape without reaching outer handlers', () => {
+    const testWindow = installDom();
+    const panel = new FrameGraphInspector();
+    document.body.append(panel.dom);
+    const snapshot = toSnapshot(createGroupedCapture());
+    panel.setSnapshot(snapshot);
+    const trigger = panel.dom.querySelector<HTMLButtonElement>('.zenfg-inspector-graph-legend-toggle')!;
+    const popover = panel.dom.querySelector<HTMLElement>('.zenfg-inspector-graph-legend-popover')!;
+    const content = popover.querySelector<HTMLElement>('.zenfg-inspector-graph-legend')!;
+    const close = popover.querySelector<HTMLButtonElement>('[aria-label="Close legend"]')!;
+    trigger.focus(); trigger.click();
+    assert.equal(popover.hidden, false);
+    assert.equal(document.activeElement, trigger, 'opening leaves focus on the stable toggle');
+    assert.equal(content.tabIndex, 0, 'keyboard users can focus and scroll the legend');
+    panel.setSnapshot(snapshot);
+    assert.equal(popover.hidden, false, 'capture refresh keeps the open legend');
+    assert.equal(panel.dom.querySelector('.zenfg-inspector-graph-legend-toggle'), trigger);
+    let outerEscapes = 0;
+    panel.dom.addEventListener('keydown', (event) => { if (event.key === 'Escape') outerEscapes++; });
+    content.focus();
+    const escape = new testWindow.KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true });
+    content.dispatchEvent(escape);
+    assert.equal(escape.defaultPrevented, true);
+    assert.equal(outerEscapes, 0);
+    assert.equal(popover.hidden, true);
+    assert.equal(document.activeElement, trigger);
+    trigger.click(); close.click();
+    assert.equal(popover.hidden, true);
+    assert.equal(document.activeElement, trigger);
+    trigger.click(); trigger.click();
+    assert.equal(popover.hidden, true, 'same trigger closes the panel');
+    panel.destroy(); testWindow.close();
+});
+
+test('legend dismisses outside without taking focus, closes on navigation and unwires on destruction', () => {
+    const testWindow = installDom();
+    const panel = new FrameGraphInspector();
+    document.body.append(panel.dom);
+    panel.setSnapshot(toSnapshot(createGroupedCapture()));
+    const trigger = panel.dom.querySelector<HTMLButtonElement>('.zenfg-inspector-graph-legend-toggle')!;
+    const popover = panel.dom.querySelector<HTMLElement>('.zenfg-inspector-graph-legend-popover')!;
+    const zoom = panel.dom.querySelector<HTMLButtonElement>('[aria-label="Zoom out"]')!;
+    trigger.focus(); trigger.click(); zoom.focus();
+    assert.equal(popover.hidden, true);
+    assert.equal(document.activeElement, zoom);
+    trigger.click(); panel.dom.querySelector<HTMLElement>('.zenfg-inspector-graph')!.click();
+    assert.equal(popover.hidden, true);
+    trigger.click(); tabButton(panel.dom, 'Passes').click();
+    assert.equal(popover.hidden, true);
+    tabButton(panel.dom, 'Graph').click(); trigger.click();
+    assert.equal(popover.hidden, false);
+    panel.destroy();
+    document.body.click();
+    assert.equal(popover.hidden, false, 'destroy removed the outside-click listener');
     testWindow.close();
 });
 
@@ -1288,6 +1352,8 @@ function tabButton(root: ParentNode, label: string): HTMLButtonElement {
 	const button = Array.from(root.querySelectorAll<HTMLButtonElement>('button'))
 		.find((candidate) => candidate.textContent === label);
 	assert.ok(button, `Expected tab ${label}`);
+	const displayPopover = button.closest<HTMLElement>('.zenfg-inspector-graph-display-popover');
+	if (displayPopover?.hidden) root.querySelector<HTMLButtonElement>('[aria-label="Display"]')?.click();
 	return button;
 }
 
@@ -1345,6 +1411,137 @@ function installDom(): Window {
     Reflect.set(globalThis, 'Event', testWindow.Event);
     return testWindow;
 }
+
+test('graph Display options preserve toggles and close with Escape or outside clicks', () => {
+	const testWindow = installDom();
+	const panel = mountFrameGraphInspector(document.body);
+	try {
+		panel.setSnapshot(toSnapshot(createGroupedCapture()));
+		const toolbar = panel.dom.querySelector<HTMLElement>('.zenfg-inspector-graph-toolbar')!;
+		const display = toolbar.querySelector<HTMLButtonElement>('[aria-label="Display"]')!;
+		const popover = toolbar.querySelector<HTMLElement>('.zenfg-inspector-graph-display-popover')!;
+		const declarations = tabButton(popover, 'Declarations');
+		assert.equal(popover.hidden, true);
+		display.click();
+		assert.equal(popover.hidden, false);
+		assert.equal(display.getAttribute('aria-expanded'), 'true');
+		assert.equal(document.activeElement, declarations);
+		declarations.click();
+		assert.equal(declarations.getAttribute('aria-pressed'), 'true');
+		assert.equal(popover.hidden, false, 'a display toggle keeps the options open');
+		declarations.dispatchEvent(new testWindow.KeyboardEvent('keydown', { key: 'Escape', bubbles: true }) as unknown as Event);
+		assert.equal(popover.hidden, true);
+		assert.equal(display.getAttribute('aria-expanded'), 'false');
+		assert.equal(document.activeElement, display);
+		display.click();
+		const outside = document.createElement('button');
+		document.body.append(outside);
+		outside.focus();
+		outside.click();
+		assert.equal(popover.hidden, true);
+		assert.equal(document.activeElement, outside, 'outside dismissal preserves the clicked target focus');
+		assert.equal(declarations.getAttribute('aria-pressed'), 'true');
+		panel.setSnapshot(toSnapshot(createEmptyCapture()));
+		assert.equal(tabButton(popover, 'Groups').hidden, true);
+		assert.equal(tabButton(popover, 'Collapse All').hidden, true);
+	} finally { panel.destroy(); testWindow.close(); }
+});
+
+test('keyboard focus from Display to Search closes only the active graph popover', () => {
+	const testWindow = installDom();
+	const panel = mountFrameGraphInspector(document.body);
+	try {
+		const graph = (panel as unknown as { graphView: GraphViewState }).graphView;
+		let request: GraphRenderRequest | undefined;
+		graph.renderer = {
+			render: (next) => { request = next; }, destroy: () => undefined, resize: () => undefined,
+			fit: () => undefined, relayout: () => undefined,
+		};
+		panel.setSnapshot(toSnapshot(createGroupedCapture()));
+		const group = request!.scene.nodes.find((node) => node.kind === 'group')!;
+		request!.onSelect(request!.scene.interaction.selectionByElementId.get(group.id)!);
+		const inspector = panel.dom.querySelector<HTMLElement>('.zenfg-inspector-inspector')!;
+		assert.equal(inspector.hidden, false);
+		const display = graph.toolbar.querySelector<HTMLButtonElement>('[aria-label="Display"]')!;
+		const displayPopover = graph.toolbar.querySelector<HTMLElement>('.zenfg-inspector-graph-display-popover')!;
+		const search = graph.toolbar.querySelector<HTMLButtonElement>('[aria-label="Search"]')!;
+		const searchPopover = graph.toolbar.querySelector<HTMLElement>('.zenfg-inspector-graph-search-popover')!;
+		const searchInput = searchPopover.querySelector<HTMLInputElement>('input')!;
+		display.click();
+		assert.equal(displayPopover.hidden, false);
+		search.focus();
+		assert.equal(displayPopover.hidden, true, 'keyboard focus leaving Display dismisses its options');
+		assert.equal(display.getAttribute('aria-expanded'), 'false');
+		assert.equal(document.activeElement, search);
+		search.click();
+		assert.equal(searchPopover.hidden, false);
+		assert.equal(document.activeElement, searchInput);
+		searchInput.dispatchEvent(new testWindow.KeyboardEvent('keydown', { key: 'Escape', bubbles: true }) as unknown as Event);
+		assert.equal(searchPopover.hidden, true);
+		assert.equal(displayPopover.hidden, true);
+		assert.equal(document.activeElement, search);
+		assert.equal(inspector.hidden, false, 'closing Search leaves the selected details open');
+	} finally { panel.destroy(); testWindow.close(); }
+});
+
+test('graph focus and viewport actions keep selection and projection independent', () => {
+	const testWindow = installDom();
+	const panel = mountFrameGraphInspector(document.body);
+	try {
+		const graph = (panel as unknown as { graphView: GraphViewState }).graphView;
+		let request: GraphRenderRequest | undefined;
+		const zoomFactors: number[] = [];
+		let resets = 0;
+		let fits = 0;
+		const fittedSelections: unknown[] = [];
+		graph.renderer = {
+			render: (next) => { request = next; }, destroy: () => undefined, resize: () => undefined,
+			fit: () => { fits++; }, relayout: () => undefined,
+			zoomBy: (factor) => { zoomFactors.push(factor); }, resetZoom: () => { resets++; },
+			fitSelection: (selection) => { fittedSelections.push(selection); },
+		};
+		panel.setSnapshot(toSnapshot(createGroupedCapture()));
+		const focus = graph.toolbar.querySelector<HTMLButtonElement>('[aria-label="Focus relations"]')!;
+		const viewport = graph.viewportControls!;
+		assert.equal(focus.disabled, true);
+		assert.equal(viewport.querySelector<HTMLButtonElement>('[aria-label="Fit selection to view"]')!.disabled, true);
+		const group = request!.scene.nodes.find((node) => node.kind === 'group')!;
+		assert.equal(group.kind, 'group');
+		const selected = request!.scene.interaction.selectionByElementId.get(group.id)!;
+		request!.onSelect(selected);
+		assert.equal(focus.disabled, false);
+		focus.click();
+		assert.equal(graph.focusRelations, true);
+		assert.equal(request!.focusRelations, true);
+		assert.equal(request!.fit, false);
+		assert.deepEqual(request!.selected, selected);
+		assert.equal(graph.expandedGroupPaths.size, 0);
+		assert.equal(focus.getAttribute('aria-pressed'), 'true');
+		focus.click();
+		assert.equal(request!.focusRelations, false);
+		assert.equal(focus.getAttribute('aria-pressed'), 'false');
+		const expand = tabButton(graph.toolbar, 'Expand group');
+		assert.equal(expand.hidden, false);
+		expand.click();
+		assert.equal(graph.expandedGroupPaths.size, 1);
+		assert.equal(tabButton(graph.toolbar, 'Collapse group').hidden, false);
+		tabButton(graph.toolbar, 'Collapse group').click();
+		assert.equal(graph.expandedGroupPaths.size, 0);
+		viewport.querySelector<HTMLButtonElement>('[aria-label="Zoom out"]')!.click();
+		viewport.querySelector<HTMLButtonElement>('[aria-label="Zoom in"]')!.click();
+		viewport.querySelector<HTMLButtonElement>('[aria-label="Reset graph zoom to 100%"]')!.click();
+		viewport.querySelector<HTMLButtonElement>('[aria-label="Fit selection to view"]')!.click();
+		viewport.querySelector<HTMLButtonElement>('[aria-label="Fit graph to view"]')!.click();
+		assert.deepEqual(zoomFactors, [1 / 1.2, 1.2]);
+		assert.equal(resets, 1);
+		assert.equal(fits, 1);
+		assert.deepEqual(fittedSelections, [selected]);
+		graph.onViewportChange!(1.58);
+		assert.equal(viewport.querySelector('output')!.textContent, '158%');
+		assert.deepEqual(request!.selected, selected);
+		assert.equal(graph.expandedGroupPaths.size, 0);
+	} finally { panel.destroy(); testWindow.close(); }
+});
 
 
 test('capture always requests both timing families without a mode selector', async () => {

@@ -13,10 +13,9 @@ import {
 	type FrameGraphDebugSnapshotSource,
 	type FrameGraphDebugViewModel,
 } from './debugCaptureModel.ts';
-import { createToolbarButton } from './panelDomHelpers.ts';
+import { GraphControls } from './panelGraphControls.ts';
 import {
 	destroyGraph,
-	fitGraph,
 	resolveGraphScene,
 	renderGraphLegend,
 } from './panelGraphView.ts';
@@ -93,9 +92,7 @@ export class FrameGraphInspector {
 	private readonly body = document.createElement('div');
 	private readonly content = document.createElement('div');
 	private readonly dropOverlay = document.createElement('div');
-	private readonly groupsButton: HTMLButtonElement;
-	private readonly declarationsButton: HTMLButtonElement;
-	private readonly collapseGroupsButton: HTMLButtonElement;
+	private readonly graphControls: GraphControls;
 	private readonly graphView: GraphViewState;
 	private readonly workbench: FrameGraphDebugWorkbench;
 	private captureSnapshotCallback: FrameGraphInspectorOptions['captureSnapshot'];
@@ -152,6 +149,7 @@ export class FrameGraphInspector {
 		ensureFrameGraphInspectorStyles();
 		this.captureSnapshotCallback = options.captureSnapshot;
 		this.maxImportBytes = normalizeMaxImportBytes(options.maxImportBytes);
+		const layoutElementBudget = normalizeLimit(options.maxGraphElements, DEFAULT_MAX_GRAPH_ELEMENTS, 'maxGraphElements');
 		const branding = options.branding ?? DEFAULT_BRANDING;
 		this.dom.className = 'zenfg-inspector';
 		this.dom.id = createInspectorId();
@@ -171,35 +169,31 @@ export class FrameGraphInspector {
 		const graphLegend = document.createElement('div');
 		graphLegend.className = 'zenfg-inspector-graph-legend';
 		graphLegend.setAttribute('aria-label', 'Graph legend');
+		this.graphControls = new GraphControls({
+			onDeclarations: () => this.toggleDeclarations(),
+			onGroups: () => this.toggleGroups(),
+			onCollapseAll: () => this.collapseAllGroups(),
+			onFocusRelations: () => this.toggleFocusRelations(),
+			onToggleSelectedGroup: () => { if (this.selected?.kind === 'group') this.toggleGroup(this.selected.pathKey); },
+			onZoomBy: (factor) => this.graphView.renderer?.zoomBy?.(factor),
+			onResetZoom: () => this.graphView.renderer?.resetZoom?.(),
+			onFitSelection: () => { if (this.selected) this.graphView.renderer?.fitSelection?.(this.selected); },
+			onFitGraph: () => this.graphView.renderer?.fit(),
+		}, this.dom.id);
 		this.graphView = {
 			host: document.createElement('div'),
-			toolbar: document.createElement('div'),
+			toolbar: this.graphControls.toolbar,
+			viewportControls: this.graphControls.viewportControls,
+			onViewportChange: (zoom) => this.graphControls.setZoom(zoom),
 			legend: graphLegend,
 			refreshTheme: () => this.refreshTheme(),
-			layoutElementBudget: normalizeLimit(options.maxGraphElements, DEFAULT_MAX_GRAPH_ELEMENTS, 'maxGraphElements'),
+			layoutElementBudget,
 			groupsEnabled: true,
 			showResourceDeclarations: options.showResourceDeclarations ?? false,
 			expandedGroupPaths: new Set(),
 			fitOnNextRender: true,
 		};
 		this.graphView.host.className = 'zenfg-inspector-graph';
-		this.graphView.toolbar.className = 'zenfg-inspector-graph-toolbar';
-		this.graphView.toolbar.setAttribute('role', 'toolbar');
-		this.graphView.toolbar.setAttribute('aria-label', 'Frame graph view controls');
-
-		this.declarationsButton = createToolbarButton('Declarations', 'Show resource declaration nodes', () => this.toggleDeclarations());
-		this.groupsButton = createToolbarButton('Groups', 'Toggle diagnostic group projection', () => this.toggleGroups());
-		this.collapseGroupsButton = createToolbarButton('Collapse All', 'Collapse every diagnostic group', () => this.collapseAllGroups());
-
-		const actionControls = document.createElement('div');
-		actionControls.className = 'zenfg-inspector-graph-action-controls';
-		actionControls.append(
-			this.declarationsButton,
-			this.groupsButton,
-			this.collapseGroupsButton,
-			createToolbarButton('Fit', 'Fit graph to view', () => fitGraph(this.graphView)),
-		);
-		this.graphView.toolbar.append(actionControls);
 
 		const callbacks: WorkbenchCallbacks = {
 			onSelect: (selection) => this.handleSelect(selection),
@@ -468,9 +462,9 @@ export class FrameGraphInspector {
 		this.statusTone = 'neutral';
 		if (this.selected?.kind === 'node' || this.selected?.kind === 'culled') this.selected = resolveNodeSelection(viewModel, this.selected.id);
 		else if (this.selected && !selectionExists(viewModel, this.selected)) this.selected = undefined;
+		this.updateGraphControls();
 		this.workbench.setSnapshot(viewModel, this.selected);
 		this.updateCaptureActions();
-		this.updateGraphControls();
 	}
 
 	/**
@@ -489,6 +483,7 @@ export class FrameGraphInspector {
 		this.dom.removeEventListener('dragend', this.handleDragEnd);
 		this.dom.removeEventListener('drop', this.handleDrop);
 		this.themeController.destroy();
+		this.graphControls.destroy();
 		destroyGraph(this.graphView);
 		this.workbench.destroy();
 		this.dom.remove();
@@ -522,6 +517,8 @@ export class FrameGraphInspector {
 	private handleSelect(selection: Selection): void {
 		if (!this.viewModel || !selectionExists(this.viewModel, selection)) return;
 		this.selected = selection;
+		if (selection.kind !== 'node' && selection.kind !== 'group') this.graphView.focusRelations = false;
+		this.updateGraphControls();
 		this.workbench.setSelection(selection);
 	}
 
@@ -568,17 +565,31 @@ export class FrameGraphInspector {
 	}
 
 	private updateGraphControls(): void {
-		const showDeclarations = this.graphView.showResourceDeclarations ?? false;
-		this.declarationsButton.classList.toggle('active', showDeclarations);
-		this.declarationsButton.setAttribute('aria-pressed', String(showDeclarations));
-		const hasGroups = (this.viewModel?.debugGroups.length ?? 0) > 0;
-		this.groupsButton.disabled = !hasGroups;
-		this.groupsButton.hidden = !hasGroups;
-		this.collapseGroupsButton.hidden = !hasGroups;
-		this.groupsButton.classList.toggle('active', hasGroups && this.graphView.groupsEnabled);
-		this.groupsButton.setAttribute('aria-pressed', hasGroups && this.graphView.groupsEnabled ? 'true' : 'false');
-		const hasExpanded = this.viewModel?.debugGroups.some((group) => this.graphView.expandedGroupPaths.has(group.pathKey)) ?? false;
-		this.collapseGroupsButton.disabled = !hasGroups || !this.graphView.groupsEnabled || !hasExpanded;
+		const scene = this.viewModel ? resolveGraphScene(this.graphView, this.viewModel) : undefined;
+		const viewportAvailable = Boolean(scene && scene.nodes.length + scene.edges.length <= (this.graphView.layoutElementBudget ?? Number.MAX_SAFE_INTEGER));
+		const ids = this.selected && scene?.interaction.primaryElementIdsBySelection.get(selectionKey(this.selected));
+		const selected = this.selected;
+		const representationAvailable = viewportAvailable && Boolean(selected?.kind === 'group'
+			? scene?.nodes.some((node) => node.kind === 'group' && node.groupPathKey === selected.pathKey)
+			: ids?.some((id) => scene?.nodes.some((node) => node.id === id) || scene?.edges.some((edge) => edge.id === id)));
+		if (!representationAvailable) this.graphView.focusRelations = false;
+		this.graphControls.update({
+			snapshot: this.viewModel,
+			selected: this.selected,
+			showResourceDeclarations: this.graphView.showResourceDeclarations ?? false,
+			groupsEnabled: this.graphView.groupsEnabled,
+			expandedGroupPaths: this.graphView.expandedGroupPaths,
+			focusRelations: this.graphView.focusRelations ?? false,
+			representationAvailable,
+			viewportAvailable,
+		});
+	}
+
+	private toggleFocusRelations(): void {
+		if (this.selected?.kind !== 'node' && this.selected?.kind !== 'group') return;
+		this.graphView.focusRelations = !this.graphView.focusRelations;
+		this.updateGraphControls();
+		this.workbench.refreshGraphStructure();
 	}
 
 	private toggleDeclarations(): void {

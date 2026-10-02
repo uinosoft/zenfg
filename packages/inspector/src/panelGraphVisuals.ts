@@ -261,7 +261,7 @@ export function createGraphStyles(theme: GraphVisualTheme = GRAPH_VISUAL_THEME):
 function baseNodeDimensions(node: GraphSceneNode): { readonly width: number; readonly height: number } {
     switch (node.kind) {
         case 'pass':
-            return { width: 184, height: node.label.includes('\n') ? 62 : 48 };
+            return { width: 184, height: Math.max(48, node.label.split('\n').length * 17 + 28) };
         case 'root':
             return { width: GRAPH_GEOMETRY.outputWidth, height: Math.max(58, node.label.split('\n').length * 17 + 24) };
         case 'resource':
@@ -288,7 +288,7 @@ export function graphLabelFontSize(label: string, width: number, height: number,
     return Math.max(theme.fontSize, Math.floor(theme.fontSize * Math.min(1.25, widthScale, heightScale) * 4) / 4);
 }
 
-/** Wrap only the group name (up to two lines); keep the node-count row distinct. */
+/** Wrap only the group name (up to two lines); keep the pass-count row distinct. */
 export function fitCollapsedGroupLabel(label: string, width: number, theme: GraphVisualTheme): string {
     const [name = '', ...summary] = label.split('\n');
     const context = graphTextContext();

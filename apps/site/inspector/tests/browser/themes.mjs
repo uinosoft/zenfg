@@ -8,6 +8,7 @@ import { checkGraphPointer } from './graphPointer.mjs';
 import { checkDeclarations } from './declarations.mjs';
 import { checkDrawerBackdrop } from './drawerBackdrop.mjs';
 import { checkOverview } from './overview.mjs';
+import { checkGraphImprovements } from './graphImprovements.mjs';
 
 const root = resolve(import.meta.dirname, '../../../../../');
 const output = resolve(root, '.test-dist/inspector-theme-qa');
@@ -35,6 +36,9 @@ try {
         core.zoom(1.1); core.pan({ x: 33, y: 27 });
         window.originalThemeCore = core;
     });
+    // Selection opens the detail dock; let its resize and compound bounds settle
+    // before using geometry as the palette-only baseline.
+    await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
     const state = () => page.evaluate(() => {
         const core = document.querySelector('.zenfg-inspector-graph-canvas')._cyreg.cy;
         return { sameCore: core === window.originalThemeCore, zoom: core.zoom(), pan: core.pan(), positions: core.nodes().map(n => [n.id(), n.position()]), selected: core.elements('.semantic-selected').map(n => n.id()) };
@@ -58,6 +62,7 @@ try {
     await page.getByRole('button', { name: 'Close inspector', exact: true }).click();
     await checkDeclarations(page, output);
     await checkOverview(page, output, fullSnapshot);
+    await checkGraphImprovements(page, output);
     for (const width of [1277, 1024, 390]) {
         await page.setViewportSize({ width, height: width === 390 ? 844 : 920 });
         for (const mode of ['dark', 'light']) {
@@ -69,7 +74,7 @@ try {
                     const canvas = page.locator('.zenfg-inspector-graph-canvas');
                     const before = { bounds: await canvas.boundingBox(), state: await state() };
                     const search = page.getByRole('button', { name: 'Search', exact: true });
-                    const input = page.getByRole('searchbox', { name: 'Find in graph', exact: true });
+                    const input = page.getByRole('combobox', { name: 'Find in graph', exact: true });
                     assert.equal(await input.isHidden(), true);
                     await search.click();
                     assert.equal(await input.evaluate(el => el === document.activeElement), true);
@@ -82,13 +87,17 @@ try {
                     assert.equal(await input.isHidden(), true);
                     assert.equal(await search.evaluate(el => el === document.activeElement), true);
                     assert.deepEqual({ bounds: await canvas.boundingBox(), state: await state() }, before, 'search overlay preserves canvas and graph viewport');
-                    await page.locator('.zenfg-inspector-legend-details > summary').click();
+                    const legendTrigger = page.getByRole('button', { name: 'Legend', exact: true });
+                    const triggerBefore = await legendTrigger.boundingBox();
+                    await legendTrigger.click();
                     assert.deepEqual({ bounds: await canvas.boundingBox(), state: await state() }, before, 'legend expansion preserves canvas and graph viewport');
-                    const legend = await page.locator('.zenfg-inspector-legend-details').boundingBox();
+                    assert.deepEqual(await legendTrigger.boundingBox(), triggerBefore, 'legend toggle remains in the same place when expanded');
+                    const legend = await page.getByRole('region', { name: 'Graph legend', exact: true }).boundingBox();
                     assert.ok(legend.x >= before.bounds.x && legend.y >= before.bounds.y);
                     assert.ok(legend.x + legend.width <= before.bounds.x + before.bounds.width);
                     assert.ok(legend.y + legend.height <= before.bounds.y + before.bounds.height);
-                    await page.locator('.zenfg-inspector-legend-details > summary').click();
+                    await legendTrigger.click();
+                    assert.deepEqual(await legendTrigger.boundingBox(), triggerBefore, 'legend toggle remains in the same place when collapsed');
                     const alignment = await page.locator('.zenfg-inspector-workbench-actions').evaluate(el => {
                         const visible = [...el.querySelectorAll('button')].filter(button => !button.hidden).map(button => button.getBoundingClientRect());
                         const bar = el.getBoundingClientRect();
@@ -115,9 +124,9 @@ try {
             await page.screenshot({ path: resolve(output, mode + '-detail-' + detail.toLowerCase() + '.png'), animations: 'disabled' });
         }
         await page.getByRole('button', { name: 'Close inspector', exact: true }).click();
-        await page.locator('.zenfg-inspector-legend-details > summary').click();
+        await page.getByRole('button', { name: 'Legend', exact: true }).click();
         await page.screenshot({ path: resolve(output, mode + '-legend.png'), animations: 'disabled' });
-        await page.locator('.zenfg-inspector-legend-details > summary').click();
+        await page.getByRole('button', { name: 'Legend', exact: true }).click();
         await page.getByRole('button', { name: 'Export', exact: true }).click();
         await page.screenshot({ path: resolve(output, mode + '-export.png'), animations: 'disabled' });
         await page.getByRole('button', { name: 'Export', exact: true }).click();
