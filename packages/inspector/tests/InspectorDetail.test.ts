@@ -24,7 +24,7 @@ function installDom(): Window {
 }
 
 function button(host: HTMLElement, text: string): HTMLButtonElement {
-	const found = [...host.querySelectorAll<HTMLButtonElement>('button')].find((candidate) => candidate.textContent === text);
+	const found = [...host.querySelectorAll<HTMLButtonElement>('button')].find((candidate) => candidate.textContent === text || candidate.getAttribute('aria-label') === text);
 	assert.ok(found, `Missing button ${text}`);
 	return found;
 }
@@ -121,6 +121,7 @@ test('Raw search retains matching ancestors while copy always includes the compl
 		search.dispatchEvent(new Event('input', { bubbles: true }));
 		const tree = view.root.querySelector('.zenfg-inspector-raw-detail')!;
 		assert.match(tree.textContent!, /descriptor:.*size:.*width: 1920/);
+		assert.equal(tree.querySelector('mark')?.textContent, 'width');
 		assert.doesNotMatch(tree.textContent!, /height:|usageFlags:/);
 		assert.ok([...tree.querySelectorAll('details')].every((details) => details.open));
 		button(view.root, 'Copy object').click();
@@ -173,10 +174,82 @@ test('Relations preserve selection and hover while explicit locate is separate a
 		assert.deepEqual(selections, [{ kind: 'culled', id: 'node:unused' }]);
 		assert.equal(hovered.at(-1), undefined);
 		assert.deepEqual(reveals, []);
-		button(view.root, 'Locate in Passes').click();
+		const locate = button(view.root, 'Locate in Passes: unused (culled)');
+		assert.equal(locate.querySelector('svg')?.getAttribute('aria-hidden'), 'true');
+		locate.click();
 		assert.deepEqual(reveals, [[{ kind: 'culled', id: 'node:unused' }, 'passes']]);
 		view.setSelection({ kind: 'node', id: 'node:scene' });
 		assert.match(view.root.textContent!, /Value dependencies.*Downstream.*scene-color/);
+	} finally { window.close(); }
+});
+
+test('Summary prioritizes identity, measured metrics and related diagnostics before auxiliary facts', () => {
+	const window = installDom();
+	try {
+		const source = fixture();
+		const view = detailView({ onReveal: () => {} });
+		view.setSnapshot(createDebugViewModel({ ...source, diagnostics: [
+			{ severity: 'warning', code: 'scope-warning', message: 'Keep the complete warning.', nodeId: 'node:scene' },
+		], timings: { ...source.timings, gpu: { status: 'available', frameSpanMicros: 0, nodes: [{ nodeId: 'node:scene', durationMicros: 0 }] } } }));
+		view.setSelection({ kind: 'node', id: 'node:scene' });
+		const identity = view.root.querySelector('.zenfg-inspector-detail-identity')!;
+		assert.match(identity.textContent!, /renderRetainednode:scene/);
+		assert.equal(button(identity as HTMLElement, 'Copy full object ID').querySelector('svg')?.dataset.icon, 'copy');
+		const summary = view.root.querySelector('.zenfg-inspector-detail-summary')!;
+		const metrics = summary.querySelector('.zenfg-inspector-detail-metrics')!;
+		assert.match(metrics.textContent!, /GPU duration0\.000 ms/);
+		assert.match(metrics.textContent!, /CPU durationNot collected/);
+		assert.equal(metrics.querySelector('.zenfg-inspector-detail-metric-unit')?.textContent, ' ms');
+		const sections = [...summary.children];
+		const diagnostics = summary.querySelector('.zenfg-inspector-detail-diagnostics')!;
+		assert.match(diagnostics.textContent!, /scope-warning.*Keep the complete warning/);
+		assert.ok(sections.indexOf(diagnostics) > sections.indexOf(metrics));
+		assert.ok(sections.indexOf(diagnostics) < sections.findIndex((element) => element.tagName === 'DETAILS'));
+		assert.ok([...summary.querySelectorAll('details')].every((section) => !section.open));
+		assert.match(summary.textContent!, /execution success is not implied/);
+		assert.match(summary.textContent!, /GPU timestamp interval/);
+	} finally { window.close(); }
+});
+
+test('Summary auxiliary section preferences survive capture refresh, tab switches and object revisits', () => {
+	const window = installDom();
+	try {
+		const view = detailView();
+		const section = () => view.root.querySelector<HTMLDetailsElement>('details[data-section-key="node:node:scene:accesses"]')!;
+		view.setSnapshot(createDebugViewModel(fixture()));
+		view.setSelection({ kind: 'node', id: 'node:scene' });
+		assert.equal(section().open, false);
+		section().open = true;
+		view.setSnapshot(createDebugViewModel(fixture()));
+		assert.equal(section().open, true);
+		button(view.root, 'Raw').click();
+		button(view.root, 'Summary').click();
+		assert.equal(section().open, true);
+		view.setSelection({ kind: 'node', id: 'node:present' });
+		assert.equal(view.root.querySelector<HTMLDetailsElement>('details[data-section-key="node:node:present:accesses"]')!.open, false);
+		view.setSelection({ kind: 'node', id: 'node:scene' });
+		assert.equal(section().open, true);
+		section().open = false;
+		view.setSnapshot(createDebugViewModel(fixture()));
+		assert.equal(section().open, false);
+	} finally { window.close(); }
+});
+
+test('entity copy icon copies the full ID and keeps its accessible name after feedback', async () => {
+	const window = installDom();
+	try {
+		let copied = '';
+		Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: async (value: string) => { copied = value; } } });
+		const view = detailView();
+		view.setSnapshot(createDebugViewModel(fixture()));
+		view.setSelection({ kind: 'resource', id: 'resource:scene-color' });
+		const copy = button(view.root, 'Copy full object ID');
+		copy.click();
+		await new Promise((resolve) => setTimeout(resolve, 0));
+		assert.equal(copied, 'resource:scene-color');
+		assert.equal(copy.getAttribute('aria-label'), 'Copy full object ID');
+		assert.equal(copy.querySelector('svg')?.dataset.icon, 'copy');
+		assert.equal(view.root.querySelector('.zenfg-inspector-detail-copy-status')?.textContent, 'Copied');
 	} finally { window.close(); }
 });
 
@@ -251,5 +324,61 @@ test('resource details offer Memory navigation only for transients and distingui
 		} }));
 		assert.match(view.root.textContent!, /Not applicable · externally owned resource/);
 		assert.doesNotMatch(view.root.textContent!, /Locate in Memory/);
+	} finally { window.close(); }
+});
+
+test('empty and culled-only group pass sums are inapplicable rather than missing measurements', () => {
+	const window = installDom();
+	try {
+		const source = fixture();
+		const vm = createDebugViewModel({ ...source, graph: { ...source.graph,
+			groups: [...source.graph.groups, { id: 'group:empty', label: 'Empty' }, { id: 'group:culled-only', label: 'Culled only' }],
+			nodes: source.graph.nodes.map(node => node.id === 'node:unused' ? { ...node, groupId: 'group:culled-only' } : node),
+		} });
+		const view = detailView(); view.setSnapshot(vm);
+		for (const id of ['group:empty', 'group:culled-only']) {
+			view.setSelection({ kind: 'group', pathKey: vm.groupById.get(id)!.pathKey });
+			assert.match(view.root.querySelector('.zenfg-inspector-detail-metrics')!.textContent!, /GPU pass sumNot applicableCPU pass sumNot applicable/);
+		}
+	} finally { window.close(); }
+});
+
+test('Raw highlights source characters correctly after length-changing case folds', () => {
+	const window = installDom();
+	try {
+		const source = fixture();
+		const view = detailView();
+		view.setSnapshot(createDebugViewModel({ ...source, graph: { ...source.graph,
+			nodes: source.graph.nodes.map(node => node.id === 'node:scene' ? { ...node, label: 'İstanbul İ renderer' } : node),
+		} }));
+		view.setSelection({ kind: 'node', id: 'node:scene' });
+		button(view.root, 'Raw').click();
+		const search = view.root.querySelector<HTMLInputElement>('input[type="search"]')!;
+		for (const [query, expected] of [['stan', ['stan']], ['i', ['İ', 'İ']]] as const) {
+			search.value = query;
+			search.dispatchEvent(new Event('input', { bubbles: true }));
+			const leaf = [...view.root.querySelectorAll('.zenfg-inspector-raw-leaf')].find(item => item.textContent?.startsWith('label:'))!;
+			assert.equal(leaf.textContent, 'label: "İstanbul İ renderer"');
+			assert.deepEqual([...leaf.querySelectorAll('mark')].map(mark => mark.textContent), [...expected]);
+		}
+	} finally { window.close(); }
+});
+
+test('allocation Summary labels zero logical members as unreferenced', () => {
+	const window = installDom();
+	try {
+		const source = fixture();
+		assert.equal(source.memory.allocationReport.status, 'available');
+		if (source.memory.allocationReport.status !== 'available') throw new Error('Fixture allocation report unavailable');
+		const view = detailView();
+		view.setSnapshot(createDebugViewModel({ ...source, memory: { ...source.memory,
+			allocationReport: { ...source.memory.allocationReport, allocations: [...source.memory.allocationReport.allocations,
+				{ id: 'allocation:orphan', kind: 'buffer', compatibilityClassId: 'compatibility:orphan', estimatedByteSize: 64 },
+			] },
+		} }));
+		view.setSelection({ kind: 'allocation', id: 'allocation:orphan' });
+		assert.match(view.root.querySelector('.zenfg-inspector-detail-metrics')!.textContent!, /Physical estimate64 B.*Logical resources0/);
+		assert.match(view.root.querySelector('.zenfg-inspector-detail-summary')!.textContent!, /AliasUnreferenced/);
+		assert.doesNotMatch(view.root.querySelector('.zenfg-inspector-detail-summary')!.textContent!, /single/);
 	} finally { window.close(); }
 });

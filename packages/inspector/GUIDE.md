@@ -38,10 +38,10 @@ Inspector instance and are not saved across sessions.
 | --- | --- |
 | Overview | Full-width GPU span, CPU execute, physical allocation estimate and retained-pass metrics, with the five slowest measured GPU or CPU passes, work composition, resource/pool summaries and diagnostic counts. Capture metadata and additional Snapshot facts are expandable. |
 | Graph | Frame Flow structure, searchable by pass, resource, group, or output, with explicit target location and a collapsible legend. |
-| Passes | All, Retained, or Culled passes, filtered by kind and name/ID/group, with order and GPU sorting. The separate Group Hierarchy has its own expansion and path search. |
-| Resources | Name/ID/group, type, and Transient/Imported/Surface filters, plus name, estimated size, and first-use sorting. Full descriptors and allocations remain in details. |
-| Memory | Physical allocations and their logical resources, inclusive execution-slot lifetimes, search, allocation/size sorting, and All/Aliased/Single/Unallocated filters. |
-| Diagnostics | Every captured error, warning, and informational message, including repeated codes. Severity and code/message filters precede expandable retention roots, culling reasons, and execution segments. |
+| Passes | All, Retained, or Culled passes, filtered by kind and name/ID/group, with execution order, GPU, and CPU sorting. Both timings remain visible in compact rows. The separate Group Hierarchy has its own expansion and path search. |
+| Resources | Name/ID/group, type, and Transient/Imported/Surface filters, plus name, estimated size, and first-use sorting. Rows show concise descriptors; full descriptors and allocations remain in details. |
+| Memory | Physical allocation and alias savings estimates, a separate cumulative pool summary, and collapsible allocation groups with inclusive execution-slot lifetimes. Search, allocation/size sorting, and All/Aliased/Single/Unallocated filters are available. |
+| Diagnostics | Every captured error, warning, and informational message, including repeated codes. Counted severity buttons and code/message search filter messages; Compilation details separately contains expandable retention roots, culling reasons, and execution segments. |
 
 Lists show the matching and total counts, retain continuous scrolling, and offer
 **Clear filters**. Passes order retained work by execution order, then culled work
@@ -106,9 +106,9 @@ Memory numbers are estimates with different scopes:
 | --- | --- |
 | Transient estimate | Declared estimated sizes of transient logical resources. |
 | Logical capacity | Allocation capacity counted for each assigned logical transient resource. |
-| Physical estimate | Estimated sizes of physical allocations in the allocation report. |
-| Alias reuse | Logical capacity minus physical estimate, where both are known. |
-| Pool retained | Producer-reported idle pool allocations at sampling time, which may outlive this graph. |
+| Physical allocation estimate | Estimated sizes of physical allocations in the allocation report, counted once each. |
+| Alias savings estimate | Logical capacity minus physical allocation estimate, where both are known. |
+| Idle retained estimate | Producer-reported idle pool allocations at sampling time, which may outlive this graph. |
 
 An unavailable report is not zero. Unknown resource/allocation sizes remain
 unknown, and partial summaries show the known-size coverage. A valid empty report
@@ -117,6 +117,21 @@ measured peak. Memory summaries always cover the entire Snapshot; filters change
 the visible rows and matching count only. A lifetime includes both first and last
 execution slots. Tick positions, grid lines, and resource bars share one stable
 Snapshot coordinate range; missing lifetimes have no bar.
+
+Lists use full tables at content widths of 1000px or more, merge secondary
+columns below 1000px, and reflow into compact rows below 600px. GPU/CPU timings
+and resource estimates remain visible when the selection pane reduces the main
+content width. Memory lifetimes use the same full execution-slot domain at every
+width. Allocation folds and estimate information persist across captures;
+search temporarily expands matching allocations, and explicit location expands
+the target without changing ordinary selection behavior.
+
+Diagnostics severity counts always cover the complete Snapshot; the matching
+count reflects search and severity together. Filtering messages does not filter
+Compilation details. Summary puts object-specific measurements before auxiliary
+facts and remembers each object's disclosure state. Relations keep object
+selection separate from the location icon. Raw highlights matching fields and
+values and always copies the complete canonical object, including hidden fields.
 
 Overview labels pool reuse as cumulative: reuse/acquire counters cover the pool's
 lifetime, not just the captured frame. Idle pool bytes remain separate from the

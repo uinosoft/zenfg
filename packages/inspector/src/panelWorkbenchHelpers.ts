@@ -3,6 +3,7 @@ import type {
 	FrameGraphDebugViewModel,
 } from './debugCaptureModel.ts';
 import { createCell, formatBytes, labelResource } from './panelDomHelpers.ts';
+import { createPanelIcon, type PanelIconName } from './panelIcons.ts';
 import type { Selection, WorkbenchTab } from './panelTypes.ts';
 
 export type WorkbenchCallbacks = {
@@ -151,6 +152,18 @@ export function createRelationButton(
 	button.className = 'zenfg-inspector-relation-button';
 	button.textContent = text;
 	button.addEventListener('click', () => onSelect(selection));
+	return button;
+}
+
+/** A fixed-size action with a full accessible name, independent of the visible icon. */
+export function createIconAction(icon: PanelIconName, label: string, onClick: () => void): HTMLButtonElement {
+	const button = document.createElement('button');
+	button.type = 'button';
+	button.className = 'zenfg-inspector-icon-action';
+	button.title = label;
+	button.setAttribute('aria-label', label);
+	button.appendChild(createPanelIcon(icon));
+	button.addEventListener('click', onClick);
 	return button;
 }
 

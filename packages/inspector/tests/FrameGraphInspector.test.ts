@@ -696,7 +696,7 @@ test('legend supports stable toggling, scrolling focus and Escape without reachi
     panel.dom.addEventListener('keydown', (event) => { if (event.key === 'Escape') outerEscapes++; });
     content.focus();
     const escape = new testWindow.KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true });
-    content.dispatchEvent(escape);
+    content.dispatchEvent(escape as unknown as Event);
     assert.equal(escape.defaultPrevented, true);
     assert.equal(outerEscapes, 0);
     assert.equal(popover.hidden, true);

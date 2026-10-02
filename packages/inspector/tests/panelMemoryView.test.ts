@@ -1,14 +1,16 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import test from 'node:test';
 import { Window } from 'happy-dom';
 import {
 	FRAME_GRAPH_SNAPSHOT_FORMAT, FRAME_GRAPH_SNAPSHOT_VERSION,
+	validateFrameGraphSnapshot,
 	type FrameGraphSnapshot, type FrameGraphSnapshotAllocation, type FrameGraphSnapshotResource,
 } from '@zenfg/snapshot';
 import { createDebugViewModel } from '../src/debugCaptureModel.ts';
 import { analyzeSnapshotAliases } from '../src/panelAliasAnalysis.ts';
 import { MemoryView } from '../src/panelMemoryView.ts';
-import { PANEL_MEMORY_CSS } from '../src/panelMemoryStyles.ts';
 import type { Selection } from '../src/panelTypes.ts';
 import type { WorkbenchCallbacks } from '../src/panelWorkbenchHelpers.ts';
 
@@ -18,7 +20,6 @@ test('memory uses inclusive nonzero execution slots shared by ticks, gridlines, 
 		const { root } = env.view;
 		const axis = root.querySelector('.zenfg-inspector-memory-axis')!;
 		assert.equal(axis.children[2]!.className, 'zenfg-inspector-memory-axis-track');
-		assert.match(PANEL_MEMORY_CSS, /\.zenfg-inspector-memory-axis-track,\s*\.zenfg-inspector-memory-track\s*\{ grid-column: 3; \}/);
 		assert.deepEqual(ticks(root), [['5', '12.5%'], ['6', '37.5%'], ['7', '62.5%'], ['8', '87.5%']]);
 		const alpha = bar(root, 'resource:alpha');
 		const beta = bar(root, 'resource:beta');
@@ -60,7 +61,7 @@ test('memory filters and search preserve the snapshot domain and whole-snapshot 
 		assert.match(root.querySelector('[role="status"]')!.textContent!, /1 \/ 5 resources/);
 		assert.deepEqual(ticks(root), originalTicks);
 		assert.equal(root.querySelector('.zenfg-inspector-memory-summary')!.textContent, summary);
-		assert.match(root.querySelector('.zenfg-inspector-memory-allocation')!.textContent!, /aliased ×2/);
+		assert.match(root.querySelector('.zenfg-inspector-memory-allocation')!.textContent!, /Shared ×2/);
 		search(root, '');
 		changeSelect(root, 'Memory allocation status', 'single');
 		assert.deepEqual(resourceIds(root), ['resource:unknown', 'resource:gamma']);
@@ -116,22 +117,102 @@ test('ordinary memory selection preserves filters; explicit reveal clears blocke
 test('memory distinguishes unavailable reports, partial estimates, and valid zero allocations', () => {
 	const env = mountMemory();
 	try {
-		assert.match(metric(env.view.root, 'Physical estimate'), /Unknown · 2\/3 sizes known/);
+		assert.equal(metric(env.view.root, 'Physical allocation estimate'), 'Unknown');
+		assert.match(env.view.root.querySelector('.zenfg-inspector-memory-summary')!.textContent!, /2\/3 sizes known/);
 		assert.match(metric(env.view.root, 'Logical capacity'), /Unknown · 3\/4 sizes known/);
 		const base = snapshot([resource('unallocated')], []);
 		env.view.setSnapshot(createDebugViewModel({ ...base, memory: {
 			allocationReport: { status: 'unavailable', reason: 'Not captured' },
 			poolReport: { status: 'unavailable', reason: 'Not captured' },
 		} }));
-		for (const label of ['Logical capacity', 'Physical estimate', 'Alias reuse', 'Pool retained', 'Allocations']) {
-			assert.equal(metric(env.view.root, label), 'Not collected');
+		for (const label of ['Logical capacity', 'Physical allocation estimate', 'Alias savings estimate', 'Allocations']) {
+			assert.equal(metric(env.view.root, label), 'Unavailable');
 		}
+		assert.match(env.view.root.querySelector('.zenfg-inspector-memory-pool')!.textContent!, /Unavailable · Not captured/);
+		assert.equal(env.view.root.querySelector<HTMLOptionElement>('option[value="unallocated"]')!.textContent, 'Allocation unavailable');
 		assert.match(env.view.root.textContent!, /allocation report unavailable/);
 		env.view.setSnapshot(createDebugViewModel(snapshot([], [])));
-		for (const label of ['Resource estimate', 'Logical capacity', 'Physical estimate', 'Alias reuse', 'Pool retained']) {
+		for (const label of ['Logical transient estimate', 'Logical capacity', 'Physical allocation estimate', 'Alias savings estimate', 'Idle retained estimate']) {
 			assert.equal(metric(env.view.root, label), '0 B');
 		}
-		assert.equal(metric(env.view.root, 'Allocations'), '0 · 0 aliased');
+		assert.equal(metric(env.view.root, 'Allocations'), '0');
+		assert.match(env.view.root.querySelector('.zenfg-inspector-memory-summary')!.textContent!, /0 shared · 0 single/);
+	} finally { env.close(); }
+});
+
+test('allocation folding keeps matching counts and search expands without changing the saved preference', () => {
+	const env = mountMemory();
+	try {
+		const root = env.view.root;
+		const originalTicks = ticks(root);
+		allocationToggle(root, 'allocation:a').click();
+		assert.equal(allocationToggle(root, 'allocation:a').getAttribute('aria-expanded'), 'false');
+		assert.deepEqual(resourceIds(root), ['resource:unknown', 'resource:gamma', 'resource:unallocated']);
+		assert.match(root.querySelector('[role="status"]')!.textContent!, /5 \/ 5 resources/);
+		assert.equal(document.activeElement, allocationToggle(root, 'allocation:a'));
+		search(root, 'beta');
+		assert.deepEqual(resourceIds(root), ['resource:beta']);
+		assert.equal(allocationToggle(root, 'allocation:a').getAttribute('aria-expanded'), 'true');
+		assert.equal(allocationToggle(root, 'allocation:a').disabled, true);
+		assert.match(root.querySelector('.zenfg-inspector-memory-allocation')!.textContent!, /Shared ×2/);
+		search(root, '');
+		assert.equal(allocationToggle(root, 'allocation:a').getAttribute('aria-expanded'), 'false');
+		assert.deepEqual(ticks(root), originalTicks);
+		env.view.setSelection({ kind: 'resource', id: 'resource:alpha' });
+		assert.equal(allocationToggle(root, 'allocation:a').getAttribute('aria-expanded'), 'false');
+		env.view.reveal({ kind: 'resource', id: 'resource:alpha' });
+		assert.equal(allocationToggle(root, 'allocation:a').getAttribute('aria-expanded'), 'true');
+		const alpha = root.querySelector<HTMLElement>('[data-selection-key="resource:resource:alpha"]')!;
+		assert.equal(alpha.classList.contains('selected'), true);
+		assert.equal(document.activeElement, alpha.querySelector('button'));
+	} finally { env.close(); }
+});
+
+test('refresh preserves estimate disclosure and folds for surviving allocations but drops removed IDs', () => {
+	const env = mountMemory();
+	try {
+		const root = env.view.root;
+		const details = root.querySelector<HTMLDetailsElement>('.zenfg-inspector-memory-estimate-details')!;
+		details.open = true;
+		allocationToggle(root, 'allocation:a').click();
+		env.view.setSnapshot(createDebugViewModel(snapshot()));
+		assert.equal(details.open, true);
+		assert.equal(allocationToggle(root, 'allocation:a').getAttribute('aria-expanded'), 'false');
+		env.view.setSnapshot(createDebugViewModel(snapshot([], [])));
+		env.view.setSnapshot(createDebugViewModel(snapshot()));
+		assert.equal(allocationToggle(root, 'allocation:a').getAttribute('aria-expanded'), 'true');
+		allocationToggle(root, 'allocation:a').click();
+		env.view.reveal({ kind: 'allocation', id: 'allocation:a' });
+		assert.equal(allocationToggle(root, 'allocation:a').getAttribute('aria-expanded'), 'true');
+		assert.equal(document.activeElement, root.querySelector('[data-selection-key="allocation:allocation:a"] .zenfg-inspector-relation-button'));
+		assert.equal(root.querySelector('.zenfg-inspector-memory-summary')!.parentElement, root.querySelector('.zenfg-inspector-memory-scroller'));
+	} finally { env.close(); }
+});
+
+test('pool metrics stay separate from allocation estimates and reuse is cumulative with zero acquisitions inapplicable', () => {
+	const base = snapshot([resource('logical', { firstUse: 0, lastUse: 0 }, 'allocation:a', 64)], [
+		{ id: 'allocation:a', kind: 'buffer', compatibilityClassId: 'class:a', estimatedByteSize: 128 },
+	]);
+	const env = mountMemory({ ...base, memory: { ...base.memory, poolReport: {
+		status: 'available', acquireCount: 8, reuseCount: 6, createdCount: 2, retainedCount: 4, estimatedRetainedBytes: 1024,
+	} } }, { onReveal: () => {} });
+	try {
+		const root = env.view.root;
+		assert.equal(root.querySelector('.zenfg-inspector-memory-summary')!.children.length, 3);
+		assert.equal(metric(root, 'Physical allocation estimate'), '128 B');
+		assert.equal(metric(root, 'Alias savings estimate'), '0 B');
+		assert.equal(metric(root, 'Logical transient estimate'), '64 B');
+		assert.equal(metric(root, 'Logical capacity'), '128 B');
+		assert.equal(metric(root, 'Idle retained estimate'), '1.0 KiB');
+		assert.equal(metric(root, 'Idle allocations'), '4');
+		assert.equal(metric(root, 'Cumulative reuse'), '75.0%');
+		env.view.setSnapshot(createDebugViewModel(base));
+		assert.equal(metric(root, 'Cumulative reuse'), 'Not applicable');
+		assert.equal(metric(root, 'Idle retained estimate'), '0 B');
+		const locate = root.querySelector<HTMLButtonElement>('.zenfg-inspector-memory-reveal')!;
+		assert.equal(locate.getAttribute('aria-label'), 'Locate logical in Resources');
+		assert.ok(locate.querySelector('svg[data-icon="locate"]'));
+		assert.equal(locate.textContent, '');
 	} finally { env.close(); }
 });
 
@@ -147,6 +228,41 @@ test('allocation analysis caches immutable captures and ignores imported resourc
 	assert.notEqual(next, first);
 	assert.equal(next.minUse, 12);
 	assert.equal(next.maxUse, 14);
+});
+
+test('unreferenced allocations retain physical estimates without counting as single-resource allocations', () => {
+	const base = JSON.parse(readFileSync(resolve('packages/snapshot/fixtures/full-webgpu.fgsnapshot.json'), 'utf8')) as FrameGraphSnapshot;
+	assert.equal(base.memory.allocationReport.status, 'available');
+	if (base.memory.allocationReport.status !== 'available') throw new Error('Expected available fixture allocations');
+	const protocol: FrameGraphSnapshot = { ...base, memory: { ...base.memory, allocationReport: {
+		...base.memory.allocationReport, allocations: [...base.memory.allocationReport.allocations, {
+			id: 'allocation:unreferenced', kind: 'buffer', compatibilityClassId: 'compatibility:unreferenced', estimatedByteSize: 8388608,
+		}],
+	} } };
+	assert.deepEqual(validateFrameGraphSnapshot(protocol), [], 'an unreferenced allocation is a valid snapshot record');
+	const env = mountMemory(protocol);
+	try {
+		const root = env.view.root;
+		assert.equal(metric(root, 'Allocations'), '2');
+		assert.equal(metric(root, 'Physical allocation estimate'), '15.9 MiB');
+		assert.match(root.querySelector('.zenfg-inspector-memory-summary')!.textContent!, /0 shared · 1 single · 1 unreferenced/);
+		const header = () => root.querySelector<HTMLElement>('[data-selection-key="allocation:allocation:unreferenced"]');
+		assert.match(header()!.textContent!, /Unreferenced/);
+		assert.doesNotMatch(header()!.textContent!, /Single/);
+		assert.equal(allocationToggle(root, 'allocation:unreferenced').disabled, true);
+		changeSelect(root, 'Memory allocation status', 'single');
+		assert.equal(header(), null);
+		assert.deepEqual(resourceIds(root), ['resource:scene-color']);
+		changeSelect(root, 'Memory allocation status', 'all');
+		search(root, 'allocation:unreferenced');
+		assert.ok(header());
+		assert.deepEqual(resourceIds(root), []);
+		assert.match(root.querySelector('[role="status"]')!.textContent!, /0 \/ 2 resources/);
+		env.view.reveal({ kind: 'allocation', id: 'allocation:unreferenced' });
+		assert.equal(header()!.classList.contains('selected'), true);
+		assert.equal(document.activeElement, header()!.querySelector('.zenfg-inspector-relation-button'));
+		assert.equal(metric(root, 'Physical allocation estimate'), '15.9 MiB');
+	} finally { env.close(); }
 });
 
 function mountMemory(protocol = snapshot(), callbacks: Partial<WorkbenchCallbacks> = {}) {
@@ -210,5 +326,11 @@ function changeSelect(root: ParentNode, label: string, value: string): void {
 }
 
 function metric(root: ParentNode, label: string): string {
-	return Array.from(root.querySelectorAll('.zenfg-inspector-memory-summary > div')).find((item) => item.querySelector('span')!.textContent === label)!.querySelector('strong')!.textContent!;
+	const item = Array.from(root.querySelectorAll('.zenfg-inspector-memory-metric')).find((entry) => entry.querySelector('.zenfg-inspector-memory-metric-label')!.textContent === label);
+	if (item) return item.querySelector('strong')!.textContent!;
+	return Array.from(root.querySelectorAll('.zenfg-inspector-memory-estimate-facts > div')).find((entry) => entry.querySelector('dt')!.textContent === label)!.querySelector('dd')!.textContent!;
+}
+
+function allocationToggle(root: ParentNode, id: string): HTMLButtonElement {
+	return Array.from(root.querySelectorAll<HTMLButtonElement>('[data-allocation-toggle]')).find((button) => button.dataset.allocationToggle === id)!;
 }

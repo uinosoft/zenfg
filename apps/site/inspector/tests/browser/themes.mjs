@@ -9,6 +9,7 @@ import { checkDeclarations } from './declarations.mjs';
 import { checkDrawerBackdrop } from './drawerBackdrop.mjs';
 import { checkOverview } from './overview.mjs';
 import { checkGraphImprovements } from './graphImprovements.mjs';
+import { checkWorkbenchPanels } from './workbenchPanels.mjs';
 
 const root = resolve(import.meta.dirname, '../../../../../');
 const output = resolve(root, '.test-dist/inspector-theme-qa');
@@ -16,6 +17,7 @@ await mkdir(output, { recursive: true });
 await build({ stdin: { contents: "import { createFrameFlowVisualFixture } from './packages/webgpu/tests/frameFlowVisualFixture.ts'; export const snapshot = createFrameFlowVisualFixture();", resolveDir: root }, bundle: true, outfile: resolve(output, 'fixture.mjs'), format: 'esm', platform: 'node' });
 const { snapshot } = await import(pathToFileURL(resolve(output, 'fixture.mjs')).href);
 const fullSnapshot = JSON.parse(await readFile(resolve(root, 'packages/snapshot/fixtures/full-webgpu.fgsnapshot.json'), 'utf8'));
+const aliasSnapshot = JSON.parse(await readFile(resolve(root, 'packages/snapshot/fixtures/aliasing.fgsnapshot.json'), 'utf8'));
 const { outputFiles } = await build({ entryPoints: [resolve(import.meta.dirname, 'themeHarness.ts')], bundle: true, write: false, format: 'esm', platform: 'browser', target: 'es2022' });
 const { chromium } = await import(process.env.PLAYWRIGHT_MODULE ? pathToFileURL(resolve(process.env.PLAYWRIGHT_MODULE)).href : 'playwright');
 const browser = await chromium.launch({ ...(process.platform === 'win32' ? { channel: 'msedge' } : {}), headless: true });
@@ -63,6 +65,7 @@ try {
     await checkDeclarations(page, output);
     await checkOverview(page, output, fullSnapshot);
     await checkGraphImprovements(page, output);
+    await checkWorkbenchPanels(page, output, fullSnapshot, aliasSnapshot);
     for (const width of [1277, 1024, 390]) {
         await page.setViewportSize({ width, height: width === 390 ? 844 : 920 });
         for (const mode of ['dark', 'light']) {

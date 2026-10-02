@@ -15,6 +15,7 @@ export type PanelIconName =
 	| 'import'
 	| 'inspector'
 	| 'legend'
+	| 'locate'
 	| 'minus'
 	| 'plus'
 	| 'relations'
@@ -45,6 +46,7 @@ const ICON_PATHS: Record<PanelIconName, readonly string[]> = {
 	import: ['M8 10V2.5', 'M5.5 5 8 2.5 10.5 5', 'M3 9.5v4h10v-4'],
 	inspector: ['M2.5 3h11v10h-11z', 'M9.5 3v10'],
 	legend: ['M2.5 3h2v2h-2z', 'M2.5 7h2v2h-2z', 'M2.5 11h2v2h-2z', 'M7 4h6.5', 'M7 8h6.5', 'M7 12h6.5'],
+	locate: ['M8 3a5 5 0 1 1 0 10 5 5 0 0 1 0-10', 'M8 1.5v3', 'M8 11.5v3', 'M1.5 8h3', 'M11.5 8h3', 'M8 6.5a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3'],
 	minus: ['M3 8h10'],
 	plus: ['M3 8h10', 'M8 3v10'],
 	relations: ['M6.5 6.5h3v3h-3z', 'M2 2h3v3H2z', 'M11 11h3v3h-3z', 'M5 5l1.5 1.5', 'M9.5 9.5 11 11'],

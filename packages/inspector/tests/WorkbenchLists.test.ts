@@ -134,7 +134,7 @@ test('Group hierarchy expands independently of Graph, keeps search ancestors, an
 	const postfx = snapshot.groupById.get('group:postfx')!;
 	view.reveal({ kind: 'group', pathKey: postfx.pathKey });
 	assert.equal(rows().length, 2);
-	button(rows()[1] as HTMLElement, 'Show in Graph').click();
+	(rows()[1] as HTMLElement).querySelector<HTMLButtonElement>('[aria-label="Show in Graph: Main / PostFX"]')!.click();
 	assert.deepEqual(log.reveals, [[{ kind: 'group', pathKey: postfx.pathKey }, 'graph']]);
 });
 
@@ -198,7 +198,7 @@ test('Resource Surface filter, ID/group search, size and lifetime sorting retain
 	const rows = () => Array.from(view.root.querySelectorAll<HTMLTableRowElement>('tbody tr[data-selection-key]'));
 	setSelect(view.root, 'Resource origin', 'surface');
 	assert.deepEqual(rows().map((row) => row.dataset.selectionKey), ['resource:resource:backbuffer']);
-	assert.equal(rows()[0]!.querySelector('small'), null, 'no placeholder group row');
+	assert.equal(rows()[0]!.querySelector('.zenfg-inspector-list-group-path'), null, 'no placeholder group row');
 	assert.match(view.root.querySelector('.zenfg-inspector-result-count')!.textContent!, /1 \/ 3 resources/);
 	button(view.root, 'Clear filters').click();
 	search(view.root, 'Search resource, ID or group', 'resource:scene-color');
@@ -235,10 +235,10 @@ test('Diagnostics preserves every message, sorts by severity stably and provides
 	button(associated, 'backbuffer').click();
 	assert.deepEqual(log.selections, [{ kind: 'culled', id: 'node:unused' }, { kind: 'resource', id: 'resource:backbuffer' }]);
 	assert.deepEqual(log.reveals, []);
-	button(associated, 'Show in Passes').click();
-	button(associated, 'Show in Resources').click();
+	associated.querySelector<HTMLButtonElement>('[aria-label="Show in Passes: unused"]')!.click();
+	associated.querySelector<HTMLButtonElement>('[aria-label="Show in Resources: backbuffer"]')!.click();
 	assert.deepEqual(log.reveals, [[{ kind: 'culled', id: 'node:unused' }, 'passes'], [{ kind: 'resource', id: 'resource:backbuffer' }, 'resources']]);
-	setSelect(view.root, 'Diagnostic severity', 'warning');
+	view.root.querySelector<HTMLButtonElement>('button[data-severity="warning"]')!.click();
 	assert.equal(articles().length, 2);
 	search(view.root, 'Search diagnostic code or message', 'Warning second');
 	assert.equal(articles().length, 1);
@@ -281,4 +281,85 @@ test('CPU sort preserves real zero and puts uncollected nodes last', t => {
  assert.match(listRows(view)[1]!.textContent!,/0.000/);
  for(const group of model.debugGroups){const ids=new Set(model.nodes.filter(n=>n.debugGroupId&&model.groupById.get(n.debugGroupId)?.ancestorIds.includes(group.id)).map(n=>n.id));
   assert.equal(group.summary.cpuWorkDurationMicros,model.nodes.filter(n=>ids.has(n.id)).reduce((sum,n)=>sum+(n.cpuDurationMicros??0),0));}
+});
+
+test('Pass timing notes preserve expansion and sort across refresh while keeping missing and zero values distinct', (t) => {
+	const win = installDom(); t.after(() => win.close());
+	const source = fixture();
+	const model = createDebugViewModel({ ...source, timings: {
+		cpu: { status: 'unavailable', reason: 'not-requested' },
+		gpu: { status: 'available', frameSpanMicros: 0, nodes: [{ nodeId: 'node:scene', durationMicros: 0 }] },
+	} });
+	const view = new PassesView(callbacks().handlers, 'notes'); view.setSnapshot(model);
+	const notes = view.root.querySelector<HTMLDetailsElement>('.zenfg-inspector-list-notes')!;
+	assert.equal(notes.open, false);
+	assert.match(notes.textContent!, /CPU unavailable: not-requested/);
+	assert.match(view.root.querySelector('.zenfg-inspector-list-coverage')!.textContent!, /GPU.*Partial.*1\/2/);
+	notes.open = true;
+	setSelect(view.root, 'Sort passes', 'gpu');
+	view.setSelection({ kind: 'node', id: 'node:scene' });
+	view.setSnapshot(model);
+	assert.equal(notes.open, true, 'refresh retains the existing explanation control');
+	assert.equal(view.root.querySelector<HTMLSelectElement>('[aria-label="Sort passes"]')!.value, 'gpu');
+	const rows = listRows(view);
+	assert.equal(rows[0]!.dataset.selectionKey, 'node:node:scene');
+	assert.equal(rows[0]!.classList.contains('selected'), true);
+	assert.equal(rows[0]!.cells[5]!.getAttribute('aria-label'), 'GPU (ms): 0.000');
+	assert.equal(rows[0]!.cells[4]!.getAttribute('aria-label'), 'CPU (ms): Not collected');
+	assert.equal(view.root.querySelector('.zenfg-inspector-pass-table th:nth-child(6)')!.getAttribute('aria-sort'), 'descending');
+	assert.match(rows[0]!.querySelector('.zenfg-inspector-list-row-meta')!.textContent!, /Retained.*render.*#0/);
+	search(view.root, 'Search pass, ID or group', 'present');
+	view.reveal({ kind: 'node', id: 'node:scene' });
+	assert.equal(view.root.querySelector<HTMLSelectElement>('[aria-label="Sort passes"]')!.value, 'gpu');
+	assert.equal(listRows(view).length, 4);
+});
+
+test('Group hierarchy uses keyboard actions for parents and noninteractive leaf spacers', (t) => {
+	const win = installDom(); t.after(() => win.close());
+	const log = callbacks(); const view = new PassesView(log.handlers, 'group-actions');
+	view.setSnapshot(createDebugViewModel(fixture())); document.body.appendChild(view.root);
+	button(view.root, 'Group Hierarchy').click();
+	const rows = () => Array.from(view.root.querySelectorAll<HTMLElement>('.zenfg-inspector-group-table tbody tr'));
+	assert.equal(rows()[1]!.querySelector('.zenfg-inspector-group-toggle'), null);
+	assert.equal(rows()[1]!.querySelector('.zenfg-inspector-group-toggle-spacer')!.getAttribute('aria-hidden'), 'true');
+	const toggle = rows()[0]!.querySelector<HTMLButtonElement>('.zenfg-inspector-group-toggle')!;
+	assert.equal(toggle.querySelector('svg')!.getAttribute('data-icon'), 'chevron-down');
+	toggle.click();
+	const collapsed = rows()[0]!.querySelector<HTMLButtonElement>('.zenfg-inspector-group-toggle')!;
+	assert.equal(document.activeElement, collapsed, 'the rebuilt hierarchy restores toggle focus');
+	assert.equal(collapsed.getAttribute('aria-expanded'), 'false');
+	assert.equal(collapsed.querySelector('svg')!.getAttribute('data-icon'), 'chevron-right');
+	collapsed.click();
+	const locate = rows()[1]!.querySelector<HTMLButtonElement>('[aria-label="Show in Graph: Main / PostFX"]')!;
+	assert.equal(locate.title, 'Show in Graph: Main / PostFX');
+	assert.equal(locate.querySelector('svg')!.getAttribute('aria-hidden'), 'true');
+	locate.click();
+	assert.equal(log.reveals[0]![1], 'graph');
+	assert.deepEqual(log.graphToggles, []);
+});
+
+test('Resources expose descriptor and inclusive slots without replacing logical size with physical allocation size', (t) => {
+	const win = installDom(); t.after(() => win.close());
+	const source = fixture();
+	const model = createDebugViewModel({ ...source, graph: { ...source.graph, resources: source.graph.resources.map((resource) =>
+		resource.id === 'resource:scene-color' ? { ...resource, estimatedByteSize: 0 } : resource,
+	) } });
+	const view = new ResourcesView(callbacks().handlers, 'resource-details'); view.setSnapshot(model);
+	const row = view.root.querySelector<HTMLTableRowElement>('tr[data-selection-key="resource:resource:scene-color"]')!;
+	assert.match(row.querySelector('.zenfg-inspector-resource-descriptor')!.textContent!, /rgba16float.*1920×1080×1/);
+	assert.equal(row.cells[2]!.textContent, '0 B');
+	assert.equal(row.cells[2]!.getAttribute('aria-label'), 'Estimated size: 0 B');
+	assert.match(row.querySelector('.zenfg-inspector-list-row-extra')!.textContent!, /Slots 0–2/);
+	const notes = view.root.querySelector<HTMLDetailsElement>('.zenfg-inspector-resource-notes')!; notes.open = true;
+	setSelect(view.root, 'Sort resources', 'size');
+	search(view.root, 'Search resource, ID or group', 'scene');
+	view.setSelection({ kind: 'resource', id: 'resource:scene-color' }); view.setSnapshot(model);
+	assert.equal(notes.open, true);
+	assert.equal(view.root.querySelector<HTMLSelectElement>('[aria-label="Sort resources"]')!.value, 'size');
+	assert.equal(view.root.querySelectorAll('tr[data-selection-key]').length, 1);
+	assert.equal(view.root.querySelector('tr[data-selection-key]')!.classList.contains('selected'), true);
+	view.reveal({ kind: 'resource', id: 'resource:backbuffer' });
+	assert.equal(view.root.querySelectorAll('tr[data-selection-key]').length, 3);
+	assert.equal(view.root.querySelector<HTMLSelectElement>('[aria-label="Sort resources"]')!.value, 'size');
+	assert.equal(view.root.querySelector('.zenfg-inspector-resource-table th:nth-child(3)')!.getAttribute('aria-sort'), 'descending');
 });

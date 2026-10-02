@@ -3,7 +3,7 @@ import { labelNode, labelResource } from './panelDomHelpers.ts';
 import { resolveNodeSelection } from './panelSelection.ts';
 import type { Selection, WorkbenchTab } from './panelTypes.ts';
 import {
-	createFilterSelect, createRelationButton, createSearchInput, createViewToolbar,
+	createIconAction, createRelationButton, createSearchInput, createViewToolbar,
 	registerSelectable, selectionKey, type WorkbenchCallbacks, updateSelectedRows,
 } from './panelWorkbenchHelpers.ts';
 
@@ -17,7 +17,7 @@ export class DiagnosticsView {
 	private readonly openSections = new Set<string>();
 	private readonly count = document.createElement('span');
 	private readonly searchInput: HTMLInputElement;
-	private readonly severitySelect: HTMLSelectElement;
+	private readonly severityButtons = new Map<string, HTMLButtonElement>();
 	private snapshot: FrameGraphDebugViewModel | undefined;
 	private selected: Selection | undefined;
 	private severity = 'all';
@@ -32,16 +32,28 @@ export class DiagnosticsView {
 			this.search = value.trim().toLocaleLowerCase();
 			this.render();
 		});
-		this.severitySelect = createFilterSelect('Diagnostic severity', this.severity, [
-			['all', 'All severities'], ['error', 'Error'], ['warning', 'Warning'], ['info', 'Info'],
-		], (value) => { this.severity = value; this.render(); });
+		const severities = document.createElement('div');
+		severities.className = 'zenfg-inspector-diagnostic-filters';
+		severities.setAttribute('role', 'group');
+		severities.setAttribute('aria-label', 'Diagnostic severity');
+		for (const [value, label] of [['all', 'All'], ['error', 'Error'], ['warning', 'Warning'], ['info', 'Info']] as const) {
+			const button = document.createElement('button');
+			button.type = 'button';
+			button.dataset.severity = value;
+			button.setAttribute('aria-label', `${label} diagnostics`);
+			button.setAttribute('aria-pressed', String(this.severity === value));
+			button.textContent = `${label} · 0`;
+			button.addEventListener('click', () => { this.severity = value; this.render(); });
+			this.severityButtons.set(value, button);
+			severities.appendChild(button);
+		}
 		const clear = document.createElement('button');
 		clear.type = 'button';
 		clear.textContent = 'Clear filters';
 		clear.addEventListener('click', () => { this.clearFilters(); this.render(); });
 		this.count.className = 'zenfg-inspector-result-count';
 		this.count.setAttribute('role', 'status');
-		toolbar.append(this.searchInput, this.severitySelect, clear, this.count);
+		toolbar.append(this.searchInput, severities, clear, this.count);
 		this.scroller.className = 'zenfg-inspector-diagnostics-scroller';
 		this.content.className = 'zenfg-inspector-diagnostics-sections';
 		this.scroller.appendChild(this.content);
@@ -59,6 +71,7 @@ export class DiagnosticsView {
 	}
 
 	reveal(selection: Selection): void {
+		this.rememberOpenSections();
 		this.clearFilters();
 		if (selection.kind === 'root') this.openSections.add('roots');
 		if (selection.kind === 'culled') this.openSections.add('culled');
@@ -66,7 +79,7 @@ export class DiagnosticsView {
 			this.openSections.add('segments');
 			this.openSections.add(`segment:${selection.index}`);
 		}
-		this.render();
+		this.render(false);
 		this.rows.get(selectionKey(selection))?.[0]?.scrollIntoView?.({ block: 'nearest' });
 	}
 
@@ -74,15 +87,28 @@ export class DiagnosticsView {
 		this.search = '';
 		this.severity = 'all';
 		this.searchInput.value = '';
-		this.severitySelect.value = 'all';
 	}
 
-	private render(): void {
+	private rememberOpenSections(): void {
+		for (const section of this.content.querySelectorAll<HTMLDetailsElement>('details[data-section]')) {
+			const key = section.dataset.section!;
+			if (section.open) this.openSections.add(key);
+			else this.openSections.delete(key);
+		}
+	}
+
+	private render(preserveSections = true): void {
 		const snapshot = this.snapshot;
 		if (!snapshot) return;
+		if (preserveSections) this.rememberOpenSections();
 		this.rows.clear();
+		const compilation = document.createElement('section');
+		compilation.className = 'zenfg-inspector-diagnostic-compilation';
+		const heading = document.createElement('h2');
+		heading.textContent = 'Compilation details';
+		compilation.append(heading, this.createRoots(snapshot), this.createCulled(snapshot), this.createSegments(snapshot));
 		this.content.replaceChildren(
-			this.createMessages(snapshot), this.createRoots(snapshot), this.createCulled(snapshot), this.createSegments(snapshot),
+			this.createMessages(snapshot), compilation,
 		);
 		updateSelectedRows(this.rows, this.selected);
 	}
@@ -91,14 +117,19 @@ export class DiagnosticsView {
 		const section = document.createElement('section');
 		section.className = 'zenfg-inspector-diagnostic-messages';
 		const heading = document.createElement('h2');
-		heading.textContent = 'Diagnostics';
-		const summary = document.createElement('p');
+		heading.textContent = 'Messages';
 		const all = snapshot.protocol.diagnostics;
 		const errors = all.filter((entry) => entry.severity === 'error').length;
 		const warnings = all.filter((entry) => entry.severity === 'warning').length;
 		const infos = all.length - errors - warnings;
-		summary.textContent = `${errors} errors · ${warnings} warnings · ${infos} info`;
-		section.append(heading, summary);
+		const totals = { all: all.length, error: errors, warning: warnings, info: infos };
+		for (const [value, button] of this.severityButtons) {
+			const label = value[0]!.toUpperCase() + value.slice(1);
+			button.textContent = `${label} · ${totals[value as keyof typeof totals]}`;
+			button.setAttribute('aria-description', `${totals[value as keyof typeof totals]} records in this snapshot`);
+			button.setAttribute('aria-pressed', String(this.severity === value));
+		}
+		section.appendChild(heading);
 		// Sort a copy. Stable sort preserves capture order within each severity, including repeated codes.
 		const messages = all.filter((entry) => (this.severity === 'all' || entry.severity === this.severity)
 			&& (!this.search || `${entry.code} ${entry.message}`.toLocaleLowerCase().includes(this.search)))
@@ -121,11 +152,11 @@ export class DiagnosticsView {
 			if (diagnostic.nodeId !== undefined) {
 				const selection = resolveNodeSelection(snapshot, diagnostic.nodeId);
 				const node = snapshot.canonicalNodeById.get(diagnostic.nodeId);
-				if (selection && node) article.appendChild(this.createObjectLink(labelNode(node), selection, 'passes'));
+				if (selection && node) article.appendChild(this.createObjectLink(labelNode(node), selection, 'passes', `${selection.kind === 'culled' ? 'Culled · ' : ''}${node.kind}`));
 			}
 			if (diagnostic.resourceId !== undefined) {
 				const resource = snapshot.resourceById.get(diagnostic.resourceId);
-				if (resource) article.appendChild(this.createObjectLink(labelResource(resource), { kind: 'resource', id: resource.id }, 'resources'));
+				if (resource) article.appendChild(this.createObjectLink(labelResource(resource), { kind: 'resource', id: resource.id }, 'resources', `${resource.kind} · ${resource.origin}`));
 			}
 			section.appendChild(article);
 		}
@@ -138,18 +169,23 @@ export class DiagnosticsView {
 		return section;
 	}
 
-	private createObjectLink(label: string, selection: Selection, tab: WorkbenchTab): HTMLElement {
+	private createObjectLink(label: string, selection: Selection, tab: WorkbenchTab, description?: string): HTMLElement {
 		const links = document.createElement('span');
 		links.className = 'zenfg-inspector-diagnostic-links';
 		const select = createRelationButton(label, selection, this.callbacks.onSelect);
+		select.title = label;
 		registerSelectable(this.rows, select, selection, this.callbacks);
-		const reveal = document.createElement('button');
-		reveal.type = 'button';
-		reveal.className = 'zenfg-inspector-relation-button zenfg-inspector-diagnostic-reveal';
-		reveal.textContent = `Show in ${tab === 'passes' ? 'Passes' : 'Resources'}`;
-		reveal.setAttribute('aria-label', `${reveal.textContent}: ${label}`);
-		reveal.addEventListener('click', () => this.callbacks.onReveal?.(selection, tab));
-		links.append(select, reveal);
+		const identity = document.createElement('span');
+		identity.className = 'zenfg-inspector-diagnostic-object';
+		identity.appendChild(select);
+		if (description) {
+			const meta = document.createElement('small');
+			meta.textContent = description;
+			identity.appendChild(meta);
+		}
+		const reveal = createIconAction('locate', `Show in ${tab === 'passes' ? 'Passes' : 'Resources'}: ${label}`, () => this.callbacks.onReveal?.(selection, tab));
+		reveal.classList.add('zenfg-inspector-diagnostic-reveal');
+		links.append(identity, reveal);
 		return links;
 	}
 
@@ -167,6 +203,7 @@ export class DiagnosticsView {
 			section.appendChild(text);
 		}
 		section.addEventListener('toggle', () => {
+			if (!this.content.contains(section)) return;
 			if (section.open) this.openSections.add(key);
 			else this.openSections.delete(key);
 		});

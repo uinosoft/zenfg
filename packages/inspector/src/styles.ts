@@ -4,6 +4,7 @@ import { PANEL_LIST_CSS } from './panelListStyles.ts';
 import { PANEL_DETAIL_CSS } from './panelDetailStyles.ts';
 import { PANEL_MEMORY_CSS } from './panelMemoryStyles.ts';
 import { PANEL_OVERVIEW_CSS } from './panelOverviewStyles.ts';
+import { PANEL_DIAGNOSTICS_CSS } from './panelDiagnosticsStyles.ts';
 
 const STYLE_ELEMENT_ID = 'zenfg-inspector-panel-styles';
 
@@ -87,6 +88,30 @@ const FRAME_GRAPH_DEBUG_PANEL_CSS = `
 	flex: 0 0 auto;
 	width: 14px;
 	height: 14px;
+}
+
+.zenfg-inspector button.zenfg-inspector-icon-action {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	flex: 0 0 30px;
+	width: 30px;
+	height: 30px;
+	min-height: 30px;
+	padding: 0;
+	border: 1px solid var(--fgd-border);
+	border-radius: var(--fgd-radius-sm);
+	color: var(--fgd-text-secondary);
+	background: var(--fgd-surface);
+	cursor: pointer;
+}
+.zenfg-inspector button.zenfg-inspector-icon-action:hover {
+	color: var(--fgd-text);
+	background: var(--fgd-surface-hover);
+}
+.zenfg-inspector button.zenfg-inspector-icon-action:focus-visible {
+	outline: 2px solid var(--fgd-accent);
+	outline-offset: 2px;
 }
 
 .zenfg-inspector-table-scroller,
@@ -991,6 +1016,6 @@ export function ensureFrameGraphInspectorStyles(): void {
 
 	const style = document.createElement('style');
 	style.id = STYLE_ELEMENT_ID;
-	style.textContent = FRAME_GRAPH_DEBUG_PANEL_CSS + PANEL_WORKBENCH_CSS + PANEL_LIST_CSS + PANEL_DETAIL_CSS + PANEL_MEMORY_CSS + PANEL_OVERVIEW_CSS;
+	style.textContent = FRAME_GRAPH_DEBUG_PANEL_CSS + PANEL_WORKBENCH_CSS + PANEL_LIST_CSS + PANEL_DETAIL_CSS + PANEL_MEMORY_CSS + PANEL_OVERVIEW_CSS + PANEL_DIAGNOSTICS_CSS;
 	document.head.appendChild(style);
 }

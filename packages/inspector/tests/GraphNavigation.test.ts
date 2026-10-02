@@ -134,7 +134,8 @@ function mount(snapshot: FrameGraphSnapshot, maxGraphElements?: number, showReso
 }
 
 function button(root: ParentNode, label: string): HTMLButtonElement {
-	const match = Array.from(root.querySelectorAll<HTMLButtonElement>('button')).find((candidate) => candidate.textContent === label);
+	const match = Array.from(root.querySelectorAll<HTMLButtonElement>('button')).find((candidate) => candidate.textContent === label
+		|| candidate.getAttribute('aria-label') === label || candidate.getAttribute('aria-label')?.startsWith(`${label}: `));
 	assert.ok(match, `Expected button ${label}`);
 	const displayPopover = match.closest<HTMLElement>('.zenfg-inspector-graph-display-popover');
 	if (displayPopover?.hidden) root.querySelector<HTMLButtonElement>('[aria-label="Display"]')?.click();
