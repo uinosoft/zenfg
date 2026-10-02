@@ -84,6 +84,100 @@ test('supports configurable branding and unique accessible ids across instances'
 	testWindow.close();
 });
 
+test('starts with declarations hidden unless explicitly enabled through construction or mounting', () => {
+	const testWindow = installDom();
+	try {
+		for (const mounted of [false, true]) {
+			for (const showResourceDeclarations of [undefined, false, true]) {
+				const options = showResourceDeclarations === undefined ? {} : { showResourceDeclarations };
+				const panel = mounted ? mountFrameGraphInspector(document.body, options) : new FrameGraphInspector(options);
+				try {
+					const expected = showResourceDeclarations ?? false;
+					const graph = (panel as unknown as { graphView: GraphViewState }).graphView;
+					const control = tabButton(graph.toolbar, 'Declarations');
+					assert.equal(control.getAttribute('aria-pressed'), String(expected));
+					assert.equal(panel.dom.isConnected, mounted);
+					let request: GraphRenderRequest | undefined;
+					graph.renderer = {
+						render: (next) => { request = next; }, destroy: () => undefined,
+						resize: () => undefined, fit: () => undefined, relayout: () => undefined,
+					};
+					panel.setSnapshot(toSnapshot(createGroupedCapture()));
+					assert.equal(control.getAttribute('aria-pressed'), String(expected));
+					assert.ok(request);
+					assert.equal(request.scene.nodes.some((node) => node.kind === 'resource'), expected);
+					assert.equal(request.scene.edges.some((edge) => edge.relations.some((relation) => relation.role === 'declaration')), expected);
+					assert.ok(request.scene.nodes.some((node) => node.kind === 'pass'));
+					assert.ok(request.scene.edges.some((edge) => edge.relations.some((relation) => relation.role === 'value')));
+					assert.equal(graph.legend?.textContent?.includes('Declaration'), expected);
+				} finally {
+					panel.destroy();
+				}
+			}
+		}
+	} finally {
+		testWindow.close();
+	}
+});
+
+test('preserves the declaration toggle across programmatic, imported and live snapshots without filtering snapshot data', async () => {
+	const testWindow = installDom();
+	const panel = new FrameGraphInspector();
+	try {
+		const graph = (panel as unknown as { graphView: GraphViewState }).graphView;
+		let request: GraphRenderRequest | undefined;
+		graph.renderer = {
+			render: (next) => { request = next; }, destroy: () => undefined,
+			resize: () => undefined, fit: () => undefined, relayout: () => undefined,
+		};
+		const source = toSnapshot(createGroupedCapture());
+		panel.setSnapshot(source);
+		const control = tabButton(graph.toolbar, 'Declarations');
+		const assertDeclarations = (shown: boolean) => {
+			assert.equal(control.getAttribute('aria-pressed'), String(shown));
+			assert.equal(request?.scene.nodes.some((node) => node.kind === 'resource'), shown);
+			assert.equal(graph.legend?.textContent?.includes('Declaration'), shown);
+		};
+		assertDeclarations(false);
+		control.click();
+		assertDeclarations(true);
+		assert.deepEqual(panel.getSnapshot(), source);
+
+		const nextCapture = createGroupedCapture();
+		nextCapture.gpuTiming.frameIndex = 12;
+		const next = toSnapshot(nextCapture);
+		panel.setSnapshot(next);
+		assertDeclarations(true);
+		assert.deepEqual(panel.getSnapshot(), next);
+		await panel.importSnapshot(new testWindow.File([JSON.stringify(source)], 'declarations.fgsnapshot.json') as unknown as File);
+		assertDeclarations(true);
+		assert.deepEqual(panel.getSnapshot(), source);
+		panel.setCaptureSnapshotProvider(async () => next);
+		await panel.captureSnapshot();
+		assertDeclarations(true);
+		assert.deepEqual(panel.getSnapshot(), next);
+
+		control.click();
+		assertDeclarations(false);
+		assert.deepEqual(panel.getSnapshot(), next);
+		const tabs = panel.dom.querySelector('.zenfg-inspector-workbench-tabs')!;
+		tabButton(tabs, 'Resources').click();
+		assert.deepEqual(Array.from(panel.dom.querySelectorAll<HTMLButtonElement>('.zenfg-inspector-resources-view .zenfg-inspector-relation-button'),
+			(button) => button.textContent), ['postfx-color', 'scene-color', 'unused-buffer']);
+		tabButton(tabs, 'Passes').click();
+		const passList = panel.dom.querySelector('.zenfg-inspector-passes-view .zenfg-inspector-subview')!;
+		assert.deepEqual(Array.from(passList.querySelectorAll<HTMLButtonElement>('.zenfg-inspector-relation-button'),
+			(button) => button.textContent), ['scene', 'bloom', 'present', 'unused']);
+		tabButton(tabs, 'Graph').click();
+		await panel.captureSnapshot();
+		assertDeclarations(false);
+		assert.deepEqual(panel.getSnapshot(), next);
+	} finally {
+		panel.destroy();
+		testWindow.close();
+	}
+});
+
 test('imports the first dropped file, ignores non-file drags, and unwires on destroy', async () => {
 	const testWindow = installDom();
 	const panel = new FrameGraphInspector();
@@ -770,7 +864,7 @@ test('renders native-role shape swatches for external submissions and output roo
 
 test('resource navigation replaces selection in Summary without switching views or changing graph projection', () => {
     const testWindow = installDom();
-    const panel = new FrameGraphInspector();
+    const panel = new FrameGraphInspector({ showResourceDeclarations: true });
     const graphView = (panel as unknown as { graphView: GraphViewState }).graphView;
     let request: GraphRenderRequest;
     graphView.renderer = {

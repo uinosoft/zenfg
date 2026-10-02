@@ -8,12 +8,13 @@ export async function checkDeclarations(page, output) {
         await page.waitForFunction(() => document.querySelector('.zenfg-inspector-graph-status').hidden);
         await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
     };
-    assert.equal(await control.getAttribute('aria-pressed'), 'true');
+    assert.equal(await control.getAttribute('aria-pressed'), 'false');
+    assert.equal(await canvas.evaluate(el => el._cyreg.cy.nodes('[kind="resource"]').length), 0, 'declarations are hidden by default');
     for (const width of [1277, 390]) {
         await page.setViewportSize({ width, height: 920 });
         for (const mode of ['dark', 'light']) {
             await page.evaluate(mode => themeQA.inspector.setTheme(mode === 'dark' ? themeQA.tokyoNightStorm : themeQA.tokyoNightLight), mode);
-            await control.click();
+            await page.getByRole('button', { name: 'Fit graph to view', exact: true }).click();
             await ready();
             assert.equal(await control.getAttribute('aria-pressed'), 'false');
             const state = await canvas.evaluate(el => {
@@ -44,11 +45,14 @@ export async function checkDeclarations(page, output) {
             assert.equal(await page.locator('.zenfg-inspector-graph-legend').innerText().then(text => text.includes('Declaration')), false);
             await control.click();
             await ready();
+            assert.equal(await control.getAttribute('aria-pressed'), 'true');
             assert.ok(await canvas.evaluate(el => el._cyreg.cy.nodes('[kind="resource"]').length > 0));
+            await page.screenshot({ path: resolve(output, mode + '-' + width + '-declarations-shown.png'), animations: 'disabled' });
+            await control.click();
+            await ready();
         }
     }
     await page.setViewportSize({ width: 1277, height: 920 });
-    await control.click();
     await ready();
     await page.getByRole('button', { name: 'Search', exact: true }).click();
     await page.getByRole('searchbox', { name: 'Find in graph', exact: true }).fill('history');

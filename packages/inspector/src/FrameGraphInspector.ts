@@ -27,10 +27,18 @@ import { ensureFrameGraphInspectorStyles } from './styles.ts';
 import { sameSelection, type WorkbenchCallbacks } from './panelWorkbenchHelpers.ts';
 import { FrameGraphDebugWorkbench } from './panelWorkbenchView.ts';
 
-/** Construction and safety limits for an embedded {@link FrameGraphInspector}. */
+/** Construction, initial graph visibility, and safety limits for an embedded {@link FrameGraphInspector}. */
 export type FrameGraphInspectorOptions = {
 	/** Optional CSS theme. Without one, host variables inherit over the Storm defaults. */
 	theme?: InspectorTheme;
+	/**
+	 * Initially show resource declaration nodes in the Graph view. The
+	 * Declarations control can change this later; revealing a resource in the
+	 * graph also enables it. Does not affect resource tables or Snapshot data.
+	 *
+	 * @defaultValue `false`
+	 */
+	showResourceDeclarations?: boolean;
 	/**
 	 * Product label shown in the workbench command bar. Pass `false` to hide
 	 * visible branding while retaining the inspector's accessible name.
@@ -170,7 +178,7 @@ export class FrameGraphInspector {
 			refreshTheme: () => this.refreshTheme(),
 			layoutElementBudget: normalizeLimit(options.maxGraphElements, DEFAULT_MAX_GRAPH_ELEMENTS, 'maxGraphElements'),
 			groupsEnabled: true,
-			showResourceDeclarations: true,
+			showResourceDeclarations: options.showResourceDeclarations ?? false,
 			expandedGroupPaths: new Set(),
 			fitOnNextRender: true,
 		};
@@ -560,7 +568,7 @@ export class FrameGraphInspector {
 	}
 
 	private updateGraphControls(): void {
-		const showDeclarations = this.graphView.showResourceDeclarations ?? true;
+		const showDeclarations = this.graphView.showResourceDeclarations ?? false;
 		this.declarationsButton.classList.toggle('active', showDeclarations);
 		this.declarationsButton.setAttribute('aria-pressed', String(showDeclarations));
 		const hasGroups = (this.viewModel?.debugGroups.length ?? 0) > 0;
@@ -575,7 +583,7 @@ export class FrameGraphInspector {
 
 	private toggleDeclarations(): void {
 		this.handleHover(undefined);
-		this.graphView.showResourceDeclarations = !(this.graphView.showResourceDeclarations ?? true);
+		this.graphView.showResourceDeclarations = !(this.graphView.showResourceDeclarations ?? false);
 		this.graphView.renderer?.cancelReveal?.();
 		this.graphView.revealOnNextRender = undefined;
 		this.graphView.anchorElementIdOnNextRender = undefined;

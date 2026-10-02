@@ -111,15 +111,19 @@ declaration groups; output roots remain top-level and use compiler-supplied fina
 producers and initial-content contributions. Culled passes remain in lists and
 details, not in the graph. Collapsed groups aggregate relationships without
 discarding their underlying semantics.
-The **Declarations** toolbar toggle shows resource declaration entrances by default.
-Turn it off to focus on pass dependencies and outputs: declaration entrances,
-their relationships (including initial-content output edges), and resource-only
-groups leave the layout. Pass dependencies and producer-to-output edges remain.
+Graph starts with resource declaration entrances hidden, focusing on pass
+dependencies and outputs. Turn on the **Declarations** toolbar toggle to show
+them. When hidden, declaration entrances, their relationships (including
+initial-content output edges), and resource-only groups leave the layout. Pass
+dependencies and producer-to-output edges remain. Hosts can set
+`showResourceDeclarations: true` in `FrameGraphInspectorOptions` when constructing
+or mounting an Inspector to start with declarations visible; the option sets only
+the initial visibility.
 Outputs with known initial-content contributions show **With initial contents**
 or **Initial contents only**; unavailable Legacy sources are not inferred.
-The toggle persists across views and captures within this Inspector instance.
+The toggle persists across views, captures, and imports within this Inspector instance.
 Changing it fits the updated graph while preserving selection and group expansion.
-Resources, details, memory, and Snapshot data remain complete.
+Resources tables, details, memory, and Snapshot exports remain complete.
 
 All nodes use single-line borders. Ordinary passes are rounded rectangles,
 external submissions are cut-corner rectangles, resource entrances are ellipses,
@@ -180,8 +184,9 @@ resolution remain visible but have no inferred source edges.
 Explicit **Show in …** actions perform navigation: they switch views, clear
 blocking filters, expand necessary ancestors, and scroll or center the target.
 They close a narrow-host drawer so the target is visible. Graph search uses the
-same explicit location behavior. Explicit resource location also turns Declarations
-on; ordinary selection and hover never change the toggle. Failed location restores
+same explicit location behavior. Locating a resource through Graph search or
+**Show in Graph** also turns Declarations on; ordinary selection and hover never
+change the toggle. Failed location restores
 the previous declaration and group settings. Objects absent from Frame Flow show an
 explanation and a list-view action; locating an object does not bypass the graph
 element budget. Ordinary selection and hover retain the behavior above.
