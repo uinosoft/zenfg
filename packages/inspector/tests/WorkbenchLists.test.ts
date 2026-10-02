@@ -27,7 +27,7 @@ function fixture(): FrameGraphSnapshot {
 function callbacks() {
 	const selections: Selection[] = [];
 	const reveals: Array<readonly [Selection, WorkbenchTab]> = [];
-	const navigation: Array<readonly [WorkbenchTab, 'culled' | undefined]> = [];
+	const navigation: Array<readonly [WorkbenchTab, 'culled' | 'all' | undefined]> = [];
 	const graphToggles: string[] = [];
 	const handlers: WorkbenchCallbacks = {
 		onSelect: (selection) => selections.push(selection),

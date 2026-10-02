@@ -3,6 +3,7 @@ import { PANEL_WORKBENCH_CSS } from './panelWorkbenchStyles.ts';
 import { PANEL_LIST_CSS } from './panelListStyles.ts';
 import { PANEL_DETAIL_CSS } from './panelDetailStyles.ts';
 import { PANEL_MEMORY_CSS } from './panelMemoryStyles.ts';
+import { PANEL_OVERVIEW_CSS } from './panelOverviewStyles.ts';
 
 const STYLE_ELEMENT_ID = 'zenfg-inspector-panel-styles';
 
@@ -112,43 +113,6 @@ const FRAME_GRAPH_DEBUG_PANEL_CSS = `
 	min-width: 0;
 	min-height: 0;
 	font-family: var(--fgd-font-ui);
-}
-
-.zenfg-inspector-capture-summary {
-	display: grid;
-	align-content: start;
-	min-width: 0;
-	background: transparent;
-}
-
-.zenfg-inspector-capture-summary > section {
-	min-width: 0;
-	border: 1px solid var(--fgd-border-subtle);
-	border-radius: var(--fgd-radius-sm);
-}
-
-.zenfg-inspector-capture-summary h2 {
-	margin: 0 0 5px;
-	color: var(--fgd-text-secondary);
-	font-weight: 700;
-	line-height: 1.2;
-}
-
-.zenfg-inspector-capture-summary section > div {
-	display: grid;
-	gap: var(--fgd-space-2);
-	min-width: 0;
-	line-height: 1.5;
-}
-
-.zenfg-inspector-capture-summary span { color: var(--fgd-muted); white-space: nowrap; }
-.zenfg-inspector-capture-summary strong {
-	min-width: 0;
-	overflow: hidden;
-	color: var(--fgd-text);
-	font: 600 var(--fgd-font-size-small)/1.5 var(--fgd-font-mono);
-	text-align: right;
-	text-overflow: ellipsis;
 }
 
 /* Command bar, tabs, and controls */
@@ -995,7 +959,6 @@ button[aria-busy='true'] > .zenfg-inspector-control-icon {
 @container zenfg-inspector (max-width: 720px) {
 	.zenfg-inspector-body { padding: var(--fgd-space-2); }
 	.zenfg-inspector-overview-view { padding: var(--fgd-space-2); }
-	.zenfg-inspector-capture-summary > section { padding: 10px; }
 	.zenfg-inspector-workbench-actions { padding-left: 6px; }
 	.zenfg-inspector-command-status { max-width: 104px; }
 	.zenfg-inspector-workbench-tabs > button { flex: 0 0 auto; padding-inline: var(--fgd-space-2); }
@@ -1032,6 +995,6 @@ export function ensureFrameGraphInspectorStyles(): void {
 
 	const style = document.createElement('style');
 	style.id = STYLE_ELEMENT_ID;
-	style.textContent = FRAME_GRAPH_DEBUG_PANEL_CSS + PANEL_WORKBENCH_CSS + PANEL_LIST_CSS + PANEL_DETAIL_CSS + PANEL_MEMORY_CSS;
+	style.textContent = FRAME_GRAPH_DEBUG_PANEL_CSS + PANEL_WORKBENCH_CSS + PANEL_LIST_CSS + PANEL_DETAIL_CSS + PANEL_MEMORY_CSS + PANEL_OVERVIEW_CSS;
 	document.head.appendChild(style);
 }

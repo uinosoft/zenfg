@@ -1,12 +1,16 @@
 export type PanelIconName =
 	| 'capture'
 	| 'check'
+	| 'chevron-down'
+	| 'chevron-right'
 	| 'close'
 	| 'copy'
 	| 'download'
 	| 'empty'
 	| 'error'
+	| 'external'
 	| 'fit'
+	| 'import'
 	| 'inspector'
 	| 'spinner'
 	| 'waiting';
@@ -20,12 +24,16 @@ const ICON_PATHS: Record<PanelIconName, readonly string[]> = {
 		'M8 6.25a1.75 1.75 0 1 1 0 3.5 1.75 1.75 0 0 1 0-3.5',
 	],
 	check: ['M3 8.2 6.3 11.5 13 4.8'],
+	'chevron-down': ['M4.5 6.25 8 9.75l3.5-3.5'],
+	'chevron-right': ['M6.25 4.5 9.75 8l-3.5 3.5'],
 	close: ['M4 4l8 8', 'M12 4l-8 8'],
 	copy: ['M5.5 4h7.5v9H5.5z', 'M3 11V2.5h7.5'],
 	download: ['M8 2.5v7', 'M5.5 7.5 8 10l2.5-2.5', 'M3 12.5h10'],
 	empty: ['M3 3h10v10H3z', 'M5.5 8h5'],
 	error: ['M8 2.5l5.5 10H2.5z', 'M8 6v3', 'M8 11.2v.1'],
+	external: ['M9 2.5h4.5V7', 'M13.5 2.5 7.5 8.5', 'M6.5 3.5h-4v10h10v-4'],
 	fit: ['M6 2.5H2.5V6', 'M10 2.5h3.5V6', 'M6 13.5H2.5V10', 'M10 13.5h3.5V10'],
+	import: ['M8 10V2.5', 'M5.5 5 8 2.5 10.5 5', 'M3 9.5v4h10v-4'],
 	inspector: ['M2.5 3h11v10h-11z', 'M9.5 3v10'],
 	spinner: ['M13 8a5 5 0 1 1-2-4'],
 	waiting: ['M5.5 5v6', 'M10.5 5v6'],
@@ -54,5 +62,9 @@ export function createPanelIcon(name: PanelIconName): SVGSVGElement {
 }
 
 export function setPanelButtonContent(button: HTMLButtonElement, icon: PanelIconName, label: string): void {
-	button.replaceChildren(createPanelIcon(icon), document.createTextNode(label));
+	const text = document.createElement('span');
+	text.className = 'zenfg-inspector-button-label';
+	text.textContent = label;
+	button.replaceChildren(createPanelIcon(icon), text);
+	button.setAttribute('aria-label', label);
 }

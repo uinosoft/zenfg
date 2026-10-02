@@ -36,7 +36,7 @@ Inspector instance and are not saved across sessions.
 
 | View | Purpose |
 | --- | --- |
-| Overview | Full-width diagnostic counts, timing coverage, slowest pass, work counts, and memory estimates, with links to the relevant views. Capture metadata is expandable. |
+| Overview | Full-width GPU span, CPU execute, physical allocation estimate and retained-pass metrics, with the five slowest measured GPU or CPU passes, work composition, resource/pool summaries and diagnostic counts. Capture metadata and additional Snapshot facts are expandable. |
 | Graph | Frame Flow structure, searchable by pass, resource, group, or output, with explicit target location and a collapsible legend. |
 | Passes | All, Retained, or Culled passes, filtered by kind and name/ID/group, with order and GPU sorting. The separate Group Hierarchy has its own expansion and path search. |
 | Resources | Name/ID/group, type, and Transient/Imported/Surface filters, plus name, estimated size, and first-use sorting. Full descriptors and allocations remain in details. |
@@ -85,6 +85,13 @@ pass timings with its timed/eligible count; **GPU span** is displayed separately
 Opaque external work has no inferred duration. Passes is the comparison table
 for individual timings; Diagnostics does not repeat it.
 
+Overview ranks measured passes by duration and shows their share of the entire
+measured pass sum, including passes outside the top five. GPU coverage counts
+retained render/compute passes; CPU coverage counts all retained passes. A zero
+sum has no percentage. Click a pass to locate it in Passes, or **View all passes**
+to clear pass filters and open the list while preserving its sort. The GPU/CPU
+choice and expanded Overview disclosures stay with the Inspector instance.
+
 Memory numbers are estimates with different scopes:
 
 | Metric | Meaning |
@@ -93,7 +100,7 @@ Memory numbers are estimates with different scopes:
 | Logical capacity | Allocation capacity counted for each assigned logical transient resource. |
 | Physical estimate | Estimated sizes of physical allocations in the allocation report. |
 | Alias reuse | Logical capacity minus physical estimate, where both are known. |
-| Pool retained | Producer-reported retained pool allocations, which may outlive this graph. |
+| Pool retained | Producer-reported idle pool allocations at sampling time, which may outlive this graph. |
 
 An unavailable report is not zero. Unknown resource/allocation sizes remain
 unknown, and partial summaries show the known-size coverage. A valid empty report
@@ -102,6 +109,12 @@ measured peak. Memory summaries always cover the entire Snapshot; filters change
 the visible rows and matching count only. A lifetime includes both first and last
 execution slots. Tick positions, grid lines, and resource bars share one stable
 Snapshot coordinate range; missing lifetimes have no bar.
+
+Overview labels pool reuse as cumulative: reuse/acquire counters cover the pool's
+lifetime, not just the captured frame. Idle pool bytes remain separate from the
+frame's physical allocation estimate. Logical transient estimates can include
+resources referenced only by culled passes and are available under **Additional
+snapshot details**.
 
 ### Frame Flow interaction
 

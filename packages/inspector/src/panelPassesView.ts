@@ -120,6 +120,11 @@ export class PassesView {
 		this.updateSubview(); this.renderRows();
 	}
 
+	showAll(): void {
+		this.clearFilters(); this.subview = 'list';
+		this.updateSubview(); this.renderRows();
+	}
+
 	reveal(selection: Selection): void {
 		if (selection.kind === 'group') {
 			this.subview = 'groups'; this.groupSearch = ''; this.groupSearchInput.value = '';

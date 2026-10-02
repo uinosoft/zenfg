@@ -1,18 +1,20 @@
 // Real DOM + Canvas acceptance, independent of a hardware WebGPU adapter.
 import assert from 'node:assert/strict';
 import { build } from 'esbuild';
-import { mkdir, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { checkGraphPointer } from './graphPointer.mjs';
 import { checkDeclarations } from './declarations.mjs';
 import { checkDrawerBackdrop } from './drawerBackdrop.mjs';
+import { checkOverview } from './overview.mjs';
 
 const root = resolve(import.meta.dirname, '../../../../../');
 const output = resolve(root, '.test-dist/inspector-theme-qa');
 await mkdir(output, { recursive: true });
 await build({ stdin: { contents: "import { createFrameFlowVisualFixture } from './packages/webgpu/tests/frameFlowVisualFixture.ts'; export const snapshot = createFrameFlowVisualFixture();", resolveDir: root }, bundle: true, outfile: resolve(output, 'fixture.mjs'), format: 'esm', platform: 'node' });
 const { snapshot } = await import(pathToFileURL(resolve(output, 'fixture.mjs')).href);
+const fullSnapshot = JSON.parse(await readFile(resolve(root, 'packages/snapshot/fixtures/full-webgpu.fgsnapshot.json'), 'utf8'));
 const { outputFiles } = await build({ entryPoints: [resolve(import.meta.dirname, 'themeHarness.ts')], bundle: true, write: false, format: 'esm', platform: 'browser', target: 'es2022' });
 const { chromium } = await import(process.env.PLAYWRIGHT_MODULE ? pathToFileURL(resolve(process.env.PLAYWRIGHT_MODULE)).href : 'playwright');
 const browser = await chromium.launch({ ...(process.platform === 'win32' ? { channel: 'msedge' } : {}), headless: true });
@@ -55,19 +57,7 @@ try {
     await page.evaluate(() => { themeQA.host.style.removeProperty('--zfgi-graph-text'); delete themeQA.host.dataset.zfgiTheme; });
     await page.getByRole('button', { name: 'Close inspector', exact: true }).click();
     await checkDeclarations(page, output);
-    // Overview must scroll when its content exceeds the available panel height.
-    await page.setViewportSize({ width: 390, height: 480 });
-    await page.getByRole('tab', { name: 'Overview', exact: true }).first().click();
-    const overview = page.locator('.zenfg-inspector-overview-view');
-    assert.equal(await overview.evaluate(el => getComputedStyle(el).overflowY), 'auto');
-    assert.ok(await overview.evaluate(el => el.scrollHeight > el.clientHeight));
-    await overview.hover();
-    await page.mouse.wheel(0, 10000);
-    await page.waitForFunction(() => {
-        const el = document.querySelector('.zenfg-inspector-overview-view');
-        return el.scrollTop > 0 && el.scrollTop + el.clientHeight >= el.scrollHeight - 1;
-    });
-    await overview.evaluate(el => { el.scrollTop = 0; });
+    await checkOverview(page, output, fullSnapshot);
     for (const width of [1277, 1024, 390]) {
         await page.setViewportSize({ width, height: width === 390 ? 844 : 920 });
         for (const mode of ['dark', 'light']) {

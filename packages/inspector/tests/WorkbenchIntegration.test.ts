@@ -117,6 +117,47 @@ test('Overview uses full width while retaining selection and detail open prefere
 	} finally { panel.destroy(); window.close(); }
 });
 
+test('Overview pass shortcuts clear filters, return to the list and preserve pass sorting', () => {
+	const window = installDom();
+	const panel = mount();
+	try {
+		panel.setSnapshot(fixture());
+		button(tabs(panel), 'Passes').click();
+		const passes = element(panel.dom, '.zenfg-inspector-passes-view');
+		const search = element<HTMLInputElement>(passes, 'input[aria-label="Search pass, ID or group"]');
+		const kind = element<HTMLSelectElement>(passes, 'select[aria-label="Pass kind"]');
+		const state = element<HTMLSelectElement>(passes, 'select[aria-label="Pass compile state"]');
+		const sort = element<HTMLSelectElement>(passes, 'select[aria-label="Sort passes"]');
+		const filterToCulled = () => {
+			search.value = 'unused'; search.dispatchEvent(new Event('input'));
+			kind.value = 'compute'; kind.dispatchEvent(new Event('change'));
+			state.value = 'culled'; state.dispatchEvent(new Event('change'));
+		};
+		const assertUnfiltered = () => {
+			assert.equal(button(tabs(panel), 'Passes').getAttribute('aria-selected'), 'true');
+			assert.equal(button(passes, 'Pass List').getAttribute('aria-selected'), 'true');
+			assert.equal(search.value, ''); assert.equal(kind.value, 'all'); assert.equal(state.value, 'all');
+			assert.equal(sort.value, 'cpu');
+			assert.equal(passes.querySelectorAll('[id$="pass-list-panel"] tbody tr[data-selection-key]').length, 4);
+		};
+		sort.value = 'cpu'; sort.dispatchEvent(new Event('change'));
+		filterToCulled();
+		button(passes, 'Group Hierarchy').click();
+		button(tabs(panel), 'Overview').click();
+		const overview = element(panel.dom, '.zenfg-inspector-overview-view');
+		button(overview, 'View all passes').click();
+		assertUnfiltered();
+		assert.equal(aside(panel).hidden, true);
+		filterToCulled();
+		button(tabs(panel), 'Overview').click();
+		button(overview, 'scene').click();
+		assertUnfiltered();
+		assert.equal(aside(panel).hidden, false);
+		assert.equal(element(aside(panel), 'header strong').textContent, 'scene');
+		assert.ok(button(passes, 'scene').closest('tr')?.classList.contains('selected'));
+	} finally { panel.destroy(); window.close(); }
+});
+
 test('nonactive pages render on demand and retain old DOM until activated after capture', () => {
 	const window = installDom();
 	const panel = mount();

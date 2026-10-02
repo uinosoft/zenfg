@@ -11,7 +11,7 @@ export type WorkbenchCallbacks = {
 	readonly onGroupToggle: (pathKey: string) => void;
 	readonly isGroupExpanded: (pathKey: string) => boolean;
 	readonly onReveal?: (selection: Selection, tab: WorkbenchTab) => void;
-	readonly onNavigate?: (tab: WorkbenchTab, filter?: 'culled') => void;
+	readonly onNavigate?: (tab: WorkbenchTab, filter?: 'culled' | 'all') => void;
 };
 export type WorkbenchTableColumn = {
 	readonly label: string;

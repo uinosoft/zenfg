@@ -33,16 +33,7 @@ export const PANEL_WORKBENCH_CSS = `
   display: block; max-width: none; max-height: 140px; margin-top: 5px; overflow: auto;
   white-space: pre-wrap; overflow-wrap: anywhere; font-size: var(--fgd-font-size-small);
 }
-.zenfg-inspector-capture-summary { gap: var(--fgd-space-3); grid-template-columns: repeat(auto-fit, minmax(min(290px, 100%), 1fr)); }
-.zenfg-inspector-capture-summary section > div { font-size: var(--fgd-font-size-small); margin-top: var(--fgd-space-1); grid-template-columns: minmax(90px, auto) minmax(0, 1fr); }
-.zenfg-inspector-capture-summary strong { white-space: normal; overflow-wrap: anywhere; font-size: var(--fgd-font-size-small); }
-.zenfg-inspector-capture-summary > section { background: var(--fgd-surface); padding: 14px; }
-.zenfg-inspector-capture-summary h2 { font-size: var(--fgd-font-size-small); letter-spacing: 0; text-transform: none; }
-.zenfg-inspector-capture-summary section > button { margin-top: var(--fgd-space-3); font-size: var(--fgd-font-size); }
-.zenfg-inspector-capture-details { grid-column: 1 / -1; padding: 10px var(--fgd-space-3); border-top: 1px solid var(--fgd-border); }
-.zenfg-inspector-capture-details > summary { cursor: pointer; color: var(--fgd-text-secondary); }
-.zenfg-inspector-capture-details > section { margin-top: var(--fgd-space-3); max-width: 760px; }
-.zenfg-inspector-capture-details h2 { display: none; }
+.zenfg-inspector-button-label { min-width: 0; }
 .zenfg-inspector-view-toolbar input,
 .zenfg-inspector-view-toolbar select { height: var(--fgd-control-height); }
 .zenfg-inspector-workbench-table { min-width: 620px; font: var(--fgd-font-size-small)/1.5 var(--fgd-font-ui); }
@@ -92,6 +83,12 @@ export const PANEL_WORKBENCH_CSS = `
 .zenfg-inspector input:focus-visible,
 .zenfg-inspector select:focus-visible,
 .zenfg-inspector summary:focus-visible { outline: 2px solid var(--fgd-accent); outline-offset: 1px; }
+@container zenfg-inspector (max-width: 720px) {
+  .zenfg-inspector-workbench-actions > :is(.zenfg-inspector-import-action, .zenfg-inspector-export-action, .zenfg-inspector-open-inspector) {
+    width: var(--fgd-control-height); min-width: var(--fgd-control-height); padding-inline: 0;
+  }
+  .zenfg-inspector-workbench-actions > :is(.zenfg-inspector-import-action, .zenfg-inspector-export-action, .zenfg-inspector-open-inspector) > .zenfg-inspector-button-label { display: none; }
+}
 @container zenfg-inspector (max-width: 560px) {
   .zenfg-inspector-workbench-command-bar.branding-hidden { grid-template-columns: minmax(0, 1fr); }
   .zenfg-inspector-workbench-command-bar.branding-hidden .zenfg-inspector-workbench-tabs { grid-column: 1; grid-row: 2; }

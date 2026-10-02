@@ -1,21 +1,16 @@
 import type { FrameGraphDebugViewModel } from './debugCaptureModel.ts';
-import {
-	formatBytes,
-	formatGpuFrameDuration,
-	formatPoolHitRate,
-	labelNode,
-} from './panelDomHelpers.ts';
 import { createPanelIcon, setPanelButtonContent } from './panelIcons.ts';
 import { DiagnosticsView } from './panelDiagnosticsView.ts';
 import { InspectorView } from './panelInspectorView.ts';
 import { MemoryView } from './panelMemoryView.ts';
+import { OverviewView } from './panelOverviewView.ts';
 import { PassesView } from './panelPassesView.ts';
 import { ResourcesView } from './panelResourcesView.ts';
 import { renderGraphView, resizeGraph } from './panelGraphView.ts';
 import { DetailLayout } from './panelDetailLayout.ts';
 import { GraphSearch } from './panelGraphSearch.ts';
 import type { GraphViewState, Selection, WorkbenchTab } from './panelTypes.ts';
-import { enableTabKeyboard, formatEstimatedBytes, formatEstimateCoverage, formatTimingCoverage, type WorkbenchCallbacks } from './panelWorkbenchHelpers.ts';
+import { enableTabKeyboard, type WorkbenchCallbacks } from './panelWorkbenchHelpers.ts';
 
 export type FrameGraphDebugWorkbenchActions = {
 	onCapture(): void;
@@ -43,7 +38,6 @@ export type FrameGraphDebugSnapshotActionState = {
 
 export class FrameGraphDebugWorkbench {
 	readonly root = document.createElement('div');
-	private readonly summary = document.createElement('div');
 	private readonly commandBar = document.createElement('div');
 	private readonly brand = document.createElement('div');
 	private readonly tabList = document.createElement('div');
@@ -55,6 +49,7 @@ export class FrameGraphDebugWorkbench {
 	private readonly main = document.createElement('main');
 	private readonly emptyHost = document.createElement('div');
 	private readonly overviewRoot = document.createElement('section');
+	private readonly overview: OverviewView;
 	private readonly graphRoot = document.createElement('section');
 	private readonly passes: PassesView;
 	private readonly resources: ResourcesView;
@@ -64,7 +59,6 @@ export class FrameGraphDebugWorkbench {
 	private readonly detailLayout: DetailLayout;
 	private readonly graphSearch: GraphSearch;
 	private readonly dirtyViews = new Set<WorkbenchTab>();
-	private readonly captureDetails = document.createElement('details');
 	private readonly inspectorOpenButton = document.createElement('button');
 	private readonly captureButton = document.createElement('button');
 	private readonly importButton = document.createElement('button');
@@ -89,7 +83,7 @@ export class FrameGraphDebugWorkbench {
 		options: FrameGraphDebugWorkbenchOptions,
 	) {
 		this.root.className = 'zenfg-inspector-workbench';
-		this.summary.className = 'zenfg-inspector-capture-summary';
+		this.overview = new OverviewView(callbacks);
 		this.commandBar.className = 'zenfg-inspector-workbench-command-bar';
 		this.brand.className = 'zenfg-inspector-brand';
 		if (options.branding === false) this.commandBar.classList.add('branding-hidden');
@@ -112,7 +106,7 @@ export class FrameGraphDebugWorkbench {
 		this.overviewRoot.className = 'zenfg-inspector-view zenfg-inspector-overview-view';
 		this.overviewRoot.id = `${options.idPrefix}-view-overview`;
 		this.overviewRoot.setAttribute('role', 'tabpanel');
-		this.overviewRoot.append(this.summary);
+		this.overviewRoot.append(this.overview.root);
 		this.graphRoot.className = 'zenfg-inspector-view zenfg-inspector-graph-view';
 		this.graphRoot.id = `${options.idPrefix}-view-graph`;
 		this.graphRoot.setAttribute('role', 'tabpanel');
@@ -173,7 +167,9 @@ export class FrameGraphDebugWorkbench {
 		this.captureButton.className = 'zenfg-inspector-capture-action';
 		this.captureButton.addEventListener('click', actions.onCapture);
 		this.importButton.type = 'button';
-		this.importButton.textContent = 'Import';
+		this.importButton.className = 'zenfg-inspector-import-action';
+		setPanelButtonContent(this.importButton, 'import', 'Import');
+		this.importButton.title = 'Import a FrameGraph Snapshot JSON file';
 		this.importButton.addEventListener('click', () => this.importInput.click());
 		this.importInput.type = 'file';
 		this.importInput.accept = '.fgsnapshot.json,.json,application/json';
@@ -184,7 +180,10 @@ export class FrameGraphDebugWorkbench {
 			if (file) actions.onImport(file);
 		});
 		this.exportButton.type = 'button';
-		this.exportButton.textContent = 'Export';
+		this.exportButton.className = 'zenfg-inspector-export-action';
+		setPanelButtonContent(this.exportButton, 'download', 'Export');
+		this.exportButton.title = 'Export the current FrameGraph Snapshot';
+		this.exportButton.append(createPanelIcon('chevron-down'));
 		this.exportButton.setAttribute('aria-haspopup', 'menu');
 		this.exportButton.setAttribute('aria-expanded', 'false');
 		this.exportButton.setAttribute('aria-controls', `${options.idPrefix}-export-menu`);
@@ -298,7 +297,7 @@ export class FrameGraphDebugWorkbench {
 				? 'Capturing the next rendered frame.'
 				: 'Capture and display the next rendered frame.';
 
-		this.importButton.textContent = state.importing ? 'Importing…' : 'Import';
+		setPanelButtonContent(this.importButton, state.importing ? 'spinner' : 'import', state.importing ? 'Importing…' : 'Import');
 		this.importButton.disabled = state.importing;
 		this.importButton.setAttribute('aria-busy', state.importing ? 'true' : 'false');
 		this.exportButton.disabled = !state.hasCapture;
@@ -399,98 +398,7 @@ export class FrameGraphDebugWorkbench {
 	}
 
 	private renderSummary(snapshot: FrameGraphDebugViewModel): void {
-		const frameGraphSegments = snapshot.executionSegments.filter((segment) => segment.kind === 'frame-graph').length;
-		const opaqueIntervals = snapshot.executionSegments.length - frameGraphSegments;
-		const metrics = snapshot.metrics;
-		const coverage = formatTimingCoverage(metrics.timedNodeCount, metrics.timingEligibleNodeCount);
-		const slowest = metrics.slowestNode
-			? `${labelNode(metrics.slowestNode)} · ${(metrics.slowestNode.gpuDurationMicros! / 1000).toFixed(3)} ms`
-			: 'Unknown';
-		const protocol = snapshot.protocol;
-		const runtime = protocol.producer.runtime;
-		const producer = [
-			protocol.producer.name,
-			protocol.producer.version,
-			protocol.producer.language,
-		].filter(Boolean).join(' · ');
-		const runtimeLabel = runtime
-			? [runtime.implementation, runtime.graphicsApi, runtime.backend].filter(Boolean).join(' · ') || 'Unknown'
-			: 'Unknown';
-		const poolRetained = snapshot.resourcePool.status === 'available'
-			? `${snapshot.resourcePool.estimatedRetainedBytes === undefined ? 'Unknown' : formatBytes(snapshot.resourcePool.estimatedRetainedBytes)} · ${snapshot.resourcePool.retainedCount} allocations`
-			: 'Unavailable';
-		const counts = this.diagnosticCounts(snapshot);
-		this.summary.replaceChildren(
-			this.createSummaryGroup('Diagnostics', [
-				['Errors', String(counts.error)], ['Warnings', String(counts.warning)], ['Information', String(counts.info)],
-			], () => this.setActiveTab('diagnostics')),
-			this.createSummaryGroup('Execution timing', [
-				['CPU execute', snapshot.cpuProfiling.status === 'available' ? (snapshot.cpuProfiling.executionDurationMicros / 1000).toFixed(3) + ' ms' : 'Not collected'],
-				['CPU pass sum', snapshot.metrics.cpuTimedNodeCount ? (snapshot.metrics.cpuWorkDurationMicros / 1000).toFixed(3) + ' ms' : 'Not collected'],
-				['CPU coverage', formatTimingCoverage(snapshot.metrics.cpuTimedNodeCount, snapshot.nodes.length)],
-				['GPU span', snapshot.profiling.status === 'available' ? `${formatGpuFrameDuration(snapshot)} ms` : 'Not collected'],
-				['GPU coverage', coverage],
-				['Slowest GPU pass', slowest],
-			], () => metrics.slowestNode ? this.callbacks.onReveal?.({ kind: 'node', id: metrics.slowestNode.id }, 'passes') : this.setActiveTab('passes')),
-			this.createSummaryGroup('Work', [
-				['Nodes', `${snapshot.nodes.length} retained · ${snapshot.culledNodes.length} culled`],
-				['Segments', `${frameGraphSegments} FG · ${opaqueIntervals} opaque`],
-				['Groups', snapshot.availability.groups ? String(snapshot.debugGroups.length) : 'Unknown'],
-				['Recording order', snapshot.availability.recordingOrder ? 'Available' : 'Unknown'],
-			], () => this.setActiveTab('passes')),
-			this.createSummaryGroup('Resources', [
-				['Logical / physical', `${snapshot.resources.length} / ${protocol.memory.allocationReport.status === 'available' ? snapshot.physicalAllocations.length : 'Unavailable'}`],
-				['Texture views', snapshot.availability.textureViews ? String(snapshot.textureViewById.size) : 'Unknown'],
-				['Access regions', snapshot.availability.accessRegions ? 'Available' : 'Unknown'],
-				['Transient estimate', formatEstimateCoverage(metrics.transientEstimatedByteSize, metrics.estimatedCoverage.transient)],
-			], () => this.setActiveTab('resources')),
-			this.createSummaryGroup('Memory estimates', [
-				['Physical allocations', protocol.memory.allocationReport.status === 'available' ? formatEstimateCoverage(metrics.physicalEstimatedBytes, metrics.estimatedCoverage.physical) : 'Unavailable'],
-				['Alias reuse', protocol.memory.allocationReport.status === 'available' ? formatEstimatedBytes(metrics.aliasReuseBytes) : 'Unavailable'],
-			], () => this.setActiveTab('memory')),
-			this.createSummaryGroup('Pool', [
-				['Retained', poolRetained],
-				['Reuse', formatPoolHitRate(snapshot)],
-			], () => this.setActiveTab('memory')),
-		);
-		const title = document.createElement('summary');
-		title.textContent = 'Capture information';
-		this.captureDetails.className = 'zenfg-inspector-capture-details';
-		this.captureDetails.replaceChildren(title, this.createSummaryGroup('Capture', [
-			['Source', snapshot.source.label], ['Frame', String(snapshot.frameIndex)],
-			['Captured at', protocol.capture.capturedAt ?? 'Unknown'],
-			['Schema', `${protocol.format} v${protocol.version.major}.${protocol.version.minor}`],
-			['Producer', producer], ['Runtime', runtimeLabel],
-			...(protocol.capture.migration ? [['Migration', `${protocol.capture.migration.sourceFormat} → canonical v${protocol.version.major}.${protocol.version.minor}`] as const] : []),
-			['Timing', snapshot.profiling.status === 'available' ? coverage : snapshot.profiling.reason],
-		]));
-		this.summary.append(this.captureDetails);
-	}
-
-	private createSummaryGroup(title: string, rows: readonly (readonly [string, string])[], onNavigate?: () => void): HTMLElement {
-		const group = document.createElement('section');
-		const heading = document.createElement('h2');
-		heading.textContent = title;
-		group.appendChild(heading);
-		for (const [label, value] of rows) {
-			const row = document.createElement('div');
-			const term = document.createElement('span');
-			term.textContent = label;
-			const description = document.createElement('strong');
-			description.textContent = value;
-			description.title = value;
-			row.append(term, description);
-			group.appendChild(row);
-		}
-		if (onNavigate) {
-			const action = document.createElement('button');
-			action.type = 'button';
-			action.className = 'zenfg-inspector-relation-button';
-			action.textContent = `Explore ${title.toLowerCase()}`;
-			action.addEventListener('click', onNavigate);
-			group.append(action);
-		}
-		return group;
+		this.overview.setSnapshot(snapshot);
 	}
 
 	private setExportMenuOpen(open: boolean): void {
@@ -527,9 +435,10 @@ export class FrameGraphDebugWorkbench {
 		if (tab === 'graph') this.renderGraph();
 	}
 
-	navigate(tab: WorkbenchTab, filter?: 'culled'): void {
+	navigate(tab: WorkbenchTab, filter?: 'culled' | 'all'): void {
 		this.setActiveTab(tab);
 		if (tab === 'passes' && filter === 'culled') this.passes.showCulled();
+		if (tab === 'passes' && filter === 'all') this.passes.showAll();
 		if (this.detailLayout.isDrawer) this.inspector.setOpen(false);
 	}
 
