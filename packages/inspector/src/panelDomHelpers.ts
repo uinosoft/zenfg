@@ -142,9 +142,9 @@ export function formatBytes(bytes: number): string {
 }
 
 export function labelNode(node: Pick<FrameGraphDebugNode, 'id' | 'label'>): string {
-    return node.label ?? node.id;
+    return node.label?.trim() ? node.label : node.id;
 }
 
 export function labelResource(resource: { readonly id: string; readonly kind: string; readonly label?: string }): string {
-    return resource.label ?? resource.id;
+    return resource.label?.trim() ? resource.label : resource.id;
 }

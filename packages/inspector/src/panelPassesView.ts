@@ -1,9 +1,10 @@
 import type { FrameGraphDebugGroup, FrameGraphDebugNode, FrameGraphDebugViewModel } from './debugCaptureModel.ts';
 import { createCell, labelNode } from './panelDomHelpers.ts';
+import { createPanelIcon } from './panelIcons.ts';
 import type { PassesSubview, Selection } from './panelTypes.ts';
 import {
-	createEmptyTableRow, createKindCell, createFilterSelect, createSearchInput, createSelectionCell,
-	createTableScroller, createViewToolbar, enableTabKeyboard, formatMeasuredGpuWork, formatTimingCoverage,
+	createEmptyTableRow, createIconAction, createKindCell, createFilterSelect, createSearchInput, createSelectionCell,
+	createTableScroller, createViewToolbar, enableTabKeyboard, formatTimingCoverage,
 	groupPath, registerSelectable, selectionKey, type WorkbenchCallbacks, updateSelectedRows,
 } from './panelWorkbenchHelpers.ts';
 
@@ -30,14 +31,18 @@ export class PassesView {
 	]);
 	private readonly groupsTable = createTableScroller([
 		{ label: 'Group' }, { label: 'Retained', column: 'numeric' }, { label: 'Culled', column: 'numeric' },
-		{ label: 'CPU sum / coverage', column: 'numeric' }, { label: 'GPU pass sum', column: 'numeric' }, { label: 'Inputs', column: 'numeric' },
+		{ label: 'CPU sum', column: 'numeric' }, { label: 'GPU pass sum', column: 'numeric' }, { label: 'Inputs', column: 'numeric' },
 		{ label: 'Outputs', column: 'numeric' }, { label: 'Locate' },
 	]);
 	private readonly rows = new Map<string, HTMLElement[]>();
 	private readonly collapsedGroups = new Set<string>();
 	private readonly count = document.createElement('span');
 	private readonly groupCount = document.createElement('span');
-	private readonly timing = document.createElement('p');
+	private readonly timing = document.createElement('div');
+	private readonly cpuCoverage = document.createElement('span');
+	private readonly gpuCoverage = document.createElement('span');
+	private readonly timingNotes = document.createElement('details');
+	private readonly timingAvailability = document.createElement('p');
 	private readonly searchInput: HTMLInputElement;
 	private readonly groupSearchInput: HTMLInputElement;
 	private readonly kindSelect: HTMLSelectElement;
@@ -89,6 +94,18 @@ export class PassesView {
 		this.groupCount.className = 'zenfg-inspector-result-count'; this.groupCount.setAttribute('role', 'status');
 		this.groupToolbar.append(this.groupSearchInput, clearGroups, this.groupCount);
 		this.timing.className = 'zenfg-inspector-list-context';
+		const coverage = document.createElement('div');
+		coverage.className = 'zenfg-inspector-list-coverage';
+		this.cpuCoverage.dataset.timing = 'cpu'; this.gpuCoverage.dataset.timing = 'gpu';
+		coverage.append(this.cpuCoverage, this.gpuCoverage);
+		this.timingNotes.className = 'zenfg-inspector-list-notes';
+		const noteSummary = document.createElement('summary'); noteSummary.textContent = 'Timing & compile notes';
+		const scope = document.createElement('p');
+		scope.textContent = 'Retained means kept by compilation; it does not prove GPU execution. CPU measures synchronous elapsed time for retained passes. GPU timestamps cover retained render/compute passes; external submission work is opaque. Zero durations may reflect clock or timestamp precision.';
+		this.timingNotes.append(noteSummary, scope, this.timingAvailability);
+		this.timing.append(coverage, this.timingNotes);
+		this.listTable.table.classList.add('zenfg-inspector-pass-table');
+		this.groupsTable.table.classList.add('zenfg-inspector-group-table');
 		this.listButton.id = `${idPrefix}-list-subtab`;
 		this.listButton.setAttribute('aria-controls', `${idPrefix}-pass-list-panel`);
 		this.groupsButton.id = `${idPrefix}-groups-subtab`;
@@ -117,6 +134,11 @@ export class PassesView {
 
 	showCulled(): void {
 		this.clearFilters(); this.status = 'culled'; this.statusSelect.value = 'culled'; this.subview = 'list';
+		this.updateSubview(); this.renderRows();
+	}
+
+	showAll(): void {
+		this.clearFilters(); this.subview = 'list';
 		this.updateSubview(); this.renderRows();
 	}
 
@@ -173,23 +195,37 @@ export class PassesView {
 		const passes = entries.filter((entry) => this.matchesNode(snapshot, entry));
 		passes.sort((a, b) => this.compareNodes(a, b)); this.count.textContent = `${passes.length} / ${entries.length} passes`;
 		const metrics = snapshot.metrics;
-		this.timing.textContent = `Retained means kept by compilation. CPU timing: ${formatTimingCoverage(metrics.cpuTimedNodeCount, snapshot.nodes.length)}. GPU timing: ${formatTimingCoverage(metrics.timedNodeCount, metrics.timingEligibleNodeCount)}${snapshot.profiling.status === 'unavailable' ? ` (${snapshot.profiling.reason})` : ''}.`;
+		this.cpuCoverage.textContent = `CPU · ${formatTimingCoverage(metrics.cpuTimedNodeCount, snapshot.nodes.length)}`;
+		this.gpuCoverage.textContent = `GPU · ${formatTimingCoverage(metrics.timedNodeCount, metrics.timingEligibleNodeCount)}`;
+		const unavailable = [snapshot.cpuProfiling.status === 'unavailable' ? `CPU unavailable: ${snapshot.cpuProfiling.reason}.` : undefined,
+			snapshot.profiling.status === 'unavailable' ? `GPU unavailable: ${snapshot.profiling.reason}.` : undefined].filter(Boolean);
+		this.timingAvailability.textContent = unavailable.join(' '); this.timingAvailability.hidden = unavailable.length === 0;
+		this.listTable.table.dataset.sort = this.sort;
+		for (const [index, header] of Array.from(this.listTable.table.querySelectorAll('th')).entries()) {
+			header.setAttribute('aria-sort', this.sort === 'cpu' && index === 4 || this.sort === 'gpu' && index === 5 ? 'descending' : 'none');
+		}
 		for (const { node, selection, order } of passes) {
 			const row = document.createElement('tr'); registerSelectable(this.rows, row, selection, this.callbacks);
-			const labelCell = createSelectionCell(labelNode(node), selection, this.callbacks); labelCell.title = node.id;
+			const labelCell = createSelectionCell(labelNode(node), selection, this.callbacks); labelCell.title = `${labelNode(node)} · ${node.id}`;
 			if (node.debugGroupId !== undefined) {
-				const group = document.createElement('small'); group.textContent = groupPath(snapshot, node.debugGroupId); labelCell.appendChild(group);
+				const group = document.createElement('small'); group.className = 'zenfg-inspector-list-group-path';
+				group.textContent = groupPath(snapshot, node.debugGroupId); group.title = group.textContent; labelCell.appendChild(group);
 			}
+			const metadata = document.createElement('small'); metadata.className = 'zenfg-inspector-list-row-meta';
+			metadata.textContent = `${selection.kind === 'culled' ? 'Culled' : 'Retained'} · ${node.kind}${order === undefined ? '' : ` · #${order}`}`;
+			labelCell.appendChild(metadata);
+			const accesses = document.createElement('small'); accesses.className = 'zenfg-inspector-list-row-extra';
+			accesses.textContent = `${node.reads.length} reads · ${node.writes.length} writes`; labelCell.appendChild(accesses);
 			const stateCell = createKindCell(selection.kind === 'culled' ? 'culled' : 'retained', selection.kind === 'culled' ? 'Culled' : 'Retained');
 			stateCell.title = selection.kind === 'culled' ? snapshot.culledById.get(node.id)?.reason ?? '' : 'Kept by compilation; this does not prove GPU execution.';
 			const gpu = selection.kind === 'culled' ? 'Not applicable' : node.kind === 'external-submission' ? 'Opaque'
 				: node.gpuDurationMicros !== undefined ? (node.gpuDurationMicros / 1000).toFixed(3)
 					: node.kind === 'render' || node.kind === 'compute' ? 'Not collected' : 'Not applicable';
 			const cpu = selection.kind === 'culled' ? 'Not executed' : node.cpuDurationMicros === undefined ? 'Not collected' : (node.cpuDurationMicros / 1000).toFixed(3);
-			const cpuCell = createCell(cpu, { column: 'numeric' });
+			const cpuCell = this.createTimingCell(cpu, 'CPU (ms)', 'cpu', node.cpuDurationMicros !== undefined && selection.kind !== 'culled');
 			cpuCell.title = 'Synchronous elapsed time; zero may reflect clock precision. External nodes include synchronous submission.';
 			row.append(labelCell, stateCell, createCell(order === undefined ? 'Not applicable' : String(order), { column: 'numeric' }),
-				createKindCell(node.kind), cpuCell, createCell(gpu, { column: 'numeric' }), createCell(`${node.reads.length} / ${node.writes.length}`, { column: 'numeric' }));
+				createKindCell(node.kind), cpuCell, this.createTimingCell(gpu, 'GPU (ms)', 'gpu', node.gpuDurationMicros !== undefined && selection.kind !== 'culled' && node.kind !== 'external-submission'), createCell(`${node.reads.length} / ${node.writes.length}`, { column: 'numeric' }));
 			this.listTable.body.appendChild(row);
 		}
 		if (passes.length === 0) this.listTable.body.appendChild(createEmptyTableRow(7, 'No passes match the current filters.'));
@@ -225,33 +261,55 @@ export class PassesView {
 			const selection: Selection = { kind: 'group', pathKey: group.pathKey };
 			const row = document.createElement('tr'); registerSelectable(this.rows, row, selection, this.callbacks);
 			const labelCell = createSelectionCell(group.label, selection, this.callbacks);
-			labelCell.style.paddingLeft = `${8 + group.depth * 18}px`; labelCell.title = group.path.join(' / ');
-			const toggle = document.createElement('button'); toggle.type = 'button'; toggle.className = 'zenfg-inspector-group-toggle';
+			labelCell.style.setProperty('--fgd-group-depth-offset', `${group.depth * 18}px`); labelCell.title = group.path.join(' / ');
 			const expanded = this.groupSearch.length > 0 || !this.collapsedGroups.has(group.pathKey);
-			toggle.textContent = parents.has(group.id) ? expanded ? '▾' : '▸' : '·';
-			toggle.disabled = !parents.has(group.id) || this.groupSearch.length > 0;
-			toggle.title = this.groupSearch ? 'Matching groups and ancestors are expanded while searching.' : 'Toggle this group hierarchy';
-			toggle.setAttribute('aria-label', `${expanded ? 'Collapse' : 'Expand'} group ${group.path.join(' / ')}`);
-			if (parents.has(group.id)) toggle.setAttribute('aria-expanded', String(expanded));
-			toggle.addEventListener('click', () => {
-				if (expanded) this.collapsedGroups.add(group.pathKey); else this.collapsedGroups.delete(group.pathKey);
-				this.renderRows();
-				this.rows.get(selectionKey(selection))?.[0]?.querySelector<HTMLButtonElement>('.zenfg-inspector-group-toggle')?.focus({ preventScroll: true });
-			});
-			labelCell.prepend(toggle);
+			if (parents.has(group.id)) {
+				const toggle = document.createElement('button'); toggle.type = 'button'; toggle.className = 'zenfg-inspector-group-toggle';
+				toggle.appendChild(createPanelIcon(expanded ? 'chevron-down' : 'chevron-right'));
+				toggle.disabled = this.groupSearch.length > 0;
+				toggle.title = this.groupSearch ? 'Matching groups and ancestors are expanded while searching.' : 'Toggle this group hierarchy';
+				toggle.setAttribute('aria-label', `${expanded ? 'Collapse' : 'Expand'} group ${group.path.join(' / ')}`);
+				toggle.setAttribute('aria-expanded', String(expanded));
+				toggle.addEventListener('click', () => {
+					if (expanded) this.collapsedGroups.add(group.pathKey); else this.collapsedGroups.delete(group.pathKey);
+					this.renderRows();
+					this.rows.get(selectionKey(selection))?.[0]?.querySelector<HTMLButtonElement>('.zenfg-inspector-group-toggle')?.focus({ preventScroll: true });
+				});
+				labelCell.prepend(toggle);
+			} else {
+				const spacer = document.createElement('span'); spacer.className = 'zenfg-inspector-group-toggle-spacer'; spacer.setAttribute('aria-hidden', 'true');
+				labelCell.prepend(spacer);
+			}
 			const summary = group.summary;
-			const revealCell = document.createElement('td'); const reveal = document.createElement('button');
-			reveal.type = 'button'; reveal.className = 'zenfg-inspector-relation-button'; reveal.textContent = 'Show in Graph';
-			reveal.addEventListener('click', () => this.callbacks.onReveal?.(selection, 'graph')); revealCell.appendChild(reveal);
+			const metadata = document.createElement('small'); metadata.className = 'zenfg-inspector-list-row-meta';
+			metadata.textContent = `${summary.retainedNodeCount} retained · ${summary.culledNodeCount} culled · ${summary.inputResources.length} inputs · ${summary.outputResources.length} outputs`;
+			labelCell.appendChild(metadata);
+			const revealCell = document.createElement('td'); revealCell.className = 'zenfg-inspector-list-locate-cell';
+			revealCell.appendChild(createIconAction('locate', `Show in Graph: ${group.path.join(' / ')}`, () => this.callbacks.onReveal?.(selection, 'graph')));
 			row.append(labelCell, createCell(String(summary.retainedNodeCount), { column: 'numeric' }),
 				createCell(String(summary.culledNodeCount), { column: 'numeric' }),
-				createCell((summary.cpuTimedNodeCount ? (summary.cpuWorkDurationMicros / 1000).toFixed(3) + ' ms' : 'Not collected') + ' · ' + formatTimingCoverage(summary.cpuTimedNodeCount, summary.retainedNodeCount), { column: 'numeric' }),
-				createCell(formatMeasuredGpuWork(summary.gpuWorkDurationMicros, summary.timedNodeCount, summary.timingEligibleNodeCount), { column: 'numeric' }),
+				this.createGroupTimingCell(summary.cpuWorkDurationMicros, summary.cpuTimedNodeCount, summary.retainedNodeCount, 'CPU sum'),
+				this.createGroupTimingCell(summary.gpuWorkDurationMicros, summary.timedNodeCount, summary.timingEligibleNodeCount, 'GPU pass sum'),
 				createCell(String(summary.inputResources.length), { column: 'numeric' }),
 				createCell(String(summary.outputResources.length), { column: 'numeric' }), revealCell);
 			this.groupsTable.body.appendChild(row);
 		}
 		if (groups.length === 0) this.groupsTable.body.appendChild(createEmptyTableRow(8, 'No groups match the current filters.'));
+	}
+
+	private createTimingCell(value: string, label: string, timing: 'cpu' | 'gpu', measured: boolean): HTMLTableCellElement {
+		const cell = createCell(value, { column: 'numeric' });
+		cell.dataset.label = label; cell.dataset.timing = timing; cell.className = measured ? 'zenfg-inspector-list-measured' : 'zenfg-inspector-list-unmeasured';
+		cell.setAttribute('aria-label', `${label}: ${value}`);
+		return cell;
+	}
+
+	private createGroupTimingCell(micros: number, timed: number, eligible: number, label: string): HTMLTableCellElement {
+		const value = eligible === 0 ? 'Not applicable' : timed === 0 ? 'Not collected' : `${(micros / 1000).toFixed(3)} ms`;
+		const cell = this.createTimingCell(value, label, label.startsWith('CPU') ? 'cpu' : 'gpu', timed > 0);
+		const coverage = document.createElement('small'); coverage.textContent = formatTimingCoverage(timed, eligible); cell.appendChild(coverage);
+		cell.setAttribute('aria-label', `${label}: ${value}; ${coverage.textContent}`);
+		return cell;
 	}
 
 	private matchesNode(snapshot: FrameGraphDebugViewModel, entry: PassEntry): boolean {

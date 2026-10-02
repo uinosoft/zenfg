@@ -10,6 +10,7 @@ import { RawDetailView } from './panelRawView.ts';
 import { resolveNodeSelection, resolveSelectedCanonicalDetail } from './panelSelection.ts';
 import type { InspectorTab, Selection, WorkbenchTab } from './panelTypes.ts';
 import {
+	createIconAction,
 	createRelationButton,
 	formatEstimatedBytes,
 	formatResourceDescriptor,
@@ -59,6 +60,7 @@ export class InspectorView {
 	private open = false;
 	private hoveredLink: HTMLButtonElement | undefined;
 	private rawCache: { readonly snapshot: FrameGraphDebugViewModel; readonly key: string; readonly view: RawDetailView } | undefined;
+	private readonly sectionStates = new Map<string, boolean>();
 
 	constructor(
 		private readonly callbacks: WorkbenchCallbacks,
@@ -143,6 +145,9 @@ export class InspectorView {
 
 	private render(): void {
 		const restoreFocus = this.content.contains(document.activeElement);
+		for (const section of this.content.querySelectorAll<HTMLDetailsElement>('details[data-section-key]')) {
+			this.sectionStates.set(section.dataset.sectionKey!, section.open);
+		}
 		this.clearLinkHover();
 		for (const [tab, button] of this.tabs) {
 			const active = tab === this.activeTab;
@@ -163,6 +168,7 @@ export class InspectorView {
 			return;
 		}
 		this.title.textContent = this.selectionTitle(snapshot, selected);
+		this.title.title = this.title.textContent;
 		if (!this.open) return;
 		if (this.activeTab === 'raw') {
 			const key = selectionKey(selected);
@@ -173,23 +179,9 @@ export class InspectorView {
 			if (this.rawCache) this.content.appendChild(this.rawCache.view.root);
 			else this.content.textContent = 'Canonical object unavailable in this capture.';
 		} else if (this.activeTab === 'relations') {
-			this.content.appendChild(this.createRelations(snapshot, selected));
+			this.content.append(this.createIdentity(snapshot, selected), this.createRelations(snapshot, selected));
 		} else {
-			this.content.append(this.createLocationActions(snapshot, selected), this.createSummary(snapshot, selected));
-			const identity = this.selectionId(snapshot, selected);
-			if (identity) this.content.appendChild(this.summary([['ID', this.copyId(identity)]]));
-			const diagnostics = this.createDiagnostics(snapshot, selected);
-			if (diagnostics) this.content.appendChild(diagnostics);
-			if (selected.kind === 'node' || selected.kind === 'culled') {
-				const node = snapshot.nodeById.get(selected.id) ?? snapshot.culledById.get(selected.id)?.node;
-				if (node) {
-					const accesses = document.createElement('details');
-					const heading = document.createElement('summary');
-					heading.textContent = `Access facts · ${node.reads.length + node.writes.length}`;
-					accesses.append(heading, this.accessRelations('Reads', node.reads), this.accessRelations('Writes', node.writes));
-					this.content.appendChild(accesses);
-				}
-			}
+			this.content.append(this.createIdentity(snapshot, selected), this.createLocationActions(snapshot, selected), this.createSummary(snapshot, selected));
 		}
 		// Selecting a relation replaces its button. Keep keyboard focus in the pane.
 		if (restoreFocus) this.tabs.get(this.activeTab)?.focus();
@@ -213,7 +205,140 @@ export class InspectorView {
 		}
 	}
 
+	private createIdentity(snapshot: FrameGraphDebugViewModel, selection: Selection): HTMLElement {
+		const identity = document.createElement('div');
+		identity.className = 'zenfg-inspector-detail-identity';
+		const tags = document.createElement('div');
+		tags.className = 'zenfg-inspector-detail-tags';
+		const addTag = (label: string, tone?: string, explanation?: string) => {
+			const tag = document.createElement('span');
+			tag.className = 'zenfg-inspector-detail-tag';
+			tag.textContent = label;
+			if (tone) tag.dataset.tone = tone;
+			if (explanation) tag.title = explanation;
+			tags.appendChild(tag);
+		};
+		if (selection.kind === 'node' || selection.kind === 'culled') {
+			const node = snapshot.nodeById.get(selection.id) ?? snapshot.culledById.get(selection.id)?.node;
+			if (node) addTag(node.kind);
+			addTag(selection.kind === 'culled' ? 'Culled' : 'Retained', selection.kind,
+				selection.kind === 'culled' ? 'Excluded by the compiler' : 'Compiler included this pass; execution success is not implied');
+		} else if (selection.kind === 'resource') {
+			const resource = snapshot.resourceById.get(selection.id);
+			if (resource) { addTag(resource.kind); addTag(resource.origin); }
+		} else if (selection.kind === 'allocation') {
+			addTag('Physical allocation');
+			const allocation = snapshot.allocationById.get(selection.id);
+			if (allocation) addTag(allocation.kind);
+		} else if (selection.kind === 'group') addTag('Group');
+		else if (selection.kind === 'root') addTag('Output root');
+		else {
+			const segment = snapshot.segmentByIndex.get(selection.index);
+			addTag(segment?.kind === 'external-submission' ? 'Opaque interval' : 'FrameGraph segment');
+		}
+		identity.appendChild(tags);
+		const id = this.selectionId(snapshot, selection);
+		if (id) identity.appendChild(this.copyId(id));
+		return identity;
+	}
+
 	private createSummary(snapshot: FrameGraphDebugViewModel, selection: Selection): HTMLElement {
+		const host = document.createElement('div');
+		host.className = 'zenfg-inspector-detail-summary';
+		const facts = this.createSummaryFacts(snapshot, selection);
+		const rows = new Map<string, readonly [Element, Element]>();
+		for (let i = 0; i < facts.children.length; i += 2) {
+			const term = facts.children[i]!;
+			rows.set(term.textContent!, [term, facts.children[i + 1]!]);
+		}
+		const takeRows = (labels: readonly string[]): HTMLElement => {
+			const list = this.summary([]);
+			for (const label of labels) {
+				const pair = rows.get(label);
+				if (!pair) continue;
+				list.append(...pair);
+				rows.delete(label);
+			}
+			return list;
+		};
+		const layouts: Record<Selection['kind'], { metrics: readonly string[]; primary: readonly string[] }> = {
+			node: { metrics: ['GPU duration', 'CPU duration'], primary: ['Execution slot', 'Group', 'Segment', 'Accesses'] },
+			group: { metrics: ['GPU pass sum', 'CPU pass sum'], primary: ['Retained', 'Culled', 'GPU coverage', 'CPU coverage', 'Path'] },
+			resource: { metrics: ['Resource estimate'], primary: ['Lifetime', 'Allocation'] },
+			allocation: { metrics: ['Physical estimate', 'Logical resources'], primary: ['Alias'] },
+			root: { metrics: [], primary: ['Reason', 'Node', 'Resource', 'Range', 'Initial contents', 'Producers'] },
+			culled: { metrics: [], primary: ['Reason', 'Group', 'Accesses', 'Execution / segment / CPU / GPU'] },
+			segment: { metrics: ['Nodes'], primary: ['Kind', 'Meaning'] },
+		};
+		const layout = layouts[selection.kind];
+		const metrics = document.createElement('div');
+		metrics.className = 'zenfg-inspector-detail-metrics';
+		for (const label of layout.metrics) {
+			const pair = rows.get(label);
+			if (!pair) continue;
+			const metric = document.createElement('section');
+			metric.className = 'zenfg-inspector-detail-metric';
+			const heading = document.createElement('span');
+			heading.className = 'zenfg-inspector-detail-metric-label';
+			heading.textContent = label;
+			const value = document.createElement('strong');
+			const [main, ...explanation] = pair[1].textContent!.split(' · ');
+			const number = /^(\d+(?:\.\d+)?) (ms|B|KiB|MiB|GiB)$/.exec(main!);
+			if (number) {
+				value.appendChild(document.createTextNode(number[1]!));
+				const unit = document.createElement('span');
+				unit.className = 'zenfg-inspector-detail-metric-unit';
+				unit.textContent = ` ${number[2]}`;
+				value.appendChild(unit);
+			} else value.textContent = main!;
+			if (!number && !/^\d+$/.test(main!)) metric.dataset.state = 'unavailable';
+			metric.append(heading, value);
+			if (explanation.length) {
+				const note = document.createElement('small');
+				note.textContent = ` · ${explanation.join(' · ')}`;
+				metric.appendChild(note);
+			}
+			metrics.appendChild(metric);
+			rows.delete(label);
+		}
+		if (metrics.childElementCount) host.appendChild(metrics);
+		const primary = takeRows(layout.primary);
+		if (primary.childElementCount) host.appendChild(primary);
+		const diagnostics = this.createDiagnostics(snapshot, selection);
+		if (diagnostics) host.appendChild(diagnostics);
+		if (selection.kind === 'node') {
+			host.appendChild(this.createSection(selection, 'timing-scope', 'Timing scope', takeRows(['CPU scope', 'GPU scope'])));
+		}
+		if (rows.size) {
+			const title = selection.kind === 'node' || selection.kind === 'culled' ? 'Compilation details'
+				: selection.kind === 'resource' ? 'Resource details'
+					: selection.kind === 'allocation' ? 'Allocation details' : 'Additional details';
+			host.appendChild(this.createSection(selection, 'additional', title, takeRows([...rows.keys()])));
+		}
+		if (selection.kind === 'node' || selection.kind === 'culled') {
+			const node = snapshot.nodeById.get(selection.id) ?? snapshot.culledById.get(selection.id)?.node;
+			if (node) host.appendChild(this.createSection(selection, 'accesses', `Access facts · ${node.reads.length + node.writes.length}`,
+				this.accessRelations('Reads', node.reads), this.accessRelations('Writes', node.writes)));
+		}
+		return host;
+	}
+
+	private createSection(selection: Selection, key: string, title: string, ...children: HTMLElement[]): HTMLDetailsElement {
+		const section = document.createElement('details');
+		section.className = 'zenfg-inspector-detail-section';
+		const stateKey = `${selectionKey(selection)}:${key}`;
+		section.dataset.sectionKey = stateKey;
+		section.open = this.sectionStates.get(stateKey) ?? false;
+		const heading = document.createElement('summary');
+		heading.textContent = title;
+		section.append(heading, ...children);
+		section.addEventListener('toggle', () => {
+			if (section.isConnected) this.sectionStates.set(stateKey, section.open);
+		});
+		return section;
+	}
+
+	private createSummaryFacts(snapshot: FrameGraphDebugViewModel, selection: Selection): HTMLElement {
 		switch (selection.kind) {
 			case 'node': {
 				const node = snapshot.nodeById.get(selection.id);
@@ -246,7 +371,7 @@ export class InspectorView {
 					['Retained', String(group.summary.retainedNodeCount)],
 					['Culled', String(group.summary.culledNodeCount)],
 					['CPU coverage', formatTimingCoverage(group.summary.cpuTimedNodeCount, group.summary.retainedNodeCount)],
-					['CPU pass sum', group.summary.cpuTimedNodeCount ? (group.summary.cpuWorkDurationMicros / 1000).toFixed(3) + ' ms' : 'Not collected'],
+					['CPU pass sum', group.summary.retainedNodeCount === 0 ? 'Not applicable' : group.summary.cpuTimedNodeCount ? (group.summary.cpuWorkDurationMicros / 1000).toFixed(3) + ' ms' : 'Not collected'],
 					['GPU coverage', formatTimingCoverage(group.summary.timedNodeCount, group.summary.timingEligibleNodeCount)],
 					['GPU pass sum', group.summary.timingEligibleNodeCount === 0 ? 'Not applicable' : group.summary.timedNodeCount === 0 ? 'Not collected' : (group.summary.gpuWorkDurationMicros / 1000).toFixed(3) + ' ms'],
 					['Opaque passes', `${group.summary.externalSubmissionCount} · excluded from GPU pass sum`],
@@ -280,7 +405,7 @@ export class InspectorView {
 					['Compatibility class', String(allocation.compatibilityClassId)],
 					['Physical estimate', `${formatEstimatedBytes(allocation.estimatedByteSize)} · allocation capacity estimate`],
 					['Logical resources', String(allocation.resourceIds.length)],
-					['Alias', allocation.resourceIds.length > 1 ? `yes · ×${allocation.resourceIds.length}` : 'single'],
+					['Alias', allocation.resourceIds.length > 1 ? `yes · ×${allocation.resourceIds.length}` : allocation.resourceIds.length === 1 ? 'single' : 'Unreferenced'],
 				]);
 			}
 			case 'root': {
@@ -459,7 +584,7 @@ export class InspectorView {
 			const links = document.createElement('div');
 			links.className = 'zenfg-inspector-relation-links';
 			links.appendChild(link);
-			if (this.callbacks.onReveal) links.appendChild(this.revealButton(selection, this.primaryPage(selection)));
+			if (this.callbacks.onReveal) links.appendChild(this.revealButton(selection, this.primaryPage(selection), true));
 			entry.appendChild(links);
 			if (description !== undefined) {
 				const metadata = document.createElement('span');
@@ -495,6 +620,13 @@ export class InspectorView {
 			this.callbacks.onHover(selection);
 		});
 		link.addEventListener('mouseleave', () => {
+			if (this.hoveredLink === link) this.clearLinkHover();
+		});
+		link.addEventListener('focus', () => {
+			this.hoveredLink = link;
+			this.callbacks.onHover(selection);
+		});
+		link.addEventListener('blur', () => {
 			if (this.hoveredLink === link) this.clearLinkHover();
 		});
 		return link;
@@ -549,15 +681,21 @@ export class InspectorView {
 		}
 	}
 
-	private revealButton(selection: Selection, page: WorkbenchTab): HTMLButtonElement {
+	private revealButton(selection: Selection, page: WorkbenchTab, iconOnly = false): HTMLButtonElement {
+		const label = `Locate in ${page[0].toUpperCase()}${page.slice(1)}`;
+		const reveal = () => {
+			this.clearLinkHover();
+			this.callbacks.onReveal?.(selection, page);
+		};
+		if (iconOnly) {
+			const name = this.snapshot ? this.selectionTitle(this.snapshot, selection) : selectionKey(selection);
+			return createIconAction('locate', `${label}: ${name}`, reveal);
+		}
 		const button = document.createElement('button');
 		button.type = 'button';
 		button.className = 'zenfg-inspector-inline-action';
-		button.textContent = `Locate in ${page[0].toUpperCase()}${page.slice(1)}`;
-		button.addEventListener('click', () => {
-			this.clearLinkHover();
-			this.callbacks.onReveal?.(selection, page);
-		});
+		button.append(createPanelIcon('locate'), document.createTextNode(label));
+		button.addEventListener('click', reveal);
 		return button;
 	}
 
@@ -591,14 +729,14 @@ export class InspectorView {
 		host.className = 'zenfg-inspector-copy-id';
 		const code = document.createElement('code');
 		code.textContent = id;
-		const button = document.createElement('button');
-		button.type = 'button';
-		button.textContent = 'Copy ID';
-		button.setAttribute('aria-label', 'Copy full object ID');
-		button.addEventListener('click', () => {
-			void writeClipboardText(id).then(() => { button.textContent = 'Copied'; }, () => { button.textContent = 'Copy failed'; });
+		code.title = id;
+		const status = document.createElement('span');
+		status.className = 'zenfg-inspector-detail-copy-status';
+		status.setAttribute('role', 'status');
+		const button = createIconAction('copy', 'Copy full object ID', () => {
+			void writeClipboardText(id).then(() => { status.textContent = 'Copied'; }, () => { status.textContent = 'Copy failed'; });
 		});
-		host.append(code, button);
+		host.append(code, button, status);
 		return host;
 	}
 

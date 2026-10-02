@@ -3,6 +3,8 @@ import type cytoscape from 'cytoscape';
 import type { ELK } from 'elkjs/lib/elk-api';
 
 import type { GraphRenderer, GraphRenderRequest } from './panelGraphRenderer.ts';
+import type { Selection } from './panelTypes.ts';
+import { graphRelationFocus, graphFocusStyles } from './panelGraphFocus.ts';
 import {
     applyGraphLayout,
     layoutGraphScene,
@@ -176,7 +178,7 @@ export class CytoscapeGraphRenderer implements GraphRenderer {
         if (this.destroyed || JSON.stringify(theme) === JSON.stringify(this.theme)) return;
         const typographyChanged = theme.fontFamily !== this.theme.fontFamily || theme.fontSize !== this.theme.fontSize;
         this.theme = theme;
-        this.core?.style().fromJson(createGraphStyles(theme)).update();
+        this.core?.style().fromJson([...createGraphStyles(theme), ...graphFocusStyles()]).update();
         if (!typographyChanged) return;
         this.geometryRevision++;
         if (this.core && this.latestRequest && this.appliedScene) {
@@ -208,6 +210,7 @@ export class CytoscapeGraphRenderer implements GraphRenderer {
     }
 
     fit(): void {
+        this.cancelViewportRequests();
         const targetContentKey = this.latestRequest?.scene.contentKey;
         if (targetContentKey) this.fitTargetContentKey = targetContentKey;
         if (!this.core || !this.appliedScene) return;
@@ -215,6 +218,47 @@ export class CytoscapeGraphRenderer implements GraphRenderer {
         this.core.fit(undefined, GRAPH_GEOMETRY.fitPadding);
         this.updateSemanticZoom();
         if (!this.targetNeedsApply()) this.fitTargetContentKey = undefined;
+    }
+
+    zoomBy(factor: number): void {
+        if (!this.core || !Number.isFinite(factor) || factor <= 0) return;
+        this.zoomTo(this.core.zoom() * factor);
+    }
+
+    resetZoom(): void { this.zoomTo(1); }
+
+    fitSelection(selection: Selection): void {
+        const request = this.interactiveRequest();
+        const core = this.core;
+        if (!request || !core || this.targetNeedsApply()) return;
+        const targets = core.collection();
+        for (const id of request.scene.interaction.primaryElementIdsBySelection.get(selectionKey(selection)) ?? []) {
+            targets.merge(core.getElementById(id));
+        }
+        if (!targets.length) return;
+        this.cancelViewportRequests();
+        core.resize();
+        core.fit(targets, 64);
+        if (core.zoom() > 1.2) core.zoom(1.2);
+        core.center(targets);
+        this.updateSemanticZoom();
+    }
+
+    private zoomTo(level: number): void {
+        const core = this.core;
+        if (!core || this.targetNeedsApply()) return;
+        this.cancelViewportRequests();
+        core.resize();
+        core.zoom({ level: Math.max(core.minZoom(), Math.min(core.maxZoom(), level)),
+            renderedPosition: { x: core.width() / 2, y: core.height() / 2 } });
+        this.updateSemanticZoom();
+    }
+
+    private cancelViewportRequests(): void {
+        this.pendingReveal = undefined;
+        this.fitTargetContentKey = undefined;
+        this.anchorElementId = undefined;
+        this.anchorTargetContentKey = undefined;
     }
 
     relayout(): void {
@@ -300,6 +344,22 @@ export class CytoscapeGraphRenderer implements GraphRenderer {
                 }
 
                 this.hideTooltip();
+                const topologyChanged = this.appliedScene?.topologyKey !== request.scene.topologyKey;
+                const geometryChanged = !this.appliedScene
+                    || graphLayoutGeometryKey(this.appliedScene) !== graphLayoutGeometryKey(request.scene);
+                let layoutResult: GraphLayoutResult | undefined;
+
+                if (geometryChanged || this.forceRelayout) {
+                    this.showStatus('layout', 'Laying out graph…');
+                    const geometryRevision = this.geometryRevision;
+                    layoutResult = await this.environment.layoutScene(this.elk!, request.scene, this.theme);
+                    if (geometryRevision !== this.geometryRevision) continue;
+                    const layoutRequest = this.resolveCurrentRequest(version, request.scene.contentKey);
+                    if (!layoutRequest) continue;
+                    ({ version, request } = layoutRequest);
+                }
+
+                // Read after layout settles so dragging or zooming during layout is retained.
                 const previousViewport = viewport(core);
                 const anchorElementId = this.anchorTargetContentKey === request.scene.contentKey
                     ? this.anchorElementId
@@ -307,23 +367,11 @@ export class CytoscapeGraphRenderer implements GraphRenderer {
                 const anchorBefore = anchorElementId === undefined
                     ? undefined
                     : renderedPosition(core, anchorElementId);
-                const topologyChanged = this.appliedScene?.topologyKey !== request.scene.topologyKey;
-                const geometryChanged = !this.appliedScene
-                    || graphLayoutGeometryKey(this.appliedScene) !== graphLayoutGeometryKey(request.scene);
-                let laidOut = false;
-
-                if (geometryChanged || this.forceRelayout) {
-                    this.showStatus('layout', 'Laying out graph…');
-                    const geometryRevision = this.geometryRevision;
-                    const result = await this.environment.layoutScene(this.elk!, request.scene, this.theme);
-                    if (geometryRevision !== this.geometryRevision) continue;
-                    const layoutRequest = this.resolveCurrentRequest(version, request.scene.contentKey);
-                    if (!layoutRequest) continue;
-                    ({ version, request } = layoutRequest);
+                const laidOut = layoutResult !== undefined;
+                if (layoutResult) {
                     if (topologyChanged || !this.appliedScene) replaceElements(core, request.scene, this.theme);
                     else updateElementData(core, request.scene, this.theme);
-                    applyGraphLayout(core, request.scene, result);
-                    laidOut = true;
+                    applyGraphLayout(core, request.scene, layoutResult);
                 } else {
                     updateElementData(core, request.scene, this.theme);
                 }
@@ -383,7 +431,7 @@ export class CytoscapeGraphRenderer implements GraphRenderer {
         this.core = runtime.createCore({
             container: this.canvasHost,
             elements: [],
-            style: createGraphStyles(this.theme),
+            style: [...createGraphStyles(this.theme), ...graphFocusStyles()],
             layout: { name: 'preset' },
             minZoom: 0.03,
             maxZoom: 4,
@@ -468,7 +516,13 @@ export class CytoscapeGraphRenderer implements GraphRenderer {
         const core = this.core;
         if (!core || this.appliedScene?.topologyKey !== request.scene.topologyKey) return;
         core.batch(() => {
-            core.elements().removeClass('semantic-selected semantic-hover');
+            core.elements().removeClass('semantic-selected semantic-hover semantic-muted');
+            const focus = request.focusRelations ? graphRelationFocus(request.scene, request.selected) : undefined;
+            if (focus) {
+                for (const element of core.elements()) {
+                    if (!focus.has(element.id())) element.addClass('semantic-muted');
+                }
+            }
             if (request.hovered) {
                 for (const id of request.scene.interaction.hoverElementIdsBySelection.get(selectionKey(request.hovered)) ?? []) {
                     core.getElementById(id).addClass('semantic-hover');
@@ -527,6 +581,7 @@ export class CytoscapeGraphRenderer implements GraphRenderer {
     private updateSemanticZoom(force = false): void {
         const core = this.core;
         if (!core) return;
+        this.latestRequest?.onViewportChange?.(core.zoom());
         const overview = isOverviewGraphScale(core.zoom(), this.theme);
         if (!force && overview === this.overview) return;
         this.overview = overview;
@@ -538,6 +593,11 @@ export class CytoscapeGraphRenderer implements GraphRenderer {
                 edge.data('displayLabel', overview ? '' : edge.data('detailLabel'));
             }
         });
+        // fit/center can read bounds before the next canvas frame. Measure the
+        // changed labels now so their texture bounds match the new line count.
+        // The runtime supports useCache, which its bundled typings omit.
+        const boundsOptions: cytoscape.BoundingBoxOptions & { useCache: boolean } = { useCache: false };
+        core.nodes().boundingBox(boundsOptions);
     }
 
     private positionTooltip(position: GraphPosition): void {

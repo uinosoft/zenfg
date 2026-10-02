@@ -3,7 +3,7 @@ import { createCell, labelResource } from './panelDomHelpers.ts';
 import type { Selection } from './panelTypes.ts';
 import {
 	createEmptyTableRow, createKindCell, createFilterSelect, createSearchInput, createSelectionCell,
-	createTableScroller, createViewToolbar, formatEstimatedBytes, groupPath, registerSelectable,
+	createTableScroller, createViewToolbar, formatEstimatedBytes, formatResourceDescriptor, groupPath, registerSelectable,
 	resourceAccessCounts, selectionKey, type WorkbenchCallbacks, updateSelectedRows,
 } from './panelWorkbenchHelpers.ts';
 
@@ -14,8 +14,8 @@ export class ResourcesView {
 	private readonly table = createTableScroller([
 		{ label: 'Name' },
 		{ label: 'Type / Origin', column: 'kind' },
-		{ label: 'Estimated', column: 'numeric' },
-		{ label: 'Lifetime', column: 'code' },
+		{ label: 'Estimated size', column: 'numeric' },
+		{ label: 'Lifetime (slots)', column: 'code' },
 		{ label: 'R / W', column: 'numeric' },
 	]);
 	private readonly rows = new Map<string, HTMLElement[]>();
@@ -55,7 +55,13 @@ export class ResourcesView {
 		this.count.className = 'zenfg-inspector-result-count';
 		this.count.setAttribute('role', 'status');
 		toolbar.append(this.searchInput, this.kindSelect, this.originSelect, sort, clear, this.count);
-		this.root.append(toolbar, this.table.scroller);
+		this.table.table.classList.add('zenfg-inspector-resource-table');
+		const notes = document.createElement('details'); notes.className = 'zenfg-inspector-list-notes zenfg-inspector-resource-notes';
+		const summary = document.createElement('summary'); summary.textContent = 'Resource estimates';
+		const explanation = document.createElement('p');
+		explanation.textContent = 'Sizes are logical resource estimates from this snapshot, not actual GPU memory use. Lifetimes use inclusive execution slots. Shared physical allocations are shown in Memory.';
+		notes.append(summary, explanation);
+		this.root.append(toolbar, notes, this.table.scroller);
 	}
 
 	setSnapshot(snapshot: FrameGraphDebugViewModel): void {
@@ -92,21 +98,37 @@ export class ResourcesView {
 				.toLocaleLowerCase().includes(this.search);
 		}).sort((a, b) => this.compareResources(a, b));
 		this.count.textContent = `${resources.length} / ${snapshot.resources.length} resources`;
+		this.table.table.dataset.sort = this.sort;
+		for (const [index, header] of Array.from(this.table.table.querySelectorAll('th')).entries()) {
+			header.setAttribute('aria-sort', this.sort === 'size' && index === 2 ? 'descending' : this.sort === 'lifetime' && index === 3 ? 'ascending' : 'none');
+		}
 		for (const resource of resources) {
 			const selection: Selection = { kind: 'resource', id: resource.id };
 			const row = document.createElement('tr');
 			registerSelectable(this.rows, row, selection, this.callbacks);
 			const [reads, writes] = resourceAccessCounts(snapshot, resource.id);
 			const resourceCell = createSelectionCell(labelResource(resource), selection, this.callbacks);
-			resourceCell.title = resource.id;
+			resourceCell.title = `${labelResource(resource)} · ${resource.id}`;
 			if (resource.debugGroupId !== undefined) {
 				const group = document.createElement('small');
+				group.className = 'zenfg-inspector-list-group-path';
 				group.textContent = groupPath(snapshot, resource.debugGroupId);
+				group.title = group.textContent;
 				resourceCell.appendChild(group);
 			}
+			const metadata = document.createElement('small'); metadata.className = 'zenfg-inspector-list-row-meta';
+			metadata.textContent = `${resource.kind} · ${resource.origin}`; resourceCell.appendChild(metadata);
+			const descriptor = document.createElement('small'); descriptor.className = 'zenfg-inspector-resource-descriptor';
+			descriptor.textContent = formatResourceDescriptor(resource); descriptor.title = descriptor.textContent; resourceCell.appendChild(descriptor);
+			const extra = document.createElement('small'); extra.className = 'zenfg-inspector-list-row-extra';
+			extra.textContent = `${resource.lifetime ? `Slots ${resource.lifetime.firstUse}–${resource.lifetime.lastUse}` : 'Lifetime unknown'} · ${reads} reads · ${writes} writes`;
+			resourceCell.appendChild(extra);
+			const estimated = createCell(formatEstimatedBytes(resource.estimatedByteSize), { column: 'numeric' });
+			estimated.dataset.label = 'Estimated size'; estimated.className = resource.estimatedByteSize === undefined ? 'zenfg-inspector-list-unmeasured' : 'zenfg-inspector-list-measured';
+			estimated.setAttribute('aria-label', 'Estimated size: ' + estimated.textContent);
 			row.append(resourceCell,
 				createKindCell(resource.kind, `${resource.kind} · ${resource.origin}`),
-				createCell(formatEstimatedBytes(resource.estimatedByteSize), { column: 'numeric' }),
+				estimated,
 				createCell(resource.lifetime ? `${resource.lifetime.firstUse}–${resource.lifetime.lastUse}` : 'Unknown', { column: 'code' }),
 				createCell(`${reads} / ${writes}`, { column: 'numeric' }));
 			this.table.body.appendChild(row);

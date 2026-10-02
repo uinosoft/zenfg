@@ -120,13 +120,13 @@ function largeSnapshot(count: number): FrameGraphSnapshot {
 	};
 }
 
-function mount(snapshot: FrameGraphSnapshot, maxGraphElements?: number) {
+function mount(snapshot: FrameGraphSnapshot, maxGraphElements?: number, showResourceDeclarations?: boolean) {
 	const window = new Window({ url: 'http://localhost/' });
 	Reflect.set(globalThis, 'window', window);
 	Reflect.set(globalThis, 'document', window.document);
 	Reflect.set(globalThis, 'navigator', window.navigator);
 	Reflect.set(globalThis, 'Event', window.Event);
-	const panel = new FrameGraphInspector(maxGraphElements === undefined ? {} : { maxGraphElements });
+	const panel = new FrameGraphInspector({ maxGraphElements, showResourceDeclarations });
 	document.body.append(panel.dom);
 	panel.setSnapshot(snapshot);
 	const graph = (panel as unknown as { graphView: GraphViewState }).graphView;
@@ -134,8 +134,11 @@ function mount(snapshot: FrameGraphSnapshot, maxGraphElements?: number) {
 }
 
 function button(root: ParentNode, label: string): HTMLButtonElement {
-	const match = Array.from(root.querySelectorAll<HTMLButtonElement>('button')).find((candidate) => candidate.textContent === label);
+	const match = Array.from(root.querySelectorAll<HTMLButtonElement>('button')).find((candidate) => candidate.textContent === label
+		|| candidate.getAttribute('aria-label') === label || candidate.getAttribute('aria-label')?.startsWith(`${label}: `));
 	assert.ok(match, `Expected button ${label}`);
+	const displayPopover = match.closest<HTMLElement>('.zenfg-inspector-graph-display-popover');
+	if (displayPopover?.hidden) root.querySelector<HTMLButtonElement>('[aria-label="Display"]')?.click();
 	return match;
 }
 
@@ -150,7 +153,7 @@ function groupRow(panel: FrameGraphInspector, label: string): HTMLElement {
 
 test('Declarations preserves selection and projection across toggles, views and captures', () => {
     const source = fixture();
-    const env = mount(source, 1);
+    const env = mount(source, 1, true);
     try {
         const control = button(env.graph.toolbar, 'Declarations');
         assert.equal(control.getAttribute('aria-pressed'), 'true');
@@ -201,13 +204,13 @@ test('resource search restores declarations and failed explicit location rolls t
     const env = mount({ ...source, graph: { ...source.graph, resources: [...source.graph.resources, unused] } }, 1);
     try {
         const control = button(env.graph.toolbar, 'Declarations');
-        control.click();
+        assert.equal(control.getAttribute('aria-pressed'), 'false');
         const resource = source.graph.resources.find((entry) => source.graph.accesses.some((access) => access.resourceId === entry.id && source.graph.nodes.some((node) => node.id === access.nodeId && node.compileState.status === 'retained')))!;
         button(env.graph.toolbar, 'Search').click();
         const query = env.panel.dom.querySelector<HTMLInputElement>('input[aria-label="Find in graph"]')!;
         query.value = resource.id;
         query.dispatchEvent(new Event('input'));
-        button(env.panel.dom.querySelector('.zenfg-inspector-graph-search-results')!, 'Resource · ' + resource.label).click();
+        env.panel.dom.querySelector<HTMLButtonElement>(`.zenfg-inspector-graph-search-results button[data-selection-kind="resource"][data-selection-id="${resource.id}"]`)!.click();
         assert.equal(control.getAttribute('aria-pressed'), 'true');
         assert.equal(env.graph.showResourceDeclarations, true);
         assert.deepEqual(env.graph.revealOnNextRender?.selection, { kind: 'resource', id: resource.id });

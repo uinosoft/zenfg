@@ -243,7 +243,7 @@ function createFrameFlowScene(
             passKind: node.kind,
             executionSegmentIndex: segment?.index,
             gpuDurationMicros: node.gpuDurationMicros,
-            label: formatGraphNodeLabel(`${segmentLabel(segment)} ${labelNode(node)}`),
+            label: formatGraphNodeLabel(labelNode(node)) + '\n' + passContextLabel(node, segment),
             overviewLabel: shortGraphLabel(labelNode(node)),
             title: createNodeTitle(node, segment, snapshot),
             parentId: useGroups && node.debugGroupId !== undefined
@@ -364,13 +364,23 @@ function createFrameFlowScene(
         if (showResourceDeclarations && root.resolution?.usesInitialContents) addRelation(representativeByResourceId.get(resource.id)!, id, resource.id,
             { role: 'output-initial', nodeIds: [], rootKey: root.key });
     }
+    const endpointLabels = new Map([
+        ...groupNodes.map((node) => [node.id, groupsById.get(node.groupId)!.path.join(' / ')] as const),
+        ...passNodes.map((node) => [node.id, labelNode(snapshot.nodeById.get(node.nodeId)!)] as const),
+        ...resourceNodes.map((node) => [node.id, labelResource(snapshot.resourceById.get(node.resourceId)!)] as const),
+        ...rootNodes.map((node) => [node.id, node.label.split('\n')[0] + ' · ' + labelResource(snapshot.resourceById.get(node.resourceId)!)] as const),
+    ]);
     const edges: GraphSceneEdge[] = [...aggregates.entries()].map(([key, entry]) => {
         const underlyingDependencies = entry.relations.flatMap((relation) => relation.dependency ? [relation.dependency] : []);
         const edge: GraphSceneEdge = {
             id: 'flow:' + key, ...entry,
             kind: entry.relations.every((relation) => relation.role === 'ordering') ? 'ordering' : 'flow',
-            title: labelResource(snapshot.resourceById.get(entry.resourceId)!) + '\n'
-                + unique(entry.relations.map((relation) => relation.role)).join(' · '),
+            title: [
+                `${endpointLabels.get(entry.from) ?? entry.from} → ${endpointLabels.get(entry.to) ?? entry.to}`,
+                `Resource: ${labelResource(snapshot.resourceById.get(entry.resourceId)!)}`,
+                `Relationships: ${unique(entry.relations.map((relation) => relationRoleLabel(relation.role))).join(' · ')}`,
+                `Underlying relations: ${entry.relations.length}`,
+            ].join('\n'),
             underlyingDependencies, underlyingDependencyCount: underlyingDependencies.length,
         };
         const selection: Selection = { kind: 'resource', id: entry.resourceId };
@@ -481,7 +491,7 @@ function resourceElementId(resourceId: string): GraphSceneElementId {
 }
 
 function formatGraphNodeLabel(label: string): string {
-    return formatGraphLabel(label, 20, 3);
+    return formatGraphLabel(label.replace(/\s+/g, ' ').trim(), 20, 2);
 }
 
 function formatGraphResourceLabel(label: string, maxLines = 2): string {
@@ -608,7 +618,8 @@ function createGroupLabel(group: FrameGraphDebugGroup, collapsed: boolean): stri
     const summary = group.summary;
     const parts = [
         `${collapsed ? '▸' : '▾'} ${group.label.replace(/\s+/g, ' ').trim()}`,
-        `${summary.retainedNodeCount} nodes` + (summary.culledNodeCount ? ` · ${summary.culledNodeCount} culled` : ''),
+        `${summary.retainedNodeCount} ${summary.retainedNodeCount === 1 ? 'pass' : 'passes'}`
+            + (summary.culledNodeCount ? ` · ${summary.culledNodeCount} culled` : ''),
     ];
     return parts.join(collapsed ? '\n' : ' · ');
 }
@@ -623,13 +634,14 @@ function createNodeTitle(
             : node.gpuDurationMicros === undefined ? 'Not collected' : `${formatGpuDuration(node)} ms`;
     return [
         labelNode(node),
-        `kind: ${node.kind}`,
-        `group: ${debugGroupPathForId(node.debugGroupId, snapshot)}`,
-        `segment: ${segment ? `${segment.index}:${segment.kind}` : '-'}`,
+        `${passKindLabel(node.kind)} · execution #${node.order}`
+            + (segment ? ` · S${segment.index} (${segment.kind === 'frame-graph' ? 'FrameGraph' : 'External'})` : ''),
         `CPU duration: ${node.cpuDurationMicros === undefined ? 'Not collected' : (node.cpuDurationMicros / 1000).toFixed(3) + ' ms'}`,
         `GPU duration: ${gpu}`,
-        `reads: ${node.reads.map((access) => labelResource(access.resource)).join(', ') || '-'}`,
-        `writes: ${node.writes.map((access) => labelResource(access.resource)).join(', ') || '-'}`,
+        `Reads: ${node.reads.length} · Writes: ${node.writes.length}`,
+        `Group: ${debugGroupPathForId(node.debugGroupId, snapshot)}`,
+        `ID: ${node.id}`,
+        ...(node.kind === 'external-submission' ? ['External submission is opaque; internal commands are not captured.'] : []),
     ].join('\n');
 }
 
@@ -637,7 +649,7 @@ function createGroupTitle(group: FrameGraphDebugGroup, snapshot: FrameGraphDebug
     const summary = group.summary;
     return [
         group.path.join(' / '),
-        `retained: ${summary.retainedNodeCount}`,
+        `retained passes: ${summary.retainedNodeCount}`,
         `culled: ${summary.culledNodeCount}`,
         `inputs: ${summary.inputResources.map(labelResource).join(', ') || '-'}`,
         `outputs: ${summary.outputResources.map(labelResource).join(', ') || '-'}`,
@@ -676,8 +688,29 @@ function executionSegmentByNodeId(snapshot: FrameGraphDebugViewModel) {
     return new Map(snapshot.executionSegments.flatMap((segment) => segment.nodeIds.map((nodeId) => [nodeId, segment] as const)));
 }
 
-function segmentLabel(segment: FrameGraphDebugViewModel['executionSegments'][number] | undefined): string {
-    return segment ? `[S${segment.index}]` : '[S-]';
+function passContextLabel(node: FrameGraphDebugNode, segment: FrameGraphDebugViewModel['executionSegments'][number] | undefined): string {
+    return `${passKindLabel(node.kind)} · #${node.order}` + (segment ? ` · S${segment.index}` : '');
+}
+
+function passKindLabel(kind: FrameGraphDebugNode['kind']): string {
+    switch (kind) {
+        case 'render': return 'Render';
+        case 'compute': return 'Compute';
+        case 'copy': return 'Copy';
+        case 'clear-buffer': return 'Clear';
+        case 'command': return 'Command';
+        case 'external-submission': return 'External';
+    }
+}
+
+function relationRoleLabel(role: GraphFlowRelation['role']): string {
+    switch (role) {
+        case 'value': return 'Value';
+        case 'ordering': return 'Ordering';
+        case 'declaration': return 'Declaration entrance';
+        case 'output-producer': return 'Output producer';
+        case 'output-initial': return 'Initial contents';
+    }
 }
 
 function unique<T>(values: readonly T[]): T[] {

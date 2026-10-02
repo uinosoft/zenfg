@@ -488,21 +488,20 @@ type NormalizedDebugGroup = Omit<FrameGraphDebugGroup, 'summary'>;
 function normalizeDebugGroups(compilation: FrameGraphSnapshot['graph']): NormalizedDebugGroup[] {
 	const rawGroups = compilation.groups;
 	const rawById = new Map<string, FrameGraphSnapshot['graph']['groups'][number]>();
+	const identityLabelsById = new Map<string, string>();
 	const siblingOccurrences = new Map<string, number>();
 	const nextOccurrenceByParent = new Map<string | undefined, Map<string, number>>();
 	for (const group of rawGroups) {
 		if (rawById.has(group.id)) {
 			throw new Error(`Compilation report contains duplicate debug group id ${group.id}.`);
 		}
-		const label = group.label.trim();
-		if (label.length === 0) {
-			throw new Error(`Compilation report debug group ${group.id} has an empty label.`);
-		}
-		rawById.set(group.id, { ...group, label });
+		const identityLabel = group.label.trim() || group.id;
+		identityLabelsById.set(group.id, identityLabel);
+		rawById.set(group.id, { ...group, label: group.label.trim() ? group.label : group.id });
 		const nextOccurrenceByLabel = nextOccurrenceByParent.get(group.parentId) ?? new Map<string, number>();
-		const occurrence = nextOccurrenceByLabel.get(label) ?? 0;
+		const occurrence = nextOccurrenceByLabel.get(identityLabel) ?? 0;
 		siblingOccurrences.set(group.id, occurrence);
-		nextOccurrenceByLabel.set(label, occurrence + 1);
+		nextOccurrenceByLabel.set(identityLabel, occurrence + 1);
 		nextOccurrenceByParent.set(group.parentId, nextOccurrenceByLabel);
 	}
 
@@ -520,7 +519,7 @@ function normalizeDebugGroups(compilation: FrameGraphSnapshot['graph']): Normali
 		const path = [...(parent?.path ?? []), raw.label];
 		const identityPath = [
 			...(raw.parentId === undefined ? [] : identityPathById.get(raw.parentId)!),
-			[raw.label, siblingOccurrences.get(raw.id)!] as const,
+			[identityLabelsById.get(raw.id)!, siblingOccurrences.get(raw.id)!] as const,
 		];
 		const ancestorIds = [...(parent?.ancestorIds ?? []), raw.id];
 		const normalized: NormalizedDebugGroup = {

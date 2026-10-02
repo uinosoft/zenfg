@@ -61,6 +61,25 @@ The host must have non-zero width and height. `FrameGraphInspector` fills that
 host, so the same workbench can be embedded in a tool panel or mounted as a
 full-page application.
 
+Both `mountFrameGraphInspector(host, options)` and `new FrameGraphInspector(options)`
+accept `FrameGraphInspectorOptions`. Graph starts with resource declaration nodes
+hidden by default, emphasizing pass dependencies and explicit outputs. Set
+`showResourceDeclarations: true` to start with declaration nodes visible:
+
+```ts
+import { FrameGraphInspector } from '@zenfg/inspector';
+
+const inspector = new FrameGraphInspector({
+	showResourceDeclarations: true,
+});
+```
+
+This option sets the initial Graph visibility. Users can change it with the
+**Declarations** toolbar toggle; the current choice persists across captures and
+imports in that instance. Locating a resource through Graph search or **Show in
+Graph** enables declarations automatically. Resources tables, details, memory,
+and Snapshot exports always retain the complete resource data.
+
 ## Themes and style customization
 
 Inspector uses Tokyo Night Storm by default and includes a complete Light preset.
@@ -84,6 +103,7 @@ variable reference, compatibility aliases, and multi-instance behavior.
 | Import and migrate a file | `importSnapshot()` |
 | Download canonical Snapshot JSON | `downloadSnapshot()` |
 | Copy canonical Snapshot JSON | `copySnapshotJson()` |
+| Show resource declaration nodes initially | `showResourceDeclarations` option (default `false`) |
 | Apply a preset or custom theme | `theme` option and `setTheme()` |
 | Synchronize graph after external CSS changes | `refreshTheme()` |
 | Set visible product branding | `branding` option |

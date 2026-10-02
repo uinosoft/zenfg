@@ -8,6 +8,8 @@ export type GraphRenderRequest = {
     readonly scene: GraphScene;
     readonly selected: Selection | undefined;
     readonly hovered: Selection | undefined;
+    readonly focusRelations?: boolean;
+    readonly onViewportChange?: (zoom: number) => void;
     readonly fit: boolean;
     readonly anchorElementId?: GraphSceneElementId;
     readonly reveal?: { readonly selection: Selection; readonly revision: number };
@@ -22,6 +24,9 @@ export interface GraphRenderer {
     setTheme?(theme: GraphVisualTheme): void;
     resize(): void;
     fit(): void;
+    zoomBy?(factor: number): void;
+    resetZoom?(): void;
+    fitSelection?(selection: Selection): void;
     relayout(): void;
     cancelReveal?(): void;
     destroy(): void;

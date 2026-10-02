@@ -3,6 +3,8 @@ import { PANEL_WORKBENCH_CSS } from './panelWorkbenchStyles.ts';
 import { PANEL_LIST_CSS } from './panelListStyles.ts';
 import { PANEL_DETAIL_CSS } from './panelDetailStyles.ts';
 import { PANEL_MEMORY_CSS } from './panelMemoryStyles.ts';
+import { PANEL_OVERVIEW_CSS } from './panelOverviewStyles.ts';
+import { PANEL_DIAGNOSTICS_CSS } from './panelDiagnosticsStyles.ts';
 
 const STYLE_ELEMENT_ID = 'zenfg-inspector-panel-styles';
 
@@ -88,6 +90,30 @@ const FRAME_GRAPH_DEBUG_PANEL_CSS = `
 	height: 14px;
 }
 
+.zenfg-inspector button.zenfg-inspector-icon-action {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	flex: 0 0 30px;
+	width: 30px;
+	height: 30px;
+	min-height: 30px;
+	padding: 0;
+	border: 1px solid var(--fgd-border);
+	border-radius: var(--fgd-radius-sm);
+	color: var(--fgd-text-secondary);
+	background: var(--fgd-surface);
+	cursor: pointer;
+}
+.zenfg-inspector button.zenfg-inspector-icon-action:hover {
+	color: var(--fgd-text);
+	background: var(--fgd-surface-hover);
+}
+.zenfg-inspector button.zenfg-inspector-icon-action:focus-visible {
+	outline: 2px solid var(--fgd-accent);
+	outline-offset: 2px;
+}
+
 .zenfg-inspector-table-scroller,
 .zenfg-inspector-memory-scroller,
 .zenfg-inspector-diagnostics-scroller,
@@ -112,43 +138,6 @@ const FRAME_GRAPH_DEBUG_PANEL_CSS = `
 	min-width: 0;
 	min-height: 0;
 	font-family: var(--fgd-font-ui);
-}
-
-.zenfg-inspector-capture-summary {
-	display: grid;
-	align-content: start;
-	min-width: 0;
-	background: transparent;
-}
-
-.zenfg-inspector-capture-summary > section {
-	min-width: 0;
-	border: 1px solid var(--fgd-border-subtle);
-	border-radius: var(--fgd-radius-sm);
-}
-
-.zenfg-inspector-capture-summary h2 {
-	margin: 0 0 5px;
-	color: var(--fgd-text-secondary);
-	font-weight: 700;
-	line-height: 1.2;
-}
-
-.zenfg-inspector-capture-summary section > div {
-	display: grid;
-	gap: var(--fgd-space-2);
-	min-width: 0;
-	line-height: 1.5;
-}
-
-.zenfg-inspector-capture-summary span { color: var(--fgd-muted); white-space: nowrap; }
-.zenfg-inspector-capture-summary strong {
-	min-width: 0;
-	overflow: hidden;
-	color: var(--fgd-text);
-	font: 600 var(--fgd-font-size-small)/1.5 var(--fgd-font-mono);
-	text-align: right;
-	text-overflow: ellipsis;
 }
 
 /* Command bar, tabs, and controls */
@@ -579,8 +568,6 @@ button[aria-busy='true'] > .zenfg-inspector-control-icon {
 .zenfg-inspector-graph-toolbar {
 	min-width: 0;
 }
-.zenfg-inspector-graph-action-controls { display: flex; align-items: center; min-width: 0; }
-.zenfg-inspector-graph-action-controls { gap: var(--fgd-space-1); }
 .zenfg-inspector-graph-toolbar button.active,
 .zenfg-inspector-graph-toolbar button[aria-pressed='true'] {
 	z-index: 1;
@@ -974,7 +961,6 @@ button[aria-busy='true'] > .zenfg-inspector-control-icon {
 		padding-top: 6px;
 		border-top: 1px solid var(--fgd-border-subtle);
 	}
-	.zenfg-inspector-graph-action-controls { justify-self: end; }
 }
 
 @container zenfg-inspector (max-width: 840px) {
@@ -995,7 +981,6 @@ button[aria-busy='true'] > .zenfg-inspector-control-icon {
 @container zenfg-inspector (max-width: 720px) {
 	.zenfg-inspector-body { padding: var(--fgd-space-2); }
 	.zenfg-inspector-overview-view { padding: var(--fgd-space-2); }
-	.zenfg-inspector-capture-summary > section { padding: 10px; }
 	.zenfg-inspector-workbench-actions { padding-left: 6px; }
 	.zenfg-inspector-command-status { max-width: 104px; }
 	.zenfg-inspector-workbench-tabs > button { flex: 0 0 auto; padding-inline: var(--fgd-space-2); }
@@ -1003,7 +988,6 @@ button[aria-busy='true'] > .zenfg-inspector-control-icon {
 	.zenfg-inspector-view-toolbar input { flex-basis: 100%; }
 	.zenfg-inspector-graph-toolbar { display: flex; flex-wrap: wrap; }
 	.zenfg-inspector-graph-legend { order: 3; flex-basis: 100%; }
-	.zenfg-inspector-graph-action-controls { margin-left: auto; }
 	.zenfg-inspector-graph-view .zenfg-inspector-graph { height: auto; }
 }
 
@@ -1032,6 +1016,6 @@ export function ensureFrameGraphInspectorStyles(): void {
 
 	const style = document.createElement('style');
 	style.id = STYLE_ELEMENT_ID;
-	style.textContent = FRAME_GRAPH_DEBUG_PANEL_CSS + PANEL_WORKBENCH_CSS + PANEL_LIST_CSS + PANEL_DETAIL_CSS + PANEL_MEMORY_CSS;
+	style.textContent = FRAME_GRAPH_DEBUG_PANEL_CSS + PANEL_WORKBENCH_CSS + PANEL_LIST_CSS + PANEL_DETAIL_CSS + PANEL_MEMORY_CSS + PANEL_OVERVIEW_CSS + PANEL_DIAGNOSTICS_CSS;
 	document.head.appendChild(style);
 }

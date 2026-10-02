@@ -27,10 +27,13 @@ export type GraphViewState = {
     readonly refreshTheme?: () => void;
     readonly host: HTMLElement;
     readonly toolbar: HTMLElement;
+    readonly viewportControls?: HTMLElement;
     readonly legend?: HTMLElement;
 	readonly layoutElementBudget?: number;
     groupsEnabled: boolean;
     showResourceDeclarations?: boolean;
+    focusRelations?: boolean;
+    onViewportChange?: (zoom: number) => void;
     readonly expandedGroupPaths: Set<string>;
     renderer?: GraphRenderer;
     fitOnNextRender: boolean;

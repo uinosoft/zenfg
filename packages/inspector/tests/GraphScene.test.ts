@@ -144,10 +144,10 @@ test('projects collapsed groups while keeping compound hierarchy in the scene', 
     const bloomNode = rootExpanded.nodes.find((node): node is GroupSceneNode => node.kind === 'group' && node.groupId === bloom.id)!;
     assert.equal(outerNode.collapsed, false);
     assert.equal(outerNode.label.includes('\n'), false);
-    assert.match(outerNode.label, /1 nodes · 1 culled/);
+    assert.match(outerNode.label, /1 pass · 1 culled/);
     assert.equal(bloomNode.collapsed, true);
     assert.equal(bloomNode.label.split('\n').length, 2);
-    assert.match(bloomNode.label, /1 nodes/);
+    assert.match(bloomNode.label, /1 pass/);
     assert.equal(bloomNode.parentId, outerNode.id);
     assert.notEqual(bloomNode.depthBand, outerNode.depthBand);
     assert.deepEqual(outerNode.childNodeIds, [bloomNode.id]);
@@ -261,6 +261,7 @@ test('folds representative dependencies per resource and gives value dependencie
     ))!;
     assert.equal(edge.kind, 'flow');
     assert.equal(edge.underlyingDependencyCount, 2);
+    assert.equal(edge.title, 'scene → PostFX\nResource: scene-color\nRelationships: Value · Ordering\nUnderlying relations: 2');
     assert.equal(scene.interaction.semanticReferencesByElementId.get(edge.id)?.dependencies.length, 2);
 });
 
@@ -394,6 +395,17 @@ test('resource-only groups remain visible and fold initial output without inferr
     const edge = scene.edges.find((edge) => edge.to === 'root:only')!;
     assert.ok(edge.from.startsWith('group:'));
     assert.deepEqual(edge.relations.map((relation) => relation.role), ['output-initial']);
+    assert.match(edge.title, /PostFX → Output · unused-buffer/);
+    assert.match(edge.title, /Relationships: Initial contents\nUnderlying relations: 1/);
+    const onlyResourceSnapshot = createDebugViewModel({ ...base.protocol, graph: { ...base.protocol.graph,
+        nodes: [], accesses: [], dependencies: [], segments: [],
+        resources: base.protocol.graph.resources.map((entry) => entry.id === resource.id
+            ? { ...entry, origin: 'imported', initialContents: 'defined' } : entry),
+        roots: [{ reason: 'output', resourceId: resource.id, resolution: { producerNodeIds: [], usesInitialContents: true } }],
+    } });
+    const onlyResources = createGraphScene(onlyResourceSnapshot, { groupsEnabled: true, expandedGroupPaths: new Set() });
+    const group = onlyResources.nodes.find((node) => node.kind === 'group')!;
+    assert.match(group.label, /0 passes/);
 });
 
 test('changes content keys for tooltip-only metadata without changing topology keys', () => {
@@ -443,7 +455,9 @@ test('indexes only resource entrances and edges by logical ID, independent of ra
             assert.deepEqual(scene.interaction.hoverElementIdsBySelection.get(`resource:${resource.id}`) ?? [], expected);
             for (const edge of scene.edges.filter((edge) => edge.resourceId === resource.id)) {
                 assert.deepEqual(scene.interaction.selectionByElementId.get(edge.id), { kind: 'resource', id: resource.id });
-                assert.equal(edge.title, 'same-name\n' + [...new Set(edge.relations.map((relation) => relation.role))].join(' · '));
+                assert.match(edge.title, / → /);
+                assert.match(edge.title, /\nResource: same-name\nRelationships: /);
+                assert.ok(edge.title.endsWith(`Underlying relations: ${edge.relations.length}`));
             }
         }
         const roles = scene.edges.filter((edge) => edge.resourceId === resource.id).flatMap((edge) => edge.relations.map((relation) => relation.role));
@@ -453,6 +467,60 @@ test('indexes only resource entrances and edges by logical ID, independent of ra
             if (node.kind !== 'resource') assert.deepEqual(scene.interaction.hoverElementIdsBySelection.get(selectionKey(selection)), [node.id]);
         }
     }
+});
+
+test('pass labels separate names from canonical kind, recorded execution slot, and optional segment', () => {
+    const base = createLegacyDebugViewModel(createGroupedCapture());
+    for (const [kind, label] of [
+        ['render', 'Render'], ['compute', 'Compute'], ['copy', 'Copy'],
+        ['clear-buffer', 'Clear'], ['command', 'Command'], ['external-submission', 'External'],
+    ] as const) {
+        const node = { ...base.nodes[0]!, kind, order: 47, label: undefined };
+        for (const hasSegment of [false, true]) {
+            const snapshot = { ...base, nodes: [node], nodeById: new Map([[node.id, node]]), edges: [], roots: [],
+                executionSegments: hasSegment ? [{ id: 'segment:5', order: 5, index: 5, kind: 'frame-graph' as const, nodeIds: [node.id] }] : [],
+            };
+            const sceneNode = createGraphScene(snapshot, { groupsEnabled: false, expandedGroupPaths: new Set() })
+                .nodes.find((node) => node.kind === 'pass')!;
+            const context = label + ' · #47' + (hasSegment ? ' · S5' : '');
+            assert.equal(sceneNode.label, 'node:1\n' + context);
+            assert.equal(sceneNode.overviewLabel, 'node:1');
+            assert.match(sceneNode.title, new RegExp(label + ' · execution #47'));
+            assert.equal(nodeDimensions(sceneNode).height, 62);
+            assert.doesNotMatch(sceneNode.label, /S-|\[S|#0/);
+            if (kind === 'external-submission') assert.match(sceneNode.title, /External submission is opaque/);
+        }
+    }
+});
+
+test('long pass names keep context distinct, expand height, and preserve full names only in hover', () => {
+    const base = createLegacyDebugViewModel(createGroupedCapture());
+    const name = 'renderer.pipeline.postprocessing.bloom.composite.final';
+    const node = { ...base.nodes[0]!, label: name, order: 12 };
+    const sceneNode = createGraphScene({ ...base, nodes: [node, ...base.nodes.slice(1)], nodeById: new Map(base.nodeById).set(node.id, node) },
+        { groupsEnabled: false, expandedGroupPaths: new Set() }).nodes.find((entry) => entry.id === 'pass:' + node.id)!;
+    assert.equal(sceneNode.label.split('\n').length, 3);
+    assert.ok(sceneNode.label.split('\n')[1]!.endsWith('…'));
+    assert.equal(sceneNode.label.split('\n')[2], 'Render · #12 · S0');
+    assert.equal(sceneNode.overviewLabel, 'final');
+    assert.equal(nodeDimensions(sceneNode).height, 79);
+    assert.ok(sceneNode.title.startsWith(name + '\n'));
+    assert.match(sceneNode.title, /Reads: 0 · Writes: 1/);
+    assert.doesNotMatch(sceneNode.title, /writes: scene-color/i);
+    assert.match(sceneNode.title, /ID: node:1/);
+});
+
+test('declaration and output edge hover describes roles without inferring value dependencies', () => {
+    const base = createLegacyDebugViewModel(createGroupedCapture());
+    const resource = base.resources[0]!;
+    const roots = [{ key: 'output', reason: 'output' as const, resourceId: resource.id, resource,
+        resolution: { producerNodeIds: ['node:1'], usesInitialContents: true } }];
+    const scene = createGraphScene({ ...base, roots }, { groupsEnabled: false, expandedGroupPaths: new Set() });
+    const titles = new Map(scene.edges.map((edge) => [edge.relations[0]!.role, edge.title]));
+    assert.equal(titles.get('declaration'), 'postfx-color → bloom\nResource: postfx-color\nRelationships: Declaration entrance\nUnderlying relations: 1');
+    assert.equal(titles.get('output-producer'), 'scene → Output · scene-color\nResource: scene-color\nRelationships: Output producer\nUnderlying relations: 1');
+    assert.equal(titles.get('output-initial'), 'scene-color → Output · scene-color\nResource: scene-color\nRelationships: Initial contents\nUnderlying relations: 1');
+    for (const title of titles.values()) assert.doesNotMatch(title, /bandwidth|data chain|bytes per/i);
 });
 
 function createGroupedCapture(): LegacyFrameGraphCapture {

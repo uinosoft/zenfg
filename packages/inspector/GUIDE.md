@@ -36,12 +36,12 @@ Inspector instance and are not saved across sessions.
 
 | View | Purpose |
 | --- | --- |
-| Overview | Full-width diagnostic counts, timing coverage, slowest pass, work counts, and memory estimates, with links to the relevant views. Capture metadata is expandable. |
+| Overview | Full-width GPU span, CPU execute, physical allocation estimate and retained-pass metrics, with the five slowest measured GPU or CPU passes, work composition, resource/pool summaries and diagnostic counts. Capture metadata and additional Snapshot facts are expandable. |
 | Graph | Frame Flow structure, searchable by pass, resource, group, or output, with explicit target location and a collapsible legend. |
-| Passes | All, Retained, or Culled passes, filtered by kind and name/ID/group, with order and GPU sorting. The separate Group Hierarchy has its own expansion and path search. |
-| Resources | Name/ID/group, type, and Transient/Imported/Surface filters, plus name, estimated size, and first-use sorting. Full descriptors and allocations remain in details. |
-| Memory | Physical allocations and their logical resources, inclusive execution-slot lifetimes, search, allocation/size sorting, and All/Aliased/Single/Unallocated filters. |
-| Diagnostics | Every captured error, warning, and informational message, including repeated codes. Severity and code/message filters precede expandable retention roots, culling reasons, and execution segments. |
+| Passes | All, Retained, or Culled passes, filtered by kind and name/ID/group, with execution order, GPU, and CPU sorting. Both timings remain visible in compact rows. The separate Group Hierarchy has its own expansion and path search. |
+| Resources | Name/ID/group, type, and Transient/Imported/Surface filters, plus name, estimated size, and first-use sorting. Rows show concise descriptors; full descriptors and allocations remain in details. |
+| Memory | Physical allocation and alias savings estimates, a separate cumulative pool summary, and collapsible allocation groups with inclusive execution-slot lifetimes. Search, allocation/size sorting, and All/Aliased/Single/Unallocated filters are available. |
+| Diagnostics | Every captured error, warning, and informational message, including repeated codes. Counted severity buttons and code/message search filter messages; Compilation details separately contains expandable retention roots, culling reasons, and execution segments. |
 
 Lists show the matching and total counts, retain continuous scrolling, and offer
 **Clear filters**. Passes order retained work by execution order, then culled work
@@ -54,10 +54,18 @@ Diagnostics preserve capture order within each severity and offer separate
 node and resource links when a message references both. Culled-node links work
 the same way as retained-node links. The Diagnostics tab shows error/warning
 counts. Source, frame, and capture time are available under **Capture information**
-in Overview; an absent capture timestamp is shown as unknown. The collapsible
-graph legend floats inside the canvas without changing its size or viewport.
+in Overview; an absent capture timestamp is shown as unknown. The **Legend** button
+stays at the bottom left while its scrollable panel opens above it, preserving the
+canvas size and viewport. Click the button again, use the panel's close button,
+press Escape, or click outside to dismiss it.
 Graph controls also float over the canvas. **Search** opens the search field;
-**Escape** dismisses it. **Fit** frames the graph in the available viewport.
+**Escape** dismisses it. Results show object type, ID, and group path when available;
+exact names and IDs rank first. Arrow keys move through results and Enter locates
+the active result. **Display** contains Declarations, Groups, and Collapse All.
+Zoom controls show the current percentage, with zoom in/out, **100%** for readable
+scale, **Fit selection**, and **Fit** for the full graph. These controls preserve
+selection and do not expand groups. The selected-group action provides explicit
+Expand/Collapse controls alongside the existing double-click gesture.
 
 The selection pane has **Summary**, **Relations**, and **Raw** tabs. Summary
 explains compilation status, timing coverage, accesses, allocation relationships,
@@ -85,15 +93,22 @@ pass timings with its timed/eligible count; **GPU span** is displayed separately
 Opaque external work has no inferred duration. Passes is the comparison table
 for individual timings; Diagnostics does not repeat it.
 
+Overview ranks measured passes by duration and shows their share of the entire
+measured pass sum, including passes outside the top five. GPU coverage counts
+retained render/compute passes; CPU coverage counts all retained passes. A zero
+sum has no percentage. Click a pass to locate it in Passes, or **View all passes**
+to clear pass filters and open the list while preserving its sort. The GPU/CPU
+choice and expanded Overview disclosures stay with the Inspector instance.
+
 Memory numbers are estimates with different scopes:
 
 | Metric | Meaning |
 | --- | --- |
 | Transient estimate | Declared estimated sizes of transient logical resources. |
 | Logical capacity | Allocation capacity counted for each assigned logical transient resource. |
-| Physical estimate | Estimated sizes of physical allocations in the allocation report. |
-| Alias reuse | Logical capacity minus physical estimate, where both are known. |
-| Pool retained | Producer-reported retained pool allocations, which may outlive this graph. |
+| Physical allocation estimate | Estimated sizes of physical allocations in the allocation report, counted once each. |
+| Alias savings estimate | Logical capacity minus physical allocation estimate, where both are known. |
+| Idle retained estimate | Producer-reported idle pool allocations at sampling time, which may outlive this graph. |
 
 An unavailable report is not zero. Unknown resource/allocation sizes remain
 unknown, and partial summaries show the known-size coverage. A valid empty report
@@ -103,6 +118,27 @@ the visible rows and matching count only. A lifetime includes both first and las
 execution slots. Tick positions, grid lines, and resource bars share one stable
 Snapshot coordinate range; missing lifetimes have no bar.
 
+Lists use full tables at content widths of 1000px or more, merge secondary
+columns below 1000px, and reflow into compact rows below 600px. GPU/CPU timings
+and resource estimates remain visible when the selection pane reduces the main
+content width. Memory lifetimes use the same full execution-slot domain at every
+width. Allocation folds and estimate information persist across captures;
+search temporarily expands matching allocations, and explicit location expands
+the target without changing ordinary selection behavior.
+
+Diagnostics severity counts always cover the complete Snapshot; the matching
+count reflects search and severity together. Filtering messages does not filter
+Compilation details. Summary puts object-specific measurements before auxiliary
+facts and remembers each object's disclosure state. Relations keep object
+selection separate from the location icon. Raw highlights matching fields and
+values and always copies the complete canonical object, including hidden fields.
+
+Overview labels pool reuse as cumulative: reuse/acquire counters cover the pool's
+lifetime, not just the captured frame. Idle pool bytes remain separate from the
+frame's physical allocation estimate. Logical transient estimates can include
+resources referenced only by culled passes and are available under **Additional
+snapshot details**.
+
 ### Frame Flow interaction
 
 Graph is a single **Frame Flow** view: resource declarations → retained pass
@@ -111,15 +147,19 @@ declaration groups; output roots remain top-level and use compiler-supplied fina
 producers and initial-content contributions. Culled passes remain in lists and
 details, not in the graph. Collapsed groups aggregate relationships without
 discarding their underlying semantics.
-The **Declarations** toolbar toggle shows resource declaration entrances by default.
-Turn it off to focus on pass dependencies and outputs: declaration entrances,
-their relationships (including initial-content output edges), and resource-only
-groups leave the layout. Pass dependencies and producer-to-output edges remain.
+Graph starts with resource declaration entrances hidden, focusing on pass
+dependencies and outputs. Turn on the **Declarations** toolbar toggle to show
+them. When hidden, declaration entrances, their relationships (including
+initial-content output edges), and resource-only groups leave the layout. Pass
+dependencies and producer-to-output edges remain. Hosts can set
+`showResourceDeclarations: true` in `FrameGraphInspectorOptions` when constructing
+or mounting an Inspector to start with declarations visible; the option sets only
+the initial visibility.
 Outputs with known initial-content contributions show **With initial contents**
 or **Initial contents only**; unavailable Legacy sources are not inferred.
-The toggle persists across views and captures within this Inspector instance.
+The toggle persists across views, captures, and imports within this Inspector instance.
 Changing it fits the updated graph while preserving selection and group expansion.
-Resources, details, memory, and Snapshot data remain complete.
+Resources tables, details, memory, and Snapshot exports remain complete.
 
 All nodes use single-line borders. Ordinary passes are rounded rectangles,
 external submissions are cut-corner rectangles, resource entrances are ellipses,
@@ -128,8 +168,11 @@ role colour independent of Buffer/Texture; pass categories have distinct colours
 Resources and Memory retain their resource-type colours. Hover and selection
 change border emphasis, not shape, text colour, or fill.
 
+Passes show the name first, followed by kind, the zero-based execution slot
+(``#n``), and segment index (``Sn``) when available. Horizontal layout expresses
+dependencies, not measured execution times or a timeline.
 Entrances show source/type first and the resource name second; outputs show their
-purpose first and name second. Names are truncated to one line, with full names
+purpose first and name second. Long names wrap within bounded labels, with full names
 available on hover and in details. Output ranges appear only to distinguish
 different ranges of the same resource and purpose. Exact ranges and final sources
 remain in hover/details. Semantic zoom hides auxiliary types and range summaries.
@@ -170,8 +213,16 @@ Selection does not switch workbench views, change filters, expand groups, or mov
 the viewport. A hidden entrance becomes selected when manually expanded; its
 visible cross-group edges remain selected while it is hidden. Hover previews are
 independent, with selection styling taking precedence, and never pin a tooltip.
-Edge hints show only the resource and distinct relationship types, including
-mixed types in aggregates. There is no independent edge detail or relationship list.
+Edge hints show their visible endpoints, resource, distinct relationship types,
+and underlying relation count, including mixed types in aggregates. Clicking an
+edge continues to select its logical resource.
+**Focus relations** explicitly emphasizes the selected pass's directly recorded
+relations and their visible endpoints, or a visible group's subtree and direct
+boundary neighbors. Unrelated work fades; hover and selection remain readable.
+Focus does not infer a continuous path from a shared resource ID, expand groups,
+change selection, move the viewport, or filter the Snapshot. Turn it off to restore
+the full graph. Selecting a different object updates the focus; unsupported
+selection kinds or an unavailable graph disable it.
 Double-clicking a group expands or collapses it without replacing selection;
 single-click group selection waits briefly to distinguish that gesture.
 Legacy outputs with unavailable
@@ -180,8 +231,9 @@ resolution remain visible but have no inferred source edges.
 Explicit **Show in …** actions perform navigation: they switch views, clear
 blocking filters, expand necessary ancestors, and scroll or center the target.
 They close a narrow-host drawer so the target is visible. Graph search uses the
-same explicit location behavior. Explicit resource location also turns Declarations
-on; ordinary selection and hover never change the toggle. Failed location restores
+same explicit location behavior. Locating a resource through Graph search or
+**Show in Graph** also turns Declarations on; ordinary selection and hover never
+change the toggle. Failed location restores
 the previous declaration and group settings. Objects absent from Frame Flow show an
 explanation and a list-view action; locating an object does not bypass the graph
 element budget. Ordinary selection and hover retain the behavior above.
