@@ -344,6 +344,22 @@ export class CytoscapeGraphRenderer implements GraphRenderer {
                 }
 
                 this.hideTooltip();
+                const topologyChanged = this.appliedScene?.topologyKey !== request.scene.topologyKey;
+                const geometryChanged = !this.appliedScene
+                    || graphLayoutGeometryKey(this.appliedScene) !== graphLayoutGeometryKey(request.scene);
+                let layoutResult: GraphLayoutResult | undefined;
+
+                if (geometryChanged || this.forceRelayout) {
+                    this.showStatus('layout', 'Laying out graph…');
+                    const geometryRevision = this.geometryRevision;
+                    layoutResult = await this.environment.layoutScene(this.elk!, request.scene, this.theme);
+                    if (geometryRevision !== this.geometryRevision) continue;
+                    const layoutRequest = this.resolveCurrentRequest(version, request.scene.contentKey);
+                    if (!layoutRequest) continue;
+                    ({ version, request } = layoutRequest);
+                }
+
+                // Read after layout settles so dragging or zooming during layout is retained.
                 const previousViewport = viewport(core);
                 const anchorElementId = this.anchorTargetContentKey === request.scene.contentKey
                     ? this.anchorElementId
@@ -351,23 +367,11 @@ export class CytoscapeGraphRenderer implements GraphRenderer {
                 const anchorBefore = anchorElementId === undefined
                     ? undefined
                     : renderedPosition(core, anchorElementId);
-                const topologyChanged = this.appliedScene?.topologyKey !== request.scene.topologyKey;
-                const geometryChanged = !this.appliedScene
-                    || graphLayoutGeometryKey(this.appliedScene) !== graphLayoutGeometryKey(request.scene);
-                let laidOut = false;
-
-                if (geometryChanged || this.forceRelayout) {
-                    this.showStatus('layout', 'Laying out graph…');
-                    const geometryRevision = this.geometryRevision;
-                    const result = await this.environment.layoutScene(this.elk!, request.scene, this.theme);
-                    if (geometryRevision !== this.geometryRevision) continue;
-                    const layoutRequest = this.resolveCurrentRequest(version, request.scene.contentKey);
-                    if (!layoutRequest) continue;
-                    ({ version, request } = layoutRequest);
+                const laidOut = layoutResult !== undefined;
+                if (layoutResult) {
                     if (topologyChanged || !this.appliedScene) replaceElements(core, request.scene, this.theme);
                     else updateElementData(core, request.scene, this.theme);
-                    applyGraphLayout(core, request.scene, result);
-                    laidOut = true;
+                    applyGraphLayout(core, request.scene, layoutResult);
                 } else {
                     updateElementData(core, request.scene, this.theme);
                 }

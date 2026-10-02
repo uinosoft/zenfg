@@ -1781,3 +1781,70 @@ test('import feedback distinguishes Snapshot 1.1 input from its older migration 
 		testWindow.close();
 	}
 });
+
+test('invalid programmatic snapshots preserve pending capture and import ownership', async () => {
+	const testWindow = installDom();
+	try {
+		for (const hasSnapshot of [false, true]) {
+			for (const operation of ['capture', 'import'] as const) {
+				let finishCapture!: (snapshot: ReturnType<typeof toSnapshot>) => void;
+				let finishImport!: (text: string) => void;
+				const panel = new FrameGraphInspector(operation === 'capture' ? {
+					captureSnapshot: () => new Promise(resolve => { finishCapture = resolve; }),
+				} : {});
+				try {
+					if (hasSnapshot) panel.setSnapshot(toSnapshot(createGroupedCapture()));
+					const current = panel.getSnapshot();
+					const next = toSnapshot(createEmptyCapture());
+					const pending = operation === 'capture' ? panel.captureSnapshot() : panel.importSnapshot({
+						name: 'pending.fgsnapshot.json', size: 1,
+						text: () => new Promise<string>(resolve => { finishImport = resolve; }),
+					} as File);
+					assert.throws(() => panel.setSnapshot({ ...next, format: 'invalid' } as unknown as ReturnType<typeof toSnapshot>), { name: 'FrameGraphSnapshotValidationError' });
+					assert.equal(panel.getSnapshot(), current);
+					if (operation === 'capture') finishCapture(next);
+					else finishImport(JSON.stringify(next));
+					await pending;
+					assert.equal(panel.getSnapshot()?.capture.frameIndex, next.capture.frameIndex);
+					assert.equal(captureAction(panel.dom).disabled, operation === 'import');
+					assert.equal(panel.dom.querySelector<HTMLButtonElement>('.zenfg-inspector-import-action')!.disabled, false);
+					assert.doesNotMatch(panel.dom.querySelector('.zenfg-inspector-workbench-actions')!.textContent!, /Capturing|Importing/);
+				} finally { panel.destroy(); }
+			}
+		}
+	} finally { testWindow.close(); }
+});
+
+test('Copy JSON legacy clipboard fallback restores keyboard focus on success and failure', async () => {
+	const testWindow = installDom();
+	Object.defineProperty(navigator, 'clipboard', { configurable: true, value: undefined });
+	const panel = mountFrameGraphInspector(document.body);
+	const previousWarn = console.warn;
+	console.warn = () => {};
+	try {
+		panel.setSnapshot(toSnapshot(createGroupedCapture()));
+		const copy = copyAction(panel.dom);
+		for (const succeeds of [true, false]) {
+			Object.defineProperty(document, 'execCommand', { configurable: true, value: () => {
+				const input = document.querySelector<HTMLTextAreaElement>('textarea')!;
+				assert.ok(input);
+				assert.equal(JSON.parse(input.value).capture.frameIndex, 2);
+				input.focus();
+				return succeeds;
+			} });
+			copy.focus();
+			await panel.copySnapshotJson();
+			assert.equal(document.querySelector('textarea'), null);
+			assert.ok(document.activeElement === copy, 'Copy JSON restores focus to the initiating action');
+			assert.equal(copy.disabled, false);
+			if (!succeeds) {
+				assert.match(panel.dom.querySelector('.zenfg-inspector-command-status')!.textContent!, /Failed to copy snapshot/);
+				assert.equal(panel.dom.querySelector<HTMLElement>('.zenfg-inspector-command-status')!.dataset.tone, 'error');
+			}
+		}
+	} finally {
+		console.warn = previousWarn;
+		panel.destroy();
+		testWindow.close();
+	}
+});

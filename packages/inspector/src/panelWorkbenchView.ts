@@ -77,6 +77,10 @@ export class FrameGraphDebugWorkbench {
 	private selected: Selection | undefined;
 	private hovered: Selection | undefined;
 	private destroyed = false;
+	private readonly handleExportOutside = (event: Event): void => {
+		const path = event.composedPath();
+		if (!path.includes(this.exportButton) && !path.includes(this.exportMenu)) this.setExportMenuOpen(false);
+	};
 
 	constructor(
 		private readonly graphView: GraphViewState,
@@ -187,7 +191,9 @@ export class FrameGraphDebugWorkbench {
 		this.exportButton.setAttribute('aria-expanded', 'false');
 		this.exportButton.setAttribute('aria-controls', `${options.idPrefix}-export-menu`);
 		this.exportButton.addEventListener('click', () => {
-			this.setExportMenuOpen(this.exportMenu.hidden !== false);
+			const open = this.exportMenu.hidden !== false;
+			this.setExportMenuOpen(open);
+			if (!open) this.exportButton.focus();
 		});
 		this.exportMenu.className = 'zenfg-inspector-export-menu';
 		this.exportMenu.id = `${options.idPrefix}-export-menu`;
@@ -199,6 +205,7 @@ export class FrameGraphDebugWorkbench {
 		this.downloadButton.setAttribute('role', 'menuitem');
 		this.downloadButton.addEventListener('click', () => {
 			this.setExportMenuOpen(false);
+			this.exportButton.focus();
 			actions.onDownload();
 		});
 		this.copyButton.type = 'button';
@@ -207,6 +214,7 @@ export class FrameGraphDebugWorkbench {
 		this.copyButton.setAttribute('role', 'menuitem');
 		this.copyButton.addEventListener('click', () => {
 			this.setExportMenuOpen(false);
+			this.exportButton.focus();
 			actions.onCopyJson();
 		});
 		this.exportMenu.append(this.downloadButton, this.copyButton);
@@ -220,12 +228,6 @@ export class FrameGraphDebugWorkbench {
 		);
 		if (options.branding === false) this.commandBar.append(this.tabList, this.commandActions, this.exportMenu);
 		else this.commandBar.append(this.brand, this.tabList, this.commandActions, this.exportMenu);
-		this.root.addEventListener('click', (event) => {
-			const target = event.target;
-			if (!target || typeof (target as Node).nodeType !== 'number' || this.exportMenu.hidden) return;
-			const targetNode = target as Node;
-			if (!this.exportButton.contains(targetNode) && !this.exportMenu.contains(targetNode)) this.setExportMenuOpen(false);
-		});
 		this.root.addEventListener('keydown', (event) => this.handleMenuKey(event));
 		this.main.append(this.emptyHost, ...this.views.values());
 		this.workspace.append(this.main, this.inspector.root);
@@ -404,7 +406,15 @@ export class FrameGraphDebugWorkbench {
 	private setExportMenuOpen(open: boolean): void {
 		this.exportMenu.hidden = !open;
 		this.exportButton.setAttribute('aria-expanded', open ? 'true' : 'false');
-		if (open) this.downloadButton.focus();
+		const document = this.root.ownerDocument;
+		if (open) {
+			document.addEventListener('click', this.handleExportOutside);
+			document.addEventListener('focusin', this.handleExportOutside);
+			this.downloadButton.focus();
+		} else {
+			document.removeEventListener('click', this.handleExportOutside);
+			document.removeEventListener('focusin', this.handleExportOutside);
+		}
 	}
 
 	private handleInspectorOpenChange(_open: boolean): void {
@@ -460,7 +470,13 @@ export class FrameGraphDebugWorkbench {
 		action.focus();
 	}
 
-	destroy(): void { this.destroyed = true; this.detailLayout.destroy(); this.graphSearch.destroy(); this.graphLegend?.destroy(); }
+	destroy(): void {
+		this.destroyed = true;
+		this.setExportMenuOpen(false);
+		this.detailLayout.destroy();
+		this.graphSearch.destroy();
+		this.graphLegend?.destroy();
+	}
 
 	private ensureActiveView(): void {
 		const snapshot = this.snapshot;
@@ -509,13 +525,15 @@ export class FrameGraphDebugWorkbench {
 
 	private handleMenuKey(event: KeyboardEvent): void {
 		if (this.exportMenu.hidden || event.defaultPrevented) return;
+		const path = event.composedPath();
+		if (!path.includes(this.exportButton) && !path.includes(this.exportMenu)) return;
 		if (event.key === 'Escape') {
 			event.preventDefault(); event.stopPropagation();
 			this.setExportMenuOpen(false); this.exportButton.focus();
 		} else if (['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) {
 			event.preventDefault(); event.stopPropagation();
 			const items = [this.downloadButton, this.copyButton].filter((button) => !button.disabled);
-			const index = items.indexOf(document.activeElement as HTMLButtonElement);
+			const index = items.indexOf(this.root.ownerDocument.activeElement as HTMLButtonElement);
 			const next = event.key === 'Home' ? 0 : event.key === 'End' ? items.length - 1
 				: (index + (event.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length;
 			items[next]?.focus();

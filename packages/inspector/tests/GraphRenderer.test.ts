@@ -685,6 +685,57 @@ test('cancelReveal cancels a delayed group selection and clears hover before the
     assert.deepEqual(selected, [{ kind: 'group', pathKey: group.pathKey }], 'new interactions still work after cancellation');
 });
 
+test('preserves pan and zoom made during a deferred layout, including a group anchor', async (context) => {
+    const snapshot = createLegacyDebugViewModel(createNestedCapture());
+    const group = snapshot.debugGroups.find((entry) => entry.parentId === undefined)!;
+    const groupId = graphGroupElementId(group.pathKey);
+    const collapsed = createGraphScene(snapshot, {
+        groupsEnabled: true, expandedGroupPaths: new Set(),
+    });
+    const expanded = createGraphScene(snapshot, {
+        groupsEnabled: true, expandedGroupPaths: new Set([group.pathKey]),
+    });
+
+    for (const anchorElementId of [undefined, groupId]) {
+        const pendingLayout = deferred<GraphLayoutResult>();
+        let layoutStarted = false;
+        const harness = createRendererHarness({
+            layoutScene: async (_elk, scene) => {
+                if (scene.topologyKey === expanded.topologyKey) {
+                    layoutStarted = true;
+                    return pendingLayout.promise;
+                }
+                return testLayout(scene, 10);
+            },
+        });
+        const renderer = new CytoscapeGraphRenderer(harness.host, harness.environment);
+        context.after(() => renderer.destroy());
+        renderer.render(graphRequest(collapsed));
+        await waitFor(() => harness.core?.getElementById(groupId).nonempty() === true);
+        const core = harness.core!;
+        const fits = recordTargetFits(core);
+        core.zoom(0.8);
+        core.pan({ x: 10, y: 20 });
+        renderer.render({ ...graphRequest(expanded), anchorElementId });
+        await waitFor(() => layoutStarted);
+
+        core.zoom(1.1);
+        core.pan({ x: 80, y: 90 });
+        const userViewport = { zoom: core.zoom(), pan: { ...core.pan() } };
+        const userAnchor = { ...core.getElementById(groupId).renderedPosition() };
+        pendingLayout.resolve(testLayout(expanded, 200));
+        await waitFor(() => core.getElementById(groupId).data('collapsed') === 0);
+
+        assert.equal(core.zoom(), userViewport.zoom, 'layout must retain the latest user zoom');
+        if (anchorElementId) {
+            assertPointsClose([core.getElementById(groupId).renderedPosition()], [userAnchor]);
+        } else {
+            assert.deepEqual(core.pan(), userViewport.pan, 'layout must retain the latest user pan');
+        }
+        assert.equal(fits.length, 0, 'ordinary group expansion does not request a fit');
+    }
+});
+
 test('keeps target fit pending until the latest layout is applied', async () => {
     const snapshot = createLegacyDebugViewModel(createNestedCapture());
     const passes = createGraphScene(snapshot, {

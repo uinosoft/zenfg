@@ -23,7 +23,7 @@ import { graphGroupElementId, selectionKey } from './panelGraphScene.ts';
 import { resolveNodeSelection, selectionExists } from './panelSelection.ts';
 import type { GraphViewState, Selection, WorkbenchTab } from './panelTypes.ts';
 import { ensureFrameGraphInspectorStyles } from './styles.ts';
-import { sameSelection, type WorkbenchCallbacks } from './panelWorkbenchHelpers.ts';
+import { sameSelection, writeClipboardText, type WorkbenchCallbacks } from './panelWorkbenchHelpers.ts';
 import { FrameGraphDebugWorkbench } from './panelWorkbenchView.ts';
 
 /** Construction, initial graph visibility, and safety limits for an embedded {@link FrameGraphInspector}. */
@@ -316,16 +316,17 @@ export class FrameGraphInspector {
 
 	/**
 	 * Validates and synchronously displays a programmatic Snapshot 1.2 value.
+	 * Validation failure preserves the current snapshot and pending capture/import.
 	 *
 	 * @throws {@link @zenfg/snapshot!index.FrameGraphSnapshotValidationError | FrameGraphSnapshotValidationError} if `snapshot` is invalid.
 	 */
 	setSnapshot(snapshot: FrameGraphSnapshot): void {
 		if (this.destroyed) return;
+		const decoded = decodeFrameGraphSnapshot(snapshot);
+		if (!decoded.ok) throw new FrameGraphSnapshotValidationError(decoded.issues);
 		this.operationRevision += 1;
 		this.capturing = false;
 		this.importing = false;
-		const decoded = decodeFrameGraphSnapshot(snapshot);
-		if (!decoded.ok) throw new FrameGraphSnapshotValidationError(decoded.issues);
 		this.applySnapshot(decoded.snapshot, { kind: 'programmatic', label: 'Programmatic' });
 	}
 
@@ -415,13 +416,14 @@ export class FrameGraphInspector {
 		if (this.destroyed || this.copying || !this.protocolSnapshot) return;
 		const snapshot = this.protocolSnapshot;
 		const revision = this.operationRevision;
+		const fallbackFocus = !navigator.clipboard?.writeText ? document.activeElement as HTMLElement | null : null;
 		this.copying = true;
 		this.copied = false;
 		this.statusMessage = undefined;
 		this.statusTone = 'neutral';
 		this.updateCaptureActions();
 		try {
-			await writeTextToClipboard(stringifyFrameGraphSnapshot(snapshot, { pretty: true }));
+			await writeClipboardText(stringifyFrameGraphSnapshot(snapshot, { pretty: true }));
 			if (this.destroyed || revision !== this.operationRevision) return;
 			this.copied = true;
 			if (this.copyFeedbackTimeout !== undefined) window.clearTimeout(this.copyFeedbackTimeout);
@@ -434,12 +436,18 @@ export class FrameGraphInspector {
 		catch (error) {
 			if (!this.destroyed && revision === this.operationRevision) {
 				this.statusMessage = `Failed to copy snapshot: ${error instanceof Error ? error.message : String(error)}`;
+				this.statusTone = 'error';
 			}
 			console.warn('Failed to copy FrameGraph Snapshot.', error);
 		}
 		finally {
 			this.copying = false;
-			if (!this.destroyed) this.updateCaptureActions();
+			if (!this.destroyed) {
+				this.updateCaptureActions();
+				if (fallbackFocus?.isConnected && (document.activeElement === document.body || document.activeElement === fallbackFocus)) {
+					fallbackFocus.focus({ preventScroll: true });
+				}
+			}
 		}
 	}
 
@@ -672,27 +680,6 @@ export function mountFrameGraphInspector(host: HTMLElement, options?: FrameGraph
 	host.appendChild(inspector.dom);
 	inspector.refreshTheme();
 	return inspector;
-}
-
-async function writeTextToClipboard(text: string): Promise<void> {
-	if (navigator.clipboard?.writeText) {
-		await navigator.clipboard.writeText(text);
-		return;
-	}
-	const textArea = document.createElement('textarea');
-	textArea.value = text;
-	textArea.setAttribute('readonly', 'true');
-	textArea.style.position = 'fixed';
-	textArea.style.left = '-9999px';
-	textArea.style.top = '0';
-	document.body.appendChild(textArea);
-	textArea.select();
-	try {
-		if (!document.execCommand('copy')) throw new Error('document.execCommand("copy") returned false.');
-	}
-	finally {
-		textArea.remove();
-	}
 }
 
 function normalizeMaxImportBytes(value: number | undefined): number {
