@@ -14,7 +14,7 @@ your application owns the device, rendering policy, and presentation.
 
 Read [Compatibility](compatibility.md) for package and toolchain requirements.
 Browser FrameGraph execution needs native WebGPU on HTTPS or localhost. Snapshot
-processing and the Inspector do not require a GPU. Pin exact beta package
+processing and the Inspector do not require a GPU. Pin exact package
 versions and check that your producer and consumer agree on the Snapshot wire version.
 
 ## Continue by task
@@ -36,7 +36,9 @@ docs.rs; each crate README links its exact version.
 
 The website follows the development branch. Installed READMEs, packaged examples,
 and per-package release tags preserve documentation for published versions.
-See [beta.4 migration guidance](migration-timing-snapshot-1.2.md) and the [changelog](../CHANGELOG.md).
+Review the [migration from 0.1.0](migration-0.2.0.md) before upgrading runtime
+or Inspector APIs. See the [Snapshot 1.2 timing migration](migration-timing-snapshot-1.2.md)
+for older beta captures and the [changelog](../CHANGELOG.md) for per-package changes.
 
 For repository work, read [Contributing](../CONTRIBUTING.md), the
 [documentation workflow](documentation.md), and the [release process](release-process.md).

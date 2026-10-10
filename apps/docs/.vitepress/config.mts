@@ -54,6 +54,7 @@ export default defineConfig({
             pageData.frontmatter.commit = meta.commit;
         }
         pageData.frontmatter.packageVersions = meta.packages.map(p => `${p.name} ${p.version}`).join(' · ');
+        pageData.frontmatter.publishedPackageVersions = meta.packages.map(p => `${p.name} ${p.published ?? '(release tags unavailable)'}`).join(' / ');
     },
     transformHead({ pageData }) {
         const route = pageData.relativePath.replaceAll('\\', '/').replace(/\.md$/, '');

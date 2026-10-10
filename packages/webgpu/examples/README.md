@@ -29,7 +29,7 @@ place browser setup, capture helpers and shaders after the recipe.
 Imported Resource intentionally exposes its single-pass uniform for teaching
 imports, access tokens, and input validation. Complex workloads can choose to
 bind private parameters internally instead; see
-[Choosing resource declaration granularity](https://github.com/uinosoft/zenfg/blob/npm/webgpu/v0.1.0/docs/core-concepts.md#choosing-resource-declaration-granularity).
+[Choosing resource declaration granularity](https://github.com/uinosoft/zenfg/blob/npm/webgpu/v0.2.0/docs/core-concepts.md#choosing-resource-declaration-granularity).
 
 Imported Resource also accepts optional `webgpuDescriptor` fields and a
 caller-owned `multisampleTexture`. Supply a 4x MSAA texture with

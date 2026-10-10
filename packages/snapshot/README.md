@@ -3,7 +3,7 @@
 <!-- generated:badges:start -->
 [![@zenfg/snapshot published latest version](https://img.shields.io/npm/v/%40zenfg%2Fsnapshot/latest?label=npm)](https://www.npmjs.com/package/@zenfg/snapshot)
 [![API Docs (development)](https://img.shields.io/badge/API_docs-development-blue)](https://uinosoft.github.io/zenfg/docs/api/snapshot/)
-[![MIT license](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/uinosoft/zenfg/blob/npm/snapshot/v0.1.0/LICENSE)
+[![MIT license](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/uinosoft/zenfg/blob/npm/snapshot/v0.1.1/LICENSE)
 <!-- generated:badges:end -->
 
 `@zenfg/snapshot` owns the portable, versioned diagnostic contract used to move
@@ -13,7 +13,7 @@ conformance corpus without depending on DOM, WebGPU, or a FrameGraph runtime.
 
 Snapshot files contain graph structure and diagnostics, not GPU commands or
 resource contents, and cannot replay a frame. Snapshot wire-format versioning is
-independent from this package's beta API version.
+independent from this package's API version.
 
 Snapshot 1.1 inputs are validated before migration to 1.2; their CPU timing is
 marked `not-collected`. Writers and standalone validators accept canonical 1.2
@@ -23,7 +23,7 @@ only. Existing Legacy provenance and extensions are preserved.
 
 <!-- generated:installation:start -->
 ```sh
-npm install @zenfg/snapshot@0.1.0
+npm install @zenfg/snapshot@0.1.1
 ```
 <!-- generated:installation:end -->
 
@@ -132,21 +132,22 @@ JavaScript safe integers.
 ## Further reading
 
 - [Snapshot 1.2 specification](./SPEC.md)
-- [ZenFG Core concepts](https://github.com/uinosoft/zenfg/blob/npm/snapshot/v0.1.0/docs/core-concepts.md)
-- [`@zenfg/webgpu` Snapshot producer](https://github.com/uinosoft/zenfg/blob/npm/snapshot/v0.1.0/packages/webgpu/README.md#diagnostics-and-snapshot)
-- [`zenfg-snapshot`](https://github.com/uinosoft/zenfg/blob/npm/snapshot/v0.1.0/crates/zenfg-snapshot/README.md)
-- [`@zenfg/inspector`](https://github.com/uinosoft/zenfg/blob/npm/snapshot/v0.1.0/packages/inspector/README.md)
+- [ZenFG Core concepts](https://github.com/uinosoft/zenfg/blob/npm/snapshot/v0.1.1/docs/core-concepts.md)
+- [`@zenfg/webgpu` Snapshot producer](https://github.com/uinosoft/zenfg/blob/npm/snapshot/v0.1.1/packages/webgpu/README.md#diagnostics-and-snapshot)
+- [`zenfg-snapshot`](https://github.com/uinosoft/zenfg/blob/npm/snapshot/v0.1.1/crates/zenfg-snapshot/README.md)
+- [`@zenfg/inspector`](https://github.com/uinosoft/zenfg/blob/npm/snapshot/v0.1.1/packages/inspector/README.md)
 
 ## Documentation and versions
 
 <!-- generated:documentation:start -->
-This README describes **@zenfg/snapshot 0.1.0**. Registry badges show the current published channel, not your installed version.
+This README describes **@zenfg/snapshot 0.1.1**. Registry badges show the current published channel, not your installed version.
 
 - Exact installed APIs: follow `package.json` → `exports` → `dist/*.d.ts`; declaration maps point to the included `src/`. Only declared export paths are public.
 - [Online guide (development branch)](https://uinosoft.github.io/zenfg/docs/packages/snapshot.html). The site may describe changes newer than this package.
 - [TypeScript API (development branch)](https://uinosoft.github.io/zenfg/docs/api/snapshot/).
-- [Source and documentation for this release](https://github.com/uinosoft/zenfg/tree/npm/snapshot/v0.1.0/packages/snapshot).
-- [Shared concepts for this release](https://github.com/uinosoft/zenfg/blob/npm/snapshot/v0.1.0/docs/core-concepts.md) and [compatibility](https://github.com/uinosoft/zenfg/blob/npm/snapshot/v0.1.0/docs/compatibility.md).
+- [Source and documentation for this release](https://github.com/uinosoft/zenfg/tree/npm/snapshot/v0.1.1/packages/snapshot).
+- [Shared concepts for this release](https://github.com/uinosoft/zenfg/blob/npm/snapshot/v0.1.1/docs/core-concepts.md) and [compatibility](https://github.com/uinosoft/zenfg/blob/npm/snapshot/v0.1.1/docs/compatibility.md).
+- [Migration from 0.1.0](https://github.com/uinosoft/zenfg/blob/npm/snapshot/v0.1.1/docs/migration-0.2.0.md).
 - [Plain Markdown documentation index (development branch)](https://uinosoft.github.io/zenfg/docs/llms.txt).
 - Local wire contract: [SPEC.md](./SPEC.md), `schema/`, `fixtures/` and `conformance/`.
 <!-- generated:documentation:end -->

@@ -141,8 +141,10 @@ so independently built rendering features can come together in real applications
 
 ## Status
 
-ZenFG 0.1.0 is the first non-prerelease version. Public APIs may change before
-1.0; integrations should pin exact package versions and review migration notes.
+ZenFG 0.1.0 was the first non-prerelease version. Packages are released
+independently; the registry badges above show their current published versions.
+Public APIs may change before 1.0. Pin exact package versions and review the
+[migration from 0.1.0](docs/migration-0.2.0.md) before upgrading.
 
 TypeScript and Rust share semantics and portable diagnostics, not source-level
 API parity. Snapshot wire format versioning is independent from package

@@ -3,7 +3,7 @@
 <!-- generated:badges:start -->
 [![@zenfg/webgpu published latest version](https://img.shields.io/npm/v/%40zenfg%2Fwebgpu/latest?label=npm)](https://www.npmjs.com/package/@zenfg/webgpu)
 [![API Docs (development)](https://img.shields.io/badge/API_docs-development-blue)](https://uinosoft.github.io/zenfg/docs/api/webgpu/)
-[![MIT license](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/uinosoft/zenfg/blob/npm/webgpu/v0.1.0/LICENSE)
+[![MIT license](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/uinosoft/zenfg/blob/npm/webgpu/v0.2.0/LICENSE)
 <!-- generated:badges:end -->
 
 `@zenfg/webgpu` is a lightweight WebGPU FrameGraph for declaring and executing
@@ -20,7 +20,8 @@ execution order, retention, transient allocation, and optional diagnostics.
 The caller owns scenes, pipelines, bind groups, samplers, long-lived resources,
 surface presentation, device-loss policy, and concrete draw or dispatch work.
 
-This is a public beta package. Pin the exact package version while integrating.
+Public APIs may change before 1.0. Pin the exact package version and review
+migration notes before upgrading.
 Import runtime APIs from the package root; the only supported
 diagnostic subpath is `@zenfg/webgpu/snapshot`.
 
@@ -28,7 +29,7 @@ diagnostic subpath is `@zenfg/webgpu/snapshot`.
 
 <!-- generated:installation:start -->
 ```sh
-npm install @zenfg/webgpu@0.1.0
+npm install @zenfg/webgpu@0.2.0
 ```
 <!-- generated:installation:end -->
 
@@ -242,7 +243,7 @@ MSAA attachment whose contents a later node needs.
 Declaration granularity is optional: complex workloads can keep private weights,
 parameters, and scratch internally bound, while teaching or diagnostic use can
 expose more resources. Graph-visible dependencies and access correctness still
-apply. See [Choosing resource declaration granularity](https://github.com/uinosoft/zenfg/blob/npm/webgpu/v0.1.0/docs/core-concepts.md#choosing-resource-declaration-granularity).
+apply. See [Choosing resource declaration granularity](https://github.com/uinosoft/zenfg/blob/npm/webgpu/v0.2.0/docs/core-concepts.md#choosing-resource-declaration-granularity).
 
 For resources exposed to the graph:
 
@@ -264,7 +265,7 @@ For resources exposed to the graph:
 - Acquire, import, compile, execute, and present a fresh surface texture on each
   presentation frame.
 
-See [Core concepts](https://github.com/uinosoft/zenfg/blob/npm/webgpu/v0.1.0/docs/core-concepts.md)
+See [Core concepts](https://github.com/uinosoft/zenfg/blob/npm/webgpu/v0.2.0/docs/core-concepts.md)
 for the complete ownership, content, dependency, lifetime, and integration
 model.
 
@@ -293,7 +294,7 @@ execute paths do not create Snapshot data.
 Snapshot export produces an in-memory value only. Capture naming, filesystem
 storage, transport, and retention policy remain caller-owned. The language-
 neutral wire contract is defined by the
-[`@zenfg/snapshot` specification](https://github.com/uinosoft/zenfg/blob/npm/webgpu/v0.1.0/packages/snapshot/SPEC.md).
+[`@zenfg/snapshot` specification](https://github.com/uinosoft/zenfg/blob/npm/webgpu/v0.2.0/packages/snapshot/SPEC.md).
 
 Use `compiled.executeWithTiming({ frameIndex, timing: 'cpu' })`, choosing
 `'cpu'`, `'gpu'` or `'both'`. The returned `cpu` report is immediately
@@ -390,22 +391,23 @@ CI. See the [examples index](./examples/README.md) for their input contracts.
 
 ## Further reading
 
-- [ZenFG documentation index](https://github.com/uinosoft/zenfg/blob/npm/webgpu/v0.1.0/docs/README.md)
-- [Core concepts](https://github.com/uinosoft/zenfg/blob/npm/webgpu/v0.1.0/docs/core-concepts.md)
-- [`@zenfg/snapshot`](https://github.com/uinosoft/zenfg/blob/npm/webgpu/v0.1.0/packages/snapshot/README.md)
-- [`@zenfg/inspector`](https://github.com/uinosoft/zenfg/blob/npm/webgpu/v0.1.0/packages/inspector/README.md)
-- [Compatibility](https://github.com/uinosoft/zenfg/blob/npm/webgpu/v0.1.0/docs/compatibility.md)
+- [ZenFG documentation index](https://github.com/uinosoft/zenfg/blob/npm/webgpu/v0.2.0/docs/README.md)
+- [Core concepts](https://github.com/uinosoft/zenfg/blob/npm/webgpu/v0.2.0/docs/core-concepts.md)
+- [`@zenfg/snapshot`](https://github.com/uinosoft/zenfg/blob/npm/webgpu/v0.2.0/packages/snapshot/README.md)
+- [`@zenfg/inspector`](https://github.com/uinosoft/zenfg/blob/npm/webgpu/v0.2.0/packages/inspector/README.md)
+- [Compatibility](https://github.com/uinosoft/zenfg/blob/npm/webgpu/v0.2.0/docs/compatibility.md)
 
 ## Documentation and versions
 
 <!-- generated:documentation:start -->
-This README describes **@zenfg/webgpu 0.1.0**. Registry badges show the current published channel, not your installed version.
+This README describes **@zenfg/webgpu 0.2.0**. Registry badges show the current published channel, not your installed version.
 
 - Exact installed APIs: follow `package.json` → `exports` → `dist/*.d.ts`; declaration maps point to the included `src/`. Only declared export paths are public.
 - [Online guide (development branch)](https://uinosoft.github.io/zenfg/docs/packages/webgpu.html). The site may describe changes newer than this package.
 - [TypeScript API (development branch)](https://uinosoft.github.io/zenfg/docs/api/webgpu/).
-- [Source and documentation for this release](https://github.com/uinosoft/zenfg/tree/npm/webgpu/v0.1.0/packages/webgpu).
-- [Shared concepts for this release](https://github.com/uinosoft/zenfg/blob/npm/webgpu/v0.1.0/docs/core-concepts.md) and [compatibility](https://github.com/uinosoft/zenfg/blob/npm/webgpu/v0.1.0/docs/compatibility.md).
+- [Source and documentation for this release](https://github.com/uinosoft/zenfg/tree/npm/webgpu/v0.2.0/packages/webgpu).
+- [Shared concepts for this release](https://github.com/uinosoft/zenfg/blob/npm/webgpu/v0.2.0/docs/core-concepts.md) and [compatibility](https://github.com/uinosoft/zenfg/blob/npm/webgpu/v0.2.0/docs/compatibility.md).
+- [Migration from 0.1.0](https://github.com/uinosoft/zenfg/blob/npm/webgpu/v0.2.0/docs/migration-0.2.0.md).
 - [Plain Markdown documentation index (development branch)](https://uinosoft.github.io/zenfg/docs/llms.txt).
 - Local complete recipes: [examples](./examples/README.md).
 <!-- generated:documentation:end -->

@@ -5,6 +5,53 @@ packages use independent versions; component tags identify each release.
 
 ## Unreleased
 
+No changes recorded.
+
+## Runtime and Inspector 0.2.0, Snapshot packages 0.1.1 - 2026-10-10
+
+| Package | Version |
+| --- | --- |
+| `@zenfg/webgpu` | 0.2.0 |
+| `@zenfg/inspector` | 0.2.0 |
+| `zenfg` | 0.2.0 |
+| `@zenfg/snapshot` | 0.1.1 |
+| `zenfg-snapshot` | 0.1.1 |
+
+Versions remain independent. Runtime and Inspector packages select exact
+Snapshot dependency 0.1.1; the portable Snapshot wire format remains 1.2.
+See [the migration guide](docs/migration-0.2.0.md).
+
+### Compatibility
+
+- Extend the existing WebGPU `FrameGraphError` coverage and replace public
+  `__brand` handle fields with a private unique-symbol type brand. Update
+  exact built-in error checks and integrations that construct or inspect brands.
+- Preserve previously skipped Rust compilation-report Serde fields. Persisted
+  report JSON missing newly required producer facts may need regeneration or an
+  application adapter; this does not change portable Snapshot compatibility.
+- Keep native capability, descriptor and command validation with browser WebGPU
+  or wgpu. Some native failures now occur at allocation or encoding instead of
+  graph recording; host error handling remains required.
+- Hide Inspector resource declaration nodes initially. Set
+  `showResourceDeclarations: true` to restore the previous initial graph display.
+
+### Added and fixed
+
+- Add optional WebGPU `render({ webgpuDescriptor })` passthrough for caller-owned
+  native descriptor fields while keeping attachments, labels and timing writes
+  graph-owned. Explicit `uses`, feature detection, pipeline compatibility and
+  native object lifetimes remain application responsibilities. This is not a
+  complete bindless integration; real GPU acceptance of extras is unverified.
+- Re-export portable Snapshot types, the canonical serializer and the validation
+  error from `@zenfg/webgpu/snapshot`; allow Snapshot export without pool counters.
+- Add typed CPU/GPU/both WebGPU timing results and report `no-timed-nodes` in
+  both runtimes instead of an available zero-duration GPU measurement.
+- Make Rust pass completion and compound access recording atomic, and resolve
+  texture-view layers consistently.
+- Roll back failed WebGPU resource-pool acquisitions.
+- Add Inspector Overview metrics, relation focus, graph search and zoom controls;
+  improve panel readability, responsive details, keyboard interactions and async
+  state preservation.
 - Normalize omitted WebGPU clear ranges to the logical buffer boundary so
   dependency reports and native commands clear the same bytes.
 - Preserve initialized buffer contents across texture readback footprints with
@@ -38,6 +85,14 @@ packages use independent versions; component tags identify each release.
 - Reject runtime CPU and available GPU timing reports whose node IDs, order, or
   kinds do not match the retained compilation sequence during Snapshot export,
   while preserving the Snapshot 1.2 partial-coverage contract.
+
+### Per-package notes
+
+- [@zenfg/webgpu 0.2.0](docs/releases/npm-webgpu-0.2.0.md)
+- [@zenfg/inspector 0.2.0](docs/releases/npm-inspector-0.2.0.md)
+- [@zenfg/snapshot 0.1.1](docs/releases/npm-snapshot-0.1.1.md)
+- [zenfg 0.2.0](docs/releases/cargo-zenfg-0.2.0.md)
+- [zenfg-snapshot 0.1.1](docs/releases/cargo-zenfg-snapshot-0.1.1.md)
 
 ## [0.1.0] - 2026-09-15
 
@@ -178,7 +233,7 @@ release:
 The package versions are independent of the ZenFG FrameGraph Snapshot wire
 format, which is version `1.0` in this candidate.
 
-[Unreleased]: https://github.com/uinosoft/zenfg/compare/cargo/zenfg/v0.1.0...HEAD
+[Unreleased]: https://github.com/uinosoft/zenfg/compare/cargo/zenfg/v0.2.0...HEAD
 [0.1.0]: https://github.com/uinosoft/zenfg/tree/cargo%2Fzenfg%2Fv0.1.0
 [0.1.0-beta.4]: https://github.com/uinosoft/zenfg/tree/cargo%2Fzenfg%2Fv0.1.0-beta.4
 [0.1.0-beta.3]: https://github.com/uinosoft/zenfg/tree/cargo%2Fzenfg%2Fv0.1.0-beta.3

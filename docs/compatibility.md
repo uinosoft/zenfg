@@ -3,11 +3,11 @@
 <!-- generated:compatibility:start -->
 | ZenFG package | Version | Runtime/toolchain | Snapshot |
 | --- | --- | --- | --- |
-| `@zenfg/webgpu` | `0.1.0` | Native WebGPU; tooling Node >=24.0.0 <25 | produces 1.2 |
-| `@zenfg/snapshot` | `0.1.0` | ESM, ES2022 | reads Legacy V0, Legacy Candidate V1, 1.1 (migrated), 1.2 |
-| `@zenfg/inspector` | `0.1.0` | Modern DOM; no WebGPU dependency | reads through @zenfg/snapshot |
-| `zenfg` | `0.1.0` | Rust 1.98; wgpu 30.0.1 | produces 1.2 |
-| `zenfg-snapshot` | `0.1.0` | Rust 1.98; no wgpu | reads Legacy V0, Legacy Candidate V1, 1.1 (migrated), 1.2 |
+| `@zenfg/webgpu` | `0.2.0` | Native WebGPU; tooling Node >=24.0.0 <25 | produces 1.2 |
+| `@zenfg/snapshot` | `0.1.1` | ESM, ES2022 | reads Legacy V0, Legacy Candidate V1, 1.1 (migrated), 1.2 |
+| `@zenfg/inspector` | `0.2.0` | Modern DOM; no WebGPU dependency | reads through @zenfg/snapshot |
+| `zenfg` | `0.2.0` | Rust 1.98; wgpu 30.0.1 | produces 1.2 |
+| `zenfg-snapshot` | `0.1.1` | Rust 1.98; no wgpu | reads Legacy V0, Legacy Candidate V1, 1.1 (migrated), 1.2 |
 <!-- generated:compatibility:end -->
 
 Package versions do not lockstep. A Snapshot major/minor change requires an
@@ -19,9 +19,11 @@ Readers must be upgraded before opening newly produced 1.2 files. See the
 [beta.3 migration guide](migration-0.1.0-beta.3.md) for archived captures and
 source-level API changes.
 
-Version 0.1.0 preserves the beta.4 public APIs and Snapshot 1.2 format. Public
-APIs may change before 1.0; integration projects should pin exact package
-versions and review migration notes before upgrading.
+Version 0.1.0 preserved the beta.4 public APIs and Snapshot 1.2 format. Runtime
+and Inspector 0.2.0 and Snapshot packages 0.1.1 keep the Snapshot 1.2 wire contract.
+See the [migration from 0.1.0](migration-0.2.0.md) for error handling, TypeScript
+handle brands, Rust report JSON, and Inspector defaults. Public APIs may change
+before 1.0; pin exact package versions and review migration notes before upgrading.
 
 ## Repository toolchains
 

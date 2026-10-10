@@ -45,6 +45,7 @@ for (const p of packages) {
         `- [${p.registry === 'npm' ? 'TypeScript API (development branch)' : 'Rust API for this version'}](${api}).`,
         `- [Source and documentation for this release](${repository}/tree/${p.tag}/${p.directory}).`,
         `- [Shared concepts for this release](${repository}/blob/${p.tag}/docs/core-concepts.md) and [compatibility](${repository}/blob/${p.tag}/docs/compatibility.md).`,
+        `- [Migration from 0.1.0](${repository}/blob/${p.tag}/docs/migration-0.2.0.md).`,
         `- [Plain Markdown documentation index (development branch)](${website}docs/llms.txt).`,
         ...(p.slug === 'webgpu' ? ['- Local complete recipes: [examples](./examples/README.md).'] : []),
         ...(p.slug === 'snapshot' ? ['- Local wire contract: [SPEC.md](./SPEC.md), `schema/`, `fixtures/` and `conformance/`.'] : []),
