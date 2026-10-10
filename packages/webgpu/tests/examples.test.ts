@@ -11,7 +11,7 @@ import { recordMinimalFrame } from '../examples/minimal-frame.ts';
 import { recordPersistentStateUpdate } from '../examples/persistent-state.ts';
 import { recordSnapshotFrame } from '../examples/snapshot-export.ts';
 import { recordTransientToPresent } from '../examples/transient-to-present.ts';
-import { buffer, bufferUsage, mockDevice, texture, textureUsage } from './testUtils.ts';
+import { buffer, bufferUsage, mockCommandEncoder, mockDevice, texture, textureUsage } from './testUtils.ts';
 
 const renderPipeline = {
 	getBindGroupLayout: () => ({}) as GPUBindGroupLayout,
@@ -165,4 +165,36 @@ test('transient and external recipes expose their defining dependency structure'
 		'external-submission',
 		'frame-graph',
 	]);
+});
+
+test('imported-resource recipe forwards native extras through its normal MSAA render pass', () => {
+	const descriptors: (GPURenderPassDescriptor & { resourceTable?: unknown })[] = [];
+	const encoder = mockCommandEncoder({
+		beginRenderPass(descriptor: GPURenderPassDescriptor) {
+			descriptors.push(descriptor);
+			return { setPipeline() {}, setBindGroup() {}, draw() {}, end() {} };
+		},
+	});
+	const device = {
+		...mockDevice(encoder),
+		createBindGroup() { return {} as GPUBindGroup; },
+	} as unknown as GPUDevice;
+	const recorder = new FrameGraph(device).beginFrame();
+	const table = { label: "application-table" };
+	recordImportedUniformFrame({
+		recorder, backbufferTexture: backbuffer(), pipeline: renderPipeline,
+		uniformBuffer: buffer('uniforms', bufferUsage.UNIFORM, 16), uniformSize: 16,
+		multisampleTexture: texture('msaa-color', textureUsage.RENDER_ATTACHMENT, {
+			format: 'bgra8unorm', size: [64, 48], sampleCount: 4,
+		}),
+		webgpuDescriptor: { resourceTable: table },
+	});
+	const compiled = recorder.compile({ report: true });
+	assert.deepEqual(compiled.compilationReport.nodes.map((node) => node.kind), ['render']);
+	compiled.execute();
+	assert.equal(descriptors[0].resourceTable, table);
+	const attachments = Array.from(descriptors[0].colorAttachments);
+	assert.equal(attachments.length, 1);
+	assert.equal(attachments[0]?.storeOp, 'discard');
+	assert.ok(attachments[0]?.resolveTarget);
 });

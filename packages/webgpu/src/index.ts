@@ -70,6 +70,7 @@ export type {
 	RenderDepthStencilAttachmentDesc,
 	RenderEncodeContext,
 	RenderPassNodeDesc,
+	WebGpuRenderPassDescriptorExtras,
 	ResourceUse,
 	ResourceAccessMode,
 	ResourceHandle,

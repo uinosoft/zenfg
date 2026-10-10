@@ -666,6 +666,31 @@ export type CommandEncodeContext = ResourceUnwrapContext & {
 export type ExternalSubmissionContext = ResourceUnwrapContext;
 
 /**
+ * Caller-owned WebGPU render-pass descriptor fields, including experimental
+ * browser extensions. Known native fields retain their WebGPU types; additional
+ * fields should be typed by the application against its browser API.
+ *
+ * ZenFG owns the label, attachments, and timestamp writes. Supplying these fields
+ * is rejected at recording time, including from JavaScript or through a cast.
+ * Only own enumerable string data properties are supported. Fields are captured
+ * shallowly by `render()`; referenced GPU objects remain caller-owned and must
+ * stay valid for every execution of the compiled frame. Native feature, limit,
+ * and pipeline compatibility validation remains the application's responsibility.
+ * These execution-only fields are omitted from compilation reports and Snapshot.
+ *
+ * @beta
+ */
+export type WebGpuRenderPassDescriptorExtras = Readonly<Omit<
+	GPURenderPassDescriptor,
+	'label' | 'colorAttachments' | 'depthStencilAttachment' | 'timestampWrites'
+>> & Readonly<Record<string, unknown>> & {
+	readonly label?: never;
+	readonly colorAttachments?: never;
+	readonly depthStencilAttachment?: never;
+	readonly timestampWrites?: never;
+};
+
+/**
  * Declares a render pass recorded through `beginRenderPass()`.
  *
  * @beta
@@ -677,6 +702,12 @@ export type RenderPassNodeDesc = {
 	readonly colorAttachments?: readonly RenderColorAttachmentDesc[];
 	/** Optional depth attachment whose graph access is inferred automatically. */
 	readonly depthStencilAttachment?: RenderDepthStencilAttachmentDesc;
+	/**
+	 * Optional native WebGPU descriptor extras, captured shallowly at recording.
+	 * Does not infer dependencies: graph-visible resources accessed through an
+	 * extension still require explicit `uses`. Defaults to no additional fields.
+	 */
+	readonly webgpuDescriptor?: WebGpuRenderPassDescriptorExtras;
 	/** Additional sampled, storage, vertex, index, indirect, or copy dependencies. */
 	readonly uses?: readonly ResourceUse[];
 	/** Retains the node even when no marked root consumes its outputs. Defaults to `false`. */
@@ -1266,7 +1297,7 @@ export interface FrameGraphRecording {
 	/**
 	 * Declares a render-pass node.
 	 *
-	 * @throws If an attachment, declared use, or encode callback contract is invalid.
+	 * @throws If an attachment, native descriptor extras, declared use, or encode callback contract is invalid.
 	 */
 	render(desc: RenderPassNodeDesc): void;
 	/** Declares a compute-pass node. */
