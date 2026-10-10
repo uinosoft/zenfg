@@ -131,6 +131,7 @@ device lifetime       one recording        retained executable plan
 | Select texture subresources | `createTextureView()` |
 | Declare typed resource access | `use()` with `TextureAccess` or `BufferAccess` |
 | Record structured work | `render()`, `compute()`, `copy()`, `clearBuffer()` |
+| Add native render-pass fields | `render({ webgpuDescriptor })` with `WebGpuRenderPassDescriptorExtras` |
 | Encode custom graph-owned commands | `command()` |
 | Call a renderer that submits itself | `externalSubmission()` |
 | Retain observable values | `markPresent()`, `markOutput()`, `markReadback()`, `markDebugCapture()`, `markPersistentState()` |
@@ -176,6 +177,65 @@ Resolved transient objects are callback-scoped. Do not cache them across
 callbacks or frames. The complete
 [`transient-to-present.ts`](./examples/transient-to-present.ts) recipe shows the
 pipeline and bind-group setup without placeholder helpers.
+
+## Native render-pass descriptor extras
+
+`render({ webgpuDescriptor })` forwards additional native WebGPU descriptor
+fields while retaining normal attachment validation, load/store/resolve content
+tracking, explicit `uses`, and optional GPU timing. Omitting it preserves the
+existing descriptor. ZenFG owns `label`, `colorAttachments`,
+`depthStencilAttachment`, and `timestampWrites`; these fields are forbidden in
+extras by the public type and rejected at recording with `FG2013`.
+
+Use `WebGpuRenderPassDescriptorExtras` for standard fields such as
+`occlusionQuerySet` and `maxDrawCount`, or add application-local types for
+experimental fields. For example, the
+[GPUWeb bindless draft](https://github.com/gpuweb/gpuweb/blob/main/proposals/bindless.md#encoder-state-and-pipeline-compatibility)
+adds `resourceTable` to the native render-pass descriptor. The application
+supplies its actual native table; ZenFG does not define an experimental table API:
+
+```ts
+import type {
+	FrameGraphRecording,
+	RenderPassNodeDesc,
+	WebGpuRenderPassDescriptorExtras,
+} from '@zenfg/webgpu';
+
+type ResourceTableDescriptorExtras = WebGpuRenderPassDescriptorExtras & {
+	readonly resourceTable: object;
+};
+
+function recordWithResourceTable(
+	recorder: FrameGraphRecording,
+	draw: Omit<RenderPassNodeDesc, 'webgpuDescriptor'>,
+	resourceTable: object,
+): void {
+	const webgpuDescriptor: ResourceTableDescriptorExtras = { resourceTable };
+	recorder.render({ ...draw, webgpuDescriptor });
+}
+```
+
+Only own enumerable string data properties are accepted. Symbols, accessors,
+non-enumerable own properties, and `__proto__`, `constructor`, or `prototype`
+fields are rejected with `FG2013`. Recording takes a shallow snapshot of the
+fields: later changes to the descriptor object do not change the compiled
+frame, and referenced GPU objects retain their identity. Keep those objects
+valid for every execution of a retained compiled frame; ZenFG does not create,
+update, import, or destroy a resource table supplied this way.
+
+The application owns native feature detection, enabled device features, pipeline
+layout compatibility (including draft `usesResourceTable`), and native
+validation. Extras do not infer graph dependencies: graph textures or buffers
+accessed through a table still need their access tokens explicitly listed in
+the node's `uses`, even when the shader does not use a bind group for them.
+Resolved transient objects remain callback-scoped. Native extras are specific
+to the TypeScript WebGPU runtime and are not included in portable Snapshots.
+
+The compiled [`imported-resource.ts`](./examples/imported-resource.ts) recipe
+accepts optional `webgpuDescriptor` and a caller-owned MSAA target. Its normal
+attachment resolves to the presentation texture and discards only the
+multisample source that it never reads again. Keep `storeOp: 'store'` for any
+MSAA attachment whose contents a later node needs.
 
 ## Resource and integration choices
 

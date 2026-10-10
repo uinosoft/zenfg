@@ -70,6 +70,7 @@ import {
 	assertPositiveUint32,
 } from './numericValidation.ts';
 import { FRAME_GRAPH_ERROR_CODES, FrameGraphError } from './error.ts';
+import { snapshotRenderPassDescriptorExtras } from './renderPassDescriptor.ts';
 import {
 	makeBufferHandle,
 	makeTextureHandle,
@@ -844,12 +845,13 @@ class FrameGraphRecorderImpl implements FrameGraphRecorder {
 	 *
 	 * @param desc - Render attachments, dependencies, and recording callback.
 	 * @throws If the runtime is destroyed, this recorder was consumed, or attachment
-	 * metadata is invalid.
+	 * metadata or native descriptor extras are invalid.
 	 *
 	 * @beta
 	 */
 	render(desc: RenderPassNodeDesc): void {
 		this.assertCanMutate('render');
+		const webgpuDescriptorEntries = snapshotRenderPassDescriptorExtras(desc.webgpuDescriptor);
 		const uses = this.internalUses(desc.uses);
 		const accesses: InternalAccess[] = uses.flatMap((use) => use.accesses);
 		const colorAttachments = (desc.colorAttachments ?? []).map((attachment, index) => {
@@ -951,6 +953,7 @@ class FrameGraphRecorderImpl implements FrameGraphRecorder {
 			renderPass: {
 				colorAttachments,
 				depthStencilAttachment,
+				webgpuDescriptorEntries,
 			},
 			renderEncode: desc.encode,
 		});
@@ -1949,12 +1952,18 @@ class FrameGraphRecorderImpl implements FrameGraphRecorder {
 		}
 
 		const timestampWrites = gpuTimingTimestampWrites(this.gpuProfiler, gpuTimingQuery);
-		return {
+		const descriptor: GPURenderPassDescriptor = {
 			label: node.label,
 			colorAttachments,
 			depthStencilAttachment,
 			...(timestampWrites ? { timestampWrites } : {}),
 		};
+		if (node.renderPass.webgpuDescriptorEntries) {
+			for (const [key, value] of node.renderPass.webgpuDescriptorEntries) {
+				Object.defineProperty(descriptor, key, { value, enumerable: true, writable: true, configurable: true });
+			}
+		}
+		return descriptor;
 	}
 
 	private createComputePassDescriptor(node: InternalNode, gpuTimingQuery?: GpuTimingNodeQuery): GPUComputePassDescriptor {

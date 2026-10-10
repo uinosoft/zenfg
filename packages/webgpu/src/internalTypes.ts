@@ -163,6 +163,7 @@ export type InternalNode = {
 	readonly renderPass?: {
 		readonly colorAttachments: readonly InternalRenderColorAttachment[];
 		readonly depthStencilAttachment?: InternalRenderDepthStencilAttachment;
+		readonly webgpuDescriptorEntries?: readonly (readonly [string, unknown])[];
 	};
 	readonly copyOperations?: readonly InternalCopyOperation[];
 	readonly clearBufferOperations?: readonly InternalClearBufferOperation[];
