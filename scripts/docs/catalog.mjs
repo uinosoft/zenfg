@@ -2,6 +2,7 @@ import { readFileSync, mkdirSync, writeFileSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { parse } from 'smol-toml';
+import { latestTag } from '../release/assess.mjs';
 
 export const root = resolve(import.meta.dirname, '../..');
 export const repository = 'https://github.com/uinosoft/zenfg';
@@ -37,9 +38,8 @@ export function siteBase(value = process.env.SITE_BASE ?? '/zenfg/') {
     if (!/^\/(?:[A-Za-z0-9_-]+\/)*$/.test(value)) throw new Error(`SITE_BASE must be an absolute directory path: ${value}`);
     return value;
 }
-export function publishedVersion(p) {
-    const tags = git('tag', '--list', `${p.registry}/${p.slug}/v*`, '--sort=-version:refname').split('\n').filter(Boolean);
-    return tags[0]?.split('/v').at(-1);
+export function publishedVersion(p, tags = git('tag', '--merged', 'HEAD', '--list', `${p.registry}/${p.slug}/v*`).split('\n').filter(Boolean)) {
+    return latestTag(p, tags)?.split('/v').at(-1);
 }
 export function snapshotVersion() {
     const ts = read('packages/snapshot/src/format.ts').match(/FRAME_GRAPH_SNAPSHOT_VERSION\s*=\s*Object.freeze\(\{\s*major:\s*(\d+),\s*minor:\s*(\d+)/);
@@ -59,6 +59,7 @@ export const pages = [
     { source: 'packages/inspector/THEMING.md', route: 'guides/themes', title: 'Inspector themes', group: 'Guides & examples' },
     { source: 'packages/snapshot/SPEC.md', route: 'reference/snapshot', title: 'Snapshot specification', group: 'Reference' },
     { source: 'docs/compatibility.md', route: 'compatibility', title: 'Compatibility', group: 'Compatibility & migration' },
+    { source: 'docs/migration-0.2.0.md', route: 'migration/from-0-1-0', title: 'Migrating from 0.1.0', group: 'Compatibility & migration' },
     { source: 'docs/migration-timing-snapshot-1.2.md', route: 'migration/timing-snapshot-1-2', title: 'Unified timing and Snapshot 1.2', group: 'Compatibility & migration' },
     { source: 'docs/migration-0.1.0-beta.3.md', route: 'migration/beta-3', title: 'Migrating to beta.3', group: 'Compatibility & migration' },
     { source: 'CHANGELOG.md', route: 'changelog', title: 'Changelog', group: 'Compatibility & migration' },

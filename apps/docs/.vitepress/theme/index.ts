@@ -38,7 +38,10 @@ const DocumentContext = {
         const { frontmatter } = useData();
         return () => h('aside', { class: 'docs-context', 'aria-label': 'Documentation version and formats' }, [
             h('p', [h('strong', 'Development branch'), ` · ${String(frontmatter.value.commit ?? '').slice(0, 8)}`]),
-            h('details', [h('summary', 'Package versions'), h('p', frontmatter.value.packageVersions)]),
+            h('details', [h('summary', 'Package versions'),
+                h('p', [h('strong', 'Development source: '), frontmatter.value.packageVersions]),
+                h('p', [h('strong', 'Published component releases: '), frontmatter.value.publishedPackageVersions]),
+            ]),
             h('p', [h('a', { href: frontmatter.value.markdownUrl, target: '_self', 'data-no-prefetch': '' }, 'Read Markdown'), ' · ', h('a', { href: frontmatter.value.sourceUrl, target: '_blank', rel: 'noopener noreferrer' }, 'View source ↗')]),
         ]);
     },

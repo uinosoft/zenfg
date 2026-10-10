@@ -23,8 +23,10 @@ in compile-checked package examples. The root README owns the project introducti
 directories, so a build does not overwrite a running docs session. Source changes
 regenerate documentation and restart the docs server with a fresh search index;
 the existing application server stays available. Fetch Git tags when checking out CI sources: Rust API links
-identify the latest tagged release of each crate independently. A checkout with
-no release tags does not invent a published version.
+identify the latest tagged release of each crate independently. The website
+version panel separates manifest-derived development source versions from
+published component releases identified by those tags. A checkout with no
+release tags reports that limitation rather than inventing a published version.
 
 ## Editing sources
 

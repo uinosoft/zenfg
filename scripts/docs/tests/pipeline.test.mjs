@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { resolve } from 'node:path';
 import { transformContent } from '../prepare.mjs';
 import { anchors, assertLocalLinks, hideRustDoctestLines, quickStart } from '../markdown.mjs';
-import { publicEntrypoints, packages, pages, recipes, snapshotVersion, siteBase, read } from '../catalog.mjs';
+import { publicEntrypoints, packages, pages, recipes, snapshotVersion, siteBase, read, publishedVersion } from '../catalog.mjs';
 
 test('all public typed exports are discovered without inventing runtime subpaths', () => {
     assert.deepEqual(publicEntrypoints().map(e => e.name).sort(), ['@zenfg/inspector', '@zenfg/inspector/theme', '@zenfg/snapshot', '@zenfg/snapshot/format', '@zenfg/webgpu', '@zenfg/webgpu/snapshot'].sort());
@@ -75,4 +75,16 @@ test('README screenshot is omitted from docs while its semantic example link sur
     assert.ok(!result.includes('<img'));
     assert.ok(!result.includes('readme-showcase'));
     assert.ok(result.includes('[Three.js](https://uinosoft.github.io/zenfg/playground/?example=three-interop)'));
+});
+
+test('published component versions use SemVer, preserve independent versions and report missing tags', () => {
+    const tags = [
+        'npm/webgpu/v0.1.0-beta.4', 'npm/webgpu/v0.1.0', 'npm/webgpu/vinvalid',
+        'npm/snapshot/v0.1.1', 'cargo/zenfg/v0.2.0-beta.10', 'cargo/zenfg/v0.2.0-beta.9',
+    ];
+    assert.equal(publishedVersion({ registry: 'npm', slug: 'webgpu' }, tags), '0.1.0');
+    assert.equal(publishedVersion({ registry: 'npm', slug: 'snapshot' }, tags), '0.1.1');
+    assert.equal(publishedVersion({ registry: 'cargo', slug: 'zenfg' }, tags), '0.2.0-beta.10');
+    assert.equal(publishedVersion({ registry: 'cargo', slug: 'zenfg-snapshot' }, tags), undefined);
+    assert.equal(publishedVersion({ registry: 'npm', slug: 'webgpu' }, []), undefined);
 });
