@@ -9,7 +9,7 @@ browser channel, or external demo asset.
 
 | Layer | Main coverage | Runs in pull request CI |
 | --- | --- | --- |
-| TypeScript Node tests | FrameGraph logic using mock WebGPU objects, Snapshot, Inspector, examples, and scripts | Yes, through `npm test` |
+| TypeScript Node tests | FrameGraph logic using mock WebGPU objects, Snapshot, Inspector, examples, and scripts | Yes, through `pnpm test` |
 | Rust tests | CPU graph compilation, `wgpu::Device::noop()` execution and validation, pool, timing, UI contracts, and examples | Yes, through `cargo test --workspace --all-features` |
 | Cross-language conformance | TypeScript/Rust Snapshot producers, validators, and golden projections | Yes |
 | Playwright docs browser test | Documentation routes, links, search, theme, layout, responsive behavior, and page errors | Yes; this is not a WebGPU test |
@@ -31,24 +31,24 @@ ordinary Chromium page tests; it does not request an adapter or execute WebGPU.
 Run all default Node tests:
 
 ```sh
-npm test
+pnpm test
 ```
 
 Run a focused package test set:
 
 ```sh
-npm test -- packages/webgpu/tests
-npm test -- packages/snapshot/tests
-npm test -- packages/inspector/tests
+pnpm test packages/webgpu/tests
+pnpm test packages/snapshot/tests
+pnpm test packages/inspector/tests
 ```
 
 Run type, documentation, and build checks:
 
 ```sh
-npm run typecheck
-npm run docs:check
-npm run docs:test
-npm run build
+pnpm run typecheck
+pnpm run docs:check
+pnpm run docs:test
+pnpm run build
 ```
 
 Run Rust tests and static checks:
@@ -64,10 +64,10 @@ cargo check --locked --workspace --all-features --examples
 Run cross-language Snapshot conformance:
 
 ```sh
-npm run test:cross-language
+pnpm run test:cross-language
 ```
 
-`npm test` discovers Node `.test.ts` files only. Directories named `browser`
+`pnpm test` discovers Node `.test.ts` files only. Directories named `browser`
 and `gpu` are deliberately excluded and their scripts must be run explicitly.
 
 ## Pull request CI
@@ -91,7 +91,7 @@ driver.
 For site changes, build and serve the production-like pages in one terminal:
 
 ```sh
-npm run preview:pages
+pnpm run preview:pages
 ```
 
 The preview is served at `http://127.0.0.1:4173/zenfg/`. Set the URL explicitly
@@ -143,12 +143,12 @@ The publish workflow reruns the required checks before preparing packages. To
 run the local preflight and package consumers:
 
 ```sh
-npm run pack:check
-npm run cargo:package-check
-npm run release:smoke
-npm run release:check
-npm run release:test
-npm run release:assess
+pnpm run pack:check
+pnpm run cargo:package-check
+pnpm run release:smoke
+pnpm run release:check
+pnpm run release:test
+pnpm run release:assess
 ```
 
 Registry visibility, artifact integrity, provenance, and final publication are

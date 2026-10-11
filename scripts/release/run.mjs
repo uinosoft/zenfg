@@ -4,8 +4,9 @@ import { join, resolve } from 'node:path';
 import { parse } from 'smol-toml';
 import { catalog, root, read, json, hash, repository, selectPackages, assertContext, validateSelection,
     assertNotes, assertResume, assertChannelAdvance, getJson } from './core.mjs';
-import { output, run, npm, writeJson, archivePath, checkFiles, clean, cargoArchive, listFiles, progress } from './io.mjs';
+import { output, run, npm, pnpm, writeJson, archivePath, checkFiles, clean, cargoArchive, listFiles, progress } from './io.mjs';
 import { consumer } from './consumer.mjs';
+import { packPackage, assertWorkspaceReferences } from '../package-manager.mjs';
 import { waitForVersion, publishNpmPackages, publishCargoPackages } from './publication.mjs';
 
 const command = process.argv[2];
@@ -17,7 +18,9 @@ const selected = () => selectPackages(packages, inputs);
 const cargoTarget = resolve(root, 'target/release-build');
 
 function staticCheck() {
-    const lock = json('package-lock.json');
+    pnpm(['install', '--lockfile-only', '--frozen-lockfile', '--offline', '--ignore-scripts']);
+    const workspaces = JSON.parse(pnpm(['-r', 'list', '--depth', '-1', '--json']));
+    assertWorkspaceReferences(workspaces.map(p => JSON.parse(readFileSync(resolve(p.path, 'package.json'), 'utf8'))));
     const cargoLock = parse(read('Cargo.lock'));
     for (const pkg of packages) {
         if (pkg.registry === 'npm') {
@@ -25,9 +28,11 @@ function staticCheck() {
             if (manifest.private || manifest.publishConfig?.access !== 'public'
                 || manifest.publishConfig.registry !== 'https://registry.npmjs.org/'
                 || manifest.repository?.url !== 'git+https://github.com/' + repository + '.git') throw new Error('Invalid publication metadata: ' + pkg.name);
-            if (lock.packages[pkg.directory]?.version !== pkg.version
-                || JSON.stringify(lock.packages[pkg.directory]?.dependencies ?? {}) !== JSON.stringify(manifest.dependencies ?? {})) {
-                throw new Error('package-lock.json drift: ' + pkg.name);
+            for (const dep of pkg.dependencies) {
+                if (manifest.dependencies[dep.name] !== 'workspace:' + dep.version
+                    || packages.find(p => p.registry === 'npm' && p.name === dep.name)?.version !== dep.version) {
+                    throw new Error('Internal workspace dependency must match its source version: ' + pkg.name + ' ' + dep.name);
+                }
             }
         } else if (!cargoLock.package.some(p => p.name === pkg.name && p.version === pkg.version && !p.source)) {
             throw new Error('Cargo.lock drift: ' + pkg.name);
@@ -89,10 +94,10 @@ async function prepare() {
     for (const pkg of items.filter(p => p.registry === "npm")) await checkChannel(pkg);
     for (const pkg of items) assertNotes(read(pkg.notes), pkg);
     const value = { schema: 1, sha: sha(), runId: process.env.GITHUB_RUN_ID, packages: items,
-        toolchains: { node: process.version, npm: npm(['--version']), cargo: run('cargo', ['--version']) } };
+        toolchains: { node: process.version, pnpm: pnpm(['--version']), npm: npm(['--version']), cargo: run('cargo', ['--version']) } };
     mkdirSync(output, { recursive: true });
     for (const pkg of items.filter(p => p.registry === 'npm')) {
-        const packed = JSON.parse(npm(['pack', '--json', '--pack-destination', output], { cwd: resolve(root, pkg.directory) }))[0];
+        const packed = packPackage(resolve(root, pkg.directory), output, run);
         pkg.archive = packed.filename;
         pkg.files = packed.files.map(f => f.path);
         const bytes = readFileSync(archivePath(pkg.archive));
@@ -165,7 +170,7 @@ async function verify() {
         if (!response.ok || hash(Buffer.from(await response.arrayBuffer())) !== pkg.sha256) throw new Error('Downloaded registry artifact mismatch: ' + pkg.name);
         if (pkg.registry === 'npm') {
             const tags = await getJson('https://registry.npmjs.org/-/package/' + encodeURIComponent(pkg.name) + '/dist-tags');
-            if (tags[pkg.channel] !== pkg.version) throw new Error('Unexpected npm ' + pkg.channel + ': ' + pkg.name + '. OIDC cannot repair dist-tags; inspect manually.');
+            if (tags[pkg.channel] !== pkg.version) throw new Error('Unexpected npm ' + pkg.channel + ': ' + pkg.name + '. This workflow does not repair dist-tags; inspect manually.');
             if (!metadata.dist.attestations) throw new Error('Missing npm provenance metadata: ' + pkg.name);
         }
         receipts.push({ name: pkg.name, version: pkg.version, sha256: pkg.sha256 });

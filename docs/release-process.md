@@ -34,7 +34,7 @@ Prevent updates/deletion of component tags and enable immutable releases.
 
 Only the protected publish job receives `id-token: write`. Only the final
 GitHub Release job receives `contents: write`. The workflow uses GitHub-hosted
-Ubuntu runners, fixed Node/npm/Rust versions and SHA-pinned actions. Release
+Ubuntu runners, fixed Node/pnpm/npm/Rust versions and SHA-pinned actions. Release
 builds do not restore PR caches. No npm token, Cargo token, or PAT is stored
 as a repository secret. The Cargo auth action obtains its temporary token
 immediately before Cargo publication.
@@ -58,8 +58,8 @@ requires operational observation.
 Run the read-only assessment before preparing a release:
 
 ~~~sh
-npm run release:assess
-npm --silent run release:assess -- --json
+pnpm run release:assess
+pnpm --silent run release:assess --json
 ~~~
 
 It compares committed HEAD with each package\'s highest-SemVer reachable component
@@ -101,10 +101,11 @@ tags: Snapshot 1.2 readers, unified runtime timing, and Inspector features/fixes
 
 1. Decide which packages need a release. Do not change versions during the
    publishing workflow.
-2. Bump their manifests. Update exact internal dependency versions as needed;
+2. Bump their manifests. Update exact internal workspace:VERSION references
+   throughout the source workspace when an internal package changes version;
    an internal dependency's version does not have to equal the dependent's version.
-3. Explicitly update `package-lock.json` and `Cargo.lock`. Regenerate public
-   version documentation with `npm run docs:generate`.
+3. Explicitly update `pnpm-lock.yaml` and `Cargo.lock`. Regenerate public
+   version documentation with `pnpm run docs:generate`.
 4. Add one dated note per selected package under `docs/releases/`:
    `npm-snapshot-VERSION.md`, `npm-webgpu-VERSION.md`,
    `npm-inspector-VERSION.md`, `cargo-zenfg-snapshot-VERSION.md`, or
@@ -180,7 +181,8 @@ The selected subset is published in this order:
 3. npm WebGPU.
 4. npm Inspector.
 
-npm uploads the exact checked `.tgz`, without running lifecycle scripts.
+pnpm pack converts workspace references and checks the resulting archive manifest.
+The separately pinned npm CLI uploads the exact checked `.tgz`, without running lifecycle scripts.
 Cargo repackages from the fixed checkout with `--locked --all-features`.
 Its final dry-run archive must match the approved checksum before upload;
 the actual published archive is checked again afterward.
@@ -228,7 +230,7 @@ packages enter `latest` as each upload completes.
 - If verification or Release creation fails after upload, rerun failed jobs.
   Finalization uses the verification job's artifact ID even when it came
   from an earlier attempt.
-- OIDC does not repair npm dist-tags. Inspect and correct channel mismatches
+- This workflow does not repair npm dist-tags. Inspect and correct channel mismatches
   interactively with npm 2FA when appropriate.
 - Faulty immutable packages require a new version; use npm deprecation or
   Cargo yank when necessary. Never move existing component tags.
@@ -236,17 +238,17 @@ packages enter `latest` as each upload completes.
 ## Local and PR checks
 
 ~~~sh
-npm run release:check
-npm run release:test
-npm run release:smoke:npm
-npm run release:smoke:cargo
+pnpm run release:check
+pnpm run release:test
+pnpm run release:smoke:npm
+pnpm run release:smoke:cargo
 ~~~
 
 These commands never upload. Smoke checks allow dirty local Cargo sources for
 development, while actual release candidates enforce a clean checkout.
 Daily CI does not require unoccupied versions or new release notes.
 
-`npm run cargo:release-check` remains a manual runtime-only gate against an
+`pnpm run cargo:release-check` remains a manual runtime-only gate against an
 already-published Snapshot dependency, with evidence under
 `target/release-validation/`. The publishing workflow uses its own selected
 package dry-run and does not depend on that manual gate.

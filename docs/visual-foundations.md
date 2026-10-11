@@ -101,9 +101,9 @@ selection and storage remain app-owned. See [Inspector theming](../packages/insp
 ## Validation
 
 ```sh
-npm run typecheck
-npm test
-npm run build:site
+pnpm run typecheck
+pnpm test
+pnpm run build:site
 ```
 
 Node tests cover shared theme isolation, palette contrast, preference handling,

@@ -5,7 +5,7 @@ across the portal edge: Pixi's built-in DisplacementFilter bends the live city,
 grid and lettering together. A circular Graphics mask and front/back orbit
 decorations provide the rest of the scene.
 
-Run `npm run dev` and select **PixiJS · Portal Lens**, or use
+Run `pnpm run dev` and select **PixiJS · Portal Lens**, or use
 `?example=pixi-interop`. Drag the lens to move it; drag elsewhere inside the
 portal to orbit; scroll over the portal to zoom. Canvas buttons control
 automatic orbit, the lens and reset. Blur and pointer cancellation release a
@@ -89,10 +89,10 @@ The higher resolutions trade extra attachment memory and fill work for clarity.
 ## Validation
 
 ```sh
-npm test
-npm run typecheck
-npm run build:pages
-npm run docs:check
+pnpm test
+pnpm run typecheck
+pnpm run build:pages
+pnpm run docs:check
 node apps/site/examples/pixi-interop/tests/gpu/run.mjs
 node apps/site/examples/pixi-interop/tests/gpu/production.mjs
 ```

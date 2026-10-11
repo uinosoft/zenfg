@@ -19,20 +19,44 @@ jobs:
           fetch-depth: 0
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          node-version: 24.19.0
-          cache: ${{ !inputs.release_build && 'npm' || '' }}
+          node-version-file: .node-version
           package-manager-cache: false
-      - run: npm install --global npm@11.11.0
-      - run: npm --version
-      - run: npm ci
-      - run: npm run typecheck
-      - run: npm run docs:check
-      - run: npm run docs:test
-      - run: npm test
-      - run: npm run build
-      - run: npx playwright install --with-deps chromium
-      - run: npm run docs:test:browser
-      - run: npm run pack:check
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      - name: Resolve pnpm cache paths
+        if: ${{ !inputs.release_build }}
+        id: pnpm-cache
+        shell: bash
+        run: |
+          echo "store=$(pnpm store path --silent)" >> "$GITHUB_OUTPUT"
+          echo "metadata=$(pnpm cache path --silent)" >> "$GITHUB_OUTPUT"
+          echo "version=$(pnpm --version)" >> "$GITHUB_OUTPUT"
+      - name: Restore dependency sources
+        if: ${{ !inputs.release_build }}
+        id: dependency-cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ${{ steps.pnpm-cache.outputs.store }}
+            ${{ steps.pnpm-cache.outputs.metadata }}
+          key: pnpm-${{ steps.pnpm-cache.outputs.version }}-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('pnpm-lock.yaml', 'pnpm-workspace.yaml', '.node-version') }}
+      - run: pnpm --version
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run typecheck
+      - run: pnpm run docs:check
+      - run: pnpm run docs:test
+      - run: pnpm test
+      - run: pnpm run build
+      - run: pnpm exec playwright install --with-deps chromium
+      - run: pnpm run docs:test:browser
+      - run: pnpm run pack:check
+      - name: Save trusted dependency sources
+        if: ${{ success() && !inputs.release_build && github.event_name == 'push' && github.ref == 'refs/heads/main' && steps.dependency-cache.outputs.cache-hit != 'true' }}
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ${{ steps.pnpm-cache.outputs.store }}
+            ${{ steps.pnpm-cache.outputs.metadata }}
+          key: pnpm-${{ steps.pnpm-cache.outputs.version }}-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('pnpm-lock.yaml', 'pnpm-workspace.yaml', '.node-version') }}
       - if: inputs.pages_artifact
         uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
         with:
@@ -46,11 +70,28 @@ jobs:
           fetch-depth: 0
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          node-version: 24.19.0
+          node-version-file: .node-version
           package-manager-cache: false
-      - run: npm install --global npm@11.11.0
-      - run: npm --version
-      - run: npm ci
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      - name: Resolve pnpm cache paths
+        if: ${{ !inputs.release_build }}
+        id: pnpm-cache
+        shell: bash
+        run: |
+          echo "store=$(pnpm store path --silent)" >> "$GITHUB_OUTPUT"
+          echo "metadata=$(pnpm cache path --silent)" >> "$GITHUB_OUTPUT"
+          echo "version=$(pnpm --version)" >> "$GITHUB_OUTPUT"
+      - name: Restore dependency sources
+        if: ${{ !inputs.release_build }}
+        id: dependency-cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ${{ steps.pnpm-cache.outputs.store }}
+            ${{ steps.pnpm-cache.outputs.metadata }}
+          key: pnpm-${{ steps.pnpm-cache.outputs.version }}-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('pnpm-lock.yaml', 'pnpm-workspace.yaml', '.node-version') }}
+      - run: pnpm --version
+      - run: pnpm install --frozen-lockfile
       - run: rustup toolchain install 1.98.0 --profile minimal --component rustfmt --component clippy
       - run: rustup default 1.98.0
       - run: cargo fmt --all --check
@@ -64,7 +105,7 @@ jobs:
       - run: cargo doc --locked --workspace --all-features --no-deps
         env:
           RUSTDOCFLAGS: -D warnings
-      - run: npm run cargo:package-check
+      - run: pnpm run cargo:package-check
 
   cross-language:
     runs-on: ubuntu-24.04
@@ -74,16 +115,32 @@ jobs:
           fetch-depth: 0
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          node-version: 24.19.0
-          cache: ${{ !inputs.release_build && 'npm' || '' }}
+          node-version-file: .node-version
           package-manager-cache: false
-      - run: npm install --global npm@11.11.0
-      - run: npm --version
-      - run: npm ci
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      - name: Resolve pnpm cache paths
+        if: ${{ !inputs.release_build }}
+        id: pnpm-cache
+        shell: bash
+        run: |
+          echo "store=$(pnpm store path --silent)" >> "$GITHUB_OUTPUT"
+          echo "metadata=$(pnpm cache path --silent)" >> "$GITHUB_OUTPUT"
+          echo "version=$(pnpm --version)" >> "$GITHUB_OUTPUT"
+      - name: Restore dependency sources
+        if: ${{ !inputs.release_build }}
+        id: dependency-cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ${{ steps.pnpm-cache.outputs.store }}
+            ${{ steps.pnpm-cache.outputs.metadata }}
+          key: pnpm-${{ steps.pnpm-cache.outputs.version }}-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('pnpm-lock.yaml', 'pnpm-workspace.yaml', '.node-version') }}
+      - run: pnpm --version
+      - run: pnpm install --frozen-lockfile
       - run: rustup toolchain install 1.98.0 --profile minimal
       - run: rustup default 1.98.0
-      - run: npm run test:cross-language
-      - run: npm run release:smoke
+      - run: pnpm run test:cross-language
+      - run: pnpm run release:smoke
       - if: failure()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
@@ -100,13 +157,30 @@ jobs:
           fetch-depth: 0
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          node-version: 24.19.0
+          node-version-file: .node-version
           package-manager-cache: false
-      - run: npm install --global npm@11.11.0
-      - run: npm ci
-      - run: npm run release:check
-      - run: npm run release:test
-      - run: npm run release:assess -- --summary
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      - name: Resolve pnpm cache paths
+        if: ${{ !inputs.release_build }}
+        id: pnpm-cache
+        shell: bash
+        run: |
+          echo "store=$(pnpm store path --silent)" >> "$GITHUB_OUTPUT"
+          echo "metadata=$(pnpm cache path --silent)" >> "$GITHUB_OUTPUT"
+          echo "version=$(pnpm --version)" >> "$GITHUB_OUTPUT"
+      - name: Restore dependency sources
+        if: ${{ !inputs.release_build }}
+        id: dependency-cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ${{ steps.pnpm-cache.outputs.store }}
+            ${{ steps.pnpm-cache.outputs.metadata }}
+          key: pnpm-${{ steps.pnpm-cache.outputs.version }}-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('pnpm-lock.yaml', 'pnpm-workspace.yaml', '.node-version') }}
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run release:check
+      - run: pnpm run release:test
+      - run: pnpm run release:assess --summary
       - name: Create artifact contract fixture
         run: |
           mkdir -p target/artifact-contract

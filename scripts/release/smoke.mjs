@@ -2,8 +2,9 @@
 import { copyFileSync, mkdirSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { catalog, root } from './core.mjs';
-import { output, npm, run, cargoArchive, archivePath } from './io.mjs';
+import { output, run, cargoArchive, archivePath } from './io.mjs';
 import { consumer } from './consumer.mjs';
+import { packPackage } from '../package-manager.mjs';
 
 const registry = process.argv[2];
 if (!['npm', 'cargo', 'all'].includes(registry)) throw new Error('Expected npm, cargo or all.');
@@ -11,7 +12,7 @@ const packages = catalog().filter(p => registry === 'all' || p.registry === regi
 mkdirSync(output, { recursive: true });
 if (registry !== 'cargo') {
     for (const pkg of packages.filter(p => p.registry === 'npm')) {
-        const result = JSON.parse(npm(['pack', '--json', '--pack-destination', output], { cwd: resolve(root, pkg.directory) }))[0];
+        const result = packPackage(resolve(root, pkg.directory), output, run);
         pkg.archive = result.filename;
     }
 }

@@ -28,7 +28,7 @@ before 1.0; pin exact package versions and review migration notes before upgradi
 ## Repository toolchains
 
 <!-- generated:toolchains:start -->
-Repository tooling: Node `>=24.0.0 <25`, npm `>=11.11.0 <12`, TypeScript `^6.0.3`, Rust `1.98`, wgpu `30.0.1`.
+Repository tooling: Node `>=24.0.0 <25`, pnpm `12.11.2`, npm publishing client `11.11.0`, TypeScript `^6.0.3`, Rust `1.98`, wgpu `30.0.1`.
 <!-- generated:toolchains:end --> Node.js is required for development and packaging, not for browser
 runtime use. Browser execution depends on native WebGPU and modern DOM support.
 

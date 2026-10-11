@@ -2,6 +2,7 @@ import { spawnSync } from 'node:child_process';
 import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { basename, join, resolve } from 'node:path';
 import { root, hash } from './core.mjs';
+import { npmCommand, pnpmCommand } from '../package-manager.mjs';
 
 export const output = resolve(root, 'target/release');
 export function writeJson(path, value) { writeFileSync(path, JSON.stringify(value, null, 2) + '\n'); }
@@ -16,8 +17,12 @@ export function run(command, args, options = {}) {
     return (result.stdout ?? '').trim();
 }
 export function npm(args, options) {
-    if (!process.env.npm_execpath) throw new Error('Use npm run release:... to provide npm_execpath.');
-    return run(process.execPath, [process.env.npm_execpath, ...args], options);
+    const invocation = npmCommand(args, { ...process.env, ...(options?.env ?? {}) });
+    return run(invocation.command, invocation.args, { ...options, env: invocation.env });
+}
+export function pnpm(args, options) {
+    const invocation = pnpmCommand(args, { ...process.env, ...(options?.env ?? {}) });
+    return run(invocation.command, invocation.args, { ...options, env: invocation.env });
 }
 export function archivePath(file) {
     if (!file || basename(file) !== file) throw new Error('Invalid candidate artifact filename.');

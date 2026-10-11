@@ -59,6 +59,6 @@ the canvas fades in after its first submitted frame. The static SVG is shown onl
 after initialization failure or device loss, projects the same authored curves and
 inherits theme colors. Failures do not auto-retry.
 
-Run the example/lifecycle tests with `npm test -- apps/site/examples/refractive-flow/tests`.
+Run the example/lifecycle tests with `pnpm test apps/site/examples/refractive-flow/tests`.
 The browser acceptance script is `apps/site/tests/browser/home.mjs`; set
 `PLAYWRIGHT_MODULE` to an installed Playwright module and `HOME_URL` to the site.

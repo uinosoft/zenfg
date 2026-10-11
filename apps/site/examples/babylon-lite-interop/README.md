@@ -5,7 +5,7 @@ GPU device and scene. Cyan rings and columns belong to Lite; orange cubes and
 spheres, and the neutral platform, belong to the Reference Renderer. They
 occlude one another in both directions.
 
-Run `npm run dev` and select **Babylon Lite · Co-rendering**, or use
+Run `pnpm run dev` and select **Babylon Lite · Co-rendering**, or use
 `?example=babylon-lite-interop`. Drag to orbit and scroll to zoom. Reverse Z is
 always enabled: Lite 1.28 has no public forward-depth switch. Color and depth
 sharing are always enabled. There are no remote assets or configurable effects.
@@ -110,10 +110,10 @@ legend, depth description, source panel and Inspector.
 ## Validation
 
 ```sh
-npm test
-npm run typecheck
-npm run build:pages
-npm run docs:check
+pnpm test
+pnpm run typecheck
+pnpm run build:pages
+pnpm run docs:check
 ```
 
 See [hardware test instructions](tests/gpu/README.md),

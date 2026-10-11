@@ -6,8 +6,8 @@ private showcase sources in one Vite multi-page application. The three applicati
 are generated separately and merged into the same deployment under `/docs/`.
 
 ```sh
-npm run dev
-npm run build:site
+pnpm run dev
+pnpm run build:site
 ```
 
 For the integrated Site, Inspector, and Examples development workflow, see
@@ -39,10 +39,10 @@ uses CSS alone, Dark lazily starts the existing WebGPU showcase, and late
 callbacks cannot resurrect an obsolete background. The Examples showcase
 always retains its original rendering behavior regardless of shell appearance.
 
-Validate changes with site typechecking, `npm run build:site`, and:
+Validate changes with site typechecking, `pnpm run build:site`, and:
 
 ```sh
-npm test -- apps/site/tests packages/inspector/tests apps/site/playground/tests apps/site/examples/interactive-background/tests
+pnpm test apps/site/tests packages/inspector/tests apps/site/playground/tests apps/site/examples/interactive-background/tests
 ```
 
 Review production output at 1440, 1024, 800, 390 and 320px in both themes,
@@ -61,12 +61,12 @@ featured links are static and must not import the Examples catalog or engines.
 Canonical and social image URLs identify the public deployment, even in local
 previews. Query-selected examples share the Examples page metadata.
 
-Run `npm run brand:social` for share cards and `npm run showcase:capture` against
+Run `pnpm run brand:social` for share cards and `pnpm run showcase:capture` against
 a running development site for real Three.js captures. See the brand and showcase
 asset READMEs for source provenance. Both outputs are committed, so ordinary
 builds need neither browser capture nor asset generation.
 
-After `npm run build:pages`, serve the production tree under `/zenfg/` and run:
+After `pnpm run build:pages`, serve the production tree under `/zenfg/` and run:
 
 ```sh
 node apps/site/tests/browser/content.mjs

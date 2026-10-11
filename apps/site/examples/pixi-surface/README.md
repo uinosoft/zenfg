@@ -47,10 +47,10 @@ disposal. controls.ts owns input and its DOM; screen.ts owns mesh/uniform buffer
 Pixi owns its scene, sprite image and internal attachments. Dispose Pixi before
 destroying the borrowed target and device.
 
-Node graph/motion/sizing checks run with npm test. Hardware checks:
+Node graph/motion/sizing checks run with pnpm test. Hardware checks:
 
     node apps/site/examples/pixi-surface/tests/gpu/run.mjs
-    npm run build:pages
+    pnpm run build:pages
     node apps/site/examples/pixi-surface/tests/gpu/production.mjs
 
 See tests/gpu/README.md and THIRD_PARTY_NOTICES.md.

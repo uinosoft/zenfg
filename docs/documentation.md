@@ -7,15 +7,15 @@ in compile-checked package examples. The root README owns the project introducti
 
 ## Commands
 
-- `npm run docs:generate`: update small README metadata blocks from package manifests, toolchain configuration and Snapshot constants.
-- `npm run docs:check`: check metadata drift, public API comments and Markdown links.
-- `npm run docs:test`: run documentation pipeline regression tests.
-- `npm run docs:test:browser`: check the merged build in headless Chromium (Edge on Windows); screenshots go to `.test-dist/docs-browser`. Install Chromium with `npx playwright install chromium` on other systems.
-- `npm run dev`: serve the whole project at `http://127.0.0.1:5173/`, including `/docs/`.
-- `npm run dev:docs`: serve docs independently at `http://127.0.0.1:5174/docs/`.
-- `npm run docs:build`: build the VitePress site independently.
-- `npm run build:pages`: build and merge both sites into `apps/site/dist`.
-- `npm run preview:pages`: build and preview at `http://127.0.0.1:4173/zenfg/`.
+- `pnpm run docs:generate`: update small README metadata blocks from package manifests, toolchain configuration and Snapshot constants.
+- `pnpm run docs:check`: check metadata drift, public API comments and Markdown links.
+- `pnpm run docs:test`: run documentation pipeline regression tests.
+- `pnpm run docs:test:browser`: check the merged build in headless Chromium (Edge on Windows); screenshots go to `.test-dist/docs-browser`. Install Chromium with `pnpm exec playwright install chromium` on other systems.
+- `pnpm run dev`: serve the whole project at `http://127.0.0.1:5173/`, including `/docs/`.
+- `pnpm run dev:docs`: serve docs independently at `http://127.0.0.1:5174/docs/`.
+- `pnpm run docs:build`: build the VitePress site independently.
+- `pnpm run build:pages`: build and merge both sites into `apps/site/dist`.
+- `pnpm run preview:pages`: build and preview at `http://127.0.0.1:4173/zenfg/`.
 
 `SITE_BASE` selects the deploy prefix and defaults to `/zenfg/` for builds and
 `/` for development. `SITE_DEV_PORT` and `DOCS_DEV_PORT` override the default
@@ -48,7 +48,7 @@ internal routes and labels itself as development documentation.
 
 Do not edit `generated:*` blocks. Versions, install commands, badges, release
 links and compatibility rows come from their original metadata. Run
-`npm run docs:generate` after version changes and commit the resulting README
+`pnpm run docs:generate` after version changes and commit the resulting README
 changes with the release. API Markdown, website pages, search and llms.txt are
 build artifacts and are not committed.
 
@@ -77,4 +77,4 @@ checks cover this combination. The project site keeps its existing Vite version.
 
 Project navigation connects the homepage, Inspector, Examples and docs; the documentation sidebar navigates technical content. The brand always links to the project homepage. Cross-application links use native same-tab navigation. Keep documentation customization within public VitePress configuration and slots.
 
-The browser suite can also target a running development server: set `SITE_BASE=/` and `DOCS_TEST_ORIGIN=http://127.0.0.1:5173` before running `npm run docs:test:browser`. This exercises Vite Markdown module loading as well as the raw Markdown endpoints.
+The browser suite can also target a running development server: set `SITE_BASE=/` and `DOCS_TEST_ORIGIN=http://127.0.0.1:5173` before running `pnpm run docs:test:browser`. This exercises Vite Markdown module loading as well as the raw Markdown endpoints.

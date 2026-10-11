@@ -74,11 +74,11 @@ const requirements = [
 compatibility = replaceBlock(compatibility, 'compatibility', ['| ZenFG package | Version | Runtime/toolchain | Snapshot |','| --- | --- | --- | --- |',
     ...packages.map((p,i) => `| \`${p.name}\` | \`${p.version}\` | ${requirements[i]} | ${p.slug === 'webgpu' || p.slug === 'zenfg' ? `produces ${wire}` : p.slug === 'inspector' ? 'reads through @zenfg/snapshot' : `reads Legacy V0, Legacy Candidate V1, 1.1 (migrated), ${wire}`} |`),
 ].join('\n'));
-compatibility = replaceBlock(compatibility, 'toolchains', `Repository tooling: Node \`${workspace.engines.node}\`, npm \`${workspace.engines.npm}\`, TypeScript \`${workspace.devDependencies.typescript}\`, Rust \`${cargo.workspace.package['rust-version']}\`, wgpu \`${cargo.workspace.dependencies.wgpu}\`.`);
+compatibility = replaceBlock(compatibility, 'toolchains', `Repository tooling: Node \`${workspace.engines.node}\`, pnpm \`${workspace.packageManager.split('@')[1]}\`, npm publishing client \`${workspace.devDependencies.npm}\`, TypeScript \`${workspace.devDependencies.typescript}\`, Rust \`${cargo.workspace.package['rust-version']}\`, wgpu \`${cargo.workspace.dependencies.wgpu}\`.`);
 save('docs/compatibility.md', compatibility);
 for (const [file, value] of outputs) {
     if (read(file) === value) continue;
     if (check) failures.push(file); else write(file, value);
 }
-if (failures.length) throw new Error(`Run npm run docs:generate; generated documentation differs: ${[...new Set(failures)].join(', ')}`);
+if (failures.length) throw new Error(`Run pnpm run docs:generate; generated documentation differs: ${[...new Set(failures)].join(', ')}`);
 console.log(check ? 'Documentation metadata is up to date.' : 'Updated documentation metadata.');

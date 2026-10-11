@@ -21,7 +21,7 @@ pointer tests bypass browser pointer-capture eligibility only; rendering is real
 Results, PNGs, pixel comparisons, logs and snapshots are written under
 `.test-dist/babylon-lite-interop-gpu/`. Save each DPR's result before the next run.
 
-After `npm run build:pages`, run `npm run preview:pages` and use:
+After `pnpm run build:pages`, run `pnpm run preview:pages` and use:
 
 ```sh
 node apps/site/examples/babylon-lite-interop/tests/gpu/examples.mjs

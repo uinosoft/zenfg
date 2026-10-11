@@ -51,9 +51,9 @@ Regenerate or verify the committed artifact from the repository root:
 
 ## Validation
 
-    node scripts/run-tests.mjs apps/site/examples/glyph-interop/tests apps/site/playground/tests
-    npm run typecheck --workspace @zenfg/site-app
-    npm run build:pages
+    pnpm test apps/site/examples/glyph-interop/tests apps/site/playground/tests
+    pnpm --filter @zenfg/site-app run typecheck
+    pnpm run build:pages
     node apps/site/examples/glyph-interop/tests/gpu/run.mjs
     node apps/site/examples/glyph-interop/tests/gpu/production.mjs
 

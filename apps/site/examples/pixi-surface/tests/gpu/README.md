@@ -13,6 +13,6 @@ It bundles the actual source and local image, reads GPU pixels, and tests:
 production.mjs serves the built site under /zenfg/ and checks Examples, Inspector,
 source reading, controls, exact paused pixels, navigation/remount and DPR 2.
 
-Artifacts are written to .test-dist/pixi-surface-gpu/. Run after npm test, which
+Artifacts are written to .test-dist/pixi-surface-gpu/. Run after pnpm test, which
 cleans .test-dist. Tests retain Pixi's known teardown BindGroup warnings rather
 than suppressing them; validation, uncaptured errors and page/console errors fail.

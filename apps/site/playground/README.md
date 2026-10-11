@@ -10,9 +10,9 @@ See [visual foundations](../../../docs/visual-foundations.md) for the shared
 Storm / Light design tokens and validation workflow.
 
 ```sh
-npm install
-npm run dev
-npm run build:site
+pnpm install --frozen-lockfile
+pnpm run dev
+pnpm run build:site
 ```
 
 Run these commands from the repository root. The Site owns the showcase source
@@ -165,8 +165,8 @@ When registering an example, add its entry and real supporting files, and run
 the catalog/source-view tests. Code uses 14px text on desktop and 13px on mobile,
 with 1.7 line height, horizontal code scrolling and a scrollable file list.
 
-For browser acceptance, build with `npm run build:pages`, run
-`npm run preview:pages`, then run
+For browser acceptance, build with `pnpm run build:pages`, run
+`pnpm run preview:pages`, then run
 `node apps/site/playground/tests/browser/sourceView.mjs` from the repository root.
 `PLAYWRIGHT_MODULE` can point to an existing Playwright installation;
 `EXAMPLES_URL` and `GPU_TEST_BROWSER` override the preview and browser.
