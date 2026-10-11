@@ -6,8 +6,8 @@ file selection, drag-and-drop, legacy migration feedback, and validation errors.
 The page hides component branding and supplies the shared site navigation header.
 
 ```sh
-npm run dev
-npm run build:site
+pnpm run dev
+pnpm run build:site
 ```
 
 For the integrated Site, Inspector, and Examples development workflow, see

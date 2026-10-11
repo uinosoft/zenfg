@@ -10,7 +10,7 @@ Examples adapter -> reference-renderer-demo -> reference-renderer -> @zenfg/webg
 
 ## Run
 
-Run `npm run dev` and select **Reference Renderer**. The existing
+Run `pnpm run dev` and select **Reference Renderer**. The existing
 `?example=reference-renderer` URL remains unchanged. The demo starts with 1,000
 primitives. Drag to orbit, scroll to zoom, and adjust instance count, frustum
 culling or depth convention in the controls. Camera dragging follows the pointer
@@ -40,10 +40,10 @@ until another example establishes a concrete shared need.
 ## Validation
 
 ```sh
-npm test
-npm run typecheck
-npm run build:pages
-npm run docs:check
+pnpm test
+pnpm run typecheck
+pnpm run build:pages
+pnpm run docs:check
 ```
 
 Host and camera/scene tests live here; renderer and geometry tests stay with the

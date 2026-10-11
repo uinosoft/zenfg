@@ -32,7 +32,7 @@ function shipped(pkg, path, manifests) {
 function sharedImpact(pkg, path) {
     if (path === 'LICENSE' || path === 'scripts/docs/sync.mjs' || path === 'scripts/docs/catalog.mjs') return true;
     if (pkg.registry === 'npm') {
-        return ['package.json', 'package-lock.json', '.npmrc', 'scripts/build-package.mjs'].includes(path)
+        return ['package.json', 'package-lock.json', 'pnpm-lock.yaml', 'pnpm-workspace.yaml', '.node-version', '.npmrc', 'scripts/package-manager.mjs', 'scripts/build-package.mjs'].includes(path)
             || /^tsconfig[^/]*\.json$/u.test(path)
             || (pkg.slug === 'inspector' && path === 'scripts/build-inspector-themes.mjs');
     }

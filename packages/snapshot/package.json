@@ -31,10 +31,10 @@
   "scripts": {
     "build": "node ../../scripts/build-package.mjs",
     "build:watch": "node ../../scripts/build-package.mjs --watch",
-    "prepack": "npm run build",
-    "pack:dry-run": "npm pack --dry-run --json",
+    "prepack": "pnpm -r --filter \"@zenfg/snapshot...\" run build",
     "typecheck": "tsc --noEmit -p tsconfig.json",
-    "test": "node ../../scripts/run-tests.mjs packages/snapshot/tests"
+    "test": "node ../../scripts/run-tests.mjs packages/snapshot/tests",
+    "pack": "pnpm pack --json"
   },
   "devDependencies": {
     "ajv": "^8.20.0"

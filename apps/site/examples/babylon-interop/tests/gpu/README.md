@@ -10,7 +10,7 @@ The runner uses installed Edge on Windows and the standard `playwright`
 package. Set `PLAYWRIGHT_MODULE` to an existing Playwright module when using
 a bundled runtime outside the workspace, or `GPU_TEST_BROWSER` to select an
 existing browser executable. It does not download browsers or accept software
-GPU fallback. Do not run concurrently with `npm test`, which clears `.test-dist`.
+GPU fallback. Do not run concurrently with `pnpm test`, which clears `.test-dist`.
 
 Results, logs, PNG readbacks and real host snapshots are written to
 `.test-dist/babylon-interop-gpu`. The process fails on assertions, validation or
@@ -44,7 +44,7 @@ that do not change button state.
 
 ## Built Examples acceptance
 
-After `npm run build:pages`, run `npm run preview:pages` and use:
+After `pnpm run build:pages`, run `pnpm run preview:pages` and use:
 
 ```powershell
 $env:EXAMPLES_URL = 'http://127.0.0.1:4173/playground/'

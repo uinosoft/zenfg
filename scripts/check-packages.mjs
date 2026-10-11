@@ -1,7 +1,9 @@
 import { assertLocalLinks, quickStart } from './docs/markdown.mjs';
 import { spawnSync } from 'node:child_process';
+import { npmCommand, pnpm, packPackage, assertPackedManifest, installedPackageVersion } from './package-manager.mjs';
 import {
     copyFileSync,
+    cpSync,
     existsSync,
     mkdirSync,
     mkdtempSync,
@@ -23,10 +25,6 @@ import {
 } from 'node:path';
 
 const rootDir = resolve(import.meta.dirname, '..');
-const npmCli = process.env.npm_execpath;
-if (!npmCli) {
-    throw new Error('Run this check through `npm run pack:check` so npm_execpath is available.');
-}
 const packages = [
     {
         name: '@zenfg/snapshot',
@@ -117,19 +115,8 @@ function run(command, args, options = {}) {
 }
 
 function runNpm(args, options) {
-    return run(process.execPath, [npmCli, ...args], options);
-}
-
-function parsePackOutput(output, label) {
-    try {
-        const parsed = JSON.parse(output);
-        if (!Array.isArray(parsed) || parsed.length !== 1) {
-            throw new Error('expected one package result');
-        }
-        return parsed[0];
-    } catch (error) {
-        throw new Error(`Could not parse npm pack output for ${label}: ${error}`);
-    }
+    const invocation = npmCommand(args);
+    return run(invocation.command, invocation.args, { ...options, env: invocation.env });
 }
 
 function filesBelow(directory) {
@@ -214,15 +201,7 @@ try {
     const tarballs = [];
     for (const packageSpec of packages) {
         const packageDirectory = resolve(rootDir, packageSpec.directory);
-        const packed = parsePackOutput(runNpm([
-            'pack',
-            '--json',
-            '--pack-destination',
-            temporaryDirectory,
-        ], {
-            cwd: packageDirectory,
-            capture: true,
-        }), packageSpec.directory);
+        const packed = packPackage(packageDirectory, temporaryDirectory, (command, args, options) => run(command, args, { ...options, capture: true }));
         if (!existsSync(resolve(packageDirectory, 'dist'))) {
             throw new Error(`${packageSpec.name} did not build itself during its prepack lifecycle.`);
         }
@@ -249,7 +228,7 @@ try {
         private: true,
         type: 'module',
         devDependencies: {
-            typescript: '6',
+            typescript: installedPackageVersion('typescript'),
         },
     }, null, 2)}\n`);
     runNpm([
@@ -286,6 +265,8 @@ try {
             ...name.split('/'),
         );
         const packageJson = JSON.parse(readFileSync(join(installedPackageDirectory, 'package.json'), 'utf8'));
+        const source = JSON.parse(readFileSync(join(rootDir, packages.find(p => p.name === name).directory, 'package.json'), 'utf8'));
+        assertPackedManifest(source, packageJson);
         if (Object.values(packageJson.dependencies ?? {}).some((value) => String(value).startsWith('workspace:'))) {
             throw new Error(`${packageJson.name} contains a workspace dependency in its published manifest.`);
         }
@@ -383,7 +364,24 @@ try {
     }
     run(process.execPath, [tscPath, '--project', 'tsconfig.json'], { cwd: consumerDirectory });
 
-    process.stdout.write(`Verified npm tarball contents, source-backed declaration maps, runtime imports, and ${typescriptVersion} declarations plus recipes from a temporary empty project.\n`);
+    const isolated = join(temporaryDirectory, 'pnpm-consumer');
+    mkdirSync(isolated);
+    writeFileSync(join(isolated, 'package.json'), JSON.stringify({ private: true, type: 'module', devDependencies: { typescript: installedPackageVersion('typescript') } }) + '\n');
+    const storeBase = dirname(pnpm(['store', 'path', '--silent']).trim());
+    pnpm(['add', '--ignore-scripts', '--store-dir', storeBase, ...tarballs.map(({ path }) => path)], { cwd: isolated });
+    run(process.execPath, ['--input-type=module', '--eval', smokeTest], { cwd: isolated });
+    for (const { name } of tarballs) {
+        const source = JSON.parse(readFileSync(join(rootDir, packages.find(p => p.name === name).directory, 'package.json'), 'utf8'));
+        const installed = JSON.parse(readFileSync(join(isolated, 'node_modules', ...name.split('/'), 'package.json'), 'utf8'));
+        assertPackedManifest(source, installed);
+        const installedDirectory = join(isolated, 'node_modules', ...name.split('/'));
+        validateDeclarationMaps(name, installedDirectory);
+        assertLocalLinks(installedDirectory);
+    }
+    for (const file of ['index.ts', 'tsconfig.json', 'examples']) cpSync(join(consumerDirectory, file), join(isolated, file), { recursive: true });
+    run(process.execPath, [join(isolated, 'node_modules/typescript/bin/tsc'), '--project', 'tsconfig.json'], { cwd: isolated });
+
+    process.stdout.write(`Verified npm tarball contents, source-backed declaration maps, runtime imports, and ${typescriptVersion} declarations plus recipes from empty npm and pnpm projects.\n`);
 } finally {
     rmSync(temporaryDirectory, { recursive: true, force: true });
 }

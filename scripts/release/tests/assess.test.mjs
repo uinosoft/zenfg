@@ -101,3 +101,13 @@ test('missing baseline is unknown; uncommitted versions and content are excluded
     assert.equal(byId(report, 'npm_snapshot').status, 'unchanged');
     assert.equal(f.git('status', '--porcelain'), before);
 });
+
+test('pnpm lock and workspace build settings are shared npm inputs without forcing Cargo release', t => {
+    const f = fixture(t);
+    f.write('pnpm-lock.yaml', 'lockfileVersion: 9.0\n');
+    f.write('pnpm-workspace.yaml', 'packages: [packages/*]\n');
+    f.commit();
+    const report = assess(f);
+    assert.ok(report.packages.filter(p => p.registry === 'npm').every(p => p.status === 'review'));
+    assert.ok(report.packages.filter(p => p.registry === 'cargo').every(p => p.status === 'unchanged'));
+});

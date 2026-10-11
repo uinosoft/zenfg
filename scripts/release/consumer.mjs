@@ -6,6 +6,7 @@ import { parse } from 'smol-toml';
 import { root, json, read, assertCargoRegistrySources } from './core.mjs';
 import { archivePath, listFiles, npm, run, writeJson, output } from './io.mjs';
 import { assertLocalLinks, quickStart } from '../docs/markdown.mjs';
+import { installedPackageVersion, assertPackedManifest } from '../package-manager.mjs';
 
 export async function consumer(packages, mode) {
     const dir = mkdtempSync(join(tmpdir(), 'zenfg-release-consumer-'));
@@ -15,7 +16,7 @@ export async function consumer(packages, mode) {
     mkdirSync(samples);
     try {
         if (js.length) {
-            const tsVersion = json('package-lock.json').packages['node_modules/typescript'].version;
+            const tsVersion = installedPackageVersion('typescript');
             writeJson(join(dir, 'package.json'), { private: true, type: 'module' });
             npm(['install', '--ignore-scripts', '--no-audit', '--no-fund', '--registry=https://registry.npmjs.org',
                 'typescript@' + tsVersion, ...js.map(p => mode === 'registry' ? p.name + '@' + p.version : archivePath(p.archive))], { cwd: dir });
@@ -27,6 +28,7 @@ export async function consumer(packages, mode) {
                 const installed = join(dir, 'node_modules', ...p.name.split('/'));
                 const manifest = JSON.parse(readFileSync(join(installed, 'package.json'), 'utf8'));
                 if (manifest.version !== p.version) throw new Error('Consumer resolved wrong version of ' + p.name);
+                assertPackedManifest(json(p.directory + '/package.json'), manifest);
                 assertLocalLinks(installed);
                 for (const [subpath, target] of Object.entries(manifest.exports)) {
                     if (typeof target !== 'object' || !target.import) continue;

@@ -75,11 +75,11 @@ queries provide optional GPU timing.
 ## Validation
 
 ```sh
-npm test
-npm run typecheck
-npm test
-npm run build:pages
-npm run docs:check
+pnpm test
+pnpm run typecheck
+pnpm test
+pnpm run build:pages
+pnpm run docs:check
 ```
 
 Tests cover graph content/roots, frame settlement, replacement and disposal,

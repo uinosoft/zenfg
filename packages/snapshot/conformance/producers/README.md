@@ -14,6 +14,6 @@ retained lifetimes, and physical-allocation equivalence classes.
 Redundant ordering edges are folded into a value edge for the same
 source/target/resource tuple because the value edge already imposes that order.
 
-Run the corpus from the workspace root with `npm run test:cross-language`.
+Run the corpus from the workspace root with `pnpm run test:cross-language`.
 Generated raw files, projections, and failure diagnostics live only under
 `.test-dist/cross-language`.

@@ -1,26 +1,26 @@
 # Contributing
 
-ZenFG is a mixed npm and Cargo workspace. Install Node.js 24 with npm 11 and
-Rust 1.98, then run:
+ZenFG uses pnpm for its JavaScript workspace and Cargo for Rust. Install Node.js
+24 (the CI patch version is in .node-version), pnpm 12.11.2 and Rust 1.98, then run:
 
 ```text
-npm install
-npm run build
-npm run docs:check
-npm run typecheck
-npm test
-npm run test:cross-language
+pnpm install --frozen-lockfile
+pnpm run build
+pnpm run docs:check
+pnpm run typecheck
+pnpm test
+pnpm run test:cross-language
 cargo test --locked --workspace --all-features
 cargo test --locked --workspace --all-features --doc
 cargo check --locked --workspace --all-features --examples
 cargo clippy --locked --workspace --all-targets --all-features -- -D warnings
 cargo fmt --all --check
-npm run pack:check
-npm run cargo:package-check
+pnpm run pack:check
+pnpm run cargo:package-check
 ```
 
 Workspace Cargo checks use the committed `Cargo.lock` with `--locked`, including
-the Rust producer launched by `npm run test:cross-language`. Intentional dependency
+the Rust producer launched by `pnpm run test:cross-language`. Intentional dependency
 changes must update and commit `Cargo.lock` explicitly; do not remove `--locked`
 to bypass a failure. Formatting does not resolve dependencies. The packaging
 bootstrap and temporary consumer exceptions are described in
@@ -30,9 +30,26 @@ See the [testing guide](docs/testing.md) for the local/CI/release test matrix,
 manual browser WebGPU acceptance commands, and the coverage boundaries of the
 TypeScript mock and Rust noop test layers.
 
+## Workspace dependencies and tool ownership
+
+Keep one JavaScript lockfile, `pnpm-lock.yaml`. Intentional dependency changes
+update it explicitly; CI uses `pnpm install --frozen-lockfile`. pnpm 12 may store
+multiple YAML documents in this file. Do not parse only its first document.
+
+Internal JavaScript dependencies use exact `workspace:VERSION` references. When
+Snapshot changes version, update every source workspace reference, including root
+tools and private apps. Package versions and publication selection remain independent;
+a dependent with changed shipped metadata needs its own version bump before publishing.
+
+pnpm runs workspace builds in dependency order and packs the npm artifacts. The
+root test runner remains a single aggregator because its output directory is shared.
+The pinned npm CLI is used only for registry uploads and isolated npm consumers.
+Cargo retains its lockfile, rustup toolchain, compilation and publication. Experimental
+pnpm Cargo integration and pipeline task caching are disabled.
+
 ## TypeScript test coverage
 
-`npm run typecheck` is the CI entrypoint. It checks the script Node tests,
+`pnpm run typecheck` is the CI entrypoint. It checks the script Node tests,
 package examples, each package's source/tests, and the Site source/tests once
 per existing project. Site Node tests and their imported helpers share the
 strict Site configuration; `vite/client` types cover `?raw` and `?url` imports.
@@ -58,7 +75,7 @@ it contains only browser acceptance files. `tests/browser/**` and
 `tests/gpu/**` stay outside Node typechecking and the default test runner.
 Test helpers such as `browserEnvironment.ts` still run under Node and are checked.
 TypeGPU source remains typechecked as TypeScript; esbuild and the TypeGPU plugin
-perform its runtime transformation during `npm test`. Pinned upstream JavaScript
+perform its runtime transformation during `pnpm test`. Pinned upstream JavaScript
 keeps its existing explicit import boundaries rather than enabling JavaScript
 checking across third-party source.
 
@@ -89,7 +106,7 @@ and exclude pinned upstream code from automatic rewriting.
 Start the complete project site from a clean checkout with:
 
 ```text
-npm run dev
+pnpm run dev
 ```
 
 This starts the Site Vite application and VitePress documentation service,
@@ -104,7 +121,7 @@ The Site resolves the publishable package sources directly, so package `dist`
 directories are not required for website development. Changes to package source
 are included in the same Vite module graph.
 
-`npm run build` builds every publishable package and the Site. `npm run
+`pnpm run build` builds every publishable package and the Site. `npm run
 build:pages` builds the directly deployable Site tree, and `npm run
 preview:pages` rebuilds and serves that tree at
 `http://127.0.0.1:4173/zenfg/` for a production-like check.

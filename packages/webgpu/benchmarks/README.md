@@ -9,7 +9,7 @@ percentiles.
 Run every scenario in compact and report modes with the default realistic profile:
 
 ```sh
-npm run benchmark:compile --workspace @zenfg/webgpu
+pnpm --filter @zenfg/webgpu run benchmark:compile
 ```
 
 Available options are `--profile realistic|small|medium|large`,

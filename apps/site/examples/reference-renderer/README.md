@@ -135,10 +135,10 @@ consumes this renderer through the same public entrypoint as any future engine
 integration. The Examples mounts that demo without becoming a renderer dependency.
 
 ```sh
-npm test
-npm run typecheck
-npm run build:pages
-npm run docs:check
+pnpm test
+pnpm run typecheck
+pnpm run build:pages
+pnpm run docs:check
 ```
 
 CPU tests in this package cover data layout, graph declarations, resource sharing

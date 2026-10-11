@@ -1,23 +1,28 @@
 # Release validation
 
-Run the release checks from a clean checkout with the supported Node.js, npm,
+Run the release checks from a clean checkout with the supported Node.js, pnpm, npm,
 and Rust toolchains. The authoritative observed counts and archive sizes for a
 specific candidate belong in its release checklist.
 
 ## TypeScript and npm
 
-1. Run `npm run typecheck` and `npm test`.
-2. Run `npm run test:cross-language` to compare the TypeScript and Rust
+1. Run `pnpm run typecheck` and `pnpm test`.
+2. Run `pnpm run test:cross-language` to compare the TypeScript and Rust
    producers and decoders against the shared conformance corpus.
-3. Run `npm run build` and `npm run docs:check`.
-4. Remove generated package output, then run `npm run pack:check`. This rebuilds
-   all three npm packages, inspects their tarballs, installs them in a clean
-   temporary consumer, verifies their public exports and declaration maps, and
-   compiles the documented examples.
-5. Inspect `npm publish --dry-run --access public --tag CHANNEL` output for each
-   package before publishing. Replace `CHANNEL` with `next` for prereleases or
-   `latest` for versions without a prerelease suffix. The selected-package
-   Publish dry-run chooses the channel from each package version.
+3. Run `pnpm run build` and `pnpm run docs:check`.
+4. Remove generated package output, then run `pnpm run pack:check`. This rebuilds
+   all three npm packages, inspects their tarballs, installs them in clean
+   temporary npm and pnpm consumers, verifies their public exports and declaration
+   maps, and compiles the documented examples in both dependency layouts.
+5. Run `pnpm run release:smoke:npm` to retain validated archives in `target/release/`.
+   Inspect each archive with the pinned CLI:
+   `node node_modules/npm/bin/npm-cli.js publish target/release/ARCHIVE.tgz --dry-run --ignore-scripts --access public --tag CHANNEL`.
+   Replace `CHANNEL` with `next` for prereleases or `latest` for versions without
+   a prerelease suffix. The selected-package Publish dry-run chooses the channel
+   from each package version.
+
+Publishing dry-runs require unoccupied versions. Ordinary static checks and
+artifact smoke tests also work with versions that are already published.
 
 The Snapshot checks cover canonical V1, Legacy V0, Legacy Candidate V1,
 structural and semantic failures, cross-language producer parity, deterministic
@@ -36,9 +41,9 @@ serialization, JSON-safety, and the extension-depth boundary.
    `cargo run --locked -p zenfg-snapshot --example basic`.
    Run `cargo doc --locked --workspace --all-features --no-deps` with
    `RUSTDOCFLAGS="-D warnings"`.
-5. Run `npm run cargo:package-check` and inspect both crate archives.
+5. Run `pnpm run cargo:package-check` and inspect both crate archives.
 6. Run the native selected-package Cargo dry-run and clean artifact consumers
-   through `npm run release:smoke`. This never uploads. See the
+   through `pnpm run release:smoke`. This never uploads. See the
    [release process](release-process.md) for candidate selection, independent
    dependencies, approval, evidence and failure recovery.
 

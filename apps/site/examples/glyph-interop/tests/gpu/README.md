@@ -3,7 +3,7 @@
 Run from the repository root:
 
     node apps/site/examples/glyph-interop/tests/gpu/run.mjs
-    npm run build:pages
+    pnpm run build:pages
     node apps/site/examples/glyph-interop/tests/gpu/production.mjs --local-only
 
 The first command starts a temporary Vite server and uses installed Edge on

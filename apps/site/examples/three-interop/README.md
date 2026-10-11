@@ -5,7 +5,7 @@ same color and depth attachments, coordinated by ZenFG. Cyan rings and columns
 belong to Three.js; orange cubes and spheres, and the neutral platform, belong
 to the Reference Renderer. They occlude one another in a single shared scene.
 
-Run `npm run dev` and select **Three.js · Co-rendering**, or use
+Run `pnpm run dev` and select **Three.js · Co-rendering**, or use
 `?example=three-interop`. Drag to orbit and scroll to zoom. **Reverse Z** starts
 enabled; switching it preserves the camera pose and should preserve the image.
 Color and depth sharing are always enabled. There are no remote assets.
@@ -84,10 +84,10 @@ example does not import Examples or the basic Reference Renderer demo.
 ## Validation
 
 ```sh
-npm test
-npm run typecheck
-npm run build:pages
-npm run docs:check
+pnpm test
+pnpm run typecheck
+pnpm run build:pages
+pnpm run docs:check
 ```
 
 CPU tests exercise graph declarations, depth projections, attachment contracts

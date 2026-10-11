@@ -4,7 +4,7 @@ A procedural showcase of Babylon.js and the Reference Renderer sharing a GPU
 device and a scene. Cyan rings and columns belong to Babylon.js; orange cubes
 and spheres, and the neutral platform, belong to the Reference Renderer.
 
-Run `npm run dev` and select **Babylon.js · Co-rendering**, or use
+Run `pnpm run dev` and select **Babylon.js · Co-rendering**, or use
 `?example=babylon-interop`. Drag to orbit and scroll to zoom. **Reverse Z** starts
 enabled; switching preserves the camera pose and should preserve the image.
 Color and depth sharing are always enabled. There are no remote assets.
@@ -100,10 +100,10 @@ device. Timestamp queries are optional and checked on the actual shared device.
 ## Validation
 
 ```sh
-npm test
-npm run typecheck
-npm run build:pages
-npm run docs:check
+pnpm test
+pnpm run typecheck
+pnpm run build:pages
+pnpm run docs:check
 ```
 
 See the [hardware test instructions](tests/gpu/README.md),

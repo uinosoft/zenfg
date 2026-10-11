@@ -83,6 +83,8 @@ ZenFG 通过显式 FrameGraph 协调渲染与计算工作。直接使用 WebGPU 
 
 更多指南和参考资料见英文[文档索引](docs/README.md)。
 修改公共语义、示例或发布产物前，请阅读英文[贡献指南](CONTRIBUTING.md)。
+源码开发使用 pnpm 管理 JavaScript、Cargo 管理 Rust；在仓库根目录运行
+`pnpm install --frozen-lockfile` 安装工作区依赖。
 
 ## 集成层级
 

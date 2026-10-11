@@ -4,7 +4,7 @@ Run from the repository root:
 
 ```sh
 node apps/site/examples/pixi-interop/tests/gpu/run.mjs
-npm run build:pages
+pnpm run build:pages
 node apps/site/examples/pixi-interop/tests/gpu/production.mjs
 ```
 

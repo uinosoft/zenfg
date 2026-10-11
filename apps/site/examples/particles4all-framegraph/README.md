@@ -142,11 +142,11 @@ See [VALIDATION.md](./VALIDATION.md) for the migration run, browser coverage,
 upstream comparisons, and hardware configurations still to verify.
 
 ```sh
-npm test
-npm run typecheck
-npm test
-npm run build:pages
-npm run docs:check
+pnpm test
+pnpm run typecheck
+pnpm test
+pnpm run build:pages
+pnpm run docs:check
 ```
 
 Workload tests use the real FrameGraph compiler and a fake WebGPU device that

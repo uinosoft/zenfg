@@ -30,7 +30,7 @@ snapshots, mobile layout, example switching and explicit first-load retry.
 Network acceptance can take several minutes. Results and screenshots go to
 .test-dist/playcanvas-gsplat-site. No fixture or proxy replaces the remote data.
 
-Run npm test before these runners: the CPU runner recreates .test-dist.
+Run pnpm test before these runners: the CPU runner recreates .test-dist.
 Viewport emulation is not validation on a physical mobile GPU.
 
 For native-controller interaction regression checks, run:

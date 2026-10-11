@@ -23,16 +23,16 @@
     "LICENSE"
   ],
   "dependencies": {
-    "@zenfg/snapshot": "0.1.1"
+    "@zenfg/snapshot": "workspace:0.1.1"
   },
   "scripts": {
     "benchmark:compile": "node ../../scripts/run-webgpu-compile-benchmark.mjs",
     "build": "node ../../scripts/build-package.mjs",
     "build:watch": "node ../../scripts/build-package.mjs --watch",
-    "prepack": "npm run build --workspace @zenfg/snapshot && npm run build",
-    "pack:dry-run": "npm pack --dry-run --json",
+    "prepack": "pnpm -r --filter \"@zenfg/webgpu...\" run build",
     "typecheck": "tsc --noEmit -p tsconfig.json",
-    "test": "node ../../scripts/run-tests.mjs packages/webgpu/tests"
+    "test": "node ../../scripts/run-tests.mjs packages/webgpu/tests",
+    "pack": "pnpm pack --json"
   },
   "publishConfig": {
     "access": "public",

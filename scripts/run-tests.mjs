@@ -4,6 +4,7 @@ import { mkdirSync, readdirSync, readFileSync, rmSync, statSync } from 'node:fs'
 import { join, resolve } from 'node:path';
 import typegpuPlugin from 'unplugin-typegpu/esbuild';
 import { collectTestFiles } from './test-discovery.mjs';
+import { pnpmCommand } from './package-manager.mjs';
 
 const rootDir = resolve(import.meta.dirname, '..');
 
@@ -50,18 +51,8 @@ if (entryPoints.length === 0) {
     process.exit(1);
 }
 
-const npmExecPath = process.env.npm_execpath;
-const npmCommand = npmExecPath ? process.execPath : process.platform === 'win32' ? 'npm.cmd' : 'npm';
-const npmArgsPrefix = npmExecPath ? [npmExecPath] : [];
-const packageBuild = spawnSync(npmCommand, [
-    ...npmArgsPrefix,
-    'run',
-    'build:packages',
-], {
-    cwd: rootDir,
-    stdio: 'inherit',
-    shell: !npmExecPath && process.platform === 'win32',
-});
+const invocation = pnpmCommand(['run', 'build:packages']);
+const packageBuild = spawnSync(invocation.command, invocation.args, { cwd: rootDir, env: invocation.env, stdio: 'inherit' });
 
 if (packageBuild.error) {
     console.error(packageBuild.error);

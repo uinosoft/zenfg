@@ -1,0 +1,23 @@
+packages:
+  - packages/*
+  - apps/site
+  - apps/docs
+
+# Cargo keeps its own registry, lockfile and rustup toolchain.
+cargo:
+  enabled: false
+
+linkWorkspacePackages: false
+injectWorkspacePackages: false
+
+overrides:
+  'vitepress>vite': 6.4.3
+
+tasks:
+  build:
+    dependsOn: ['^build']
+
+allowBuilds:
+  esbuild@0.28.2: true
+  esbuild@0.25.12: true
+  fsevents@2.3.3: false

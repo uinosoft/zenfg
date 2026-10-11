@@ -85,7 +85,8 @@ Each example documents its dependency versions and integration details.
 
 Browse the [documentation index](docs/README.md) for guides and reference
 material. Before changing public semantics, examples, or release artifacts,
-read [Contributing](CONTRIBUTING.md).
+read [Contributing](CONTRIBUTING.md). Source development uses pnpm for JavaScript
+and Cargo for Rust; install workspace dependencies with `pnpm install --frozen-lockfile`.
 
 ## Integration levels
 

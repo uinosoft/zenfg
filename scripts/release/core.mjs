@@ -24,6 +24,9 @@ export function exactVersion(value, registry) {
     }
     return version;
 }
+export function sourceVersion(value, registry) {
+    return exactVersion(registry === 'npm' && typeof value === 'string' ? value.replace(/^workspace:/u, '') : value, registry);
+}
 export function channel(version) {
     if (!semver.test(version)) throw new Error('Invalid release version: ' + version);
     return version.includes('-') ? 'next' : 'latest';
@@ -35,7 +38,7 @@ export function catalog(readAt = read) {
         const pkg = registry === 'npm' ? manifest : manifest.package;
         const dependencies = Object.entries(manifest.dependencies ?? {}).filter(([name]) =>
             registry === 'npm' ? name.startsWith('@zenfg/') : name === 'zenfg-snapshot',
-        ).map(([name, spec]) => ({ name, version: exactVersion(typeof spec === 'string' ? spec : spec.version, registry) }));
+        ).map(([name, spec]) => ({ name, version: sourceVersion(typeof spec === 'string' ? spec : spec.version, registry) }));
         return { id, registry, slug, directory, name: pkg.name, version: pkg.version,
             tag: registry + '/' + slug + '/v' + pkg.version, dependencies,
             channel: channel(pkg.version),
