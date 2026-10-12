@@ -10,7 +10,7 @@ queue.
 
 Build domain-specific rendering and compute with wgpu while keeping explicit
 resource and execution boundaries. See the
-[composition model](./CONCEPTS.md#integration-levels).
+[composition model][zenfg-composition].
 
 ZenFG does not own scenes, pipelines, bind groups, samplers, surfaces,
 presentation, or device-loss policy. Public APIs may change before 1.0; pin exact
@@ -249,12 +249,12 @@ Register shared imports once per recording, bind their native objects, and pass 
 handle to consumers. Private native bindings are not scanned for dependencies.
 Use typed access declarations at graph-visible boundaries of command/external
 passes; external submission orders shared-queue work, not GPU completion.
-See [resource declaration granularity](CONCEPTS.md#choosing-resource-declaration-granularity).
+See [resource declaration granularity][zenfg-resource-granularity].
 
 Declaration granularity is optional: complex workloads can keep private weights,
 parameters, and scratch internally bound, while teaching or diagnostic use can
 expose more resources. Graph-visible dependencies and access correctness still
-apply. See [Choosing resource declaration granularity](CONCEPTS.md#choosing-resource-declaration-granularity).
+apply. See [Choosing resource declaration granularity][zenfg-resource-granularity].
 
 For resources exposed to the graph:
 
@@ -279,7 +279,7 @@ timed passes returns `GpuTimingUnavailableReason::TooManyTimedNodes` before
 creating timing resources. Execution still proceeds, and `TimingMode::Both`
 keeps CPU results.
 
-See [Core concepts](CONCEPTS.md)
+See [Core concepts][zenfg-concepts]
 for the shared ownership, content, dependency, lifetime, and integration model.
 
 ## Common mistakes
@@ -309,7 +309,7 @@ outside the workspace:
 | Portable Snapshot export | [`snapshot_export.rs`](https://github.com/uinosoft/zenfg/blob/cargo/zenfg/v0.2.0/crates/zenfg/examples/snapshot_export.rs) |
 | Asynchronous GPU timing | [`gpu_timing.rs`](https://github.com/uinosoft/zenfg/blob/cargo/zenfg/v0.2.0/crates/zenfg/examples/gpu_timing.rs) |
 | Compute storage output | [`compute_output.rs`](https://github.com/uinosoft/zenfg/blob/cargo/zenfg/v0.2.0/crates/zenfg/examples/compute_output.rs) |
-| Scoped resize cleanup and idle eviction | [resource_pool_control.rs](../examples/resource_pool_control.rs) |
+| Scoped resize cleanup and idle eviction | [resource_pool_control.rs][zenfg-pool-recipe] |
 
 The repository also contains CPU-only compile and pool benchmarks. Snapshot
 export requires the `snapshot` feature.
@@ -334,13 +334,13 @@ persistent instance ID is exposed. Management requires the frame/compiled-frame
 borrow to end and does not wait for GPU completion.
 
 Run `cargo run --locked -p zenfg --example resource-pool-control` for the noop
-resize/eviction recipe. [Core Concepts](CONCEPTS.md#lifetime-and-allocation)
+resize/eviction recipe. [Core Concepts][zenfg-lifetime]
 defines ownership, idle counts and failure boundaries.
 
 ## Further reading
 
 - [ZenFG documentation index](https://github.com/uinosoft/zenfg/blob/cargo/zenfg/v0.2.0/docs/README.md)
-- [Core concepts](CONCEPTS.md)
+- [Core concepts][zenfg-concepts]
 - [`zenfg-snapshot`](https://github.com/uinosoft/zenfg/blob/cargo/zenfg/v0.2.0/crates/zenfg-snapshot/README.md)
 - [Compatibility](https://github.com/uinosoft/zenfg/blob/cargo/zenfg/v0.2.0/docs/compatibility.md)
 
@@ -355,6 +355,14 @@ usage. Execution total includes preparation, submission and transient release.
 
 ## Usage references
 
-- [Runtime concepts](./CONCEPTS.md)
-- [Upgrade notes](./MIGRATION.md)
-- [Complete examples](../examples/)
+- [Runtime concepts][zenfg-concepts]
+- [Upgrade notes][zenfg-migration]
+- [Complete examples][zenfg-examples]
+
+[zenfg-composition]: ./CONCEPTS.md#integration-levels
+[zenfg-resource-granularity]: CONCEPTS.md#choosing-resource-declaration-granularity
+[zenfg-concepts]: CONCEPTS.md
+[zenfg-pool-recipe]: ../examples/resource_pool_control.rs
+[zenfg-lifetime]: CONCEPTS.md#lifetime-and-allocation
+[zenfg-migration]: ./MIGRATION.md
+[zenfg-examples]: ../examples/

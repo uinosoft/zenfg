@@ -1,5 +1,7 @@
 # @zenfg/inspector usage
 
+<a id="inspector-workbench-guide"></a>
+
 
 
 `@zenfg/inspector` is an embeddable, renderer-independent DOM workbench for

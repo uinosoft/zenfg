@@ -1,7 +1,7 @@
 import { packages, workspace, cargo, read, write, repository, website, snapshotVersion } from './catalog.mjs';
 import GithubSlugger from 'github-slugger';
 import { usagePath } from './usage.mjs';
-import { anchors, markdown, markdownFiles } from './markdown.mjs';
+import { anchors, markdown, markdownFiles, packageRepositoryLinks } from './markdown.mjs';
 import { relative, resolve } from 'node:path';
 import { root } from './catalog.mjs';
 const check = process.argv.includes('--check');
@@ -37,7 +37,7 @@ for (const file of ['README.md', 'README.zh-CN.md']) {
 }
 for (const p of packages) {
     const api = p.registry === 'npm' ? `${website}docs/api/${p.slug}/` : `https://docs.rs/${p.name}/${p.version}/`;
-    let text = replaceBlock(read(`${p.directory}/README.md`), 'badges', [versionBadge(p), p.registry === 'npm' ? badge('API Docs (development)', 'badge/API_docs-development-blue', api) : badge('docs.rs', `docsrs/${p.name}/${p.version}`, api), license].join('\n'));
+    let text = replaceBlock(read(`${p.directory}/README.md`), 'badges', [versionBadge(p), p.registry === 'npm' ? badge('API Docs (development)', 'badge/API_docs-development-blue', api) : badge('docs.rs', `docsrs/${p.name}/${p.version}`, api), license.replace('/blob/main/', '/blob/' + p.tag + '/')].join('\n'));
     text = replaceBlock(text, 'installation', `\`\`\`sh\n${p.registry === 'npm' ? `npm install ${p.name}@${p.version}` : `cargo add ${p.name}@=${p.version}`}\n\`\`\``);
     text = replaceBlock(text, 'documentation', [
         `The package manifest declares **${p.name} ${p.version}**. Registry badges show the current published channel, not your installed version.`,
@@ -47,7 +47,7 @@ for (const p of packages) {
         `- [${p.registry === 'npm' ? 'TypeScript API (development branch)' : 'Rust API for this version'}](${api}).`,
         `- [Source and documentation for this release](${repository}/tree/${p.tag}/${p.directory}).`,
         '- Usage contracts are maintained in this package; follow its local guides. Historical source links describe the named release, which may precede current development changes.',
-        '- [Package upgrade notes](./docs/MIGRATION.md).',
+        p.slug === 'zenfg-snapshot' ? '- [Package upgrade notes][zenfg-snapshot-migration].' : '- [Package upgrade notes](./docs/MIGRATION.md).',
         `- [Plain Markdown documentation index (development branch)](${website}docs/llms.txt).`,
         ...(p.slug === 'webgpu' ? ['- Local complete recipes: [examples](./examples/README.md).'] : []),
         ...(p.slug === 'snapshot' ? ['- Local wire contract: [SPEC.md](./SPEC.md), `schema/`, `fixtures/` and `conformance/`.'] : []),
@@ -71,17 +71,11 @@ for (const p of packages) {
         text = replaceBlock(text, 'usage', rows.join('\n\n'));
     }
     save(`${p.directory}/README.md`, text);
-    // Pin repository links to this artifact's release tag, including cross-package guides.
+    // Explicit revisions are historical choices, not manifest-version metadata.
     for (const file of markdownFiles(resolve(root, p.directory)).filter(file => !relative(resolve(root, p.directory), file).replaceAll('\\', '/').startsWith('skills/'))) {
         const path = relative(root, file);
         const source = outputs.get(path.replaceAll('\\', '/')) ?? read(path);
-        const body = source.replace(/https:\/\/github\.com\/uinosoft\/zenfg\/(blob|tree)\/(?:main|(?:npm|cargo)\/[^/]+\/v[^/]+)\//g, `${repository}/$1/${p.tag}/`)
-            .replace(/\]\((\.\.\/[^)#]+)(#[^)]*)?\)/g, (match, destination, fragment = '') => {
-                const target = resolve(file, '..', destination);
-                if (!relative(resolve(root, p.directory), target).startsWith('..')) return match;
-                return `](${repository}/blob/${p.tag}/${relative(root, target).replaceAll('\\', '/')}${fragment})`;
-            });
-        save(path, body);
+        save(path, packageRepositoryLinks(source, file, resolve(root, p.directory), root, repository));
     }
 }
 let compatibility = read('docs/compatibility.md');

@@ -3,7 +3,7 @@ import { existsSync, readdirSync, rmSync } from 'node:fs';
 import { dirname, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { root, read, write, pages, recipes, packages, publicEntrypoints, contentDir, repository, website, git, publishedVersion, siteBase } from './catalog.mjs';
-import { hideRustDoctestLines } from './markdown.mjs';
+import { hideRustDoctestLines, sourceDigest } from './markdown.mjs';
 
 export function transformContent(text, source, mapping, commit) {
     // Repository presentation has local HTML picture URLs and GitHub-specific layout.
@@ -56,7 +56,7 @@ export async function prepare({ api = true } = {}) {
         let body = page.code ? `# ${page.title}\n\nThis is the complete, compile-checked package recipe. The caller owns the device and application state.\n\n\`\`\`${page.code}\n${raw}\n\`\`\`\n` : transformContent(raw, page.source, mapping, commit);
         body = body.replaceAll('@SITE@/', base).replaceAll('@DOCS@/', '/');
         const sourceUrl = `${repository}/blob/${commit}/${page.source}`;
-        const item = { ...page, sourceUrl, editUrl: `${repository}/edit/main/${page.source}`, markdownUrl: `${docsBase}${page.route}.md` };
+        const item = { ...page, sourceHash: sourceDigest(raw), sourceUrl, editUrl: `${repository}/edit/main/${page.source}`, markdownUrl: `${docsBase}${page.route}.md` };
         meta.pages.push(item);
         const frontmatter = `---\ntitle: ${JSON.stringify(page.title)}\nsourceUrl: ${JSON.stringify(sourceUrl)}\neditUrl: ${JSON.stringify(item.editUrl)}\nmarkdownUrl: ${JSON.stringify(item.markdownUrl)}\n---\n\n`;
         write(resolve(contentDir, `${page.route}.md`), frontmatter + body);

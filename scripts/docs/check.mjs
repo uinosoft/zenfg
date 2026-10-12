@@ -1,11 +1,17 @@
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
+import { plainMarkdown } from './export.mjs';
 import { resolve, relative, dirname } from 'node:path';
-import { root, packages, pages, read, siteBase, publicEntrypoints, contentDir } from './catalog.mjs';
-import { assertLocalLinks, markdownFiles } from './markdown.mjs';
+import { root, packages, pages, read, siteBase, publicEntrypoints, contentDir, git } from './catalog.mjs';
+import { anchors as markdownAnchors, assertLocalLinks, assertBuildSources, assertRequiredAnchors, assertRustdocLinks } from './markdown.mjs';
 const built = process.argv.includes('--built');
-if (!built) {
+const legacy = JSON.parse(read('scripts/docs/legacy-anchors.json'));
+if (process.argv.includes('--rustdoc')) {
+    assertRustdocLinks(resolve(root, 'target/doc'), built ? resolve(root, 'apps/site/dist/docs') : undefined);
+    console.log('Verified actual rustdoc entry-page links and anchors.');
+} else if (!built) {
     const files = [...new Set(['README.md', 'README.zh-CN.md', 'CONTRIBUTING.md', ...pages.map(p => p.source)].map(p => resolve(root, p)))];
     assertLocalLinks(root, files);
+    for (const [source, expected] of Object.entries(legacy.pages)) assertRequiredAnchors(expected, markdownAnchors(read(source)), source);
     for (const p of packages) assertLocalLinks(resolve(root, p.directory));
     console.log(`Checked source links and ${publicEntrypoints().length} public entrypoints; package links remain within their artifact.`);
 } else {
@@ -39,7 +45,18 @@ if (!built) {
         }
     }
     const meta = JSON.parse(read(resolve(contentDir, 'metadata.json')));
-    for (const p of meta.pages) if (!existsSync(resolve(output, 'docs', `${p.route}.md`))) failures.push(`Missing Markdown ${p.route}`);
+    assertBuildSources(meta, git('rev-parse', 'HEAD'), read);
+    for (const [source, expected] of Object.entries(legacy.websitePages)) {
+        const page = meta.pages.find(page => page.source === source);
+        if (!page) throw new Error('Missing legacy page ' + source);
+        const file = resolve(output, 'docs', page.route + '.html');
+        assertRequiredAnchors(expected, anchors(file), page.route);
+    }
+    for (const p of meta.pages) {
+        const file = resolve(output, 'docs', p.route + '.md');
+        if (!existsSync(file)) failures.push('Missing Markdown ' + p.route);
+        else if (read(file) !== plainMarkdown(p, meta)) failures.push('Stale Markdown ' + p.route + '; rebuild after export changes.');
+    }
     if (failures.length) throw new Error([...new Set(failures)].slice(0, 60).join('\n') + `\n${failures.length} total documentation output errors.`);
     console.log(`Verified ${htmlFiles.length} built HTML pages, deep links, deployment prefix and Markdown alternatives.`);
 }

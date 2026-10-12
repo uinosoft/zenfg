@@ -329,4 +329,4 @@ naming, transport, and retention policy remain caller-owned.
 - [WebGPU usage](./README.md)
 - [Complete recipes](../examples/README.md)
 - [Snapshot specification](https://github.com/uinosoft/zenfg/blob/npm/webgpu/v0.2.0/packages/snapshot/SPEC.md)
-- [Rust usage](https://github.com/uinosoft/zenfg/blob/npm/webgpu/v0.2.0/crates/zenfg/docs/README.md)
+- [Rust usage (development branch)](https://uinosoft.github.io/zenfg/docs/guides/zenfg.html)

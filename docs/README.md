@@ -10,10 +10,19 @@ your application owns the device, rendering policy, and presentation.
 | Read or produce Snapshot data | [TypeScript Snapshot](../packages/snapshot/README.md) or [Rust Snapshot](../crates/zenfg-snapshot/README.md) | Validated, canonical portable diagnostics |
 | Embed a visual debugger | [Inspector quick start](../packages/inspector/README.md#quick-start) | A browser workbench for your captures |
 
+<a id="before-you-start"></a>
+<a id="continue-by-task"></a>
+
 ## Package documentation
 
 Each package or crate owns its usage, concepts and upgrade instructions. Follow
 the links above for version-specific guides, or browse the [online documentation](https://uinosoft.github.io/zenfg/docs/).
+
+<a id="api-reference"></a>
+
+For exact APIs, follow each package README to its included types/source or Rust
+API documentation. The [development TypeScript API](https://uinosoft.github.io/zenfg/docs/api/)
+is generated from public source comments.
 
 ## Versions and contributing
 

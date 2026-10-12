@@ -42,9 +42,19 @@ same function as the public documentation checker.
 After changing a public workflow, update its source comment and affected example.
 Quick starts are extracted from each installed npm package usage source for TypeScript
 checking; Rust usage guides remain crate-level rustdoc and doctest inputs. Markdown
-links inside a package must resolve inside its packed artifact. Shared guidance
-uses release-tagged repository URLs; the website converts these to current
-internal routes and labels itself as development documentation.
+links inside a package must resolve inside its packed artifact. Explicit repository
+revisions retain their historical meaning; new cross-package guidance can use
+clearly labeled development links. Only generated release entries follow manifest
+tags. The website projects guidance onto current internal routes and labels itself
+as development documentation. Rustdoc includes the same Rust usage source with
+reference-link overrides to accessible development pages; the packaged guide keeps
+its local references. After cargo doc, CI checks the actual HTML links with
+`node scripts/docs/check.mjs --rustdoc`.
+
+`scripts/docs/legacy-anchors.json` records the pre-migration GitHub and VitePress anchors separately. Source and
+built-site checks preserve them, including aliases after a heading changes.
+Built checks also reject an old HEAD or changed page/recipe sources, so stale
+artifacts cannot stand in for final-source acceptance.
 
 ## Generated metadata and formats
 

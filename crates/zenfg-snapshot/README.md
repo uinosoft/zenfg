@@ -150,7 +150,9 @@ The package manifest declares **zenfg-snapshot 0.1.1**. Registry badges show the
 - [Rust API for this version](https://docs.rs/zenfg-snapshot/0.1.1/).
 - [Source and documentation for this release](https://github.com/uinosoft/zenfg/tree/cargo/zenfg-snapshot/v0.1.1/crates/zenfg-snapshot).
 - Usage contracts are maintained in this package; follow its local guides. Historical source links describe the named release, which may precede current development changes.
-- [Package upgrade notes](./docs/MIGRATION.md).
+- [Package upgrade notes][zenfg-snapshot-migration].
 - [Plain Markdown documentation index (development branch)](https://uinosoft.github.io/zenfg/docs/llms.txt).
 - Complete Cargo recipes are included in `examples/`.
 <!-- generated:documentation:end -->
+
+[zenfg-snapshot-migration]: ./docs/MIGRATION.md

@@ -1,0 +1,25 @@
+{
+  "baseline": "5a3ea4b39bb614a9254f54c2b914ebdee427eb19",
+  "pages": {
+    "docs/README.md": ["getting-started-with-zenfg","before-you-start","continue-by-task","api-reference","versions-and-contributing"],
+    "docs/core-concepts.md": ["core-concepts","system-boundary","recording-and-execution","resources-and-content","choosing-resource-declaration-granularity","content-validity","dependencies-and-retention","lifetime-and-allocation","integration-levels","native-render-compute-and-copy","command-integration","opaque-external-submission","execution-segments","diagnostics-boundary","continue-reading"],
+    "docs/migration-0.2.0.md": ["migrating-from-010-to-runtime-020-and-snapshot-packages-011","webgpu-errors-and-logical-handles","native-validation-and-copy-content","timing-and-snapshot-export","rust-compilation-report-json","inspector-initial-graph-visibility","optional-webgpu-render-pass-descriptor-extras","per-package-release-notes"],
+    "docs/migration-timing-snapshot-1.2.md": ["unified-execution-timing-and-snapshot-12","runtime-calls","snapshot-inputs","files-and-inspector-providers","interpreting-cpu-values"],
+    "docs/migration-0.1.0-beta.3.md": ["migrating-from-010-beta2-to-010-beta3","snapshot-readers-and-producers","runtime-integrations"],
+    "packages/webgpu/README.md": ["zenfgwebgpu","installation","quick-start","lifecycle","common-tasks","key-pattern-declare-list-and-unwrap-access","native-render-pass-descriptor-extras","resource-and-integration-choices","error-handling","diagnostics-and-snapshot","download-a-snapshot-for-inspector","common-mistakes","complete-recipes","resource-pool-maintenance","further-reading","documentation-and-versions"],
+    "packages/inspector/README.md": ["zenfginspector","installation","quick-start","themes-and-style-customization","common-tasks","workbench-guide","common-mistakes","further-reading","documentation-and-versions","cpu-and-gpu-capture"],
+    "packages/inspector/GUIDE.md": ["inspector-workbench-guide","analyze-and-verify-a-frame","workbench-behavior","timing-and-memory-interpretation","frame-flow-interaction"],
+    "crates/zenfg/README.md": ["zenfg","installation","features","quick-start","lifecycle","validation-boundary","common-tasks","key-pattern-bind-and-resolve-typed-access","resource-and-integration-choices","common-mistakes","complete-examples","resource-pool-maintenance","further-reading","documentation-and-versions","execution-timing"]
+  },
+  "websitePages": {
+    "docs/README.md": ["getting-started-with-zenfg","before-you-start","continue-by-task","api-reference","versions-and-contributing"],
+    "docs/core-concepts.md": ["core-concepts","system-boundary","recording-and-execution","resources-and-content","choosing-resource-declaration-granularity","content-validity","dependencies-and-retention","lifetime-and-allocation","integration-levels","native-render-compute-and-copy","command-integration","opaque-external-submission","execution-segments","diagnostics-boundary","continue-reading"],
+    "docs/migration-0.2.0.md": ["migrating-from-0-1-0-to-runtime-0-2-0-and-snapshot-packages-0-1-1","webgpu-errors-and-logical-handles","native-validation-and-copy-content","timing-and-snapshot-export","rust-compilation-report-json","inspector-initial-graph-visibility","optional-webgpu-render-pass-descriptor-extras","per-package-release-notes"],
+    "docs/migration-timing-snapshot-1.2.md": ["unified-execution-timing-and-snapshot-1-2","runtime-calls","snapshot-inputs","files-and-inspector-providers","interpreting-cpu-values"],
+    "docs/migration-0.1.0-beta.3.md": ["migrating-from-0-1-0-beta-2-to-0-1-0-beta-3","snapshot-readers-and-producers","runtime-integrations"],
+    "packages/webgpu/README.md": ["zenfg-webgpu","installation","quick-start","lifecycle","common-tasks","key-pattern-declare-list-and-unwrap-access","native-render-pass-descriptor-extras","resource-and-integration-choices","error-handling","diagnostics-and-snapshot","download-a-snapshot-for-inspector","common-mistakes","complete-recipes","resource-pool-maintenance","further-reading","documentation-and-versions"],
+    "packages/inspector/README.md": ["zenfg-inspector","installation","quick-start","themes-and-style-customization","common-tasks","workbench-guide","common-mistakes","further-reading","documentation-and-versions","cpu-and-gpu-capture"],
+    "packages/inspector/GUIDE.md": ["inspector-workbench-guide","analyze-and-verify-a-frame","workbench-behavior","timing-and-memory-interpretation","frame-flow-interaction"],
+    "crates/zenfg/README.md": ["zenfg","installation","features","quick-start","lifecycle","validation-boundary","common-tasks","key-pattern-bind-and-resolve-typed-access","resource-and-integration-choices","common-mistakes","complete-examples","resource-pool-maintenance","further-reading","documentation-and-versions","execution-timing"]
+  }
+}
