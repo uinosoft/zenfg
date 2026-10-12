@@ -1,344 +1,64 @@
 # Core concepts
 
-ZenFG is horizontal GPU scheduling infrastructure for WebGPU and wgpu. This
-document defines the model shared by the TypeScript and Rust runtimes. Each
-runtime keeps idiomatic language-level APIs; use its package README and generated
-API documentation for exact signatures.
+Usage contracts are maintained with their packages. Choose the relevant guide:
+
+- [WebGPU usage](../packages/webgpu/docs/README.md)
+- [Rust usage](../crates/zenfg/docs/README.md)
+- [Snapshot specification](../packages/snapshot/SPEC.md)
+- [Inspector usage](../packages/inspector/GUIDE.md)
 
 ## System boundary
 
-ZenFG owns the declaration, compilation, diagnostics, and execution of
-graph-visible GPU work:
-
-- logical resources, views, accesses, and dependencies;
-- retention roots and dead-work culling;
-- retained execution order and opaque submission boundaries;
-- transient lifetime analysis, aliasing plans, and runtime pooling;
-- validation and optional diagnostic reports.
-
-The application or renderer continues to own:
-
-- scenes, materials, cameras, pipelines, bind groups, samplers, and shaders;
-- the device, queue, surface, current-texture acquisition, and presentation;
-- long-lived resource policy, resource contents, resize, and device loss;
-- concrete draw, dispatch, copy, and third-party renderer behavior.
-
-```text
-renderer features / compute systems / third-party engines
-                         |
-                  graph declarations
-                         |
-          @zenfg/webgpu or zenfg runtime
-                         |
-               WebGPU / wgpu device + queue
-```
-
-The TypeScript and Rust runtimes share semantics and Snapshot projections, not
-source-level API parity. A caller should translate intent rather than method
-names when moving a workflow between languages.
-
-Snapshot is a separate protocol boundary:
-
-- `@zenfg/snapshot` owns the normative specification, JSON Schema, fixtures,
-  and conformance corpus.
-- `zenfg-snapshot` is the matching wgpu-independent Rust wire model and codec.
-- `@zenfg/inspector` consumes Snapshot data and has no dependency on either GPU
-  runtime.
-- Runtime report objects are implementation APIs; Snapshot is the portable
-  interchange format.
+[WebGPU](../packages/webgpu/docs/CONCEPTS.md#system-boundary) and [Rust](../crates/zenfg/docs/CONCEPTS.md#system-boundary).
 
 ## Recording and execution
 
-A long-lived runtime creates a new single-use recording for each logical frame:
-
-```text
-TypeScript: FrameGraph(device) -> beginFrame() -> recorder -> compile() -> execute()
-Rust:       FrameGraph          -> begin_frame() -> Frame    -> compile() -> execute(queue)
-```
-
-Compilation consumes the recording whether it succeeds or fails. Logical
-handles, views, and typed access tokens belong to that recording and cannot
-cross recording boundaries.
-
-Compilation retains a stable subsequence of recording order. ZenFG may remove
-unobservable work, but it does not reorder or merge nodes. There is no automatic
-cross-frame dependency analysis; separate compiled frames rely on application
-policy and queue submission order.
-
-The TypeScript runtime can conditionally re-execute a compiled frame only while
-every captured callback and imported native object is still valid. Rust
-execution is one-shot. A compiled frame containing a current surface texture is
-normally frame-scoped in either runtime: acquire, import, compile, execute, and
-present a fresh current texture on the next presentation frame.
-
-Native work is encoded and submitted synchronously. Optional GPU timing may
-complete asynchronously, but it does not turn node callbacks or external
-submission callbacks into asynchronous operations.
+[WebGPU](../packages/webgpu/docs/CONCEPTS.md#recording-and-execution) and [Rust](../crates/zenfg/docs/CONCEPTS.md#recording-and-execution).
 
 ## Resources and content
 
-ZenFG distinguishes three ownership classes:
-
-- **Transient resources** are logical textures or buffers whose native storage
-  exists only for one compiled execution. The runtime allocates and pools them.
-- **Imported resources** borrow caller-owned native storage. ZenFG never
-  destroys or pools that storage.
-- **Surface resources** represent a freshly acquired presentation target. They
-  are imported for graph visibility, but acquisition and presentation remain
-  application-owned.
-
-Import shared native storage once at the frame-composition boundary and pass the
-same logical handle to every participating subsystem. State without
-graph-visible data flow, such as a camera object or pipeline cache, normally
-stays outside the graph.
-
-### Choosing resource declaration granularity
-
-Declaration granularity is a caller choice based on workload organization,
-debugging needs, and graph complexity. For complex graphs, consider keeping
-resources inside the domain workload when exposing them adds no useful graph
-dependency, resource management, or observable result. This can keep the main
-data flow readable. More explicit declarations remain reasonable for simple
-examples, teaching, or detailed resource diagnostics; this is a recommendation,
-not a new rule or validation mode.
-
-| Situation | Suggested choice and reason |
-| --- | --- |
-| Fixed inference weights and operator parameters | Consider binding internally to avoid overwhelming the main data flow with read-only inputs. |
-| CPU-updated camera or frame uniforms read by several passes | Internal binding is reasonable; explicitly import them when inspecting their usage scope is useful. |
-| Scratch buffers reused inside one workload | Manage internally, or expose them when graph allocation, content validation, or resource diagnostics are needed. |
-| Uniforms in simple or teaching examples | Explicit declarations help demonstrate imports, access tokens, and ownership. |
-| Investigating which passes use a resource | Add relevant declarations to obtain access and resource information. |
-| A texture written by one pass and consumed by another | Keep declarations to express the actual dependency. |
-| History state, readback, and presentation results | Keep corresponding declarations and roots to express why results must execute and survive culling. |
-
-Choosing granularity does not relax existing correctness requirements. Do not
-hide dependencies that the graph needs to order or manage. Once a resource is
-part of the graph contract, declare its accesses completely and accurately,
-including write-content semantics. Resources outside that contract remain the
-caller's responsibility for lifetime, initialization, and internal access safety.
-A workload's internal dispatch order is still its own responsibility.
-
-For example, Monocular exposes history, stable range, reconstructed surface,
-and the output target during inference; weights and internal scratch remain
-workload-owned. A stable image frame needs only surface and output. Slime Mold
-exposes agents and trail textures but binds its three uniforms internally.
-The Imported Resource teaching example deliberately exposes a single-pass
-uniform to demonstrate borrowing and explicit input validation.
-
-Explicit declarations are not complete GPU tracking. Inspector statistics come
-from declared graph resources and accesses, not automatic scanning of shader
-bindings or measurement of total GPU memory.
-
-### Content validity
-
-Content validity is tracked per normalized texture subresource or buffer byte
-range:
-
-- transient and surface contents begin undefined;
-- TypeScript imports begin defined unless the caller opts into undefined
-  contents;
-- Rust imports require an explicit initial-content choice;
-- reads and preserving writes require defined contents over their complete
-  declared range;
-- an overwrite fully defines the declared range without consuming its previous
-  value;
-- preserve is required for partial, conditional, sparse, or atomic writes;
-- an attachment clear overwrites, while an attachment load preserves;
-- discard leaves the affected contents undefined.
-
-The first write to a transient range must overwrite it. Declaring overwrite is a
-caller assertion that every execution path fully writes the selected range;
-using it for partial work makes the graph model incorrect.
-
-Texture dependencies use normalized mip, layer, depth-slice, and aspect regions.
-Buffer dependencies use byte ranges; an omitted range covers the whole buffer.
-Rust texture views select all remaining layers when the layer count is omitted;
-an explicit D2 view must therefore select only one remaining layer or specify
-count 1. TypeScript view defaults depend on the access role and view dimension.
-Specify dimensions and counts explicitly when sharing examples across runtimes.
+[WebGPU](../packages/webgpu/docs/CONCEPTS.md#resources-and-content) and [Rust](../crates/zenfg/docs/CONCEPTS.md#resources-and-content).
 
 ## Dependencies and retention
 
-A logical handle identifies recording-local storage. The value visible to a
-node is selected by the resource range and the node's position in recording
-order.
-
-- A read-after-write (RAW) dependency carries a produced value to a consumer.
-- Write-after-read (WAR) and write-after-write (WAW) dependencies preserve
-  ordering.
-- Value dependencies can retain producers; ordering hazards alone do not make
-  otherwise unreachable work observable.
-
-Roots describe why a final value matters. Presentation, application output,
-readback, debug capture, imported persistent state, and genuine side effects
-can retain work. Compilation walks backward from those roots and culls nodes
-that contribute to no observable result.
-
-A resource root retains all final producers for its selected range and records
-whether defined initial contents also contribute. Undefined or discarded portions
-of that range fail compilation with FG1004, with or without reports enabled.
-Root identity is resource, reason, and normalized range; identical declarations
-deduplicate, while overlapping but distinct ranges remain independent.
-
-In TypeScript, `markOutput`, `markPersistentState`, and `markDebugCapture` accept
-a whole resource, a texture view, or `(buffer, range)`. `markReadback(buffer,
-range?)` supports partial staging buffers. `markPresent` always selects the whole
-surface texture. Rust's ranged root API has the same normalization and resolution
-semantics. Empty root ranges are rejected; ordinary empty buffer accesses are
-still allowed.
-
-A root does not
-transfer ownership, extend a transient allocation beyond execution, or make a
-transient native object safe to cache. Results needed after execution must live
-in caller-owned imported storage.
+[WebGPU](../packages/webgpu/docs/CONCEPTS.md#dependencies-and-retention) and [Rust](../crates/zenfg/docs/CONCEPTS.md#dependencies-and-retention).
 
 ## Lifetime and allocation
 
-The first and last retained accesses define each transient logical lifetime.
-Compatible transient resources whose lifetimes do not overlap may share one
-physical allocation. The runtime materializes one native object per retained
-physical allocation and returns it to the runtime pool after execution.
-
-Imported resources never participate in transient pooling. Resolved transient
-objects are valid only inside the synchronous callback that received them; they
-must not escape that callback or be retained across frames.
-
-Pool byte counts and Snapshot allocation sizes are estimates derived from ZenFG
-descriptors and pool buckets. They are intended for comparison and alias
-analysis, not as measurements of driver allocation, residency, alignment,
-metadata, or physical video-memory use.
-
-The pool has no automatic memory budget or eviction policy. A runtime-created
-`ResourcePoolScope` partitions both within-frame aliasing and cross-execution
-reuse; omitted scopes use the default shared domain. Scopes own no resources,
-need no disposal, and remain usable after clearing. Imported and surface
-resources are never pool candidates.
-
-Applications may clear one scope after resize or use a synchronous predicate
-to evict retained physical instances by scope, physical descriptor, estimated
-bytes or idle execution count. Selection completes before pool mutation;
-predicate failure leaves the pool unchanged, but its external side effects
-are not rolled back. Each instance is visited once in unspecified order.
-TypeScript supplies deeply frozen snapshots; Rust supplies callback-local
-borrowed views and permits stateful `FnMut` predicates. Neither exposes GPU
-objects, internal keys or stable pool-instance IDs.
-
-An accepted execution advances pool age once after parameter/preflight
-validation; empty executions and subsequent execution failures count too.
-Acquisition resets that instance's age to zero. Compilation, pool maintenance,
-application frame indices and GPU completion do not advance this age.
-
-Management is outside execution: TypeScript rejects same-runtime execution,
-clearing, eviction or destruction during predicate maintenance; Rust's frame
-and compiled-frame exclusive graph borrow enforces that boundary. Clearing
-does not invalidate compiled plans. Stop using old-size TypeScript plans
-before resize cleanup, since executing them repopulates the cache. Rust plans
-are consumed by execution. Both clear-all entrypoints retain their existing
-meaning; TypeScript's omitted or explicit `undefined` clears every domain.
-Use a predicate selecting `undefined`/`None` to clear only the default domain.
-
-Execution synchronously submits all graph-visible work and returns transients
-on exit, including failure. Pool eviction invokes native destruction without
-waiting for GPU completion; WebGPU/wgpu defer underlying reclamation for
-already-submitted work. Removed-byte estimates do not imply immediate VRAM
-release. Release the runtime-owned pool when the device-bound renderer stack
-is destroyed.
+[WebGPU](../packages/webgpu/docs/CONCEPTS.md#lifetime-and-allocation) and [Rust](../crates/zenfg/docs/CONCEPTS.md#lifetime-and-allocation).
 
 ## Integration levels
 
-Two common ways to compose work are to connect an existing engine and to build
-modules that record their work into the graph. These describe use cases, not a
-separate plugin protocol. A graph-native module can use native GPU APIs or a
-compatible third-party library; its scene, shader, pipeline, and draw policy
-remain module-owned.
-
-Existing engines that retain their submissions use external nodes. Modules that
-record graph-owned work use structured native nodes or command integration,
-depending on their encoding needs. All three depths can be mixed in one frame.
-The more work a module declares as structured nodes, the more of its flow is
-visible to graph validation and inspection. Sharing a device alone does not
-make formats, depth conventions, or engine resource models compatible.
-
-### Native render, compute, and copy
-
-Structured nodes describe attachments, typed resource access, and declarative
-copy or clear operations. They provide the richest validation, content tracking,
-and diagnostics while leaving pipelines and concrete commands caller-owned.
-
-### Command integration
-
-A command node lets a subsystem record custom commands into a
-FrameGraph-owned encoder. The subsystem must declare every graph-visible access
-and must not finish or submit that encoder. Use this for work that does not fit a
-structured node but can participate in the graph-owned submission.
-
-### Opaque external submission
-
-An external node is for a renderer that owns its command encoders and submits
-through the shared device queue. It declares graph-visible resource access but
-keeps its internal commands opaque to ZenFG.
-
-Cross-renderer composition still requires a shared device and queue, one logical
-import for each shared native resource, and accurate declarations for every
-graph-visible access. ZenFG does not make unrelated engine resource models
-interoperable automatically.
+[WebGPU](../packages/webgpu/docs/CONCEPTS.md#integration-levels) and [Rust](../crates/zenfg/docs/CONCEPTS.md#integration-levels).
 
 ## Execution segments
 
-Native render, compute, copy, clear, and command nodes are encoded into
-FrameGraph-owned command segments. A retained external submission closes and
-submits the preceding graph segment, invokes the caller-owned submission, and
-starts a new graph segment for later native work.
-
-This boundary guarantees queue submission order. It is not a GPU-completion
-fence, does not reveal the number or contents of native submissions made by the
-external renderer, and cannot roll back work that was already submitted.
-
-All graph-visible external work must be enqueued on the shared queue before the
-synchronous external callback returns. Work queued later or on another queue is
-outside the declared ordering model. The graphics API's completion mechanism is
-still required when the CPU must wait for GPU completion.
+[WebGPU](../packages/webgpu/docs/CONCEPTS.md#execution-segments) and [Rust](../crates/zenfg/docs/CONCEPTS.md#execution-segments).
 
 ## Diagnostics boundary
 
-Compilation reports, optional CPU/GPU timing, and resource-pool statistics are
-independent observations. Requesting reports does not change the execution plan.
-Normal execution collects no timing. Explicit timed execution selects CPU, GPU,
-or both; CPU reports are returned synchronously and GPU readback is independent.
-CPU timing covers all retained node kinds. It measures synchronous elapsed time,
-including node-local preparation and cleanup, not thread CPU usage. External
-nodes include synchronous submission in their callbacks. Execution total also
-includes shared preparation, submission and transient release. It excludes
-recording, compilation, GPU waiting, report projection and Inspector updates.
-GPU timing uses two queries per retained render/compute pass. Above 2048 such
-passes, both runtimes return timing unavailability before allocating query
-resources and still execute the graph; `both` continues to provide CPU results.
-
-Only successful execution produces a CPU report. GPU timing spans the first
-retained render/compute pass start through the last such pass end; it does not
-measure other node kinds. When no such pass is retained, GPU timing is
-unavailable with reason `no-timed-nodes`. CPU and GPU durations must not
-be added to infer frame time. Clock precision and preemption affect readings.
-Resource/view preparation remains runtime-specific, so per-node CPU readings are
-not strict cross-language benchmarks.
-
-Runtime report types may contain implementation-oriented details and can evolve
-with that runtime.
-
-Snapshot adapters explicitly project compatible report data into the portable
-Snapshot 1.2 model. Snapshot contains graph structure, diagnostics, allocation
-facts, and optional timing or pool facts; it does not contain GPU commands or
-resource contents and cannot replay a frame.
-
-The Snapshot specification and Schema define portable structure and semantics.
-The Inspector is a renderer-independent consumer that builds its own indices,
-views, and UI state from canonical Snapshot data. Filesystem storage, capture
-naming, transport, and retention policy remain caller-owned.
+[WebGPU](../packages/webgpu/docs/CONCEPTS.md#diagnostics-boundary) and [Rust](../crates/zenfg/docs/CONCEPTS.md#diagnostics-boundary).
 
 ## Continue reading
 
-- [`@zenfg/webgpu` quick start and API task map](../packages/webgpu/README.md)
-- [`zenfg` quick start and API task map](../crates/zenfg/README.md)
-- [Snapshot 1.2 specification](../packages/snapshot/SPEC.md)
-- [Compatibility](compatibility.md)
+[WebGPU](../packages/webgpu/docs/CONCEPTS.md#continue-reading) and [Rust](../crates/zenfg/docs/CONCEPTS.md#continue-reading).
+
+### Choosing resource declaration granularity
+
+[WebGPU](../packages/webgpu/docs/CONCEPTS.md#choosing-resource-declaration-granularity) and [Rust](../crates/zenfg/docs/CONCEPTS.md#choosing-resource-declaration-granularity).
+
+### Content validity
+
+[WebGPU](../packages/webgpu/docs/CONCEPTS.md#content-validity) and [Rust](../crates/zenfg/docs/CONCEPTS.md#content-validity).
+
+### Native render, compute, and copy
+
+[WebGPU](../packages/webgpu/docs/CONCEPTS.md#native-render-compute-and-copy) and [Rust](../crates/zenfg/docs/CONCEPTS.md#integration-levels).
+
+### Command integration
+
+[WebGPU](../packages/webgpu/docs/CONCEPTS.md#command-integration) and [Rust](../crates/zenfg/docs/CONCEPTS.md#integration-levels).
+
+### Opaque external submission
+
+[WebGPU](../packages/webgpu/docs/CONCEPTS.md#opaque-external-submission) and [Rust](../crates/zenfg/docs/CONCEPTS.md#integration-levels).

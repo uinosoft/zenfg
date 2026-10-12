@@ -27,6 +27,11 @@ npm install @zenfg/snapshot@0.1.1
 ```
 <!-- generated:installation:end -->
 
+<!-- skill:description:start -->
+Use @zenfg/snapshot to parse or validate untrusted FrameGraph captures, normalize supported historical inputs, finalize producer drafts, or serialize canonical Snapshot JSON.
+<!-- skill:description:end -->
+
+<!-- skill:quick-start:start -->
 ## Quick start
 
 Use an ESM TypeScript project targeting ES2022 or later. This package works without
@@ -61,6 +66,7 @@ including extension objects; arrays remain ordinary arrays. Inherited fields
 and getters are ignored. Use `Object.hasOwn(object, key)` instead of
 `object.hasOwnProperty(key)`. This changes JavaScript object prototypes, not
 Snapshot fields or the JSON wire format.
+<!-- skill:quick-start:end -->
 
 ## Common tasks
 
@@ -79,6 +85,7 @@ Snapshot fields or the JSON wire format.
 Exact result unions, issue types, wire fields, defaults, and failure conditions
 are documented by the TSDoc preserved in the packaged source and declarations.
 
+<!-- skill:boundaries:start -->
 ## Consumer and producer boundaries
 
 - Consumers should use `parseFrameGraphSnapshot()` for text or
@@ -100,6 +107,7 @@ The complete structural and cross-field contract is the
 [`SPEC.md`](./SPEC.md) specification. The JSON Schema is normative for
 structural constraints; the specification and conformance corpus define
 references, cross-field semantics, migration, and stable issue behavior.
+<!-- skill:boundaries:end -->
 
 ## Schema and fixtures
 
@@ -118,6 +126,7 @@ Snapshot files conventionally use the `.fgsnapshot.json` extension. Entity IDs
 are type-prefixed strings; counts, sizes, and frame indices are non-negative
 JavaScript safe integers.
 
+<!-- skill:mistakes:start -->
 ## Common mistakes
 
 | Symptom | Fix |
@@ -128,11 +137,11 @@ JavaScript safe integers.
 | An unknown version appears to have compatible fields | Reject it until a reader implements and tests an explicit migration. |
 | Reverse relationships are expected in the wire model | Build consumer indices locally; the protocol stores canonical one-way references. |
 | A Snapshot is expected to replay GPU work | Capture commands or resource contents through an application-owned mechanism instead. |
+<!-- skill:mistakes:end -->
 
 ## Further reading
 
 - [Snapshot 1.2 specification](./SPEC.md)
-- [ZenFG Core concepts](https://github.com/uinosoft/zenfg/blob/npm/snapshot/v0.1.1/docs/core-concepts.md)
 - [`@zenfg/webgpu` Snapshot producer](https://github.com/uinosoft/zenfg/blob/npm/snapshot/v0.1.1/packages/webgpu/README.md#diagnostics-and-snapshot)
 - [`zenfg-snapshot`](https://github.com/uinosoft/zenfg/blob/npm/snapshot/v0.1.1/crates/zenfg-snapshot/README.md)
 - [`@zenfg/inspector`](https://github.com/uinosoft/zenfg/blob/npm/snapshot/v0.1.1/packages/inspector/README.md)
@@ -140,14 +149,22 @@ JavaScript safe integers.
 ## Documentation and versions
 
 <!-- generated:documentation:start -->
-This README describes **@zenfg/snapshot 0.1.1**. Registry badges show the current published channel, not your installed version.
+The package manifest declares **@zenfg/snapshot 0.1.1**. Registry badges show the current published channel, not your installed version.
 
 - Exact installed APIs: follow `package.json` → `exports` → `dist/*.d.ts`; declaration maps point to the included `src/`. Only declared export paths are public.
 - [Online guide (development branch)](https://uinosoft.github.io/zenfg/docs/packages/snapshot.html). The site may describe changes newer than this package.
 - [TypeScript API (development branch)](https://uinosoft.github.io/zenfg/docs/api/snapshot/).
 - [Source and documentation for this release](https://github.com/uinosoft/zenfg/tree/npm/snapshot/v0.1.1/packages/snapshot).
-- [Shared concepts for this release](https://github.com/uinosoft/zenfg/blob/npm/snapshot/v0.1.1/docs/core-concepts.md) and [compatibility](https://github.com/uinosoft/zenfg/blob/npm/snapshot/v0.1.1/docs/compatibility.md).
-- [Migration from 0.1.0](https://github.com/uinosoft/zenfg/blob/npm/snapshot/v0.1.1/docs/migration-0.2.0.md).
+- Usage contracts are maintained in this package; follow its local guides. Historical source links describe the named release, which may precede current development changes.
+- [Package upgrade notes](./docs/MIGRATION.md).
 - [Plain Markdown documentation index (development branch)](https://uinosoft.github.io/zenfg/docs/llms.txt).
 - Local wire contract: [SPEC.md](./SPEC.md), `schema/`, `fixtures/` and `conformance/`.
 <!-- generated:documentation:end -->
+
+<!-- skill:reading:start -->
+## Usage references
+
+- [Wire specification](./SPEC.md)
+- [Upgrade notes](./docs/MIGRATION.md)
+- [Schema](./schema/frame-graph-snapshot-v1.schema.json)
+<!-- skill:reading:end -->

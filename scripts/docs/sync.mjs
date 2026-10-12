@@ -1,5 +1,7 @@
 import { packages, workspace, cargo, read, write, repository, website, snapshotVersion } from './catalog.mjs';
-import { markdownFiles } from './markdown.mjs';
+import GithubSlugger from 'github-slugger';
+import { usagePath } from './usage.mjs';
+import { anchors, markdown, markdownFiles } from './markdown.mjs';
 import { relative, resolve } from 'node:path';
 import { root } from './catalog.mjs';
 const check = process.argv.includes('--check');
@@ -38,23 +40,39 @@ for (const p of packages) {
     let text = replaceBlock(read(`${p.directory}/README.md`), 'badges', [versionBadge(p), p.registry === 'npm' ? badge('API Docs (development)', 'badge/API_docs-development-blue', api) : badge('docs.rs', `docsrs/${p.name}/${p.version}`, api), license].join('\n'));
     text = replaceBlock(text, 'installation', `\`\`\`sh\n${p.registry === 'npm' ? `npm install ${p.name}@${p.version}` : `cargo add ${p.name}@=${p.version}`}\n\`\`\``);
     text = replaceBlock(text, 'documentation', [
-        `This README describes **${p.name} ${p.version}**. Registry badges show the current published channel, not your installed version.`,
+        `The package manifest declares **${p.name} ${p.version}**. Registry badges show the current published channel, not your installed version.`,
         '',
         p.registry === 'npm' ? '- Exact installed APIs: follow `package.json` → `exports` → `dist/*.d.ts`; declaration maps point to the included `src/`. Only declared export paths are public.' : '- Exact installed APIs: read the included `src/`, or run `cargo doc --open` in your consuming project.',
         `- [Online guide (development branch)](${website}docs/${p.route}.html). The site may describe changes newer than this package.`,
         `- [${p.registry === 'npm' ? 'TypeScript API (development branch)' : 'Rust API for this version'}](${api}).`,
         `- [Source and documentation for this release](${repository}/tree/${p.tag}/${p.directory}).`,
-        `- [Shared concepts for this release](${repository}/blob/${p.tag}/docs/core-concepts.md) and [compatibility](${repository}/blob/${p.tag}/docs/compatibility.md).`,
-        `- [Migration from 0.1.0](${repository}/blob/${p.tag}/docs/migration-0.2.0.md).`,
+        '- Usage contracts are maintained in this package; follow its local guides. Historical source links describe the named release, which may precede current development changes.',
+        '- [Package upgrade notes](./docs/MIGRATION.md).',
         `- [Plain Markdown documentation index (development branch)](${website}docs/llms.txt).`,
         ...(p.slug === 'webgpu' ? ['- Local complete recipes: [examples](./examples/README.md).'] : []),
         ...(p.slug === 'snapshot' ? ['- Local wire contract: [SPEC.md](./SPEC.md), `schema/`, `fixtures/` and `conformance/`.'] : []),
         ...(p.slug === 'inspector' ? ['- Local guides: [workbench](./GUIDE.md) and [themes](./THEMING.md).'] : []),
         ...(p.registry === 'cargo' ? ['- Complete Cargo recipes are included in `examples/`.'] : []),
     ].join('\n'));
+    const usage = relative(root, usagePath(resolve(root, p.directory))).replaceAll('\\', '/');
+    if (usage !== p.directory + '/README.md') {
+        const source = read(usage), slugger = new GithubSlugger(), rows = [];
+        const existing = anchors(text.replace(/<!-- generated:usage:start -->[\s\S]*?<!-- generated:usage:end -->/g, ''));
+        const tokens = markdown.parse(source, {});
+        tokens.forEach((token, i) => {
+            if (token.type !== 'heading_open') return;
+            const title = tokens[i + 1].content;
+            const plain = tokens[i + 1].children?.filter(t => t.type !== 'html_inline').map(t => t.content).join('') ?? title;
+            const id = slugger.slug(plain);
+            if (!['h2', 'h3'].includes(token.tag) || existing.has(id)) return;
+            const local = relative(resolve(root, p.directory), resolve(root, usage)).replaceAll('\\', '/');
+            rows.push('<a id="' + id + '"></a>\n\n- [' + title + '](./' + local + '#' + id + ')');
+        });
+        text = replaceBlock(text, 'usage', rows.join('\n\n'));
+    }
     save(`${p.directory}/README.md`, text);
     // Pin repository links to this artifact's release tag, including cross-package guides.
-    for (const file of markdownFiles(resolve(root, p.directory))) {
+    for (const file of markdownFiles(resolve(root, p.directory)).filter(file => !relative(resolve(root, p.directory), file).replaceAll('\\', '/').startsWith('skills/'))) {
         const path = relative(root, file);
         const source = outputs.get(path.replaceAll('\\', '/')) ?? read(path);
         const body = source.replace(/https:\/\/github\.com\/uinosoft\/zenfg\/(blob|tree)\/(?:main|(?:npm|cargo)\/[^/]+\/v[^/]+)\//g, `${repository}/$1/${p.tag}/`)

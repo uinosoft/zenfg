@@ -121,8 +121,8 @@ The Site resolves the publishable package sources directly, so package `dist`
 directories are not required for website development. Changes to package source
 are included in the same Vite module graph.
 
-`pnpm run build` builds every publishable package and the Site. `npm run
-build:pages` builds the directly deployable Site tree, and `npm run
+`pnpm run build` builds every publishable package and the Site. `pnpm run
+build:pages` builds the directly deployable Site tree, and `pnpm run
 preview:pages` rebuilds and serves that tree at
 `http://127.0.0.1:4173/zenfg/` for a production-like check.
 
@@ -142,19 +142,22 @@ Documentation has one primary source for each responsibility:
   bilingual brand, ownership-boundary, integration-level, and navigation entry;
 - maintain all package READMEs, technical documents, API documentation, and
   examples in English;
-- use each published package or crate README for installation, one complete
-  Quick Start, a task-oriented public API map, critical patterns, common
-  mistakes, and links to complete examples;
-- keep shared ownership, content, dependency, lifetime, and integration rules
-  in [`docs/core-concepts.md`](docs/core-concepts.md);
+- use a simple package README as its usage source; complex package READMEs own
+  installation and navigation to package-local guides containing the complete
+  Quick Start, lifecycle, task map, patterns, common mistakes and examples;
+- keep ownership, content, dependency, lifetime, integration and upgrade contracts
+  beside the implementing package or crate; root docs own navigation, planning,
+  contribution, testing and release maintenance;
 - use TSDoc and rustdoc for exact signatures, fields, defaults, errors, and
   symbol-level behavior;
 - keep Snapshot wire structure and cross-field semantics in
   [`packages/snapshot/SPEC.md`](packages/snapshot/SPEC.md), and package/toolchain
-  support in [`docs/compatibility.md`](docs/compatibility.md).
+  release compatibility inventory generated from manifests in [`docs/compatibility.md`](docs/compatibility.md).
 
 Do not add copied global API catalogs, `AI.md`, package-specific AI manifests,
-or manually maintained machine indexes. Generated per-page Markdown and
+or manually maintained machine indexes. Package Skills are tracked deterministic
+extracts of marked package usage regions; do not edit their bodies or duplicate
+reference documents. Generated per-page Markdown and
 `llms.txt` are derived from the website content map and are supported formats.
 See [Documentation maintenance](docs/documentation.md) for generation and source ownership. Installed package READMEs, packaged declarations and
 source, generated API documentation, and compiled examples are the supported
@@ -170,10 +173,10 @@ Examples are maintained as executable contracts, not illustrative pseudocode:
 - type-check or compile every recipe, and execute CPU-only recipes in CI.
 
 When a public workflow changes, update its API docs, package README task map or
-critical pattern, and compiled recipe in the same change. Update Core Concepts
-only when the shared model changes. Before publishing, verify that npm
+critical pattern, and compiled recipe in the same change. Update the owning
+package concepts when its model changes. Before publishing, verify that npm
 declaration maps resolve only to relative source paths included in the tarball
-and that Rust README examples still pass as doctests.
+and that Rust usage examples still pass as crate-level doctests.
 
 The Site owns interactive presentation, displayed source, and embedded
 Inspector integration. Package recipes and repository showcases remain

@@ -90,38 +90,12 @@ and Cargo for Rust; install workspace dependencies with `pnpm install --frozen-l
 
 ## Integration levels
 
-Connect an engine that keeps its own submissions, or build modules that record
-work into the graph; both approaches can be combined. Technically, ZenFG offers
-the three integration depths below.
+The application owns its device, rendering policy and presentation. ZenFG
+coordinates declared work. Read the package guides for recording, resource,
+execution and integration contracts:
 
-Interoperability requires a shared device and queue, compatible resource formats
-and usage contracts, and accurate access declarations. Import each shared native
-resource once per recording. External-engine passes stay opaque; GPU timing
-depends on device support and node coverage. Snapshots contain neither replayable
-commands nor resource contents.
-
-The application controls rendering policy and chooses how deeply each
-subsystem integrates with the graph. ZenFG coordinates the work; scenes,
-materials, and renderer architecture remain with the application.
-
-| ZenFG owns | The application owns |
-| --- | --- |
-| Graph-visible dependencies and execution order | Scenes, materials, cameras, and renderer architecture |
-| Retention roots and dead-work culling | Pipelines, bind groups, samplers, and draw/dispatch policy |
-| Transient lifetimes, aliasing, and pooling | Devices, queues, surfaces, presentation, and device-loss policy |
-| Validation, reports, Snapshot projection, and inspection | Long-lived resources, resource contents, and application state |
-
-Three integration levels can be mixed in the same frame:
-
-- **Native render, compute, and copy** nodes provide the richest validation and
-  diagnostics.
-- **Command integration** lets a subsystem encode custom work into a
-  FrameGraph-owned command encoder.
-- **Opaque external submission** lets an existing renderer keep its encoders
-  and submission model while declaring an ordered graph boundary.
-
-See [Core concepts](docs/core-concepts.md) for the complete ownership, content,
-dependency, lifetime, and execution model.
+- [WebGPU usage](packages/webgpu/docs/README.md)
+- [Rust usage](crates/zenfg/docs/README.md)
 
 ## Packages
 

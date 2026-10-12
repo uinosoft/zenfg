@@ -30,7 +30,7 @@ place browser setup, capture helpers and shaders after the recipe.
 Imported Resource intentionally exposes its single-pass uniform for teaching
 imports, access tokens, and input validation. Complex workloads can choose to
 bind private parameters internally instead; see
-[Choosing resource declaration granularity](https://github.com/uinosoft/zenfg/blob/npm/webgpu/v0.2.0/docs/core-concepts.md#choosing-resource-declaration-granularity).
+[Choosing resource declaration granularity](../docs/CONCEPTS.md#choosing-resource-declaration-granularity).
 
 Imported Resource also accepts optional `webgpuDescriptor` fields and a
 caller-owned `multisampleTexture`. Supply a 4x MSAA texture with
@@ -40,7 +40,7 @@ discards that MSAA source because no later node reads it. Omitting both inputs
 keeps the direct single-sampled draw. Descriptor extras retain native object
 identity and never transfer ownership; native feature and pipeline compatibility
 remain application responsibilities. See
-[Native render-pass descriptor extras](../README.md#native-render-pass-descriptor-extras)
+[Native render-pass descriptor extras](../docs/README.md#native-render-pass-descriptor-extras)
 for experimental resource tables and explicit graph access requirements.
 
 Create one `FrameGraph` for each `GPUDevice`, invoke a recipe after acquiring

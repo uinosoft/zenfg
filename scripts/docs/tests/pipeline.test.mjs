@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os';
 import { resolve } from 'node:path';
 import { transformContent } from '../prepare.mjs';
 import { anchors, assertLocalLinks, hideRustDoctestLines, quickStart } from '../markdown.mjs';
+import { usageText } from '../usage.mjs';
 import { publicEntrypoints, packages, pages, recipes, snapshotVersion, siteBase, read, publishedVersion } from '../catalog.mjs';
 
 test('all public typed exports are discovered without inventing runtime subpaths', () => {
@@ -43,9 +44,9 @@ test('installed artifact validation catches escaping links, absent files and abs
         assert.doesNotThrow(() => assertLocalLinks(dir));
     } finally { rmSync(dir, { recursive: true, force: true }); }
 });
-test('Quick Starts are extracted from actual package READMEs, with no following sections', () => {
+test('Quick Starts are extracted from declared package usage sources, with no following sections', () => {
     for (const p of packages.filter(p => p.registry === 'npm')) {
-        const code = quickStart(read(`${p.directory}/README.md`));
+        const code = quickStart(usageText(resolve(p.directory)));
         assert.match(code, /import /);
         assert.ok(!code.includes('## Common tasks'));
     }

@@ -26,12 +26,14 @@
     "conformance",
     "SPEC.md",
     "README.md",
-    "LICENSE"
+    "LICENSE",
+    "docs",
+    "skills"
   ],
   "scripts": {
     "build": "node ../../scripts/build-package.mjs",
     "build:watch": "node ../../scripts/build-package.mjs --watch",
-    "prepack": "pnpm -r --filter \"@zenfg/snapshot...\" run build",
+    "prepack": "node ../../scripts/docs/skills.mjs --check --package && pnpm -r --filter \"@zenfg/snapshot...\" run build",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test": "node ../../scripts/run-tests.mjs packages/snapshot/tests",
     "pack": "pnpm pack --json"

@@ -1,4 +1,4 @@
-#![doc = include_str!("../README.md")]
+#![doc = include_str!("../docs/README.md")]
 #![warn(missing_docs)]
 
 mod compiler;
