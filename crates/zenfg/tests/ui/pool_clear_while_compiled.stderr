@@ -1,0 +1,9 @@
+error[E0499]: cannot borrow `graph` as mutable more than once at a time
+ --> tests/ui/pool_clear_while_compiled.rs:5:5
+  |
+4 |     let compiled = graph.begin_frame().compile(CompileOptions::default()).unwrap();
+  |                    ----- first mutable borrow occurs here
+5 |     graph.clear_resource_pool();
+  |     ^^^^^ second mutable borrow occurs here
+6 |     let _ = compiled.retained_node_count();
+  |             -------- first borrow later used here

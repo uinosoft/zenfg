@@ -1227,6 +1227,54 @@ export type CompiledFrameExecuteOptions = {
 	readonly afterSubmit?: SynchronousCallback<CompiledFrameAfterSubmitContext>;
 };
 
+declare const resourcePoolScopeBrand: unique symbol;
+
+/**
+ * Immutable runtime-owned pool partition identity created by FrameGraph.
+ * It owns no resources, remains usable after clearing, and cannot be constructed by callers.
+ */
+export type ResourcePoolScope = { readonly [resourcePoolScopeBrand]: true };
+
+/** Allocation options for transient declarations; imported resources never enter the pool. */
+export type TransientResourceOptions = {
+	/** Partition for both within-frame aliasing and cross-execution reuse; omitted means the default shared domain. */
+	readonly scope?: ResourcePoolScope;
+};
+
+/** Normalized physical texture allocation specifications, without labels or GPU objects. */
+export type TextureAllocationInfo = {
+	readonly size: { readonly width: number; readonly height: number; readonly depthOrArrayLayers: number };
+	readonly format: GPUTextureFormat;
+	readonly dimension: GPUTextureDimension;
+	readonly mipLevelCount: number;
+	readonly sampleCount: number;
+	readonly viewFormats: readonly GPUTextureFormat[];
+	readonly usage: GPUTextureUsageFlags;
+};
+
+/** Physical buffer specifications; size is the rounded pool capacity, not the logical size. */
+export type BufferAllocationInfo = {
+	readonly size: number;
+	readonly usage: GPUBufferUsageFlags;
+};
+
+/** Frozen per-instance predicate snapshot. It exposes no GPU handle, pool key, or persistent instance identity. */
+export type ResourcePoolEntryInfo = {
+	readonly scope?: ResourcePoolScope;
+	readonly estimatedBytes: number;
+	/** Accepted executions since this instance was last acquired; unrelated to frameIndex or GPU completion. */
+	readonly unusedExecutions: number;
+} & (
+	| { readonly kind: 'texture'; readonly descriptor: TextureAllocationInfo }
+	| { readonly kind: 'buffer'; readonly descriptor: BufferAllocationInfo }
+);
+
+/** Cache removals and estimated bytes selected by one explicit eviction; not immediate freed VRAM. */
+export type ResourcePoolEvictionReport = {
+	readonly evictedCount: number;
+	readonly estimatedEvictedBytes: number;
+};
+
 /**
  * Runtime-facing graph recording capability exposed to renderer features.
  *
@@ -1257,7 +1305,7 @@ export interface FrameGraphRecording {
 	 * until execution.
 	 * @throws If the descriptor is invalid, or the runtime/recorder is unusable.
 	 */
-	createTexture(desc: TextureDesc): TextureHandle;
+	createTexture(desc: TextureDesc, options?: TransientResourceOptions): TextureHandle;
 	/** Returns snapshotted metadata for a texture owned by this recording. */
 	getTextureDesc(handle: TextureHandle): Readonly<TextureDesc>;
 	/** Creates a logical view whose subresource selection participates in dependencies. */
@@ -1265,7 +1313,7 @@ export interface FrameGraphRecording {
 	/** Returns normalized metadata for a logical texture view. */
 	getTextureViewDesc(handle: TextureViewHandle): Readonly<NormalizedTextureViewDesc>;
 	/** Registers a transient buffer owned by this recording. */
-	createBuffer(desc: BufferDesc): BufferHandle;
+	createBuffer(desc: BufferDesc, options?: TransientResourceOptions): BufferHandle;
 	/** Returns snapshotted metadata for a buffer owned by this recording. */
 	getBufferDesc(handle: BufferHandle): Readonly<BufferDesc>;
 	/**

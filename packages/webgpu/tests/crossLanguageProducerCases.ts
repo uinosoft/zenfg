@@ -17,6 +17,7 @@ export const CROSS_LANGUAGE_PRODUCER_CASES = [
 	'texture-subresource',
 	'external-submission',
 	'aliasing',
+	'scoped-aliasing',
 	'texture-buffer-contiguous',
 	'texture-buffer-padding',
 ] as const;
@@ -31,6 +32,7 @@ const CASE_BUILDERS: Record<CrossLanguageProducerCase, () => FrameGraphCompilati
 	'texture-subresource': textureSubresource,
 	'external-submission': externalSubmission,
 	'aliasing': aliasing,
+	'scoped-aliasing': scopedAliasing,
 	'texture-buffer-contiguous': () => textureBufferCopies(false),
 	'texture-buffer-padding': () => textureBufferCopies(true),
 };
@@ -296,4 +298,17 @@ function aliasing(): FrameGraphCompilationReport {
 			],
 		});
 	});
+}
+
+function scopedAliasing(): FrameGraphCompilationReport {
+  const runtime = new FrameGraph(mockDevice());
+  runtime.createResourcePoolScope(); // unused identities must not leak into capture compatibility IDs
+  const a = runtime.createResourcePoolScope(), b = runtime.createResourcePoolScope();
+  const frame = runtime.beginFrame();
+  for (const [index, scope] of [a, a, b, undefined, undefined].entries()) {
+    const target = frame.createBuffer({ label: 'scoped.buffer.' + index, size: 33 }, { scope });
+    frame.command({ label: 'scoped.write.' + index, sideEffect: true,
+      uses: [frame.use(target, BufferAccess.CopyDst, { contents: 'overwrite' })] });
+  }
+  return frame.compile({ report: true }).compilationReport;
 }

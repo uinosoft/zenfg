@@ -25,6 +25,7 @@ const CASES: &[ProducerCase] = &[
     ("texture-subresource", texture_subresource),
     ("external-submission", external_submission),
     ("aliasing", aliasing),
+    ("scoped-aliasing", scoped_aliasing),
     ("texture-buffer-contiguous", || texture_buffer_copies(false)),
     ("texture-buffer-padding", || texture_buffer_copies(true)),
 ];
@@ -464,4 +465,32 @@ fn aliasing() -> CompilationReport {
             .unwrap();
         consume_second.finish().unwrap();
     })
+}
+
+fn scoped_aliasing() -> CompilationReport {
+    let mut graph = FrameGraph::new();
+    graph.create_resource_pool_scope();
+    let a = graph.create_resource_pool_scope();
+    let b = graph.create_resource_pool_scope();
+    let mut frame = graph.begin_frame();
+    for (index, scope) in [Some(a), Some(a), Some(b), None, None]
+        .into_iter()
+        .enumerate()
+    {
+        let desc = BufferDesc::new(format!("scoped.buffer.{index}"), 33);
+        let buffer = match scope {
+            Some(scope) => frame.create_buffer_in(scope, desc).unwrap(),
+            None => frame.create_buffer(desc).unwrap(),
+        };
+        let mut pass = frame.command_pass(format!("scoped.write.{index}"));
+        let _ = pass
+            .buffer_copy_dst(buffer, BufferRange::whole(), WriteContents::Overwrite)
+            .unwrap();
+        pass.finish().unwrap();
+    }
+    frame
+        .compile(CompileOptions::full_report())
+        .unwrap()
+        .take_report()
+        .unwrap()
 }

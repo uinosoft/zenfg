@@ -1,0 +1,9 @@
+error[E0521]: borrowed data escapes outside of closure
+ --> tests/ui/pool_view_escape.rs:6:9
+  |
+4 |     let mut saved = None;
+  |         --------- `saved` declared here, outside of the closure body
+5 |     graph.evict_resource_pool(|info| {
+  |                                ---- `info` is a reference that is only valid in the closure body
+6 |         saved = Some(info.descriptor);
+  |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ `info` escapes the closure body here

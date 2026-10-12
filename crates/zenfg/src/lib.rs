@@ -51,7 +51,10 @@ pub use resource::{
     TextureCopyLocation, TextureDesc, TextureSubresourceRange, TextureTarget, TextureView,
     TextureViewDesc, UsagePolicy,
 };
-pub use resource_pool::ResourcePoolStats;
+pub use resource_pool::{
+    PoolAllocationDescriptor, ResourcePoolEntryInfo, ResourcePoolEvictionReport, ResourcePoolScope,
+    ResourcePoolStats,
+};
 pub use types::{
     AccessMode, AccessRole, AttachmentStoreOp, ColorAttachmentLoadOp, ColorAttachmentOps,
     CompileOptions, DependencyKind, DepthAttachmentLoadOp, DepthAttachmentOps, ExecutionOptions,

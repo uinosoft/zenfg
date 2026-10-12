@@ -50,6 +50,10 @@ pub enum FrameGraphError {
         actual_recording: u64,
     },
 
+    /// A pool partition from another runtime was supplied.
+    #[error("resource pool scope does not belong to this FrameGraph runtime")]
+    ForeignResourcePoolScope,
+
     /// A [`PassBuilder`](crate::PassBuilder) was dropped without being finished.
     #[error("pass {pass} ({label}) was dropped without finish()")]
     UnclosedPass {
@@ -289,6 +293,7 @@ impl FrameGraphError {
             Self::InvalidRoot { .. } => "FG1107",
             Self::UnsupportedTextureFormatUsage { .. } => "FG1108",
             Self::ForeignHandle { .. } => "FG2001",
+            Self::ForeignResourcePoolScope => "FG2014",
             Self::UnclosedPass { .. } => "FG2002",
             Self::InvalidDebugGroupLabel { .. } => "FG2003",
             Self::DebugGroupStackUnderflow => "FG2004",

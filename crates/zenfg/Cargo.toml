@@ -82,3 +82,7 @@ required-features = ["snapshot"]
 [[example]]
 name = "cpu-timing-bench"
 path = "examples/cpu_timing_bench.rs"
+
+[[example]]
+name = "resource-pool-control"
+path = "examples/resource_pool_control.rs"

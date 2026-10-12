@@ -89,6 +89,8 @@ import type {
 	InternalUse,
 } from './internalTypes.ts';
 import { ResourcePool } from './resourcePool.ts';
+import { assertResourcePoolScope, createResourcePoolScope, scopedPoolKey } from './resourcePoolScope.ts';
+import type { ResourcePoolScope, ResourcePoolEntryInfo, ResourcePoolEvictionReport, TransientResourceOptions } from './types.ts';
 import {
 	allBufferUsageFlags,
 	allTextureUsageFlags,
@@ -205,6 +207,9 @@ type FrameGraphRuntimeState = {
 	readonly device: GPUDevice;
 	readonly pool: ResourcePool;
 	readonly gpuProfiler: GpuProfilerState;
+	readonly scopeOwner: object;
+	nextScopeIndex: number;
+	isMaintainingPool: boolean;
 	isExecuting: boolean;
 	isDestroyed: boolean;
 };
@@ -251,6 +256,9 @@ export class FrameGraph {
 			device,
 			pool: new ResourcePool(device),
 			gpuProfiler: createGpuProfilerState(device),
+			scopeOwner: {},
+			nextScopeIndex: 1,
+			isMaintainingPool: false,
 			isExecuting: false,
 			isDestroyed: false,
 		};
@@ -276,16 +284,42 @@ export class FrameGraph {
 		return this.runtime.pool.getStats();
 	}
 
+	/** Creates an opaque partition identity that owns no GPU resources. */
+	createResourcePoolScope(): ResourcePoolScope {
+		this.assertNotDestroyed();
+		const index = this.runtime.nextScopeIndex;
+		if (!Number.isSafeInteger(index)) throw new FrameGraphError(FRAME_GRAPH_ERROR_CODES.Internal, 'Resource pool scope identities exhausted.', { phase: 'record' });
+		this.runtime.nextScopeIndex++;
+		return createResourcePoolScope(this.runtime.scopeOwner, index);
+	}
+
 	/**
-	 * Destroys resources retained for reuse while preserving historical counters.
-	 *
-	 * @throws If this runtime has been destroyed or a compiled frame is currently
-	 * executing.
+	 * Calls a synchronous boolean predicate once for each retained physical instance, in unspecified order.
+	 * Selection finishes before any pool mutation. Throwing or returning an async/non-boolean value leaves
+	 * the pool unchanged. Callback side effects outside the pool are not rolled back.
+	 * During maintenance, same-runtime execution, eviction, clearing and destruction are rejected.
 	 */
-	clearResourcePool(): void {
+	evictResourcePool(predicate: (info: ResourcePoolEntryInfo) => boolean): ResourcePoolEvictionReport {
+		this.assertNotDestroyed();
+		this.assertNotExecuting('evictResourcePool');
+		this.runtime.isMaintainingPool = true;
+		try {
+			return this.runtime.pool.evict(predicate);
+		} finally {
+			this.runtime.isMaintainingPool = false;
+		}
+	}
+
+	/**
+	 * Destroys retained resources in the specified scope. Omitted/undefined means every domain.
+	 * Clearing does not invalidate the scope or compiled frames: executing an old plan repopulates its cache.
+	 * To clear only the default domain, use evictResourcePool(info => info.scope === undefined).
+	 */
+	clearResourcePool(scope?: ResourcePoolScope): void {
 		this.assertNotDestroyed();
 		this.assertNotExecuting('clearResourcePool');
-		this.runtime.pool.clearRetainedResources();
+		if (scope !== undefined) assertResourcePoolScope(scope, this.runtime.scopeOwner);
+		this.evictResourcePool((info) => scope === undefined || info.scope === scope);
 	}
 
 	/**
@@ -301,8 +335,8 @@ export class FrameGraph {
 		}
 		this.assertNotExecuting('destroy');
 		this.runtime.isDestroyed = true;
-		this.runtime.pool.destroy();
-		destroyGpuProfiler(this.runtime.gpuProfiler);
+		try { this.runtime.pool.destroy(); }
+		finally { destroyGpuProfiler(this.runtime.gpuProfiler); }
 	}
 
 	private assertNotDestroyed(phase: 'record' | 'execute' = 'record'): void {
@@ -316,6 +350,10 @@ export class FrameGraph {
 	}
 
 	private assertNotExecuting(operation: string): void {
+		if (this.runtime.isMaintainingPool) {
+			throw new FrameGraphError(FRAME_GRAPH_ERROR_CODES.ResourcePoolMaintenance,
+				'Operation cannot run during resource pool maintenance.', { phase: 'record', context: { operation } });
+		}
 		if (this.runtime.isExecuting) {
 			throw new FrameGraphError(
 				FRAME_GRAPH_ERROR_CODES.ConcurrentExecution,
@@ -441,14 +479,17 @@ class FrameGraphRecorderImpl implements FrameGraphRecorder {
 	 *
 	 * @beta
 	 */
-	createTexture(desc: TextureDesc): TextureHandle {
+	createTexture(desc: TextureDesc, options: TransientResourceOptions = {}): TextureHandle {
 		this.assertCanMutate('createTexture');
+		const scope = options.scope;
+		if (scope !== undefined) assertResourcePoolScope(scope, this.runtime.scopeOwner);
 		const registeredDesc = snapshotTextureDescriptor(desc);
 		this.validateTextureDescriptor(registeredDesc);
 		const handle = makeTextureHandle(this.nextResourceId++, registeredDesc.label, this.recordingOwner);
 		this.resources.set(handle.id, {
 			handle,
 			origin: 'transient',
+			scope,
 			initialContents: 'undefined',
 			desc: registeredDesc,
 			requiredUsage: 0 as GPUTextureUsageFlags,
@@ -538,14 +579,17 @@ class FrameGraphRecorderImpl implements FrameGraphRecorder {
 	 *
 	 * @beta
 	 */
-	createBuffer(desc: BufferDesc): BufferHandle {
+	createBuffer(desc: BufferDesc, options: TransientResourceOptions = {}): BufferHandle {
 		this.assertCanMutate('createBuffer');
+		const scope = options.scope;
+		if (scope !== undefined) assertResourcePoolScope(scope, this.runtime.scopeOwner);
 		const registeredDesc = { ...desc };
 		this.validateBufferDescriptor(registeredDesc, true);
 		const handle = makeBufferHandle(this.nextResourceId++, registeredDesc.label, this.recordingOwner);
 		this.resources.set(handle.id, {
 			handle,
 			origin: 'transient',
+			scope,
 			initialContents: 'undefined',
 			desc: registeredDesc,
 			requiredUsage: 0 as GPUBufferUsageFlags,
@@ -1480,6 +1524,15 @@ class FrameGraphRecorderImpl implements FrameGraphRecorder {
 		}
 		const frameIndex = options.frameIndex ?? 0;
 		assertNonNegativeSafeInteger(frameIndex, 'CompiledFrame.execute() frameIndex', { code: FRAME_GRAPH_ERROR_CODES.InvalidArgument, phase: 'execute' });
+		const beforeSubmit = options.beforeSubmit;
+		const afterSubmit = options.afterSubmit;
+		for (const [name, callback] of [['beforeSubmit', beforeSubmit], ['afterSubmit', afterSubmit]] as const) {
+			if (callback !== undefined && typeof callback !== 'function') {
+				throw new FrameGraphError(FRAME_GRAPH_ERROR_CODES.InvalidArgument,
+					'CompiledFrame.execute() ' + name + ' must be a function when provided.',
+					{ phase: 'execute', context: { parameter: name } });
+			}
+		}
 		const cpuDurations = timing === 'cpu' || timing === 'both' ? new Float64Array(plan.nodes.length) : undefined;
 		let cpuIndex = 0;
 		const cpuStart = cpuDurations ? cpuClock.now() : 0;
@@ -1492,6 +1545,7 @@ class FrameGraphRecorderImpl implements FrameGraphRecorder {
 
 		this.runtime.isExecuting = true;
 		try {
+			this.pool.beginExecution();
 			gpuTiming = timing === 'gpu' || timing === 'both'
 				? beginGpuTimingFrame(this.gpuProfiler, plan.nodes, frameIndex)
 				: undefined;
@@ -1515,6 +1569,7 @@ class FrameGraphRecorderImpl implements FrameGraphRecorder {
 						resource.desc as TextureDesc,
 						compiledResource.usage as GPUTextureUsageFlags,
 						allocation.key,
+						resource.scope,
 					);
 					resourceByAllocationId.set(allocation.id, texture);
 					resourceByLogicalId.set(resource.handle.id, texture);
@@ -1525,6 +1580,7 @@ class FrameGraphRecorderImpl implements FrameGraphRecorder {
 						resource.desc as BufferDesc,
 						compiledResource.usage as GPUBufferUsageFlags,
 						allocation.key,
+						resource.scope,
 					);
 					resourceByAllocationId.set(allocation.id, buffer);
 					resourceByLogicalId.set(resource.handle.id, buffer);
@@ -1584,7 +1640,7 @@ class FrameGraphRecorderImpl implements FrameGraphRecorder {
 				if (gpuDebugGroups) {
 					this.syncGpuDebugGroups(commandEncoder, activeDebugGroupPath, []);
 				}
-				invokeSynchronousCallback('FrameGraph.beforeSubmit', options.beforeSubmit, {
+				invokeSynchronousCallback('FrameGraph.beforeSubmit', beforeSubmit, {
 					device: this.device,
 					commandEncoder,
 					frameIndex,
@@ -1597,7 +1653,7 @@ class FrameGraphRecorderImpl implements FrameGraphRecorder {
 				this.device.queue.submit([commandEncoder.finish()]);
 				frameGraphSegmentIndex++;
 			}
-			invokeSynchronousCallback('FrameGraph.afterSubmit', options.afterSubmit, { device: this.device, frameIndex });
+			invokeSynchronousCallback('FrameGraph.afterSubmit', afterSubmit, { device: this.device, frameIndex });
 			readGpuTimingFrame(this.gpuProfiler, gpuTiming?.frame);
 		}
 		catch (error) {
@@ -2652,9 +2708,9 @@ class FrameGraphRecorderImpl implements FrameGraphRecorder {
 
 	private resourcePoolKey(resource: InternalResource): string {
 		if (resource.handle.kind === 'texture') {
-			return texturePoolKey(resource.desc as TextureDesc, this.effectiveResourceUsage(resource) as GPUTextureUsageFlags);
+			return scopedPoolKey(texturePoolKey(resource.desc as TextureDesc, this.effectiveResourceUsage(resource) as GPUTextureUsageFlags), resource.scope);
 		}
-		return bufferPoolKey(resource.desc as BufferDesc, this.effectiveResourceUsage(resource) as GPUBufferUsageFlags, { code: FRAME_GRAPH_ERROR_CODES.InvalidResourceDescriptor, phase: 'compile', resourceId: resource.handle.id });
+		return scopedPoolKey(bufferPoolKey(resource.desc as BufferDesc, this.effectiveResourceUsage(resource) as GPUBufferUsageFlags, { code: FRAME_GRAPH_ERROR_CODES.InvalidResourceDescriptor, phase: 'compile', resourceId: resource.handle.id }), resource.scope);
 	}
 
 	private resolveTextureViewBinding(
@@ -3017,6 +3073,10 @@ class FrameGraphRecorderImpl implements FrameGraphRecorder {
 	}
 
 	private assertNotExecuting(operation: string): void {
+		if (this.runtime.isMaintainingPool) {
+			throw new FrameGraphError(FRAME_GRAPH_ERROR_CODES.ResourcePoolMaintenance,
+				'Operation cannot run during resource pool maintenance.', { phase: 'execute', context: { operation } });
+		}
 		if (this.runtime.isExecuting) {
 			throw new FrameGraphError(
 				FRAME_GRAPH_ERROR_CODES.ConcurrentExecution,

@@ -14,6 +14,8 @@ export const FRAME_GRAPH_ERROR_CODES = {
 	UnsupportedTextureFormatUsage: 'FG1108',
 	InvalidAccess: 'FG1109',
 	ForeignHandle: 'FG2001',
+	ForeignResourcePoolScope: 'FG2014',
+	ResourcePoolMaintenance: 'FG2015',
 	InvalidDebugGroupLabel: 'FG2003',
 	DebugGroupStackUnderflow: 'FG2004',
 	UnclosedDebugGroup: 'FG2005',

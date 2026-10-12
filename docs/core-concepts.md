@@ -209,9 +209,40 @@ descriptors and pool buckets. They are intended for comparison and alias
 analysis, not as measurements of driver allocation, residency, alignment,
 metadata, or physical video-memory use.
 
-The pool has no automatic memory budget or eviction policy. Applications may
-clear retained allocations after resize or highly dynamic descriptor phases,
-and should release runtime-owned resources when the device-bound renderer stack
+The pool has no automatic memory budget or eviction policy. A runtime-created
+`ResourcePoolScope` partitions both within-frame aliasing and cross-execution
+reuse; omitted scopes use the default shared domain. Scopes own no resources,
+need no disposal, and remain usable after clearing. Imported and surface
+resources are never pool candidates.
+
+Applications may clear one scope after resize or use a synchronous predicate
+to evict retained physical instances by scope, physical descriptor, estimated
+bytes or idle execution count. Selection completes before pool mutation;
+predicate failure leaves the pool unchanged, but its external side effects
+are not rolled back. Each instance is visited once in unspecified order.
+TypeScript supplies deeply frozen snapshots; Rust supplies callback-local
+borrowed views and permits stateful `FnMut` predicates. Neither exposes GPU
+objects, internal keys or stable pool-instance IDs.
+
+An accepted execution advances pool age once after parameter/preflight
+validation; empty executions and subsequent execution failures count too.
+Acquisition resets that instance's age to zero. Compilation, pool maintenance,
+application frame indices and GPU completion do not advance this age.
+
+Management is outside execution: TypeScript rejects same-runtime execution,
+clearing, eviction or destruction during predicate maintenance; Rust's frame
+and compiled-frame exclusive graph borrow enforces that boundary. Clearing
+does not invalidate compiled plans. Stop using old-size TypeScript plans
+before resize cleanup, since executing them repopulates the cache. Rust plans
+are consumed by execution. Both clear-all entrypoints retain their existing
+meaning; TypeScript's omitted or explicit `undefined` clears every domain.
+Use a predicate selecting `undefined`/`None` to clear only the default domain.
+
+Execution synchronously submits all graph-visible work and returns transients
+on exit, including failure. Pool eviction invokes native destruction without
+waiting for GPU completion; WebGPU/wgpu defer underlying reclamation for
+already-submitted work. Removed-byte estimates do not imply immediate VRAM
+release. Release the runtime-owned pool when the device-bound renderer stack
 is destroyed.
 
 ## Integration levels

@@ -87,16 +87,24 @@ impl AllocationKey {
 pub(crate) struct PhysicalAllocationPlan {
     pub(crate) id: AllocationId,
     pub(crate) key: AllocationKey,
+    pub(crate) scope: Option<crate::ResourcePoolScope>,
     pub(crate) resource_ids: Vec<ResourceId>,
     pub(crate) estimated_byte_size: u64,
 }
 
 impl PhysicalAllocationPlan {
-    fn report(&self) -> AllocationReport {
+    fn report(&self, scopes: &mut HashMap<crate::ResourcePoolScope, usize>) -> AllocationReport {
         AllocationReport {
             id: self.id,
             kind: self.key.kind(),
-            compatibility_key: self.key.compatibility_key(),
+            compatibility_key: match self.scope {
+                None => self.key.compatibility_key(),
+                Some(scope) => {
+                    let next = scopes.len() + 1;
+                    let index = scopes.entry(scope).or_insert(next);
+                    format!("scope:{index}|{}", self.key.compatibility_key())
+                }
+            },
             resource_ids: self.resource_ids.clone(),
             estimated_byte_size: self.estimated_byte_size,
         }
@@ -334,9 +342,10 @@ pub(crate) fn compile<'frame>(
     let lifetimes = compute_lifetimes(&frame.nodes, &retained);
     let (physical_allocations, allocation_by_resource) =
         build_allocations(&frame.resources, &usages, &lifetimes)?;
+    let mut scope_classes = HashMap::new();
     let allocations = physical_allocations
         .iter()
-        .map(PhysicalAllocationPlan::report)
+        .map(|allocation| allocation.report(&mut scope_classes))
         .collect::<Vec<_>>();
     let retained_nodes: Vec<_> = frame
         .nodes
@@ -1216,6 +1225,7 @@ fn build_allocations(
     struct Builder {
         id: AllocationId,
         key: AllocationKey,
+        scope: Option<crate::ResourcePoolScope>,
         last_use: usize,
         resources: Vec<ResourceId>,
         bytes: u64,
@@ -1243,10 +1253,11 @@ fn build_allocations(
                 message: format!("missing usage for resource {}", resource.id),
             })?;
         let (key, bytes) = allocation_key_and_bytes(resource, usage)?;
-        if let Some(existing) = builders
-            .iter_mut()
-            .find(|allocation| allocation.key == key && allocation.last_use < lifetime.first_use)
-        {
+        if let Some(existing) = builders.iter_mut().find(|allocation| {
+            allocation.key == key
+                && allocation.scope == resource.scope
+                && allocation.last_use < lifetime.first_use
+        }) {
             existing.last_use = lifetime.last_use;
             existing.resources.push(resource.id);
             by_resource.insert(resource.id, existing.id);
@@ -1260,6 +1271,7 @@ fn build_allocations(
         builders.push(Builder {
             id,
             key,
+            scope: resource.scope,
             last_use: lifetime.last_use,
             resources: vec![resource.id],
             bytes,
@@ -1272,6 +1284,7 @@ fn build_allocations(
             .map(|builder| PhysicalAllocationPlan {
                 id: builder.id,
                 key: builder.key,
+                scope: builder.scope,
                 resource_ids: builder.resources,
                 estimated_byte_size: builder.bytes,
             })

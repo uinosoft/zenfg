@@ -1,0 +1,296 @@
+{
+  "projectionVersion": 1,
+  "case": "scoped-aliasing",
+  "graph": {
+    "groups": [],
+    "nodes": [
+      {
+        "label": "scoped.write.0",
+        "recordingOrder": 0,
+        "kind": "command",
+        "sideEffect": true,
+        "group": null,
+        "compileState": {
+          "status": "retained",
+          "executionOrder": 0
+        }
+      },
+      {
+        "label": "scoped.write.1",
+        "recordingOrder": 1,
+        "kind": "command",
+        "sideEffect": true,
+        "group": null,
+        "compileState": {
+          "status": "retained",
+          "executionOrder": 1
+        }
+      },
+      {
+        "label": "scoped.write.2",
+        "recordingOrder": 2,
+        "kind": "command",
+        "sideEffect": true,
+        "group": null,
+        "compileState": {
+          "status": "retained",
+          "executionOrder": 2
+        }
+      },
+      {
+        "label": "scoped.write.3",
+        "recordingOrder": 3,
+        "kind": "command",
+        "sideEffect": true,
+        "group": null,
+        "compileState": {
+          "status": "retained",
+          "executionOrder": 3
+        }
+      },
+      {
+        "label": "scoped.write.4",
+        "recordingOrder": 4,
+        "kind": "command",
+        "sideEffect": true,
+        "group": null,
+        "compileState": {
+          "status": "retained",
+          "executionOrder": 4
+        }
+      }
+    ],
+    "resources": [
+      {
+        "label": "scoped.buffer.0",
+        "kind": "buffer",
+        "origin": "transient",
+        "initialContents": "undefined",
+        "group": null,
+        "descriptor": {
+          "kind": "buffer",
+          "size": 33
+        },
+        "usageFlags": [
+          "copy-dst"
+        ],
+        "lifetime": {
+          "firstUse": 0,
+          "lastUse": 0
+        }
+      },
+      {
+        "label": "scoped.buffer.1",
+        "kind": "buffer",
+        "origin": "transient",
+        "initialContents": "undefined",
+        "group": null,
+        "descriptor": {
+          "kind": "buffer",
+          "size": 33
+        },
+        "usageFlags": [
+          "copy-dst"
+        ],
+        "lifetime": {
+          "firstUse": 1,
+          "lastUse": 1
+        }
+      },
+      {
+        "label": "scoped.buffer.2",
+        "kind": "buffer",
+        "origin": "transient",
+        "initialContents": "undefined",
+        "group": null,
+        "descriptor": {
+          "kind": "buffer",
+          "size": 33
+        },
+        "usageFlags": [
+          "copy-dst"
+        ],
+        "lifetime": {
+          "firstUse": 2,
+          "lastUse": 2
+        }
+      },
+      {
+        "label": "scoped.buffer.3",
+        "kind": "buffer",
+        "origin": "transient",
+        "initialContents": "undefined",
+        "group": null,
+        "descriptor": {
+          "kind": "buffer",
+          "size": 33
+        },
+        "usageFlags": [
+          "copy-dst"
+        ],
+        "lifetime": {
+          "firstUse": 3,
+          "lastUse": 3
+        }
+      },
+      {
+        "label": "scoped.buffer.4",
+        "kind": "buffer",
+        "origin": "transient",
+        "initialContents": "undefined",
+        "group": null,
+        "descriptor": {
+          "kind": "buffer",
+          "size": 33
+        },
+        "usageFlags": [
+          "copy-dst"
+        ],
+        "lifetime": {
+          "firstUse": 4,
+          "lastUse": 4
+        }
+      }
+    ],
+    "textureViews": [],
+    "accesses": [
+      {
+        "node": "scoped.write.0",
+        "resource": "scoped.buffer.0",
+        "access": "buffer-copy-dst",
+        "mode": "write",
+        "contents": "overwrite",
+        "producesValue": true,
+        "bufferRange": {
+          "offset": 0,
+          "size": 33
+        }
+      },
+      {
+        "node": "scoped.write.1",
+        "resource": "scoped.buffer.1",
+        "access": "buffer-copy-dst",
+        "mode": "write",
+        "contents": "overwrite",
+        "producesValue": true,
+        "bufferRange": {
+          "offset": 0,
+          "size": 33
+        }
+      },
+      {
+        "node": "scoped.write.2",
+        "resource": "scoped.buffer.2",
+        "access": "buffer-copy-dst",
+        "mode": "write",
+        "contents": "overwrite",
+        "producesValue": true,
+        "bufferRange": {
+          "offset": 0,
+          "size": 33
+        }
+      },
+      {
+        "node": "scoped.write.3",
+        "resource": "scoped.buffer.3",
+        "access": "buffer-copy-dst",
+        "mode": "write",
+        "contents": "overwrite",
+        "producesValue": true,
+        "bufferRange": {
+          "offset": 0,
+          "size": 33
+        }
+      },
+      {
+        "node": "scoped.write.4",
+        "resource": "scoped.buffer.4",
+        "access": "buffer-copy-dst",
+        "mode": "write",
+        "contents": "overwrite",
+        "producesValue": true,
+        "bufferRange": {
+          "offset": 0,
+          "size": 33
+        }
+      }
+    ],
+    "dependencies": [],
+    "roots": [
+      {
+        "reason": "side-effect",
+        "node": "scoped.write.0"
+      },
+      {
+        "reason": "side-effect",
+        "node": "scoped.write.1"
+      },
+      {
+        "reason": "side-effect",
+        "node": "scoped.write.2"
+      },
+      {
+        "reason": "side-effect",
+        "node": "scoped.write.3"
+      },
+      {
+        "reason": "side-effect",
+        "node": "scoped.write.4"
+      }
+    ],
+    "segments": [
+      {
+        "order": 0,
+        "kind": "frame-graph",
+        "nodes": [
+          "scoped.write.0",
+          "scoped.write.1",
+          "scoped.write.2",
+          "scoped.write.3",
+          "scoped.write.4"
+        ]
+      }
+    ]
+  },
+  "memory": {
+    "allocationEquivalenceClasses": [
+      [
+        "scoped.buffer.0",
+        "scoped.buffer.1"
+      ],
+      [
+        "scoped.buffer.2"
+      ],
+      [
+        "scoped.buffer.3",
+        "scoped.buffer.4"
+      ]
+    ]
+  },
+  "cpuTiming": {
+    "status": "available",
+    "executionDurationMicros": 1000,
+    "nodes": [
+      {
+        "node": "scoped.write.0",
+        "durationMicros": 1
+      },
+      {
+        "node": "scoped.write.1",
+        "durationMicros": 2
+      },
+      {
+        "node": "scoped.write.2",
+        "durationMicros": 3
+      },
+      {
+        "node": "scoped.write.3",
+        "durationMicros": 4
+      },
+      {
+        "node": "scoped.write.4",
+        "durationMicros": 5
+      }
+    ]
+  }
+}
