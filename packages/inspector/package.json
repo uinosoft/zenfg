@@ -24,7 +24,9 @@
     "README.md",
     "LICENSE",
     "THEMING.md",
-    "GUIDE.md"
+    "GUIDE.md",
+    "docs",
+    "skills"
   ],
   "dependencies": {
     "@zenfg/snapshot": "workspace:0.1.1",
@@ -34,7 +36,7 @@
   "scripts": {
     "build": "node ../../scripts/build-package.mjs",
     "build:watch": "node ../../scripts/build-package.mjs --watch",
-    "prepack": "pnpm -r --filter \"@zenfg/inspector...\" run build",
+    "prepack": "node ../../scripts/docs/skills.mjs --check --package && pnpm -r --filter \"@zenfg/inspector...\" run build",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test": "node ../../scripts/run-tests.mjs packages/inspector/tests",
     "pack": "pnpm pack --json"

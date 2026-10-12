@@ -1,7 +1,8 @@
 import { readFileSync, mkdirSync, writeFileSync } from 'node:fs';
-import { resolve, dirname } from 'node:path';
+import { resolve, dirname, relative } from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { parse } from 'smol-toml';
+import { usagePath } from './usage.mjs';
 import { latestTag } from '../release/assess.mjs';
 
 export const root = resolve(import.meta.dirname, '../..');
@@ -64,8 +65,16 @@ export const pages = [
     { source: 'docs/migration-0.1.0-beta.3.md', route: 'migration/beta-3', title: 'Migrating to beta.3', group: 'Compatibility & migration' },
     { source: 'CHANGELOG.md', route: 'changelog', title: 'Changelog', group: 'Compatibility & migration' },
 ];
+const usagePages = packages.map(p => ({ source: relative(root, usagePath(resolve(root, p.directory))).replaceAll('\\', '/'),
+    route: 'guides/' + p.slug, title: p.name + ' usage', group: 'Guides & examples' }))
+    .filter(p => !pages.some(page => page.source === p.source));
+pages.push(...usagePages,
+    { source: 'packages/webgpu/docs/CONCEPTS.md', route: 'concepts/webgpu', title: 'WebGPU concepts', group: 'Concepts' },
+    { source: 'crates/zenfg/docs/CONCEPTS.md', route: 'concepts/zenfg', title: 'Rust concepts', group: 'Concepts' },
+    ...packages.map(p => ({ source: p.directory + '/docs/MIGRATION.md', route: 'migration/' + p.slug, title: p.name + ' upgrades', group: 'Compatibility & migration' })));
+
 export const recipes = packages.filter(p => p.slug === 'webgpu' || p.slug === 'zenfg').flatMap(p =>
-    ['minimal-frame', 'transient-to-present', 'imported-resource', 'persistent-state', 'external-submission', 'snapshot-export', 'gpu-timing', 'compute-output'].map(name => ({
+    ['resource-pool-control', 'minimal-frame', 'transient-to-present', 'imported-resource', 'persistent-state', 'external-submission', 'snapshot-export', 'gpu-timing', 'compute-output'].map(name => ({
         source: `${p.directory}/examples/${p.registry === 'npm' ? name + '.ts' : name.replaceAll('-', '_') + '.rs'}`,
         route: `examples/${p.slug}/${name}`, title: `${p.slug}: ${name}`, group: 'Examples', code: p.registry === 'npm' ? 'ts' : 'rust',
     })));

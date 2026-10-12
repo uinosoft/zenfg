@@ -136,7 +136,6 @@ normative `@zenfg/snapshot` conformance corpus.
 ## Further reading
 
 - [Snapshot 1.2 specification](https://github.com/uinosoft/zenfg/blob/cargo/zenfg-snapshot/v0.1.1/packages/snapshot/SPEC.md)
-- [ZenFG Core concepts](https://github.com/uinosoft/zenfg/blob/cargo/zenfg-snapshot/v0.1.1/docs/core-concepts.md)
 - [`@zenfg/snapshot`](https://github.com/uinosoft/zenfg/blob/cargo/zenfg-snapshot/v0.1.1/packages/snapshot/README.md)
 - [`zenfg`](https://github.com/uinosoft/zenfg/blob/cargo/zenfg-snapshot/v0.1.1/crates/zenfg/README.md)
 - [Compatibility](https://github.com/uinosoft/zenfg/blob/cargo/zenfg-snapshot/v0.1.1/docs/compatibility.md)
@@ -144,14 +143,16 @@ normative `@zenfg/snapshot` conformance corpus.
 ## Documentation and versions
 
 <!-- generated:documentation:start -->
-This README describes **zenfg-snapshot 0.1.1**. Registry badges show the current published channel, not your installed version.
+The package manifest declares **zenfg-snapshot 0.1.1**. Registry badges show the current published channel, not your installed version.
 
 - Exact installed APIs: read the included `src/`, or run `cargo doc --open` in your consuming project.
 - [Online guide (development branch)](https://uinosoft.github.io/zenfg/docs/packages/zenfg-snapshot.html). The site may describe changes newer than this package.
 - [Rust API for this version](https://docs.rs/zenfg-snapshot/0.1.1/).
 - [Source and documentation for this release](https://github.com/uinosoft/zenfg/tree/cargo/zenfg-snapshot/v0.1.1/crates/zenfg-snapshot).
-- [Shared concepts for this release](https://github.com/uinosoft/zenfg/blob/cargo/zenfg-snapshot/v0.1.1/docs/core-concepts.md) and [compatibility](https://github.com/uinosoft/zenfg/blob/cargo/zenfg-snapshot/v0.1.1/docs/compatibility.md).
-- [Migration from 0.1.0](https://github.com/uinosoft/zenfg/blob/cargo/zenfg-snapshot/v0.1.1/docs/migration-0.2.0.md).
+- Usage contracts are maintained in this package; follow its local guides. Historical source links describe the named release, which may precede current development changes.
+- [Package upgrade notes][zenfg-snapshot-migration].
 - [Plain Markdown documentation index (development branch)](https://uinosoft.github.io/zenfg/docs/llms.txt).
 - Complete Cargo recipes are included in `examples/`.
 <!-- generated:documentation:end -->
+
+[zenfg-snapshot-migration]: ./docs/MIGRATION.md

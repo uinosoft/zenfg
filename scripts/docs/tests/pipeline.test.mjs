@@ -1,10 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { resolve } from 'node:path';
 import { transformContent } from '../prepare.mjs';
-import { anchors, assertLocalLinks, hideRustDoctestLines, quickStart } from '../markdown.mjs';
+import { plainMarkdown } from '../export.mjs';
+import { anchors, assertLocalLinks, assertBuildSources, sourceDigest, assertRequiredAnchors, assertRustdocLinks, packageRepositoryLinks, hideRustDoctestLines, quickStart } from '../markdown.mjs';
+import { usageText } from '../usage.mjs';
 import { publicEntrypoints, packages, pages, recipes, snapshotVersion, siteBase, read, publishedVersion } from '../catalog.mjs';
 
 test('all public typed exports are discovered without inventing runtime subpaths', () => {
@@ -43,9 +45,9 @@ test('installed artifact validation catches escaping links, absent files and abs
         assert.doesNotThrow(() => assertLocalLinks(dir));
     } finally { rmSync(dir, { recursive: true, force: true }); }
 });
-test('Quick Starts are extracted from actual package READMEs, with no following sections', () => {
+test('Quick Starts are extracted from declared package usage sources, with no following sections', () => {
     for (const p of packages.filter(p => p.registry === 'npm')) {
-        const code = quickStart(read(`${p.directory}/README.md`));
+        const code = quickStart(usageText(resolve(p.directory)));
         assert.match(code, /import /);
         assert.ok(!code.includes('## Common tasks'));
     }
@@ -87,4 +89,75 @@ test('published component versions use SemVer, preserve independent versions and
     assert.equal(publishedVersion({ registry: 'cargo', slug: 'zenfg' }, tags), '0.2.0-beta.10');
     assert.equal(publishedVersion({ registry: 'cargo', slug: 'zenfg-snapshot' }, tags), undefined);
     assert.equal(publishedVersion({ registry: 'npm', slug: 'webgpu' }, []), undefined);
+});
+
+
+test('explicit repository revisions survive metadata sync; new cross-package links use development source', () => {
+    const root = resolve('fixture');
+    const directory = resolve(root, 'packages/webgpu');
+    const file = resolve(directory, 'README.md');
+    const repository = 'https://github.com/uinosoft/zenfg';
+    const historic = repository + '/blob/npm/webgpu/v0.1.0-beta.3/crates/zenfg/README.md';
+    const current = repository + '/blob/main/crates/zenfg/docs/README.md';
+    const input = '[History](' + historic + ')\n[Development](' + current + ')\n[Other](../../crates/zenfg/docs/README.md#quick-start)\n[Own](../webgpu/docs/README.md)\n`[inline](../../missing.md)`\n```md\n[literal](../../missing.md)\n```';
+    const output = packageRepositoryLinks(input, file, directory, root, repository);
+    assert.ok(output.includes('[History](' + historic + ')'));
+    assert.ok(output.includes('[Development](' + current + ')'));
+    assert.ok(output.includes('[Other](' + current + '#quick-start)'));
+    assert.ok(output.includes('[Own](../webgpu/docs/README.md)'));
+    assert.ok(output.includes('`[inline](../../missing.md)`'));
+    assert.ok(output.includes('[literal](../../missing.md)'));
+});
+
+test('pre-migration anchors survive source editing and website projection', () => {
+    const legacy = JSON.parse(read('scripts/docs/legacy-anchors.json')).pages;
+    const mapping = new Map(pages.map(page => [page.source, page.route]));
+    for (const [file, expected] of Object.entries(legacy)) {
+        assertRequiredAnchors(expected, anchors(read(file)), file);
+        assertRequiredAnchors(expected, anchors(transformContent(read(file), file, mapping, 'abcdef')), file);
+    }
+    assert.throws(() => assertRequiredAnchors(['inspector-workbench-guide'], anchors('# Changed heading'), 'Guide'), /missing legacy anchors: inspector-workbench-guide/);
+});
+
+test('rustdoc HTML checks catch packaged-guide links missing from rendered output', () => {
+    const dir = mkdtempSync(resolve(tmpdir(), 'zenfg-rustdoc-links-'));
+    try {
+        mkdirSync(resolve(dir, 'zenfg'));
+        mkdirSync(resolve(dir, 'zenfg_snapshot'));
+        writeFileSync(resolve(dir, 'zenfg_snapshot/index.html'), '<h1 id="snapshot">Snapshot</h1>');
+        const file = resolve(dir, 'zenfg/index.html');
+        writeFileSync(file, '<h1 id="usage">Usage</h1><a href="./CONCEPTS.md#resources">Concepts</a>');
+        assert.throws(() => assertRustdocLinks(dir), /missing \.\/CONCEPTS\.md#resources/);
+        writeFileSync(file, '<h1 id="usage">Usage</h1><a href="#missing">Missing</a>');
+        assert.throws(() => assertRustdocLinks(dir), /missing anchor #missing/);
+        writeFileSync(file, '<h1 id="usage">Usage</h1><a href="#usage">Usage</a><a href="https://uinosoft.github.io/zenfg/docs/concepts/zenfg.html">Concepts</a><script>const template = \'<link href="../missing.css">\';</script>');
+        assert.doesNotThrow(() => assertRustdocLinks(dir));
+        const site = resolve(dir, 'site');
+        mkdirSync(site);
+        assert.throws(() => assertRustdocLinks(dir, site), /missing https:\/\/uinosoft.github.io\/zenfg\/docs\/concepts\/zenfg.html/);
+        mkdirSync(resolve(site, 'concepts'));
+        writeFileSync(resolve(site, 'concepts/zenfg.html'), '<h1 id="concepts">Concepts</h1>');
+        assert.doesNotThrow(() => assertRustdocLinks(dir, site));
+    } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+
+test('built documentation rejects an old commit or changed guide source at the same HEAD', () => {
+    const source = '# Guide\nCurrent guidance\n';
+    const metadata = { commit: 'current', pages: [{ source: 'guide.md', sourceHash: sourceDigest(source) }, { route: 'api/root' }] };
+    assert.doesNotThrow(() => assertBuildSources(metadata, 'current', () => source));
+    assert.throws(() => assertBuildSources(metadata, 'next', () => source), /stale/);
+    assert.throws(() => assertBuildSources(metadata, 'current', () => source + 'New paragraph\n'), /stale for guide.md/);
+});
+
+
+test('plain Markdown alternatives rebase inline and reference-definition links without changing code', () => {
+    const page = { route: 'guides/zenfg', sourceUrl: 'https://example.com/source' };
+    const meta = { commit: 'current', packages: [], docsBase: '/zenfg/docs/' };
+    const source = '# Usage\n[Inline](/concepts/zenfg.html#resources)\n[Concepts][concepts]\n[concepts]: /concepts/zenfg.html#resources\n[Recipe][recipe]\n[recipe]: /examples/zenfg/resource-pool-control.html\n```md\n[literal]: /unchanged.html\n```';
+    const output = plainMarkdown(page, meta, source);
+    assert.ok(output.includes('[Inline](/zenfg/docs/concepts/zenfg.md#resources)'));
+    assert.ok(output.includes('[concepts]: /zenfg/docs/concepts/zenfg.md#resources'));
+    assert.ok(output.includes('[recipe]: /zenfg/docs/examples/zenfg/resource-pool-control.md'));
+    assert.ok(output.includes('[literal]: /unchanged.html'));
 });

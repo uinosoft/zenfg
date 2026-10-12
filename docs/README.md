@@ -10,27 +10,19 @@ your application owns the device, rendering policy, and presentation.
 | Read or produce Snapshot data | [TypeScript Snapshot](../packages/snapshot/README.md) or [Rust Snapshot](../crates/zenfg-snapshot/README.md) | Validated, canonical portable diagnostics |
 | Embed a visual debugger | [Inspector quick start](../packages/inspector/README.md#quick-start) | A browser workbench for your captures |
 
-## Before you start
+<a id="before-you-start"></a>
+<a id="continue-by-task"></a>
 
-Read [Compatibility](compatibility.md) for package and toolchain requirements.
-Browser FrameGraph execution needs native WebGPU on HTTPS or localhost. Snapshot
-processing and the Inspector do not require a GPU. Pin exact package
-versions and check that your producer and consumer agree on the Snapshot wire version.
+## Package documentation
 
-## Continue by task
+Each package or crate owns its usage, concepts and upgrade instructions. Follow
+the links above for version-specific guides, or browse the [online documentation](https://uinosoft.github.io/zenfg/docs/).
 
-- Understand [Core concepts](core-concepts.md): recording, content validity, dependencies, retention, and resource lifetimes.
-- Follow the [complete TypeScript recipes](../packages/webgpu/examples/README.md) for transient resources, imported storage, persistent state, external submissions, snapshots, and GPU timing.
-- Use the [Inspector workbench guide](../packages/inspector/GUIDE.md) and [theme guide](../packages/inspector/THEMING.md).
-- Read the [Snapshot specification](../packages/snapshot/SPEC.md) for the portable wire contract.
-- Explore the [Examples](https://uinosoft.github.io/zenfg/playground/) or open the [standalone Inspector](https://uinosoft.github.io/zenfg/inspector/).
+<a id="api-reference"></a>
 
-## API reference
-
-[TypeScript API](https://uinosoft.github.io/zenfg/docs/api/) is generated from
-public source comments. For an installed version, follow its package manifest's
-`exports` to the included declarations and source. Rust API reference is on
-docs.rs; each crate README links its exact version.
+For exact APIs, follow each package README to its included types/source or Rust
+API documentation. The [development TypeScript API](https://uinosoft.github.io/zenfg/docs/api/)
+is generated from public source comments.
 
 ## Versions and contributing
 

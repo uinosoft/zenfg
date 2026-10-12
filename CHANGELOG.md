@@ -5,6 +5,16 @@ packages use independent versions; component tags identify each release.
 
 ## Unreleased
 
+- Document diagnostic grouping, repeated Bloom stages and the distinction between
+  native resource ownership and graph-visible access in runtime guides; derive
+  concise grouping/resource rules and Inspector display guidance into npm Skills.
+
+- Keep runtime, Snapshot and Inspector usage/upgrade guidance beside their owning
+  packages. Ship deterministic, tracked Agent Skills in the three npm artifacts,
+  with package-contained references and pnpm discovery/approval checks. Rust guides
+  remain crate-owned; Rust Skill distribution is deferred. Preserve documentation
+  routes and historical release records without changing published versions.
+
 - Add explicit runtime-owned resource-pool scopes and synchronous predicate
   eviction to `@zenfg/webgpu` and `zenfg`. Scopes isolate transient aliasing
   and reuse; predicates receive readonly physical specifications and idle

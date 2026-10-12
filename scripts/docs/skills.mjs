@@ -1,0 +1,118 @@
+import { existsSync, mkdirSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
+import { dirname, relative, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { markdown, assertLocalLinks } from './markdown.mjs';
+import { usagePath, within } from './usage.mjs';
+
+export function skillRegions(text) {
+    text = text.replaceAll('\r\n', '\n');
+    const excluded = new Set();
+    for (const token of markdown.parse(text, {})) {
+        if (['fence', 'code_block'].includes(token.type)) {
+            for (let i = token.map[0]; i < token.map[1]; i++) excluded.add(i);
+        }
+    }
+    const regions = new Map();
+    let active;
+    let offset = 0;
+    for (const [lineNumber, line] of text.split('\n').entries()) {
+        const marker = line.match(/^<!-- skill:([a-z0-9-]+):(start|end) -->$/);
+        if (marker && !excluded.has(lineNumber)) {
+            const [, id, boundary] = marker;
+            if (boundary === 'start') {
+                if (active || regions.has(id)) throw new Error('Nested or duplicate skill region: ' + id);
+                active = { id, offset: offset + line.length + 1 };
+            } else {
+                if (!active || active.id !== id) throw new Error('Unpaired skill region: ' + id);
+                const value = text.slice(active.offset, offset).trim();
+                if (!value) throw new Error('Empty skill region: ' + id);
+                regions.set(id, value);
+                active = undefined;
+            }
+        }
+        offset += line.length + 1;
+    }
+    if (active) throw new Error('Unclosed skill region: ' + active.id);
+    if (!regions.has('description') || regions.size < 2) throw new Error('Missing description or body regions.');
+    return regions;
+}
+
+export function rebaseLinks(text, source, output, directory) {
+    const rewrite = value => {
+        if (/^(?:[a-z][\w+.-]*:|\/)/i.test(value)) return value;
+        const match = value.match(/^([^?#]*)(\?[^#]*)?(#.*)?$/);
+        const target = match[1] ? resolve(dirname(source), decodeURIComponent(match[1])) : source;
+        if (!within(resolve(directory), target)) throw new Error('Skill link leaves package: ' + value);
+        return relative(dirname(output), target).replaceAll('\\', '/') + (match[2] ?? '') + (match[3] ?? '');
+    };
+    const codeLines = new Set();
+    for (const token of markdown.parse(text, {})) if (['fence', 'code_block'].includes(token.type)) {
+        for (let i = token.map[0]; i < token.map[1]; i++) codeLines.add(i);
+    }
+    return text.split('\n').map((line, index) => {
+        if (codeLines.has(index)) return line;
+        return line.split(/(\x60+[^\x60]*\x60+)/g).map((part, i) => {
+            if (i % 2) return part;
+            part = part.replace(/^(\s*\[[^\]]+\]:\s*)(<[^>]+>|\S+)/, (_, prefix, raw) => {
+                const angled = raw.startsWith('<');
+                const value = angled ? raw.slice(1, -1) : raw;
+                return prefix + (angled ? '<' : '') + rewrite(value) + (angled ? '>' : '');
+            });
+            return part.replace(/\]\(\s*(<[^>]+>|[^\s)]+)(?=\s|\))/g, (all, raw) => {
+                const angled = raw.startsWith('<');
+                const value = angled ? raw.slice(1, -1) : raw;
+                return all.replace(raw, (angled ? '<' : '') + rewrite(value) + (angled ? '>' : ''));
+            });
+        }).join('');
+    }).join('\n');
+}
+
+export function renderSkill(directory) {
+    directory = resolve(directory);
+    const manifest = JSON.parse(readFileSync(resolve(directory, 'package.json'), 'utf8'));
+    const name = manifest.name.replace(/^@/, '').replaceAll('/', '-');
+    if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(name) || name.length > 64) throw new Error('Invalid skill identity.');
+    const source = usagePath(directory);
+    const text = readFileSync(source, 'utf8').replaceAll('\r\n', '\n');
+    const regions = skillRegions(text);
+    const description = regions.get('description').replace(/\s+/g, ' ');
+    if (description.length > 1024 || /[<>]/.test(description)) throw new Error('Invalid skill description.');
+    const path = resolve(directory, 'skills', name, 'SKILL.md');
+    const body = [...regions].filter(([id]) => id !== 'description').map(([, value]) => value).join('\n\n');
+    const sourceEnv = {}, bodyEnv = {};
+    markdown.parse(text, sourceEnv);
+    markdown.parse(body, bodyEnv);
+    for (const [id] of Object.entries(sourceEnv.references ?? {})) {
+        const plain = body.replace(/(\x60{3,}|~{3,})[\s\S]*?\1/g, '').replace(/\x60[^\x60]*\x60/g, '');
+        const used = [...plain.matchAll(/\[([^\]]+)\](?:\[([^\]]*)\])?/g)].some(m =>
+            (m[2] || m[1]).trim().replace(/\s+/g, ' ').toUpperCase() === id);
+        if (used && !bodyEnv.references?.[id]) throw new Error('Reference definition outside skill regions: ' + id);
+    }
+    const content = '---\nname: ' + name + '\ndescription: ' + JSON.stringify(description)
+        + '\n---\n\n<!-- Generated by scripts/docs/skills.mjs. Edit the marked package usage source. -->\n\n'
+        + '# ' + manifest.name + '\n\nRead relative references from the real path of this SKILL.md inside the installed package.\n\n'
+        + rebaseLinks(body, source, path, directory) + '\n';
+    return { name, path, content, source };
+}
+
+export function checkSkill(directory) {
+    const skill = renderSkill(directory);
+    if (!existsSync(skill.path) || readFileSync(skill.path, 'utf8') !== skill.content) {
+        throw new Error('Generated skill differs for ' + directory + '; run pnpm run docs:generate.');
+    }
+    assertLocalLinks(realpathSync(directory), [realpathSync(skill.path)]);
+    return skill;
+}
+
+if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+    const args = process.argv.slice(2);
+    if (args.some(a => !['--check', '--package'].includes(a))) throw new Error('Usage: skills.mjs [--check] [--package]');
+    const check = args.includes('--check');
+    const directories = args.includes('--package') ? [process.cwd()]
+        : ['snapshot', 'webgpu', 'inspector'].map(slug => resolve(import.meta.dirname, '../../packages', slug));
+    for (const directory of directories) {
+        if (check) checkSkill(directory);
+        else { const skill = renderSkill(directory); mkdirSync(dirname(skill.path), { recursive: true }); writeFileSync(skill.path, skill.content); }
+    }
+    console.log(check ? 'Package Skills are up to date.' : 'Generated package Skills.');
+}

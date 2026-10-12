@@ -1,4 +1,14 @@
-#![doc = include_str!("../README.md")]
+#![doc = concat!(
+    "Guide links below open development-branch documentation. For installed-version guidance, read the included docs/ and examples/ directories.\n\n",
+    "[zenfg-composition]: https://uinosoft.github.io/zenfg/docs/concepts/zenfg.html#integration-levels\n",
+    "[zenfg-resource-granularity]: https://uinosoft.github.io/zenfg/docs/concepts/zenfg.html#choosing-resource-declaration-granularity\n",
+    "[zenfg-concepts]: https://uinosoft.github.io/zenfg/docs/concepts/zenfg.html\n",
+    "[zenfg-pool-recipe]: https://uinosoft.github.io/zenfg/docs/examples/zenfg/resource-pool-control.html\n",
+    "[zenfg-lifetime]: https://uinosoft.github.io/zenfg/docs/concepts/zenfg.html#lifetime-and-allocation\n",
+    "[zenfg-migration]: https://uinosoft.github.io/zenfg/docs/migration/zenfg.html\n",
+    "[zenfg-examples]: https://github.com/uinosoft/zenfg/tree/main/crates/zenfg/examples\n",
+    include_str!("../docs/README.md")
+)]
 #![warn(missing_docs)]
 
 mod compiler;

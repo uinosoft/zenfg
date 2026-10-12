@@ -5,6 +5,8 @@ import { build } from 'esbuild';
 import { parse } from 'smol-toml';
 import { root, json, read, assertCargoRegistrySources } from './core.mjs';
 import { archivePath, listFiles, npm, run, writeJson, output } from './io.mjs';
+import { usageText } from '../docs/usage.mjs';
+import { checkSkill } from '../docs/skills.mjs';
 import { assertLocalLinks, quickStart } from '../docs/markdown.mjs';
 import { installedPackageVersion, assertPackedManifest } from '../package-manager.mjs';
 
@@ -30,6 +32,7 @@ export async function consumer(packages, mode) {
                 if (manifest.version !== p.version) throw new Error('Consumer resolved wrong version of ' + p.name);
                 assertPackedManifest(json(p.directory + '/package.json'), manifest);
                 assertLocalLinks(installed);
+                checkSkill(installed);
                 for (const [subpath, target] of Object.entries(manifest.exports)) {
                     if (typeof target !== 'object' || !target.import) continue;
                     const spec = p.name + (subpath === '.' ? '' : subpath.slice(1));
@@ -37,7 +40,7 @@ export async function consumer(packages, mode) {
                     types.push('import ' + JSON.stringify(spec) + ';');
                 }
                 const setup = p.slug === 'webgpu' ? 'declare const device: GPUDevice;\ndeclare const context: GPUCanvasContext;\n' : '';
-                writeFileSync(join(examples, 'readme-' + p.slug + '.ts'), setup + quickStart(readFileSync(join(installed, 'README.md'), 'utf8').replaceAll('\r\n', '\n')));
+                writeFileSync(join(examples, 'readme-' + p.slug + '.ts'), setup + quickStart(usageText(installed)));
                 if (p.slug === 'webgpu') {
                     for (const file of readdirSync(join(installed, 'examples')).filter(f => f.endsWith('.ts'))) {
                         copyFileSync(join(installed, 'examples', file), join(examples, file));

@@ -1,3 +1,6 @@
+import { checkPackageSkillDiscovery } from './check-package-skills.mjs';
+import { usageText } from './docs/usage.mjs';
+import { checkSkill } from './docs/skills.mjs';
 import { assertLocalLinks, quickStart } from './docs/markdown.mjs';
 import { spawnSync } from 'node:child_process';
 import { npmCommand, pnpm, packPackage, assertPackedManifest, installedPackageVersion } from './package-manager.mjs';
@@ -8,6 +11,7 @@ import {
     mkdirSync,
     mkdtempSync,
     readdirSync,
+    statSync,
     readFileSync,
     rmSync,
     writeFileSync,
@@ -33,6 +37,8 @@ const packages = [
             'LICENSE',
             'README.md',
             'SPEC.md',
+            'docs/MIGRATION.md',
+            'skills/zenfg-snapshot/SKILL.md',
             'dist/index.d.ts',
             'dist/index.d.ts.map',
             'dist/index.js',
@@ -67,6 +73,11 @@ const packages = [
             'dist/snapshot.js',
             'src/index.ts',
             'examples/README.md',
+            'docs/README.md',
+            'docs/CONCEPTS.md',
+            'docs/MIGRATION.md',
+            'skills/zenfg-webgpu/SKILL.md',
+            'examples/resource-pool-control.ts',
             'examples/tsconfig.json',
             'examples/minimal-frame.ts',
             'examples/transient-to-present.ts',
@@ -91,6 +102,8 @@ const packages = [
             'dist/theme.d.ts',
             'dist/themes.css',
             'THEMING.md',
+            'docs/MIGRATION.md',
+            'skills/zenfg-inspector/SKILL.md',
             'GUIDE.md',
             'src/index.ts',
         ],
@@ -216,6 +229,7 @@ try {
                 throw new Error(`${packageSpec.directory} leaked workspace-only content: ${file}`);
             }
         }
+        process.stdout.write(packageSpec.name + ': ' + statSync(join(temporaryDirectory, packed.filename)).size + ' tarball bytes, ' + packedFiles.size + ' files.\n');
         tarballs.push({
             name: packageSpec.name,
             path: join(temporaryDirectory, basename(packed.filename)),
@@ -275,12 +289,14 @@ try {
         }
         validateDeclarationMaps(packageJson.name, installedPackageDirectory);
         assertLocalLinks(installedPackageDirectory);
+        checkSkill(installedPackageDirectory);
     }
 
     const exampleDirectory = join(consumerDirectory, 'examples');
     mkdirSync(exampleDirectory, { recursive: true });
     const installedWebGpuExamples = join(consumerDirectory, 'node_modules', '@zenfg', 'webgpu', 'examples');
     for (const example of [
+        'resource-pool-control.ts',
         'minimal-frame.ts',
         'transient-to-present.ts',
         'imported-resource.ts',
@@ -352,7 +368,7 @@ try {
     for (const slug of ['webgpu', 'snapshot', 'inspector']) {
         const installed = join(consumerDirectory, 'node_modules', '@zenfg', slug);
         const setup = slug === 'webgpu' ? 'declare const device: GPUDevice;\ndeclare const context: GPUCanvasContext;\n' : '';
-        writeFileSync(join(exampleDirectory, `readme-${slug}.ts`), setup + quickStart(readFileSync(join(installed, 'README.md'), 'utf8').replaceAll('\r\n', '\n')));
+        writeFileSync(join(exampleDirectory, `readme-${slug}.ts`), setup + quickStart(usageText(installed)));
     }
     const tscPath = join(consumerDirectory, 'node_modules', 'typescript', 'bin', 'tsc');
     const typescriptVersion = run(process.execPath, [tscPath, '--version'], {
@@ -377,9 +393,12 @@ try {
         const installedDirectory = join(isolated, 'node_modules', ...name.split('/'));
         validateDeclarationMaps(name, installedDirectory);
         assertLocalLinks(installedDirectory);
+        checkSkill(installedDirectory);
     }
     for (const file of ['index.ts', 'tsconfig.json', 'examples']) cpSync(join(consumerDirectory, file), join(isolated, file), { recursive: true });
     run(process.execPath, [join(isolated, 'node_modules/typescript/bin/tsc'), '--project', 'tsconfig.json'], { cwd: isolated });
+
+    checkPackageSkillDiscovery(isolated, tarballs, pnpm, storeBase);
 
     process.stdout.write(`Verified npm tarball contents, source-backed declaration maps, runtime imports, and ${typescriptVersion} declarations plus recipes from empty npm and pnpm projects.\n`);
 } finally {

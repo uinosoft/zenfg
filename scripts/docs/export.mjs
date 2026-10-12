@@ -1,11 +1,11 @@
 import { resolve, posix } from 'node:path';
 import { contentDir, read, write, website } from './catalog.mjs';
-export function plainMarkdown(page, meta) {
-    let text = read(resolve(contentDir, `${page.route}.md`)).replace(/^---\n[\s\S]*?\n---\n/, '');
-    text = text.split(/(```[^\n]*\n[\s\S]*?```|~~~[^\n]*\n[\s\S]*?~~~)/g).map((part, index) => index % 2 ? part : part.replace(/\]\(([^)]+)\)/g, (match, url) => {
-        if (/^(?:https?:|mailto:|#)/.test(url)) return match;
+export function plainMarkdown(page, meta, source = read(resolve(contentDir, page.route + '.md'))) {
+    let text = source.replace(/^---\n[\s\S]*?\n---\n/, '');
+    const rewrite = url => {
+        if (/^(?:https?:|mailto:|#)/.test(url)) return url;
         const [path, hash] = url.split('#');
-        if (path.endsWith('.txt')) return `](${meta.docsBase}${path.replace(/^\//, '')})`;
+        if (path.endsWith('.txt')) return meta.docsBase + path.replace(/^\//, '');
         let route;
         if (path.startsWith(meta.docsBase)) route = path.slice(meta.docsBase.length);
         else if (path.startsWith('/')) route = path.slice(1);
@@ -13,9 +13,12 @@ export function plainMarkdown(page, meta) {
         if (route.endsWith('/')) route += 'index';
         if (!route) route = 'index';
         route = route.replace(/\.(?:md|html)$/, '');
-        return `](${meta.docsBase}${route}.md${hash ? '#' + hash : ''})`;
-    })).join('');
-    return `> Development branch documentation · commit ${meta.commit}\n> Package versions: ${meta.packages.map(p => `${p.name} ${p.version}`).join(', ')}\n> Source: ${page.sourceUrl}\n\n${text.trim()}\n`;
+        return meta.docsBase + route + '.md' + (hash ? '#' + hash : '');
+    };
+    text = text.split(/(```[^\n]*\n[\s\S]*?```|~~~[^\n]*\n[\s\S]*?~~~)/g).map((part, index) => index % 2 ? part : part
+        .replace(/\]\(([^)]+)\)/g, (_, url) => '](' + rewrite(url) + ')')
+        .replace(/^(\[[^\]]+\]:\s*)(\S+)/gm, (_, prefix, url) => prefix + rewrite(url))).join('');
+    return '> Development branch documentation — commit ' + meta.commit + '\n> Package versions: ' + meta.packages.map(p => p.name + ' ' + p.version).join(', ') + '\n> Source: ' + page.sourceUrl + '\n\n' + text.trim() + '\n';
 }
 export function llmsIndex(meta) {
     return ['# ZenFG documentation', '', '> Composable FrameGraph infrastructure for WebGPU and wgpu. These are development-branch docs, not a published-version archive.', '',
