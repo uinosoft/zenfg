@@ -249,3 +249,37 @@ test('texture scopes independently partition aliasing, reuse and resize clearing
   assert.equal(graph.getResourcePoolStats().createdCount, 4);
   assert.equal(graph.getResourcePoolStats().reuseCount, 2);
 });
+
+test('invalid submission hook parameters do not advance age or acquire cached resources', () => {
+  const graph = new FrameGraph(mockDevice());
+  buffers(graph, [undefined]).execute();
+  const before = graph.getResourcePoolStats();
+  const empty = graph.beginFrame().compile();
+  const withResources = buffers(graph, [undefined]);
+  const work = graph.beginFrame();
+  work.command({ sideEffect: true });
+  const withSegment = work.compile();
+
+  for (const name of ['beforeSubmit', 'afterSubmit'] as const) {
+    for (const value of [42, null, false, 0, 'hook', {}]) {
+      for (const compiled of [empty, withResources]) {
+        const options = { [name]: value } as Parameters<typeof compiled.execute>[0];
+        assert.throws(() => compiled.execute(options), error =>
+          error instanceof FrameGraphError && error.code === 'FG2013' && error.phase === 'execute'
+            && error.context?.parameter === name);
+        assert.deepEqual(entries(graph).map(info => info.unusedExecutions), [0]);
+        assert.deepEqual(graph.getResourcePoolStats(), before);
+      }
+    }
+  }
+
+  let age = 0;
+  for (const name of ['beforeSubmit', 'afterSubmit'] as const) {
+    const failure = new Error(name + ' callback failure');
+    const callback = (): undefined => { throw failure; };
+    assert.throws(() => withSegment.execute({ [name]: callback }), error => error === failure);
+    assert.deepEqual(entries(graph).map(info => info.unusedExecutions), [++age]);
+  }
+  empty.execute(); // valid empty execution is still counted after parameter validation
+  assert.deepEqual(entries(graph).map(info => info.unusedExecutions), [++age]);
+});

@@ -100,6 +100,7 @@ jobs:
       - run: cargo test --locked --workspace --all-features --doc
       - run: cargo check --locked --workspace --all-features --examples
       - run: cargo run --locked -p zenfg --example minimal-frame --all-features
+      - run: cargo run --locked -p zenfg --example resource-pool-control --all-features
       - run: cargo run --locked -p zenfg --example snapshot-export --features snapshot
       - run: cargo run --locked -p zenfg-snapshot --example basic
       - run: cargo doc --locked --workspace --all-features --no-deps

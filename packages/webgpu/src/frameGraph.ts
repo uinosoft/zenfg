@@ -1524,6 +1524,15 @@ class FrameGraphRecorderImpl implements FrameGraphRecorder {
 		}
 		const frameIndex = options.frameIndex ?? 0;
 		assertNonNegativeSafeInteger(frameIndex, 'CompiledFrame.execute() frameIndex', { code: FRAME_GRAPH_ERROR_CODES.InvalidArgument, phase: 'execute' });
+		const beforeSubmit = options.beforeSubmit;
+		const afterSubmit = options.afterSubmit;
+		for (const [name, callback] of [['beforeSubmit', beforeSubmit], ['afterSubmit', afterSubmit]] as const) {
+			if (callback !== undefined && typeof callback !== 'function') {
+				throw new FrameGraphError(FRAME_GRAPH_ERROR_CODES.InvalidArgument,
+					'CompiledFrame.execute() ' + name + ' must be a function when provided.',
+					{ phase: 'execute', context: { parameter: name } });
+			}
+		}
 		const cpuDurations = timing === 'cpu' || timing === 'both' ? new Float64Array(plan.nodes.length) : undefined;
 		let cpuIndex = 0;
 		const cpuStart = cpuDurations ? cpuClock.now() : 0;
@@ -1631,7 +1640,7 @@ class FrameGraphRecorderImpl implements FrameGraphRecorder {
 				if (gpuDebugGroups) {
 					this.syncGpuDebugGroups(commandEncoder, activeDebugGroupPath, []);
 				}
-				invokeSynchronousCallback('FrameGraph.beforeSubmit', options.beforeSubmit, {
+				invokeSynchronousCallback('FrameGraph.beforeSubmit', beforeSubmit, {
 					device: this.device,
 					commandEncoder,
 					frameIndex,
@@ -1644,7 +1653,7 @@ class FrameGraphRecorderImpl implements FrameGraphRecorder {
 				this.device.queue.submit([commandEncoder.finish()]);
 				frameGraphSegmentIndex++;
 			}
-			invokeSynchronousCallback('FrameGraph.afterSubmit', options.afterSubmit, { device: this.device, frameIndex });
+			invokeSynchronousCallback('FrameGraph.afterSubmit', afterSubmit, { device: this.device, frameIndex });
 			readGpuTimingFrame(this.gpuProfiler, gpuTiming?.frame);
 		}
 		catch (error) {
