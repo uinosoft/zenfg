@@ -280,6 +280,21 @@ snapshot details**.
 
 ### Frame Flow interaction
 
+<!-- skill:group-view:start -->
+#### Reading groups
+
+Enable **Declarations** to see resource entrances in their declaration groups,
+and use **Groups**/expansion controls to browse the captured hierarchy. Cross-group
+use does not move an entrance; captured boundary relationships contribute to group
+Inputs/Outputs. **Imported** describes caller-owned native storage, not borrowing
+from another diagnostic group. Identical labels remain distinct groups.
+
+Groups describe diagnostic attribution, not retention, allocation isolation or
+exclusive GPU memory ownership. Shared/aliased allocations can contribute to
+several group summaries. Read the [Frame Flow guide](#frame-flow-interaction) for
+the complete display and selection behavior.
+<!-- skill:group-view:end -->
+
 Graph is a single **Frame Flow** view: resource declarations → retained pass
 dependencies → explicit resource outputs. Resource entrances belong to their
 declaration groups; output roots remain top-level and use compiler-supplied final
@@ -394,6 +409,7 @@ DOM APIs and are never executed as markup or code. The standalone Site page in
 <!-- skill:reading:start -->
 ## Usage references
 
+- [Workbench and Frame Flow](#frame-flow-interaction)
 - [Themes](./THEMING.md)
 - [Upgrade notes](./docs/MIGRATION.md)
 <!-- skill:reading:end -->

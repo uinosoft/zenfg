@@ -37,6 +37,14 @@ Read the [complete Quick Start](./docs/README.md#quick-start) for imports, calle
 
 - [Lifecycle](./docs/README.md#lifecycle)
 
+<a id="diagnostic-grouping"></a>
+
+- [Diagnostic grouping](./docs/README.md#diagnostic-grouping)
+
+<a id="bloom-grouping-adapter"></a>
+
+- [Bloom grouping adapter](./docs/README.md#bloom-grouping-adapter)
+
 <a id="validation-boundary"></a>
 
 - [Validation Boundary](./docs/README.md#validation-boundary)

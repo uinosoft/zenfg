@@ -83,6 +83,61 @@ runtime       recording         retained CPU plan        optional, one-shot
 - Dropping `FrameGraph` releases retained pool and profiler resources, but not
   caller-owned imported resources.
 
+## Diagnostic grouping
+
+Debug groups annotate declarations and passes for reports and Inspector. Recorded
+pass paths can emit optional native GPU markers. Groups do not establish
+dependencies, retain work, own native storage, or isolate allocations.
+Resource-pool scopes serve a separate purpose.
+
+- Group coherent features and useful phases with shallow, meaningful names.
+  Atmosphere may cover sky, clouds, haze and lens flare without absorbing Water.
+- Keep feature-local graph-visible declarations and passes together where their
+  correct recording order permits. Import shared storage once per recording at
+  the composition boundary and reuse its handle across groups.
+- Preserve recording and submission order. Interleaved features can use semantic
+  phase labels such as `atmosphere.environment`, `atmosphere.sky`,
+  `atmosphere.air-haze` and `atmosphere.lens-flare`; these are examples, not required names.
+- Bloom benefits from an outer `bloom` group and optional `downsample`/`upsample`
+  phases for its repeated passes. Label passes with their real mip/iteration
+  numbers rather than nesting one group per mip. Meaningful iterations may be numbered.
+- Use synchronous `with_debug_group()` or balanced manual push/pop calls; close
+  groups before compilation. Each push/with creates a new group. A returned
+  `DebugGroupId` cannot be passed back to reopen it; duplicate labels remain
+  distinct, and dotted labels are not hierarchical.
+- Resource attribution is captured at registration; a pass captures its group
+  when its `PassBuilder` is created. Cross-group use does not move the declaration
+  or change storage ownership or recording-local handle validity.
+
+### Bloom grouping adapter
+
+The caller's closures record the actual passes in their valid order, with
+specific labels such as `bloom.downsample.mip-2` and `bloom.upsample.mip-1`.
+This adapter supplies only the diagnostic hierarchy. Use it when the downsample
+and upsample stages are contiguous in the existing plan; otherwise group the
+semantic segments at their original call sites. Shared input handles can remain
+outside these groups; declare local intermediates at their appropriate recording points.
+
+~~~rust
+use zenfg::{Frame, FrameGraphError};
+
+pub fn record_bloom_groups<'frame>(
+    frame: &mut Frame<'frame>,
+    downsample: impl FnOnce(&mut Frame<'frame>) -> Result<(), FrameGraphError>,
+    upsample: impl FnOnce(&mut Frame<'frame>) -> Result<(), FrameGraphError>,
+) -> Result<(), FrameGraphError> {
+    frame.with_debug_group("bloom", |frame| {
+        frame.with_debug_group("downsample", downsample)?;
+        frame.with_debug_group("upsample", upsample)
+    })
+}
+~~~
+
+The wire protocol can describe non-contiguous group references, and execution
+may reopen native markers on successive graph-owned command segments. Neither
+provides recording-time re-entry. Native markers are opt-in through
+`ExecutionOptions::with_gpu_debug_groups(true)`.
+
 ## Validation Boundary
 
 ZenFG validates graph semantics: logical resource ranges, content flow, usage
@@ -113,6 +168,7 @@ value.
 | --- | --- |
 | Create a CPU-only compiler | `FrameGraph::new()` |
 | Create a device-backed runtime | `FrameGraph::with_device()` |
+| Annotate diagnostic groups | `push_debug_group()`, `pop_debug_group()`, `with_debug_group()` |
 | Start a recording | `begin_frame()` |
 | Create transient storage | `create_texture()`, `create_buffer()` |
 | Register imported storage | `import_texture()`, `import_surface_texture()`, `import_buffer()` |
@@ -175,6 +231,25 @@ pass/access IDs are checked. Tokens from another pass in the same recording
 continue to return `WrongPassToken`.
 
 ## Resource and integration choices
+
+Allocation ownership and graph visibility are separate: importing storage
+borrows caller-owned native objects for tracking without transferring ownership.
+
+| Need | Typical choice |
+| --- | --- |
+| Frame-local allocation and pooling | Declare transient Bloom intermediates, G-buffer attachments or graph-managed compute scratch. |
+| Cross-node data flow, persistent state, output or readback | Register resources and declare the required ranges/accesses. Import and bind caller-owned history, scene storage or staging buffers; add the appropriate roots. |
+| Private storage with no useful graph dependency or management role | Read-only cached vertex/index buffers, material textures, weights or workload-internal scratch may remain module-owned and internally bound. The caller owns initialization, lifetime and safe internal execution. |
+| CPU or native binding state | Scene/camera objects, pipelines, bind groups and samplers stay application-owned; they are not graph textures or buffers. |
+
+Long-lived storage is not automatically outside the graph. A persistent buffer
+written by one graph pass and consumed by another needs the relevant visible
+accesses, including `vertex_buffer()`/`index_buffer()` where applicable.
+Register shared imports once per recording, bind their native objects, and pass the logical
+handle to consumers. Private native bindings are not scanned for dependencies.
+Use typed access declarations at graph-visible boundaries of command/external
+passes; external submission orders shared-queue work, not GPU completion.
+See [resource declaration granularity](CONCEPTS.md#choosing-resource-declaration-granularity).
 
 Declaration granularity is optional: complex workloads can keep private weights,
 parameters, and scratch internally bound, while teaching or diagnostic use can

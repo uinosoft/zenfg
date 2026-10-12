@@ -92,7 +92,21 @@ the TSDoc preserved in the packaged source and declarations.
 | Old capture results replace new ones in host code | Let the Inspector own capture sequencing instead of applying asynchronous results separately. |
 | DOM or worker resources remain after unmount | Call `destroy()` when the host tool is released. |
 
+#### Reading groups
+
+Enable **Declarations** to see resource entrances in their declaration groups,
+and use **Groups**/expansion controls to browse the captured hierarchy. Cross-group
+use does not move an entrance; captured boundary relationships contribute to group
+Inputs/Outputs. **Imported** describes caller-owned native storage, not borrowing
+from another diagnostic group. Identical labels remain distinct groups.
+
+Groups describe diagnostic attribution, not retention, allocation isolation or
+exclusive GPU memory ownership. Shared/aliased allocations can contribute to
+several group summaries. Read the [Frame Flow guide](../../GUIDE.md#frame-flow-interaction) for
+the complete display and selection behavior.
+
 ## Usage references
 
+- [Workbench and Frame Flow](../../GUIDE.md#frame-flow-interaction)
 - [Themes](../../THEMING.md)
 - [Upgrade notes](../../docs/MIGRATION.md)

@@ -22,7 +22,7 @@ Import runtime APIs from the package root; the only supported
 diagnostic subpath is `@zenfg/webgpu/snapshot`.
 
 <!-- skill:description:start -->
-Use @zenfg/webgpu to integrate WebGPU rendering or compute, declare resource access, retain outputs, manage transient pools, or export frame diagnostics.
+Use @zenfg/webgpu to integrate WebGPU rendering or compute, declare resource access, organize diagnostic groups, retain outputs, manage transient pools, or export frame diagnostics.
 <!-- skill:description:end -->
 
 <!-- skill:quick-start:start -->
@@ -116,11 +116,79 @@ device lifetime       one recording        retained executable plan
   imported resources.
 <!-- skill:lifecycle:end -->
 
+<!-- skill:grouping:start -->
+## Diagnostic grouping
+
+Debug groups annotate recorded resources and passes in reports and Inspector.
+Recorded pass paths can emit optional native GPU markers. Groups do not create
+dependencies, retain work, own resources, or partition allocation. Choose `ResourcePoolScope` independently for
+pool reuse and eviction.
+
+- Organize coherent features and useful phases with shallow, meaningful names.
+  Atmosphere can include sky, clouds, haze and lens flare; unrelated Water work
+  keeps its own attribution.
+- Put feature-local, graph-visible declarations and their processing passes in
+  the appropriate group at their original recording points. Shared imports stay
+  at the composition boundary of each recording; reuse their handles across groups.
+- Preserve correct recording and submission order. When a feature is interleaved,
+  use semantic segments such as `atmosphere.environment`, `atmosphere.sky`,
+  `atmosphere.air-haze` and `atmosphere.lens-flare` instead of moving unrelated work.
+  These are example labels, not a mandatory taxonomy.
+- Bloom's repeated downsample/upsample passes are a useful grouping case: use an
+  outer `bloom` and, when helpful, `downsample`/`upsample` phases. Give passes their
+  actual mip or iteration numbers; avoid a new group for every mip or deep nesting.
+  Real iteration numbers are useful; arbitrary segment numbers are not.
+- Prefer synchronous `withDebugGroup()`. Balance manual push/pop calls and close
+  groups before compilation. Every push/with creates a distinct recording-local
+  group; repeated labels do not reopen an ID, and dots do not create hierarchy.
+- A resource keeps the group captured at declaration/import, even when other
+  groups use it. Group attribution does not transfer native ownership or make
+  transient objects safe to retain.
+
+See the [Bloom grouping adapter](#bloom-grouping-adapter) for supported API usage.
+<!-- skill:grouping:end -->
+
+### Bloom grouping adapter
+
+This adapter records caller-prepared, valid pass descriptors without changing
+their order, labels, attachments or accesses. Use it only when the existing
+plan has contiguous downsample then upsample work. Keep each descriptor's label
+specific, for example `bloom.downsample.mip-2` or `bloom.upsample.mip-1`.
+The caller supplies pipelines, shaders and resource declarations; this is a
+grouping adapter, not a Bloom filter implementation. Already-declared resources
+keep their declaration groups.
+
+~~~ts
+import type { FrameGraphRecording, RenderPassNodeDesc } from '@zenfg/webgpu';
+
+export function recordBloomGroups(
+  recorder: FrameGraphRecording,
+  downsample: readonly RenderPassNodeDesc[],
+  upsample: readonly RenderPassNodeDesc[],
+): void {
+  recorder.withDebugGroup('bloom', () => {
+    recorder.withDebugGroup('downsample', () => {
+      for (const pass of downsample) recorder.render(pass);
+    });
+    recorder.withDebugGroup('upsample', () => {
+      for (const pass of upsample) recorder.render(pass);
+    });
+  });
+}
+~~~
+
+For interleaved work, record separate phase groups at the original call sites.
+The recorder does not offer entry into an existing group ID. Snapshot can express
+non-contiguous group references, and native GPU markers may reopen the recorded
+path around submission segments; neither adds a recorder re-entry API.
+Enable `gpuDebugGroups` at execution only when native markers are wanted.
+
 ## Common tasks
 
 | Task | Public API |
 | --- | --- |
 | Create the device-bound runtime | `new FrameGraph(device)` |
+| Annotate diagnostic groups | `pushDebugGroup()`, `popDebugGroup()`, `withDebugGroup()` |
 | Start a recording | `beginFrame()` |
 | Create transient storage | `createTexture()`, `createBuffer()` |
 | Import caller-owned storage | `importTexture()`, `importBuffer()` |
@@ -234,7 +302,35 @@ attachment resolves to the presentation texture and discards only the
 multisample source that it never reads again. Keep `storeOp: 'store'` for any
 MSAA attachment whose contents a later node needs.
 
+<!-- skill:resource-decisions:start -->
 ## Resource and integration choices
+
+Allocation ownership and graph visibility are separate choices. Importing
+caller-owned storage enables graph tracking without transferring native ownership.
+
+| Need | Typical choice |
+| --- | --- |
+| Frame-local allocation and pooling | Declare transient Bloom intermediates, G-buffer attachments or graph-managed compute scratch. |
+| Data flow between graph nodes, persistent state, output or readback | Declare the relevant resources, ranges and accesses. Import caller-owned history, scene storage or staging buffers; retain observable results with the appropriate roots. |
+| Private storage with no useful graph dependency or management role | Cached read-only mesh vertex/index buffers, material textures, weights or workload-internal scratch may stay module-owned and internally bound. The caller owns initialization, lifetime and safe internal execution. |
+| CPU or native binding state | Scene/camera objects, pipelines, bind groups and samplers remain application-owned. A native resource table is not itself a graph texture or buffer. Assess its underlying resources separately. |
+
+Longevity alone does not decide visibility. If a graph node writes a persistent
+vertex/index buffer or material texture and another consumes it, expose the
+needed data flow rather than hiding it as a cached asset. For graph-visible
+resources, import once per recording and declare all accesses through structured attachments
+or `use()` tokens listed in the node's `uses`. Private native bindings are not
+automatically scanned. Use `command()` or `externalSubmission()` with declared
+boundary accesses for custom/opaque work; an external node orders shared-queue
+submissions, not GPU completion.
+
+The native `resourceTable` descriptor extra only passes through caller-owned
+state. Its entries are not automatically imported, dependency-tracked or
+synchronized. Graph-visible textures/buffers accessed through it still need
+declarations and `uses`; the application owns features, pipeline compatibility
+and native lifetimes. See [native extras](#native-render-pass-descriptor-extras)
+and [resource declaration granularity](CONCEPTS.md#choosing-resource-declaration-granularity).
+<!-- skill:resource-decisions:end -->
 
 Declaration granularity is optional: complex workloads can keep private weights,
 parameters, and scratch internally bound, while teaching or diagnostic use can
