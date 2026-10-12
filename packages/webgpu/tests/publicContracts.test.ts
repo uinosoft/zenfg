@@ -4,6 +4,7 @@ import test from 'node:test';
 import {
 	BufferAccess,
 	type FrameGraph,
+	type ResourcePoolScope,
 	type TextureHandle,
 	type TextureViewHandle,
 	type BufferHandle,
@@ -26,6 +27,19 @@ test('public recording and compiled-frame types enforce lifecycle and typed-use 
 	// a public API boundary that runtime tests cannot express.
 	if (false) {
 		const runtime = null as unknown as FrameGraph;
+		const scope = runtime.createResourcePoolScope();
+		// @ts-expect-error Pool scopes cannot be constructed structurally.
+		const forgedScope: ResourcePoolScope = {};
+		runtime.evictResourcePool(info => {
+			// @ts-expect-error Predicate snapshots are readonly.
+			info.unusedExecutions = 2;
+			// @ts-expect-error Predicate snapshots contain no GPU object.
+			info.resource.destroy();
+			return info.scope === scope;
+		});
+		// @ts-expect-error Pool predicates must synchronously return boolean.
+		runtime.evictResourcePool(async () => true);
+		void forgedScope;
 		const featureRecording: FrameGraphRecording = runtime.beginFrame();
 		const featureBuffer = featureRecording.createBuffer({ size: 4 });
 		const bufferDesc = featureRecording.getBufferDesc(featureBuffer);

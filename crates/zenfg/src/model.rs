@@ -50,6 +50,7 @@ impl NormalizedRange {
 pub(crate) struct ResourceRecord {
     pub id: ResourceId,
     pub origin: ResourceOrigin,
+    pub scope: Option<crate::ResourcePoolScope>,
     pub initial_contents: crate::InitialContents,
     pub descriptor: ResourceDescriptor,
     pub exposed_texture_usage: Option<wgpu::TextureUsages>,

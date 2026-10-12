@@ -49,7 +49,10 @@ Other whitespace and Unicode characters in suffixes remain permitted.
 
 All declared entity IDs are globally unique within one Snapshot. A
 `compatibility:` ID is an equivalence-class token, not a declared entity; the
-same token is intentionally reusable by compatible allocations.
+same token is intentionally reusable by compatible allocations. Runtime pool
+partitions may restrict compatibility: producers MUST assign different tokens
+to allocations in distinct partitions without exposing runtime or pool-instance
+identities. Partition tokens remain capture-local; the wire format is unchanged.
 
 `stableKey` is optional. A producer MUST omit it when it cannot provide a
 reliable identity. Texture formats, dimensions, aspects, swizzles, producer

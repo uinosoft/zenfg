@@ -139,7 +139,7 @@ device lifetime       one recording        retained executable plan
 | Compile a compact executable plan | `compile()` |
 | Request full compilation diagnostics | `compile({ report: true })` |
 | Execute and optionally request timing/debug groups | `compiled.execute()` |
-| Inspect or clear retained allocations | `getResourcePoolStats()`, `clearResourcePool()` |
+| Inspect or manage retained allocations | `getResourcePoolStats()`, `createResourcePoolScope()`, `clearResourcePool(scope?)`, `evictResourcePool(predicate)` |
 | Export portable diagnostics | `createFrameGraphSnapshot()` from `@zenfg/webgpu/snapshot` |
 | Release runtime-owned resources | `destroy()` |
 
@@ -385,9 +385,32 @@ of supported public entrypoints:
 | Portable Snapshot JSON for browser download or other caller-owned storage | [`snapshot-export.ts`](./examples/snapshot-export.ts) |
 | Asynchronous GPU timing | [`gpu-timing.ts`](./examples/gpu-timing.ts) |
 | Compute storage output | [`compute-output.ts`](./examples/compute-output.ts) |
+| Scoped resize cleanup and idle eviction | [`resource-pool-control.ts`](./examples/resource-pool-control.ts) |
 
 GPU-dependent recipes are compile-checked. CPU-only workflows also execute in
 CI. See the [examples index](./examples/README.md) for their input contracts.
+
+## Resource pool maintenance
+
+Create a scope once and pass it through transient declaration options:
+`recorder.createTexture(desc, { scope })` or
+`recorder.createBuffer(desc, { scope })`. Scope clearing affects only retained
+cache entries, preserves historical counters, and leaves the scope usable.
+Clear between executions after stopping old-size plans; a re-executed old plan
+can recreate its allocations. `clearResourcePool()` and
+`clearResourcePool(undefined)` clear every domain.
+
+Use `evictResourcePool(info => info.unusedExecutions > 60)` for application
+idle policy, or `info.scope === undefined` to select only the default domain.
+The predicate receives frozen physical specifications, including rounded buffer
+capacity, and no GPU handle or persistent instance ID. It must synchronously
+return boolean. Selection throws leave the pool unchanged; traversal order is
+unspecified and provides no strict LRU guarantee. Runtime execution and pool
+mutation during selection are rejected. These APIs do not wait for GPU completion.
+
+See [Resource pool control](./examples/resource-pool-control.ts) for a complete
+resize and eviction recipe; [Core Concepts](https://github.com/uinosoft/zenfg/blob/npm/webgpu/v0.2.0/docs/core-concepts.md#lifetime-and-allocation)
+defines ownership, idle counts and failure boundaries.
 
 ## Further reading
 

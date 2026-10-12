@@ -138,7 +138,7 @@ value.
 | Compile compact or full diagnostics | `compile(CompileOptions::default())`, `compile(CompileOptions::full_report())` |
 | Execute retained work | `execute()`, `execute_with_options()` |
 | Request CPU/GPU timing | `execute_with_timing()` |
-| Inspect or clear retained allocations | `resource_pool_stats()`, `clear_resource_pool()` |
+| Inspect or manage retained allocations | `resource_pool_stats()`, `create_resource_pool_scope()`, `clear_resource_pool_scope()`, `clear_resource_pool()`, `evict_resource_pool()` |
 | Export Snapshot 1.2 | `snapshot::create_frame_graph_snapshot()` with feature `snapshot` |
 
 Exact signatures, fields, defaults, and structured `FGxxxx` errors are
@@ -246,9 +246,33 @@ outside the workspace:
 | Portable Snapshot export | [`snapshot_export.rs`](https://github.com/uinosoft/zenfg/blob/cargo/zenfg/v0.2.0/crates/zenfg/examples/snapshot_export.rs) |
 | Asynchronous GPU timing | [`gpu_timing.rs`](https://github.com/uinosoft/zenfg/blob/cargo/zenfg/v0.2.0/crates/zenfg/examples/gpu_timing.rs) |
 | Compute storage output | [`compute_output.rs`](https://github.com/uinosoft/zenfg/blob/cargo/zenfg/v0.2.0/crates/zenfg/examples/compute_output.rs) |
+| Scoped resize cleanup and idle eviction | [resource_pool_control.rs](./examples/resource_pool_control.rs) |
 
 The repository also contains CPU-only compile and pool benchmarks. Snapshot
 export requires the `snapshot` feature.
+
+## Resource pool maintenance
+
+Create one `ResourcePoolScope` before borrowing a frame and use
+`frame.create_texture_in(scope, desc)` or `frame.create_buffer_in(scope, desc)`.
+The copyable identity has no resource-owning Drop or graph lifetime borrow.
+`clear_resource_pool_scope(scope)?` clears that partition's retained cache;
+it does not invalidate the identity. Foreign runtime scopes return
+`ForeignResourcePoolScope` even when the pool is empty.
+`clear_resource_pool()` still clears every domain.
+
+`evict_resource_pool` accepts a non-stored `FnMut` predicate and a borrowed
+physical descriptor view. Select `info.scope.is_none()` for only the default
+domain or `info.unused_executions > 60` for application idle policy.
+Each physical instance is visited once, without an ordering guarantee.
+Selection panic propagates; with unwinding it leaves the pool unchanged.
+External closure effects are not rolled back. No GPU handle, internal key or
+persistent instance ID is exposed. Management requires the frame/compiled-frame
+borrow to end and does not wait for GPU completion.
+
+Run `cargo run --locked -p zenfg --example resource-pool-control` for the noop
+resize/eviction recipe. [Core Concepts](https://github.com/uinosoft/zenfg/blob/cargo/zenfg/v0.2.0/docs/core-concepts.md#lifetime-and-allocation)
+defines ownership, idle counts and failure boundaries.
 
 ## Further reading
 

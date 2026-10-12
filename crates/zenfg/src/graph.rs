@@ -29,6 +29,7 @@ static NEXT_OWNER_ID: AtomicU64 = AtomicU64::new(1);
 pub struct FrameGraph {
     owner: u64,
     next_recording: u64,
+    next_scope: u64,
     pub(crate) device: Option<wgpu::Device>,
     pub(crate) resource_pool: ResourcePool,
     pub(crate) gpu_profiler: GpuProfiler,
@@ -44,6 +45,7 @@ impl FrameGraph {
         Self {
             owner: NEXT_OWNER_ID.fetch_add(1, Ordering::Relaxed),
             next_recording: 1,
+            next_scope: 1,
             device: None,
             resource_pool: ResourcePool::default(),
             gpu_profiler: GpuProfiler::default(),
@@ -63,6 +65,7 @@ impl FrameGraph {
         Self {
             owner: NEXT_OWNER_ID.fetch_add(1, Ordering::Relaxed),
             next_recording: 1,
+            next_scope: 1,
             device: Some(device.clone()),
             resource_pool: ResourcePool::default(),
             gpu_profiler: GpuProfiler::default(),
@@ -79,6 +82,38 @@ impl FrameGraph {
     /// Cumulative acquire, reuse, and creation counters are preserved.
     pub fn clear_resource_pool(&mut self) {
         self.resource_pool.clear();
+    }
+
+    /// Creates a copyable pool partition identity that owns no resources and does not borrow the graph.
+    pub fn create_resource_pool_scope(&mut self) -> crate::ResourcePoolScope {
+        let index = self.next_scope;
+        self.next_scope = index
+            .checked_add(1)
+            .expect("resource pool scope identities exhausted");
+        crate::ResourcePoolScope::new(self.owner, index)
+    }
+
+    /// Destroys retained resources in one partition. The identity remains usable afterwards.
+    /// Returns ForeignResourcePoolScope before changing the pool for another runtime's identity.
+    pub fn clear_resource_pool_scope(
+        &mut self,
+        scope: crate::ResourcePoolScope,
+    ) -> Result<(), FrameGraphError> {
+        if !scope.belongs_to(self.owner) {
+            return Err(FrameGraphError::ForeignResourcePoolScope);
+        }
+        self.resource_pool.evict(|info| info.scope == Some(scope));
+        Ok(())
+    }
+
+    /// Calls a predicate once per retained instance in unspecified order, then evicts selections.
+    /// Selection panics propagate; with unwinding the pool remains unchanged. External effects are not rolled back.
+    /// The exclusive recording/compiled-frame graph borrow prevents concurrent management or execution.
+    pub fn evict_resource_pool<F>(&mut self, predicate: F) -> crate::ResourcePoolEvictionReport
+    where
+        F: FnMut(&crate::ResourcePoolEntryInfo<'_>) -> bool,
+    {
+        self.resource_pool.evict(predicate)
     }
 
     /// Begins a fresh, single-use frame recording.
@@ -157,6 +192,21 @@ impl<'frame> Frame<'frame> {
         )
     }
 
+    /// Creates a transient texture in a partition, isolating aliasing and cross-execution reuse.
+    /// Returns ForeignResourcePoolScope without registering resources for another runtime's identity.
+    pub fn create_texture_in(
+        &mut self,
+        scope: crate::ResourcePoolScope,
+        desc: TextureDesc,
+    ) -> Result<Texture<'frame>, FrameGraphError> {
+        if !scope.belongs_to(self.owner) {
+            return Err(FrameGraphError::ForeignResourcePoolScope);
+        }
+        let texture = self.create_texture(desc)?;
+        self.resources[texture.id.get() as usize].scope = Some(scope);
+        Ok(texture)
+    }
+
     /// Imports a caller-owned logical texture.
     ///
     /// Importing does not clone or bind a native texture. Device-backed execution
@@ -208,6 +258,7 @@ impl<'frame> Frame<'frame> {
         self.resources.push(ResourceRecord {
             id,
             origin,
+            scope: None,
             initial_contents,
             descriptor: ResourceDescriptor::Texture(desc),
             exposed_texture_usage: exposed_usage,
@@ -230,6 +281,21 @@ impl<'frame> Frame<'frame> {
             InitialContents::Undefined,
             None,
         )
+    }
+
+    /// Creates a transient buffer in a partition; create_buffer uses the default shared domain.
+    /// Returns ForeignResourcePoolScope without registering resources for another runtime's identity.
+    pub fn create_buffer_in(
+        &mut self,
+        scope: crate::ResourcePoolScope,
+        desc: BufferDesc,
+    ) -> Result<Buffer<'frame>, FrameGraphError> {
+        if !scope.belongs_to(self.owner) {
+            return Err(FrameGraphError::ForeignResourcePoolScope);
+        }
+        let buffer = self.create_buffer(desc)?;
+        self.resources[buffer.id.get() as usize].scope = Some(scope);
+        Ok(buffer)
     }
 
     /// Imports a caller-owned logical buffer.
@@ -382,6 +448,7 @@ impl<'frame> Frame<'frame> {
         self.resources.push(ResourceRecord {
             id,
             origin,
+            scope: None,
             initial_contents,
             descriptor: ResourceDescriptor::Buffer(desc),
             exposed_texture_usage: None,

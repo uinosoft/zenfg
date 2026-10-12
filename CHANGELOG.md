@@ -5,7 +5,11 @@ packages use independent versions; component tags identify each release.
 
 ## Unreleased
 
-No changes recorded.
+- Add explicit runtime-owned resource-pool scopes and synchronous predicate
+  eviction to `@zenfg/webgpu` and `zenfg`. Scopes isolate transient aliasing
+  and reuse; predicates receive readonly physical specifications and idle
+  execution counts. Imported resources remain caller-owned. Clear-all defaults,
+  cumulative counters and the Snapshot 1.2 wire schema remain unchanged.
 
 ## Runtime and Inspector 0.2.0, Snapshot packages 0.1.1 - 2026-10-10
 

@@ -14,6 +14,7 @@ import type {
 	ResourceHandle,
 	ResourceKind,
 	ResourceOrigin,
+	ResourcePoolScope,
 	SynchronousCallback,
 	InitialContents,
 	TextureDesc,
@@ -93,6 +94,7 @@ export type InternalResource =
 	| {
 		readonly handle: TextureHandle;
 		readonly origin: ResourceOrigin;
+		readonly scope?: ResourcePoolScope;
 		readonly initialContents: InitialContents;
 		readonly desc: TextureDesc;
 		readonly physical?: GPUTexture;
@@ -101,6 +103,7 @@ export type InternalResource =
 	| {
 		readonly handle: BufferHandle;
 		readonly origin: ResourceOrigin;
+		readonly scope?: ResourcePoolScope;
 		readonly initialContents: InitialContents;
 		readonly desc: BufferDesc;
 		readonly physical?: GPUBuffer;

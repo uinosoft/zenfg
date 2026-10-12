@@ -17,6 +17,7 @@ place browser setup, capture helpers and shaders after the recipe.
 
 | Recipe | Demonstrates |
 | --- | --- |
+| [`resource-pool-control.ts`](./resource-pool-control.ts) | Scoped resize cleanup and application predicate eviction |
 | [`minimal-frame.ts`](./minimal-frame.ts) | Runtime/recording lifecycle, surface import, presentation root |
 | [`transient-to-present.ts`](./transient-to-present.ts) | Derived transient usage, typed access token, native pass callbacks |
 | [`imported-resource.ts`](./imported-resource.ts) | Caller-owned buffer import, graph-visible uniform access, and optional native render-pass extras with MSAA resolve/discard |

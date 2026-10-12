@@ -369,6 +369,7 @@ fn execute_internal(
         &executors,
     )?;
 
+    graph.resource_pool.begin_execution()?;
     let (mut active_timing, immediate_readback) = if gpu_timing {
         match graph.gpu_profiler.prepare(
             &device,
@@ -406,6 +407,7 @@ fn execute_internal(
         let native = transient_lease.acquire(
             &device,
             &allocation.key,
+            allocation.scope,
             representative.label(),
             allocation.estimated_byte_size,
         );
@@ -799,7 +801,8 @@ fn preflight(
                         message: format!("transient resource {resource_id} has no effective usage"),
                     })?;
             let (expected_key, expected_bytes) = allocation_key_and_bytes(resource, usage)?;
-            if expected_key != allocation.key
+            if resource.scope != allocation.scope
+                || expected_key != allocation.key
                 || expected_bytes != allocation.estimated_byte_size
                 || allocation_by_resource
                     .insert(*resource_id, allocation.id)
