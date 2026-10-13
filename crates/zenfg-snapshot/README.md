@@ -1,5 +1,12 @@
 # zenfg-snapshot
 
+<!-- generated:language:start -->
+**English** | [简体中文][documentation-zh]
+
+[documentation-en]: ./README.md
+[documentation-zh]: ./README.zh-CN.md
+<!-- generated:language:end -->
+
 <!-- generated:badges:start -->
 [![zenfg-snapshot published version](https://img.shields.io/crates/v/zenfg-snapshot?include_prereleases)](https://crates.io/crates/zenfg-snapshot)
 [![docs.rs](https://img.shields.io/docsrs/zenfg-snapshot/0.1.1)](https://docs.rs/zenfg-snapshot/0.1.1/)

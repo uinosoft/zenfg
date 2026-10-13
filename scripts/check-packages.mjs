@@ -1,4 +1,6 @@
 import { checkPackageSkillDiscovery } from './check-package-skills.mjs';
+import { pages } from './docs/catalog.mjs';
+import { translationPath } from './docs/i18n.mjs';
 import { usageText } from './docs/usage.mjs';
 import { checkSkill } from './docs/skills.mjs';
 import { assertLocalLinks, quickStart } from './docs/markdown.mjs';
@@ -109,6 +111,8 @@ const packages = [
         ],
     },
 ];
+
+for (const spec of packages) spec.requiredFiles.push(...pages.filter(p => p.source.startsWith(spec.directory + '/')).map(p => translationPath(p.source).slice(spec.directory.length + 1)));
 
 function run(command, args, options = {}) {
     const { capture = false, ...spawnOptions } = options;

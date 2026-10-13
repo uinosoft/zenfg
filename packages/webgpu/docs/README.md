@@ -1,5 +1,12 @@
 # @zenfg/webgpu usage
 
+<!-- generated:language:start -->
+**English** | [简体中文][documentation-zh]
+
+[documentation-en]: ./README.md
+[documentation-zh]: ./README.zh-CN.md
+<!-- generated:language:end -->
+
 
 
 `@zenfg/webgpu` is a lightweight WebGPU FrameGraph for declaring and executing

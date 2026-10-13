@@ -74,9 +74,49 @@ source remain the foundation for offline or version-specific use.
 
 ## Language, layout and badges
 
-Technical prose and API comments use English. Only the project homepage and root
-README have Chinese counterparts; the docs and tools have no language switch.
+English is the authoritative source for technical prose and API comments.
+Public Markdown pages in the catalog have adjacent `*.zh-CN.md` derivatives;
+the same files serve GitHub, installed packages and VitePress. English docs keep
+their existing routes; Chinese pages use `/docs/zh-CN/`. API reference and code
+remain English. Package Skills are generated exclusively from English sources.
+Maintenance documents and non-catalog READMEs are not translated.
+
+The homepage keeps its own application dictionary. VitePress interface strings
+use its locale configuration. Neither is part of the Markdown translation cache;
+the applications share only the `zenfg-language` preference. A documentation
+URL determines its language, while homepage links follow the chosen language.
 Docs share the project navigation, palette and `zenfg-theme` preference.
+
+### Translation workflow
+
+- `pnpm run docs:i18n:status --json` lists source paths, sibling translations,
+  current source hashes and missing/pending/stale/invalid/ready states.
+- `pnpm run docs:i18n:seed` creates missing pending files using English placeholder
+  content. Existing Chinese prose is preserved, and existing metadata is never refreshed.
+- Translate or review only affected siblings. Preserve heading order, code blocks,
+  inline code, explicit anchor IDs, marker comments and link destinations. Local
+  links may point to the catalog's Chinese siblings. Do not edit generated blocks.
+- Run `pnpm run docs:generate`, then
+  `pnpm run docs:i18n:accept SOURCE --source-hash=HASH` using the hash captured when
+  reading the English source. Acceptance checks the expected source version,
+  localizes links and adds English heading aliases. Review the translation diff;
+  structural checks cannot prove semantic equivalence or translation completeness.
+- Run `pnpm run docs:check`. Missing, pending, stale, invalid and orphan translations
+  fail checks and production documentation builds. Model calls never run during builds.
+
+The invisible translation comment records format version, English source, source
+hash and pending/ready state. Hashes normalize BOM/line endings and ignore generated
+block values; metadata synchronization checks those blocks separately. Update the
+English facts first and synchronize affected translations in the same task. Wording
+improvements may edit Chinese alone. Source and translation hashes both participate
+in built-output freshness checks.
+
+During initial scaffolding only, set `DOCS_I18N_ALLOW_PENDING=1` to preview pending
+files locally (PowerShell: `$env:DOCS_I18N_ALLOW_PENDING='1'`). This permits pending
+files, never missing, stale or invalid ones, and is disabled whenever `CI` is set.
+HTML and raw Markdown display a pending notice. Unset the variable before final
+acceptance; do not configure it in publishing or CI. The initial root Chinese README
+is also pending until its existing prose has been reconciled with the English source.
 
 Root READMEs show project CI, docs, license and beta status; the package table
 shows independent registry versions. npm READMEs show their registry version,

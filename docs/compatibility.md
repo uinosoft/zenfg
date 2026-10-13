@@ -1,5 +1,12 @@
 # Compatibility matrix
 
+<!-- generated:language:start -->
+**English** | [简体中文][documentation-zh]
+
+[documentation-en]: ./compatibility.md
+[documentation-zh]: ./compatibility.zh-CN.md
+<!-- generated:language:end -->
+
 <!-- generated:compatibility:start -->
 | ZenFG package | Version | Runtime/toolchain | Snapshot |
 | --- | --- | --- | --- |

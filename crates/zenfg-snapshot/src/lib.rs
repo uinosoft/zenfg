@@ -1,6 +1,7 @@
 #![doc = concat!(
     "Guide links below open development-branch documentation. For installed-version guidance, read the included docs/ directory.\n\n",
     "[zenfg-snapshot-migration]: https://uinosoft.github.io/zenfg/docs/migration/zenfg-snapshot.html\n",
+    "[documentation-zh]: https://uinosoft.github.io/zenfg/docs/zh-CN/packages/zenfg-snapshot.html\n",
     include_str!("../README.md")
 )]
 #![warn(missing_docs)]

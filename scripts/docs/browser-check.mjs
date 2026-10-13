@@ -12,6 +12,10 @@ const server = process.env.DOCS_TEST_ORIGIN ? undefined : spawn(process.execPath
 let serverError = '';
 server?.stderr.on('data', data => { serverError += data; });
 let browser;
+async function chooseDocumentLanguage(page, language) {
+    await page.locator('[data-doc-language-toggle]').click();
+    await page.locator(`[data-doc-language-choice="${language}"]`).click();
+}
 try {
     let ready = false;
     for (let i = 0; i < 100; i++) {
@@ -30,7 +34,18 @@ try {
     await page.goto(origin + base + 'docs/', { waitUntil: 'networkidle' });
     await page.locator('.vp-doc h1').waitFor();
     assert.ok((await page.locator('.vp-doc h1').innerText()).startsWith('ZenFG'));
-    assert.equal(await page.getByRole('button', { name: 'Choose language' }).count(), 0);
+    assert.equal(await page.locator('[data-doc-language-toggle] svg').getAttribute('data-icon'), 'globe');
+    assert.equal(await page.locator('[data-doc-language-choice="zh-CN"]').getAttribute('href'), base + 'docs/zh-CN/');
+    await page.locator('[data-doc-language-toggle]').click();
+    assert.equal(await page.getByRole('menuitemradio', { name: 'English' }).getAttribute('aria-checked'), 'true');
+    await page.keyboard.press('ArrowUp');
+    assert.equal(await page.getByRole('menuitemradio', { name: '简体中文' }).evaluate(element => element === document.activeElement), true);
+    await page.keyboard.press('Escape');
+    assert.equal(await page.locator('[data-doc-language-toggle]').getAttribute('aria-expanded'), 'false');
+    assert.equal(await page.locator('[data-doc-language-toggle]').evaluate(element => element === document.activeElement), true);
+    await page.locator('[data-doc-language-toggle]').click();
+    await page.locator('.vp-doc h1').click();
+    assert.equal(await page.locator('[data-doc-language-toggle]').getAttribute('aria-expanded'), 'false');
     const destinations = ['Home', 'Inspector', 'Examples', 'Docs'];
     assert.deepEqual(await page.locator('.docs-project-nav a').allTextContents(), destinations);
     assert.equal(await page.locator('.docs-project-nav [aria-current=page]').innerText(), 'Docs');
@@ -47,9 +62,32 @@ try {
     await page.getByRole('navigation', { name: 'Project navigation' }).getByRole('link', { name: 'Home', exact: true }).first().click();
     await page.waitForURL(origin + base);
     await page.waitForFunction(() => document.documentElement.dataset.theme === 'light');
+    const homepageLanguage = await page.locator('[data-language-toggle]').evaluate(element => {
+        const style = getComputedStyle(element);
+        return { width: style.width, height: style.height, radius: style.borderRadius, color: style.color, icon: element.querySelector('svg')?.innerHTML };
+    });
+    await page.locator('[data-language-toggle]').click();
+    const homepageMenu = await page.locator('#site-language-menu').evaluate(element => {
+        const style = getComputedStyle(element);
+        return { width: style.width, padding: style.padding, radius: style.borderRadius, background: style.backgroundColor, border: style.borderColor, fontSize: style.fontSize };
+    });
+    await page.keyboard.press('Escape');
     await page.locator('.site-page-links a[href$="docs/"]').click();
     await page.waitForURL(origin + base + 'docs/');
     await page.waitForFunction(() => document.documentElement.dataset.theme === 'light');
+    const docsLanguage = await page.locator('[data-doc-language-toggle]').evaluate(element => {
+        const style = getComputedStyle(element);
+        return { width: style.width, height: style.height, radius: style.borderRadius, color: style.color, icon: element.querySelector('svg')?.innerHTML };
+    });
+    assert.deepEqual(docsLanguage, homepageLanguage, 'Homepage and docs must share the language-button appearance');
+    await page.locator('[data-doc-language-toggle]').click();
+    const docsMenu = await page.locator('#docs-language-menu').evaluate(element => {
+        const style = getComputedStyle(element);
+        return { width: style.width, padding: style.padding, radius: style.borderRadius, background: style.backgroundColor, border: style.borderColor, fontSize: style.fontSize };
+    });
+    assert.deepEqual(docsMenu, homepageMenu, 'Homepage and docs must share the language-menu appearance');
+    await page.screenshot({ animations: 'disabled', path: resolve(artifactDir, 'language-menu-light.png') });
+    await page.keyboard.press('Escape');
     await page.getByRole('button', { name: /Search/ }).first().click();
     await page.locator('#localsearch-input').fill('FrameGraph');
     await page.locator('.results .result').first().waitFor();
@@ -88,17 +126,50 @@ try {
         await page.waitForURL(origin + base + 'docs/');
         await page.locator('.vp-doc h1').waitFor();
     }
+    // Actual counterpart links keep the current page and its stable anchor.
+    await page.goto(origin + base + 'docs/packages/webgpu.html#quick-start', { waitUntil: 'networkidle' });
+    await chooseDocumentLanguage(page, 'zh-CN');
+    await page.waitForURL(origin + base + 'docs/zh-CN/packages/webgpu.html#quick-start');
+    await page.waitForFunction(() => document.documentElement.lang === 'zh-CN');
+    assert.equal(await page.locator('html').getAttribute('lang'), 'zh-CN');
+    assert.deepEqual(await page.locator('.docs-project-nav a').allTextContents(), ['首页', 'Inspector', '示例', '文档']);
+    assert.equal(await page.locator('[data-doc-language-toggle]').getAttribute('aria-label'), '选择语言');
+    assert.equal(await page.locator('[data-doc-language-choice="zh-CN"]').getAttribute('aria-checked'), 'true');
+    if (await page.locator('[data-translation-pending]').count()) assert.ok((await page.locator('[data-translation-pending]').innerText()).includes('尚未确认'));
+    const zhMarkdown = await page.locator('.docs-context a', { hasText: '阅读 Markdown' }).getAttribute('href');
+    const zhText = await (await fetch(origin + zhMarkdown)).text();
+    assert.ok(zhText.includes('开发分支文档'));
+    assert.ok(zhText.includes('/docs/zh-CN/'));
+    const zhIndex = await (await fetch(origin + base + 'docs/zh-CN/llms.txt')).text();
+    assert.ok(zhIndex.includes('ZenFG 中文文档'));
+    assert.ok(zhIndex.includes('/docs/api/'));
+    await page.getByRole('button', { name: '搜索文档' }).click();
+    await page.locator('#localsearch-input').fill('文档');
+    await page.locator('.results .result').first().waitFor();
+    assert.ok((await page.locator('.results a[href]').first().getAttribute('href')).includes('/zh-CN/'));
+    await page.keyboard.press('Escape');
+    await page.screenshot({ animations: 'disabled', path: resolve(artifactDir, 'chinese-desktop.png') });
+    await page.locator('.docs-project-nav').getByRole('link', { name: '首页', exact: true }).click();
+    await page.waitForURL(origin + base);
+    await page.locator('.site-page-links a[href$="docs/zh-CN/"]').waitFor();
+    await page.locator('.site-page-links a[href$="docs/zh-CN/"]').click();
+    await page.waitForURL(origin + base + 'docs/zh-CN/');
+    await chooseDocumentLanguage(page, 'en');
+    await page.waitForURL(origin + base + 'docs/');
+    await page.goto(api + '#constructor', { waitUntil: 'networkidle' });
+    assert.equal(await page.locator('[data-doc-language-choice="zh-CN"]').getAttribute('href'), base + 'docs/zh-CN/');
+
     const blocked = await browser.newContext();
     await blocked.addInitScript(({ themeOnly }) => {
         // The Vite development client uses its own storage for HMR. Production
         // blocks all storage; development isolates the application's preference.
         const get = Storage.prototype.getItem, set = Storage.prototype.setItem;
         Storage.prototype.getItem = function (key) {
-            if (!themeOnly || key === 'zenfg-theme') throw new DOMException('Blocked', 'SecurityError');
+            if (!themeOnly || key === 'zenfg-theme' || key === 'zenfg-language') throw new DOMException('Blocked', 'SecurityError');
             return get.call(this, key);
         };
         Storage.prototype.setItem = function (key, value) {
-            if (!themeOnly || key === 'zenfg-theme') throw new DOMException('Blocked', 'SecurityError');
+            if (!themeOnly || key === 'zenfg-theme' || key === 'zenfg-language') throw new DOMException('Blocked', 'SecurityError');
             return set.call(this, key, value);
         };
     }, { themeOnly: Boolean(process.env.DOCS_TEST_ORIGIN) });
@@ -142,7 +213,19 @@ try {
         await page.keyboard.press('Tab');
         assert.notEqual(await page.evaluate(() => document.activeElement?.tagName), 'BODY');
         await page.screenshot({ animations: 'disabled', path: resolve(artifactDir, `mobile-${width}.png`) });
+        await page.goto(origin + base + 'docs/zh-CN/packages/webgpu.html', { waitUntil: 'networkidle' });
+        assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), `Chinese horizontal overflow at ${width}`);
+        await page.screenshot({ animations: 'disabled', path: resolve(artifactDir, `chinese-mobile-${width}.png`) });
+        if (width < 768) {
+            await page.locator('[data-doc-language-toggle]').click();
+            await page.locator('#docs-language-menu').waitFor({ state: 'visible' });
+            const menuBox = await page.locator('#docs-language-menu').boundingBox();
+            assert.ok(menuBox.x >= 0 && menuBox.x + menuBox.width <= width, `Language menu stays inside ${width}px viewport`);
+            await page.screenshot({ animations: 'disabled', path: resolve(artifactDir, `language-menu-${width}.png`) });
+            await page.locator('[data-doc-language-choice="en"]').click();
+            await page.waitForURL(origin + base + 'docs/packages/webgpu.html');
+        }
     }
     assert.deepEqual(errors, [], 'Browser JavaScript errors');
-    console.log('Browser checks passed: search, deep reload, main-site navigation, shared theme, Rust external links, Markdown and 1440/800/390/320px layouts.');
+    console.log('Browser checks passed: bilingual routes/search/Markdown, language preference, stable anchors, English API, main-site navigation, shared theme and 1440/800/390/320px layouts.');
 } finally { await browser?.close(); server?.kill(); }

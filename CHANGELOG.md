@@ -1,5 +1,12 @@
 # Changelog
 
+<!-- generated:language:start -->
+**English** | [简体中文][documentation-zh]
+
+[documentation-en]: ./CHANGELOG.md
+[documentation-zh]: ./CHANGELOG.zh-CN.md
+<!-- generated:language:end -->
+
 All notable changes to ZenFG are documented in this file. The five publishable
 packages use independent versions; component tags identify each release.
 

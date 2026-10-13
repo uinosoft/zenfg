@@ -1,5 +1,12 @@
 # @zenfg/inspector
 
+<!-- generated:language:start -->
+**English** | [简体中文][documentation-zh]
+
+[documentation-en]: ./README.md
+[documentation-zh]: ./README.zh-CN.md
+<!-- generated:language:end -->
+
 <!-- usage-source: GUIDE.md -->
 
 <!-- generated:badges:start -->

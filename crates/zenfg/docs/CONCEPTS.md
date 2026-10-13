@@ -1,5 +1,12 @@
 # Rust runtime concepts
 
+<!-- generated:language:start -->
+**English** | [简体中文][documentation-zh]
+
+[documentation-en]: ./CONCEPTS.md
+[documentation-zh]: ./CONCEPTS.zh-CN.md
+<!-- generated:language:end -->
+
 ## System boundary
 
 The graph owns declared dependencies, retention, transient allocation and diagnostics.

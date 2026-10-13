@@ -1,10 +1,13 @@
 import { assertLocalLinks } from './docs/markdown.mjs';
+import { pages } from './docs/catalog.mjs';
+import { checkTranslations, translationPath } from './docs/i18n.mjs';
 import { spawnSync } from 'node:child_process';
 import { existsSync, mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 
 const rootDir = resolve(import.meta.dirname, '..');
+checkTranslations({ directory: resolve(rootDir, 'crates') });
 const packageDirectory = resolve(rootDir, 'target/package');
 const temporaryDirectory = mkdtempSync(join(tmpdir(), 'zenfg-cargo-package-check-'));
 
@@ -100,6 +103,7 @@ try {
             'src/lib.rs',
         ]],
     ]) {
+        requiredFiles.push(...pages.filter(p => p.source.startsWith(`crates/${crate.name}/`)).map(p => translationPath(p.source).slice(`crates/${crate.name}/`.length)));
         const archive = cratePath(crate);
         const listing = spawnSync('tar', ['-tf', archive], {
             cwd: rootDir,

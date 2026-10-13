@@ -3,13 +3,18 @@ import { existsSync, readdirSync, rmSync } from 'node:fs';
 import { dirname, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { root, read, write, pages, recipes, packages, publicEntrypoints, contentDir, repository, website, git, publishedVersion, siteBase } from './catalog.mjs';
-import { hideRustDoctestLines, sourceDigest } from './markdown.mjs';
+import { hideRustDoctestLines, mapProseLinks, sourceDigest } from './markdown.mjs';
+import { checkTranslations, localeRoute, routeLink, sourceHeadings, translationPath, translationMetadata } from './i18n.mjs';
+import { createMarkdownRenderer } from 'vitepress';
+import { projectHeadingAliases } from './headings.mjs';
 
 export function transformContent(text, source, mapping, commit) {
     // Repository presentation has local HTML picture URLs and GitHub-specific layout.
     // Docs already display the brand in navigation; retain the semantic article below it.
     text = text.replace(/<!-- readme-hero:start -->[\s\S]*?<!-- readme-hero:end -->\s*/g, '');
     text = text.replace(/<!-- readme-showcase:start -->[\s\S]*?<!-- readme-showcase:end -->\s*/g, '');
+    text = text.replace(/^<!-- translation: .+ -->\n/gm, '').replace(/<!-- generated:language:start -->[\s\S]*?<!-- generated:language:end -->\s*/g, '');
+    text = text.replace(/<!-- translation-pending:start -->[\s\S]*?<!-- translation-pending:end -->\s*/g, '');
     const history = [];
     text = text.replace(/<!-- generated:documentation:start -->[\s\S]*?<!-- generated:documentation:end -->/g, block => block.replace(/https:\/\/github\.com\/uinosoft\/zenfg\/(?:blob|tree)\/(?:npm|cargo)\/[^)\s]+/g, url => { history.push(url); return `@HISTORY@${history.length - 1}`; }));
     text = text.replace(/<!-- generated:badges:start -->[\s\S]*?<!-- generated:badges:end -->/g, '')
@@ -31,35 +36,52 @@ export function transformContent(text, source, mapping, commit) {
         return `${repository}/blob/${commit}/${target}${fragment ? '#' + fragment : ''}`;
     };
     // Keep code samples literal. Transform links in prose only.
-    text = text.split(/(```[^\n]*\n[\s\S]*?```|~~~[^\n]*\n[\s\S]*?~~~)/g).map((part, i) => i % 2 ? part : part
-        .replace(/(\]\()([^\s)]+)(\))/g, (_, left, destination, right) => left + rewrite(destination) + right)
-        .replace(/^(\[[^\]]+\]:\s*)(\S+)/gm, (_, left, destination) => left + rewrite(destination))).join('');
+    text = mapProseLinks(text, rewrite);
     return hideRustDoctestLines(text).replace(/@HISTORY@(\d+)/g, (_, index) => history[Number(index)]).replace(/\n{3,}/g, '\n\n').trim() + '\n';
 }
 function allMarkdown(directory) {
     return readdirSync(directory, { withFileTypes: true }).flatMap(e => e.isDirectory() ? allMarkdown(resolve(directory, e.name)) : e.name.endsWith('.md') ? [resolve(directory, e.name)] : []);
 }
 export async function prepare({ api = true } = {}) {
+    checkTranslations();
     const commit = git('rev-parse', 'HEAD');
     const base = siteBase();
     const docsBase = `${base}docs/`;
     const allPages = [...pages, ...recipes];
     const mapping = new Map(allPages.map(p => [p.source, p.route]));
+    const headingRenderer = await createMarkdownRenderer(root, { languages: [] });
     // This literal directory is exclusively generated content inside the workspace.
     if (api && existsSync(contentDir)) {
         if (![resolve(root, 'apps/docs/.generated/production'), resolve(root, 'apps/docs/.generated/development')].includes(contentDir)) throw new Error('Unexpected generated directory.');
         rmSync(contentDir, { recursive: true, force: true });
     }
-    const meta = { commit, base, docsBase, packages: packages.map(p => ({ name: p.name, version: p.version, registry: p.registry, slug: p.slug, tag: p.tag, published: publishedVersion(p) })), pages: [] };
+    const meta = { commit, base, docsBase, locales: ['en', 'zh-CN'], packages: packages.map(p => ({ name: p.name, version: p.version, registry: p.registry, slug: p.slug, tag: p.tag, published: publishedVersion(p) })), pages: [] };
     for (const page of allPages) {
         const raw = read(page.source);
         let body = page.code ? `# ${page.title}\n\nThis is the complete, compile-checked package recipe. The caller owns the device and application state.\n\n\`\`\`${page.code}\n${raw}\n\`\`\`\n` : transformContent(raw, page.source, mapping, commit);
         body = body.replaceAll('@SITE@/', base).replaceAll('@DOCS@/', '/');
         const sourceUrl = `${repository}/blob/${commit}/${page.source}`;
-        const item = { ...page, sourceHash: sourceDigest(raw), sourceUrl, editUrl: `${repository}/edit/main/${page.source}`, markdownUrl: `${docsBase}${page.route}.md` };
+        const item = { ...page, locale: 'en', sourceHash: sourceDigest(raw), sourceUrl, editUrl: `${repository}/edit/main/${page.source}`, markdownUrl: `${docsBase}${page.route}.md`, alternateUrl: docsBase + routeLink(localeRoute(page.route, 'zh-CN')).slice(1) };
         meta.pages.push(item);
         const frontmatter = `---\ntitle: ${JSON.stringify(page.title)}\nsourceUrl: ${JSON.stringify(sourceUrl)}\neditUrl: ${JSON.stringify(item.editUrl)}\nmarkdownUrl: ${JSON.stringify(item.markdownUrl)}\n---\n\n`;
         write(resolve(contentDir, `${page.route}.md`), frontmatter + body);
+        const route = localeRoute(page.route, 'zh-CN');
+        let chinese = page.code ? `# ${page.title}\n\n此页展示完整、经过编译检查的包内示例。设备和应用状态由调用方管理。代码保留英文。\n\n\`\`\`${page.code}\n${raw}\n\`\`\`\n` : read(translationPath(page.source));
+        const localizedMapping = new Map(allPages.flatMap(p => [[p.source, localeRoute(p.route, 'zh-CN')], ...(!p.code ? [[translationPath(p.source), localeRoute(p.route, 'zh-CN')]] : [])]));
+        const state = page.code ? undefined : translationMetadata(chinese).state;
+        const title = page.code ? page.title : sourceHeadings(chinese)[0]?.title ?? page.title;
+        chinese = page.code ? chinese : transformContent(chinese, translationPath(page.source), localizedMapping, commit);
+        // Explicit site links are already language-qualified. Repository links
+        // use the logical source map and code is never remapped.
+        chinese = chinese.replaceAll('@SITE@/', base).replaceAll('@DOCS@/', '/');
+        const projected = projectHeadingAliases(headingRenderer, body, chinese);
+        chinese = projected.text;
+        const anchorMap = projected.anchorMap;
+        const zh = { ...item, route, locale: 'zh-CN', title, anchorMap, markdownUrl: `${docsBase}${route}.md`, alternateUrl: docsBase + routeLink(page.route).slice(1),
+            ...(page.code ? {} : { translationSource: translationPath(page.source), translationHash: sourceDigest(read(translationPath(page.source))), translationState: state,
+                translationUrl: `${repository}/blob/${commit}/${translationPath(page.source)}`, editUrl: `${repository}/edit/main/${translationPath(page.source)}` }) };
+        meta.pages.push(zh);
+        write(resolve(contentDir, `${route}.md`), `---\ntitle: ${JSON.stringify(title)}\n---\n\n` + chinese);
     }
     if (api) {
         const entrypoints = publicEntrypoints();
@@ -101,11 +123,11 @@ export async function prepare({ api = true } = {}) {
         await app.generateOutputs(project);
         if (app.logger.hasErrors()) throw new Error('TypeDoc generation failed.');
     }
-    for (const file of allMarkdown(resolve(contentDir, 'api'))) {
+    for (const file of existsSync(resolve(contentDir, 'api')) ? allMarkdown(resolve(contentDir, 'api')) : []) {
         const route = relative(contentDir, file).replaceAll('\\', '/').replace(/\.md$/, '');
         const body = read(file);
         const sourceUrl = body.match(/https:\/\/github\.com\/uinosoft\/zenfg\/blob\/[^)\s]+/)?.[0] ?? `${repository}/tree/${commit}/packages`;
-        meta.pages.push({ route, title: body.match(/^# (.+)$/m)?.[1] ?? route, group: 'TypeScript API', sourceUrl, editUrl: sourceUrl.includes('/blob/') ? sourceUrl.replace(`/blob/${commit}/`, '/edit/main/') : undefined, markdownUrl: `${docsBase}${route}.md` });
+        meta.pages.push({ route, locale: 'en', title: body.match(/^# (.+)$/m)?.[1] ?? route, group: 'TypeScript API', sourceUrl, editUrl: sourceUrl.includes('/blob/') ? sourceUrl.replace(`/blob/${commit}/`, '/edit/main/') : undefined, markdownUrl: `${docsBase}${route}.md`, alternateUrl: docsBase + 'zh-CN/' });
     }
     write(resolve(contentDir, 'metadata.json'), JSON.stringify(meta, null, 2));
     console.log(`Prepared ${meta.pages.length} documentation pages at ${docsBase} (${commit.slice(0, 8)}).`);

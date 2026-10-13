@@ -1,5 +1,12 @@
 # @zenfg/inspector usage
 
+<!-- generated:language:start -->
+**English** | [简体中文][documentation-zh]
+
+[documentation-en]: ./GUIDE.md
+[documentation-zh]: ./GUIDE.zh-CN.md
+<!-- generated:language:end -->
+
 <a id="inspector-workbench-guide"></a>
 
 

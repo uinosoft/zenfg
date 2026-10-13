@@ -1,5 +1,12 @@
 # Getting started with ZenFG
 
+<!-- generated:language:start -->
+**English** | [简体中文][documentation-zh]
+
+[documentation-en]: ./README.md
+[documentation-zh]: ./README.zh-CN.md
+<!-- generated:language:end -->
+
 Choose a path for your application. ZenFG coordinates graph-visible GPU work;
 your application owns the device, rendering policy, and presentation.
 

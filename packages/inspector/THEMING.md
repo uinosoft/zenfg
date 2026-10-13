@@ -1,5 +1,12 @@
 # Inspector themes
 
+<!-- generated:language:start -->
+**English** | [简体中文][documentation-zh]
+
+[documentation-en]: ./THEMING.md
+[documentation-zh]: ./THEMING.zh-CN.md
+<!-- generated:language:end -->
+
 The public styling contract is the `--zfgi-*` CSS custom properties. Inspector
 ships complete Tokyo Night Storm defaults, supports partial host overrides, and
 does not require a base theme, theme name, registration, or browser storage.

@@ -1,4 +1,5 @@
 @import './navigation.css';
+@import './language-menu.css';
 /* Site-only typography roles extend the canonical UI / code metrics. */
 :root {
 	--site-header-height: 60px;
@@ -41,14 +42,6 @@
 .site-header :is(a, button):focus-visible { outline: 2px solid var(--zenfg-accent); outline-offset: 2px; }
 .brand-accent { color: var(--zenfg-accent); }
 .site-theme-toggle, .site-header .site-github { width: 36px; padding: 0; }
-.site-language { width: 36px; padding: 0; }
-.site-language-menu { position: relative; }
-.site-language-options { position: absolute; top: calc(100% + 8px); right: 0; min-width: 156px; padding: 4px; border: 1px solid var(--zenfg-divider); border-radius: var(--zenfg-radius-panel); background: var(--zenfg-canvas); box-shadow: 0 8px 24px #0002; }
-.site-language-options button { display: flex; justify-content: space-between; align-items: center; width: 100%; min-height: 44px; padding: 8px 12px; gap: 20px; border: 0; border-radius: var(--zenfg-radius-small); background: transparent; color: var(--zenfg-text); font: inherit; cursor: pointer; white-space: nowrap; }
-.site-language-options button:hover, .site-language-options button:focus-visible { background: var(--zenfg-hover); }
-.site-language-options [aria-checked=true] { color: var(--zenfg-accent); }
-.language-check { visibility: hidden; }
-[aria-checked=true] .language-check { visibility: visible; }
 .site-menu-toggle { display: none; }
 .ui-icon { width: 16px; height: 16px; flex-shrink: 0; vertical-align: middle; }
 [data-site-icon] { display: inline-flex; }
