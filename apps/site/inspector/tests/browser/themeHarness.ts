@@ -1,6 +1,7 @@
 import { mountFrameGraphInspector } from '../../../../../packages/inspector/src/FrameGraphInspector.ts';
 import { tokyoNightStorm, tokyoNightLight } from '../../../../../packages/inspector/src/theme.ts';
 import { themePresetCss } from '../../../../../packages/inspector/src/themeDefinitions.ts';
+import { resolveGraphTheme } from '../../../../../packages/inspector/src/panelTheme.ts';
 
 const css = document.createElement('style');
 css.textContent = themePresetCss(); document.head.append(css);
@@ -10,4 +11,4 @@ document.body.style.cssText = 'margin:0;'; document.body.append(host);
 const inspector = mountFrameGraphInspector(host);
 const snapshot = await (await fetch('/fixture.json')).json();
 inspector.setSnapshot(snapshot);
-Object.assign(window, { themeQA: { inspector, host, snapshot, mountFrameGraphInspector, tokyoNightStorm, tokyoNightLight } });
+Object.assign(window, { themeQA: { inspector, host, snapshot, mountFrameGraphInspector, tokyoNightStorm, tokyoNightLight, resolveGraphTheme } });
