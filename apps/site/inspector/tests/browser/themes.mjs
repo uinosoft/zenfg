@@ -10,6 +10,7 @@ import { checkDrawerBackdrop } from './drawerBackdrop.mjs';
 import { checkOverview } from './overview.mjs';
 import { checkGraphImprovements } from './graphImprovements.mjs';
 import { checkWorkbenchPanels } from './workbenchPanels.mjs';
+import { checkThemeIsolation } from './themeIsolation.mjs';
 
 const root = resolve(import.meta.dirname, '../../../../../');
 const output = resolve(root, '.test-dist/inspector-theme-qa');
@@ -30,6 +31,7 @@ try {
     await page.goto('http://inspector.test/');
     await page.waitForFunction(() => document.querySelector('.zenfg-inspector-graph-canvas')?._cyreg?.cy?.nodes().length > 0 && document.querySelector('.zenfg-inspector-graph-status').hidden);
     assert.equal(await page.locator('.zenfg-inspector').evaluate(el => el.style.length), 0);
+    await checkThemeIsolation(page);
     await checkDrawerBackdrop(page, output);
     await checkGraphPointer(page, output);
     await page.evaluate(() => {

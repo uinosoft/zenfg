@@ -35,10 +35,19 @@ export function resolveGraphTheme(root: HTMLElement): GraphVisualTheme {
     const view = document?.defaultView;
     if (!view || !root.isConnected) return createGraphVisualTheme();
     const styles = view.getComputedStyle(root);
+    // Host-page selectors must not override the CSS values being measured. Keep
+    // inherited theme/font context, without creating another query container.
+    const probeHost = document.createElement('div');
+    probeHost.style.cssText = 'all:initial!important;position:absolute!important;visibility:hidden!important;pointer-events:none!important;width:0!important;height:0!important;overflow:hidden!important;';
+    for (const property of ['font', 'font-feature-settings', 'font-variation-settings', 'font-size-adjust', 'font-optical-sizing', 'color', 'color-scheme', 'direction', 'writing-mode', 'text-orientation']) {
+        probeHost.style.setProperty(property, 'inherit', 'important');
+    }
+    probeHost.setAttribute('aria-hidden', 'true');
     const probe = document.createElement('span');
-    probe.style.cssText = 'position:absolute;visibility:hidden;pointer-events:none;width:0;height:0;overflow:hidden;';
-    probe.setAttribute('aria-hidden', 'true');
-    root.appendChild(probe);
+    // Only the hidden probe opts out; visible Inspector UI retains forced colors.
+    probe.style.setProperty('forced-color-adjust', 'none');
+    probeHost.attachShadow({ mode: 'closed' }).appendChild(probe);
+    root.appendChild(probeHost);
     const cache = new Map<string, string>();
     let context: CanvasRenderingContext2D | null | undefined;
     const color = (value: string): string | undefined => {
@@ -81,5 +90,5 @@ export function resolveGraphTheme(root: HTMLElement): GraphVisualTheme {
         return result;
     };
     try { return createGraphVisualTheme(read); }
-    finally { probe.remove(); }
+    finally { probeHost.remove(); }
 }
