@@ -1,3 +1,4 @@
+import { languagePreferenceKey, preferredLanguage, updateDocumentLinks } from '../language.ts';
 import { themeAction } from '../theme/action.ts';
 import { createIcon, setIconButton, type IconName } from '../icons.ts';
 import type { SiteThemeController } from '../theme/controller.ts';
@@ -31,7 +32,16 @@ export function installSiteHeader(window: Window, theme: SiteThemeController): (
 	};
 	const switchTheme = () => theme.set(theme.get() === 'dark' ? 'light' : 'dark');
 	themeButton.addEventListener('click', switchTheme);
-	const languageObserver = new (window as unknown as typeof globalThis).MutationObserver(syncTheme);
+	const syncDocumentLinks = () => updateDocumentLinks(window.document,
+		localized ? (window.document.documentElement.lang === 'zh-CN' ? 'zh-CN' : 'en') : preferredLanguage(window));
+	const syncLanguage = () => { syncTheme(); syncDocumentLinks(); };
+	const restoreLanguage = (event: PageTransitionEvent) => { if (event.persisted) syncDocumentLinks(); };
+	const storageLanguage = (event: StorageEvent) => { if (event.key === languagePreferenceKey || event.key === null) syncDocumentLinks(); };
+	window.addEventListener('pageshow', restoreLanguage);
+	window.addEventListener('storage', storageLanguage);
+	cleanup.push(() => window.removeEventListener('pageshow', restoreLanguage), () => window.removeEventListener('storage', storageLanguage));
+	syncDocumentLinks();
+	const languageObserver = new (window as unknown as typeof globalThis).MutationObserver(syncLanguage);
 	languageObserver.observe(window.document.documentElement, { attributes: true, attributeFilter: ['lang'] });
 	cleanup.push(theme.subscribe(syncTheme), () => languageObserver.disconnect(), () => themeButton.removeEventListener('click', switchTheme));
 	syncTheme();

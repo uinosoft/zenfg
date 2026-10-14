@@ -99,3 +99,36 @@ test('shared footers retain home destinations and accessible icon-only GitHub li
 		window.happyDOM.abort();
 	}
 });
+
+test('Inspector and examples preserve the document language in header/footer and restored pages', t => {
+    for (const page of ['inspector', 'examples'] as const) {
+        const window = new Window({ url: 'https://example.org/zenfg/' + (page === 'examples' ? 'playground/' : 'inspector/') });
+        window.document.documentElement.lang = 'en';
+        window.document.body.innerHTML = renderSiteHeader(page) + (page === 'examples' ? renderSiteFooter(page) : '');
+        window.localStorage.setItem('zenfg-language', 'zh-CN');
+        const theme = createSiteTheme(window as unknown as globalThis.Window);
+        const dispose = installSiteHeader(window as unknown as globalThis.Window, theme);
+        t.after(() => { dispose(); theme.destroy(); window.happyDOM.abort(); });
+        const docs = [...window.document.querySelectorAll<HTMLAnchorElement>('a[href*="docs/"]')];
+        const paths = () => docs.map(link => new URL(link.href).pathname);
+        const restore = () => {
+            const event = new window.Event('pageshow');
+            Object.defineProperty(event, 'persisted', { value: true });
+            window.dispatchEvent(event);
+        };
+        assert.ok(docs.length > 0);
+        assert.deepEqual(paths(), docs.map(() => '/zenfg/docs/zh-CN/'));
+        assert.equal(window.document.documentElement.lang, 'en', 'Document navigation does not translate the application UI');
+        window.localStorage.setItem('zenfg-language', 'en');
+        restore();
+        assert.deepEqual(paths(), docs.map(() => '/zenfg/docs/'));
+        window.localStorage.setItem('zenfg-language', 'zh-CN');
+        window.dispatchEvent(new window.StorageEvent('storage', { key: 'zenfg-language', newValue: 'zh-CN' }));
+        assert.deepEqual(paths(), docs.map(() => '/zenfg/docs/zh-CN/'));
+        dispose();
+        window.localStorage.setItem('zenfg-language', 'en');
+        restore();
+        window.dispatchEvent(new window.StorageEvent('storage', { key: 'zenfg-language', newValue: 'en' }));
+        assert.deepEqual(paths(), docs.map(() => '/zenfg/docs/zh-CN/'));
+    }
+});

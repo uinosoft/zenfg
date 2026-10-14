@@ -154,6 +154,27 @@ try {
     await page.locator('.site-page-links a[href$="docs/zh-CN/"]').waitFor();
     await page.locator('.site-page-links a[href$="docs/zh-CN/"]').click();
     await page.waitForURL(origin + base + 'docs/zh-CN/');
+    // Chinese document preference survives a trip through either application.
+    for (const width of [1440, 390]) {
+        await page.setViewportSize({ width, height: 900 });
+        for (const [name, path] of [['Inspector', 'inspector/'], ['示例', 'playground/']]) {
+            await page.goto(origin + base + 'docs/zh-CN/', { waitUntil: 'networkidle' });
+            const docsNav = width < 768 ? '.docs-mobile-nav' : '.docs-project-nav';
+            if (width < 768) await page.getByRole('button', { name: 'mobile navigation', exact: true }).click();
+            await page.locator(docsNav).getByRole('link', { name, exact: true }).click();
+            await page.waitForURL(origin + base + path);
+            if (width < 768) await page.locator('[data-site-menu]').click();
+            await page.locator('.site-page-links a[href$="docs/zh-CN/"]').click();
+            await page.waitForURL(origin + base + 'docs/zh-CN/');
+            assert.equal(await page.locator('html').getAttribute('lang'), 'zh-CN');
+            if (path === 'playground/') {
+                await page.goto(origin + base + path, { waitUntil: 'networkidle' });
+                await page.locator('.site-footer a[href$="docs/zh-CN/"]').click();
+                await page.waitForURL(origin + base + 'docs/zh-CN/');
+            }
+        }
+    }
+    await page.setViewportSize({ width: 1440, height: 1000 });
     await chooseDocumentLanguage(page, 'en');
     await page.waitForURL(origin + base + 'docs/');
     await page.goto(api + '#constructor', { waitUntil: 'networkidle' });
