@@ -1,4 +1,4 @@
-<!-- translation: {"version":1,"source":"packages/snapshot/README.md","sourceHash":"c67f0ce3906a8706005c9fe6af9efacc38085e7f0d83d467f5942226637155c3","state":"ready"} -->
+<!-- translation: {"version":1,"source":"packages/snapshot/README.md","sourceHash":"39f5c93225400a62a4a912cf594e4d51593f3ea14813da89e47139511bf3845e","state":"ready"} -->
 
 # @zenfg/snapshot
 
@@ -36,6 +36,25 @@ Snapshot 1.1 输入会在迁移到 1.2 前先通过验证；其 CPU 计时
 npm install @zenfg/snapshot@0.1.1
 ```
 <!-- generated:installation:end -->
+
+## Agent Skills
+
+此开发版本随附英文 [zenfg-snapshot Skill](./skills/zenfg-snapshot/SKILL.md)，用于指导
+Snapshot 解码、验证、迁移以及生产者职责边界。
+Skills 支持尚未发布：已发布的 0.1.1 包不包含此能力。
+请使用明确随包提供 Skills 的发布版本，或从此分支构建的 tarball。
+
+使用 pnpm 12.11.0 或更高版本（已验证 12.11.2），先将上述包安装为应用的直接依赖，然后运行：
+
+```sh
+pnpm approve
+pnpm install
+```
+
+在交互提示中批准此包的 Skills；构建脚本权限单独控制。pnpm 会将已批准的 Skills
+链接到受支持的项目代理目录。如果没有合适的目录，请在安装前配置 `skills.dirs`。
+目录选择和批准细节见 [pnpm Agent Skills](https://pnpm.io/agent-skills)。
+编程助手会读取链接的 Skill 及其引用的包内资料。
 
 <!-- skill:description:start -->
 使用 @zenfg/snapshot 解析或验证不可信的 FrameGraph 捕获数据、规范化受支持的历史输入、完成生产者草稿的校验与分离，或序列化规范 Snapshot JSON。

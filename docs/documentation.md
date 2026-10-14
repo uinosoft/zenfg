@@ -149,4 +149,9 @@ There is no installer or postinstall configuration. pnpm 12.11.2 discovers appro
 direct dependencies; permission is a consumer decision. pack:check verifies this
 in temporary projects, including revocation, without global agent configuration.
 See [pnpm Agent Skills](https://pnpm.io/agent-skills) for discovery and permissions.
+Consumer installation and approval instructions belong in each npm package README's
+Agent Skills section. The root README and getting-started page link there.
+When publishing the first Skill-bearing versions, update their release-availability
+notes and the project entrypoints together.
+
 Cargo guides stay in their crates; Rust Skill distribution is deferred.

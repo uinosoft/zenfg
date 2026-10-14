@@ -1,4 +1,4 @@
-<!-- translation: {"version":1,"source":"packages/webgpu/README.md","sourceHash":"c420bb11ead9d8b47ae385e2d41a12950eca91d9133adb0b0a40adbe0f3f6fd2","state":"ready"} -->
+<!-- translation: {"version":1,"source":"packages/webgpu/README.md","sourceHash":"d226eaca8b6caff23a8134000561ff837666e49b0c1f8a0c0c0d457529cf6903","state":"ready"} -->
 
 # @zenfg/webgpu
 
@@ -28,6 +28,25 @@
 npm install @zenfg/webgpu@0.2.0
 ```
 <!-- generated:installation:end -->
+
+## Agent Skills
+
+此开发版本随附英文 [zenfg-webgpu Skill](./skills/zenfg-webgpu/SKILL.md)，用于指导
+WebGPU 集成、资源访问、诊断分组和帧捕获。
+Skills 支持尚未发布：已发布的 0.2.0 包不包含此能力。
+请使用明确随包提供 Skills 的发布版本，或从此分支构建的 tarball。
+
+使用 pnpm 12.11.0 或更高版本（已验证 12.11.2），先将上述包安装为应用的直接依赖，然后运行：
+
+```sh
+pnpm approve
+pnpm install
+```
+
+在交互提示中批准此包的 Skills；构建脚本权限单独控制。pnpm 会将已批准的 Skills
+链接到受支持的项目代理目录。如果没有合适的目录，请在安装前配置 `skills.dirs`。
+目录选择和批准细节见 [pnpm Agent Skills](https://pnpm.io/agent-skills)。
+编程助手会读取链接的 Skill 及其引用的包内资料。
 
 <a id="quick-start"></a>
 

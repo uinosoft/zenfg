@@ -1,4 +1,4 @@
-<!-- translation: {"version":1,"source":"packages/inspector/README.md","sourceHash":"6f8a82de2b50712629d5a559f7ae01fef6f95a6f6e6219a65ffa2c793c70793b","state":"ready"} -->
+<!-- translation: {"version":1,"source":"packages/inspector/README.md","sourceHash":"e433f1b82aaf471c73616a6005443696f43fc3c6407e00ffca5784b2ee5c4deb","state":"ready"} -->
 
 # @zenfg/inspector
 
@@ -28,6 +28,25 @@
 npm install @zenfg/inspector@0.2.0
 ```
 <!-- generated:installation:end -->
+
+## Agent Skills
+
+此开发版本随附英文 [zenfg-inspector Skill](./skills/zenfg-inspector/SKILL.md)，用于指导
+工作台嵌入、实时捕获、导入、主题和资源清理。
+Skills 支持尚未发布：已发布的 0.2.0 包不包含此能力。
+请使用明确随包提供 Skills 的发布版本，或从此分支构建的 tarball。
+
+使用 pnpm 12.11.0 或更高版本（已验证 12.11.2），先将上述包安装为应用的直接依赖，然后运行：
+
+```sh
+pnpm approve
+pnpm install
+```
+
+在交互提示中批准此包的 Skills；构建脚本权限单独控制。pnpm 会将已批准的 Skills
+链接到受支持的项目代理目录。如果没有合适的目录，请在安装前配置 `skills.dirs`。
+目录选择和批准细节见 [pnpm Agent Skills](https://pnpm.io/agent-skills)。
+编程助手会读取链接的 Skill 及其引用的包内资料。
 
 <a id="quick-start"></a>
 

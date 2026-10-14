@@ -1,4 +1,4 @@
-<!-- translation: {"version":1,"source":"docs/README.md","sourceHash":"d48401c38667328f3ae6207c55ffbc67a557eeb371619c0f93a209e56513b4d9","state":"ready"} -->
+<!-- translation: {"version":1,"source":"docs/README.md","sourceHash":"aea0390f6058858674d9c7c4e589efedad8050a1cbe8e7cd2b25b31e606e20dd","state":"ready"} -->
 
 <!-- generated:language:start -->
 [English][documentation-en] | **简体中文**
@@ -19,6 +19,7 @@
 | 集成 Rust 与 wgpu | [Rust 快速入门](../crates/zenfg/README.zh-CN.md#quick-start) | 仅由 CPU 编译的图，以及后续由设备驱动的示例 |
 | 读取或生成 Snapshot 数据 | [TypeScript Snapshot](../packages/snapshot/README.zh-CN.md) 或 [Rust Snapshot](../crates/zenfg-snapshot/README.zh-CN.md) | 经过验证、规范化的可移植诊断数据 |
 | 嵌入可视化调试器 | [Inspector 快速入门](../packages/inspector/README.zh-CN.md#quick-start) | 用于检查捕获结果的浏览器工作台 |
+| 配合 AI 编程助手使用 | [WebGPU Skills](../packages/webgpu/README.zh-CN.md#agent-skills)、[Snapshot Skills](../packages/snapshot/README.zh-CN.md#agent-skills)或 [Inspector Skills](../packages/inspector/README.zh-CN.md#agent-skills) | 对应包的英文指引；发布情况和 pnpm 批准步骤见各包说明 |
 
 <a id="before-you-start"></a>
 <a id="continue-by-task"></a>

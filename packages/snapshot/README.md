@@ -34,6 +34,27 @@ npm install @zenfg/snapshot@0.1.1
 ```
 <!-- generated:installation:end -->
 
+## Agent Skills
+
+This development package includes an English [zenfg-snapshot Skill](./skills/zenfg-snapshot/SKILL.md)
+for Snapshot decoding, validation, migration, and producer boundaries.
+Skills support is unreleased: the published 0.1.1 package does not include it.
+Use a release that explicitly ships Skills, or a tarball built from this branch.
+
+With pnpm 12.11.0 or later (verified with 12.11.2), first install that package
+as a direct dependency of your application. Then run:
+
+```sh
+pnpm approve
+pnpm install
+```
+
+Approve this package's Skills in the interactive prompt; build-script permission
+is separate. pnpm links approved Skills into supported project agent directories.
+If no suitable directory exists, configure `skills.dirs` before installing.
+See [pnpm Agent Skills](https://pnpm.io/agent-skills) for directory selection and
+approval details. The agent reads the linked Skill and its package-local references.
+
 <!-- skill:description:start -->
 Use @zenfg/snapshot to parse or validate untrusted FrameGraph captures, normalize supported historical inputs, finalize producer drafts, or serialize canonical Snapshot JSON.
 <!-- skill:description:end -->
