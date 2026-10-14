@@ -1,6 +1,4 @@
-type Language = 'en' | 'zh-CN';
-
-const preferenceKey = 'zenfg-language';
+import { storeLanguage, type SiteLanguage as Language } from '../shared/language.ts';
 
 const translations: Record<Language, Record<string, string>> = {
 	en: {
@@ -177,7 +175,7 @@ const translations: Record<Language, Record<string, string>> = {
 
 function setStoredLanguage(language: Language): void {
 	try {
-		window.localStorage.setItem(preferenceKey, language);
+        storeLanguage(window.localStorage, language);
 	} catch {
 		// Private browsing and blocked storage should not prevent language switching.
 	}
@@ -187,6 +185,16 @@ function applyLanguage(language: Language): void {
 	const content = translations[language];
 	document.documentElement.lang = language;
 	document.title = content.title;
+    for (const link of document.querySelectorAll<HTMLAnchorElement>('a[href]')) {
+        const href = link.dataset.docsEnglishHref ?? link.getAttribute('href')!;
+        if (!/(?:^|\/)docs\//.test(href) || /(?:^|\/)docs\/api\//.test(href)) continue;
+        if (/^(?:[a-z][\w+.-]*:|\/\/)/i.test(href)) {
+            const url = new URL(href, window.location.href);
+            if (url.origin !== window.location.origin) continue;
+        }
+        link.dataset.docsEnglishHref = href.replace(/docs\/zh-CN\//, 'docs/');
+        link.setAttribute('href', link.dataset.docsEnglishHref.replace(/docs\//, `docs/${language === 'zh-CN' ? 'zh-CN/' : ''}`));
+    }
 
 	for (const element of document.querySelectorAll<HTMLElement>('[data-i18n]')) {
 		const key = element.dataset.i18n;

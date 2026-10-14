@@ -1,5 +1,12 @@
 # Unified execution timing and Snapshot 1.2
 
+<!-- generated:language:start -->
+**English** | [简体中文][documentation-zh]
+
+[documentation-en]: ./migration-timing-snapshot-1.2.md
+[documentation-zh]: ./migration-timing-snapshot-1.2.zh-CN.md
+<!-- generated:language:end -->
+
 Usage contracts are maintained with their packages. Choose the relevant guide:
 
 - [WebGPU usage](../packages/webgpu/docs/README.md)

@@ -1,5 +1,12 @@
 # FrameGraph Snapshot 1.2 Specification
 
+<!-- generated:language:start -->
+**English** | [简体中文][documentation-zh]
+
+[documentation-en]: ./SPEC.md
+[documentation-zh]: ./SPEC.zh-CN.md
+<!-- generated:language:end -->
+
 ## 1. Status and terminology
 
 This document is the language-neutral normative definition of FrameGraph

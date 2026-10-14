@@ -1,5 +1,12 @@
 # Core concepts
 
+<!-- generated:language:start -->
+**English** | [简体中文][documentation-zh]
+
+[documentation-en]: ./core-concepts.md
+[documentation-zh]: ./core-concepts.zh-CN.md
+<!-- generated:language:end -->
+
 Usage contracts are maintained with their packages. Choose the relevant guide:
 
 - [WebGPU usage](../packages/webgpu/docs/README.md)

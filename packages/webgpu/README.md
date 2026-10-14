@@ -1,5 +1,12 @@
 # @zenfg/webgpu
 
+<!-- generated:language:start -->
+**English** | [简体中文][documentation-zh]
+
+[documentation-en]: ./README.md
+[documentation-zh]: ./README.zh-CN.md
+<!-- generated:language:end -->
+
 <!-- usage-source: docs/README.md -->
 
 <!-- generated:badges:start -->
@@ -20,6 +27,27 @@ textures and buffers.
 npm install @zenfg/webgpu@0.2.0
 ```
 <!-- generated:installation:end -->
+
+## Agent Skills
+
+This development package includes an English [zenfg-webgpu Skill](./skills/zenfg-webgpu/SKILL.md)
+for WebGPU integration, resource access, diagnostic groups, and frame capture.
+Skills support is unreleased: the published 0.2.0 package does not include it.
+Use a release that explicitly ships Skills, or a tarball built from this branch.
+
+With pnpm 12.11.0 or later (verified with 12.11.2), first install that package
+as a direct dependency of your application. Then run:
+
+```sh
+pnpm approve
+pnpm install
+```
+
+Approve this package's Skills in the interactive prompt; build-script permission
+is separate. pnpm links approved Skills into supported project agent directories.
+If no suitable directory exists, configure `skills.dirs` before installing.
+See [pnpm Agent Skills](https://pnpm.io/agent-skills) for directory selection and
+approval details. The agent reads the linked Skill and its package-local references.
 
 ## Quick start
 

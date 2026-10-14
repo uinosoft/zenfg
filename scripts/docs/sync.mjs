@@ -1,8 +1,10 @@
-import { packages, workspace, cargo, read, write, repository, website, snapshotVersion } from './catalog.mjs';
+import { packages, pages, workspace, cargo, read, write, repository, website, snapshotVersion } from './catalog.mjs';
+import { existsSync } from 'node:fs';
+import { generatedBlocks, localizeLinks, syncLanguage, sourceHeadings, translationMetadata, withTranslationMetadata, translationPath } from './i18n.mjs';
 import GithubSlugger from 'github-slugger';
 import { usagePath } from './usage.mjs';
-import { anchors, markdown, markdownFiles, packageRepositoryLinks } from './markdown.mjs';
-import { relative, resolve } from 'node:path';
+import { anchors, markdown, markdownFiles, packageRepositoryLinks, mapProseLinks } from './markdown.mjs';
+import { dirname, relative, resolve } from 'node:path';
 import { root } from './catalog.mjs';
 const check = process.argv.includes('--check');
 const failures = [];
@@ -26,12 +28,12 @@ for (const file of ['README.md', 'README.zh-CN.md']) {
     const chinese = file.includes('zh-CN');
     let text = replaceBlock(read(file), 'badges', [
         `[![CI main](${repository}/actions/workflows/ci.yml/badge.svg?branch=main&event=push)](${repository}/actions/workflows/ci.yml?query=branch%3Amain)`,
-        badge('Documentation', 'badge/docs-online-blue', `${website}docs/`), license,
+        badge('Documentation', 'badge/docs-online-blue', `${website}docs/${chinese ? 'zh-CN/' : ''}`), license,
         badge('Release status', packages.some(p => p.version.includes('-')) ? 'badge/status-prerelease-orange' : 'badge/status-released-blue', `${repository}/blob/main/CHANGELOG.md`),
     ].map(value => value.replace(/^\[!\[([^\]]+)\]\(([^)]+)\)\]\(([^)]+)\)$/, '<a href="$3"><img src="$2" alt="$1"></a>')).join('\n').replace(/^/, '<p align="center">\n').concat('\n</p>'));
     const descriptions = chinese ? ['TypeScript/WebGPU FrameGraph 运行时', `Snapshot ${wire} 类型、编解码、验证与规范`, '可嵌入的 DOM Inspector', 'Rust/wgpu FrameGraph 运行时', `Rust Snapshot ${wire} 编解码、验证与迁移`] : ['TypeScript/WebGPU FrameGraph runtime', `Snapshot ${wire} types, codec, validation and specification`, 'Embeddable DOM Inspector', 'Rust/wgpu FrameGraph runtime', `Rust Snapshot ${wire} codec, validation and migration`];
     text = replaceBlock(text, 'packages', [`| ${chinese ? '包 | 用途 | 发布版本 | 文档' : 'Package | Purpose | Published version | Documentation'} |`, '| --- | --- | --- | --- |',
-        ...packages.map((p, i) => `| [\`${p.name}\`](${p.directory}/README.md) | ${descriptions[i]} | ${versionBadge(p)} | [${chinese ? '指南' : 'Guide'}](${website}docs/${p.route}.html) |`),
+        ...packages.map((p, i) => `| [\`${p.name}\`](${p.directory}/README${chinese ? '.zh-CN' : ''}.md) | ${descriptions[i]} | ${versionBadge(p)} | [${chinese ? '指南' : 'Guide'}](${website}docs/${chinese ? 'zh-CN/' : ''}${p.route}.html) |`),
     ].join('\n'));
     save(file, text);
 }
@@ -88,6 +90,62 @@ compatibility = replaceBlock(compatibility, 'compatibility', ['| ZenFG package |
 ].join('\n'));
 compatibility = replaceBlock(compatibility, 'toolchains', `Repository tooling: Node \`${workspace.engines.node}\`, pnpm \`${workspace.packageManager.split('@')[1]}\`, npm publishing client \`${workspace.devDependencies.npm}\`, TypeScript \`${workspace.devDependencies.typescript}\`, Rust \`${cargo.workspace.package['rust-version']}\`, wgpu \`${cargo.workspace.dependencies.wgpu}\`.`);
 save('docs/compatibility.md', compatibility);
+// Generated facts stay under the existing metadata owner. Translations never
+// become a second manually editable source of versions or install commands.
+const metadataLabels = new Map([
+    ['The package manifest declares', '包清单声明'],
+    ['Registry badges show the current published channel, not your installed version.', '注册表徽章显示当前发布渠道，并非已安装版本。'],
+    ['Exact installed APIs: follow', '已安装版本的准确 API：查看'],
+    ['declaration maps point to the included', '声明映射指向包内的'],
+    ['Only declared export paths are public.', '只有声明的导出路径属于公共 API。'],
+    ['Exact installed APIs: read the included', '已安装版本的准确 API：阅读包内的'],
+    ['or run', '或运行'], ['in your consuming project.', '（在使用该包的项目中）。'],
+    ['Online guide (development branch)', '在线指南（开发分支）'],
+    ['The site may describe changes newer than this package.', '网站可能包含晚于此包版本的变更。'],
+    ['TypeScript API (development branch)', 'TypeScript API（开发分支，英文）'], ['Rust API for this version', '此版本的 Rust API（英文）'],
+    ['Source and documentation for this release', '此发布版本的源码与文档'],
+    ['Usage contracts are maintained in this package; follow its local guides. Historical source links describe the named release, which may precede current development changes.', '使用约定由本包维护，请阅读包内指南。历史源码链接对应指定发布版本，可能早于当前开发分支。'],
+    ['Package upgrade notes', '包升级说明'], ['Plain Markdown documentation index (development branch)', '纯 Markdown 文档索引（开发分支）'],
+    ['Local complete recipes:', '包内完整示例：'], ['Local wire contract:', '包内数据格式约定：'], ['Local guides:', '包内指南：'],
+    ['Complete Cargo recipes are included in', '完整 Cargo 示例位于'], ['workbench', '工作台'], ['themes', '主题'],
+    ['| ZenFG package | Version | Runtime/toolchain | Snapshot |', '| ZenFG 包 | 版本 | 运行环境／工具链 | Snapshot |'],
+    ['Repository tooling:', '仓库工具链：'],
+]);
+for (const page of pages) save(page.source, syncLanguage(outputs.get(page.source) ?? read(page.source), page.source));
+for (const page of pages) {
+    const file = translationPath(page.source);
+    if (!existsSync(resolve(root, file))) continue;
+    let text = outputs.get(file) ?? read(file);
+    const english = outputs.get(page.source) ?? read(page.source);
+    for (const block of generatedBlocks(english)) {
+        if (page.source === 'README.md') continue; // Root bilingual blocks are rendered above.
+        let value = block.text.replace(/^<!-- generated:[^\n]+ -->\n|\n<!-- generated:[^\n]+ -->$/g, '');
+        if (block.name === 'usage') {
+            const usage = relative(root, usagePath(resolve(root, dirname(page.source)))).replaceAll('\\', '/');
+            const original = sourceHeadings(read(usage));
+            const translated = existsSync(resolve(root, translationPath(usage))) ? sourceHeadings(read(translationPath(usage))) : original;
+            const titles = new Map(original.map((h, i) => [h.id, translated[i]?.title ?? h.title]));
+            value = value.replace(/\n- \[[^\n]+?\]\(([^\n]+)#([^)]*)\)/g, (match, path, id) => titles.has(id) ? `\n- [${titles.get(id)}](${path}#${id})` : match);
+        } else if (block.name !== 'language') {
+            const destinations = [];
+            value = mapProseLinks(value, url => { destinations.push(url); return `@METADATA_LINK_${destinations.length - 1}@`; });
+            value = value.split(/(```[^\n]*\n[\s\S]*?```|`+[^`\n]*`+)/g).map((part, i) => {
+                if (i % 2) return part;
+                for (const [en, zh] of metadataLabels) part = part.replaceAll(en, zh);
+                return part;
+            }).join('');
+            value = value.replace(/@METADATA_LINK_(\d+)@/g, (_, index) => destinations[Number(index)]);
+        }
+        if (!text.includes(`<!-- generated:${block.name}:start -->`)) text += '\n' + block.text + '\n';
+        text = replaceBlock(text, block.name, value);
+    }
+    text = syncLanguage(localizeLinks(text, page.source), page.source, true);
+    if (text.includes('<!-- translation: ')) {
+        const metadata = translationMetadata(text);
+        text = withTranslationMetadata(text, page.source, metadata.sourceHash, metadata.state);
+    }
+    save(file, text);
+}
 for (const [file, value] of outputs) {
     if (read(file) === value) continue;
     if (check) failures.push(file); else write(file, value);

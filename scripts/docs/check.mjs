@@ -3,18 +3,21 @@ import { plainMarkdown } from './export.mjs';
 import { resolve, relative, dirname } from 'node:path';
 import { root, packages, pages, read, siteBase, publicEntrypoints, contentDir, git } from './catalog.mjs';
 import { anchors as markdownAnchors, assertLocalLinks, assertBuildSources, assertRequiredAnchors, assertRustdocLinks } from './markdown.mjs';
+import { checkTranslations, translationPath } from './i18n.mjs';
 const built = process.argv.includes('--built');
 const legacy = JSON.parse(read('scripts/docs/legacy-anchors.json'));
 if (process.argv.includes('--rustdoc')) {
     assertRustdocLinks(resolve(root, 'target/doc'), built ? resolve(root, 'apps/site/dist/docs') : undefined);
     console.log('Verified actual rustdoc entry-page links and anchors.');
 } else if (!built) {
-    const files = [...new Set(['README.md', 'README.zh-CN.md', 'CONTRIBUTING.md', ...pages.map(p => p.source)].map(p => resolve(root, p)))];
+    checkTranslations();
+    const files = [...new Set(['README.md', 'README.zh-CN.md', 'CONTRIBUTING.md', ...pages.flatMap(p => [p.source, translationPath(p.source)])].map(p => resolve(root, p)))];
     assertLocalLinks(root, files);
     for (const [source, expected] of Object.entries(legacy.pages)) assertRequiredAnchors(expected, markdownAnchors(read(source)), source);
     for (const p of packages) assertLocalLinks(resolve(root, p.directory));
     console.log(`Checked source links and ${publicEntrypoints().length} public entrypoints; package links remain within their artifact.`);
 } else {
+    checkTranslations();
     const output = resolve(root, 'apps/site/dist');
     const base = siteBase();
     function files(dir) { return readdirSync(dir, { withFileTypes: true }).flatMap(e => e.isDirectory() ? files(resolve(dir, e.name)) : [resolve(dir, e.name)]); }
@@ -27,8 +30,7 @@ if (process.argv.includes('--rustdoc')) {
     }
     for (const file of htmlFiles) {
         const html = readFileSync(file, 'utf8');
-        if (!file.endsWith('404.html') && (!html.includes('text/markdown') || !html.includes('Development branch'))) failures.push(`${file}: missing format/version discovery`);
-        if (html.includes('Choose language') || html.includes('VPNavBarTranslations')) failures.push(`${file}: unexpected language switch`);
+        if (!file.endsWith('404.html') && (!html.includes('text/markdown') || !(html.includes('Development branch') || html.includes('开发分支')) || !html.includes('data-doc-language-toggle'))) failures.push(`${file}: missing format/version/language discovery`);
         for (const match of html.matchAll(/<(?:a|link|script|img)\b[^>]*?\b(?:href|src)="([^"]+)"/g)) {
             const url = match[1].replaceAll('&amp;', '&');
             if (/^(?:[a-z][\w+.-]*:|\/\/)/i.test(url)) continue;
@@ -47,7 +49,7 @@ if (process.argv.includes('--rustdoc')) {
     const meta = JSON.parse(read(resolve(contentDir, 'metadata.json')));
     assertBuildSources(meta, git('rev-parse', 'HEAD'), read);
     for (const [source, expected] of Object.entries(legacy.websitePages)) {
-        const page = meta.pages.find(page => page.source === source);
+        const page = meta.pages.find(page => page.source === source && page.locale === 'en');
         if (!page) throw new Error('Missing legacy page ' + source);
         const file = resolve(output, 'docs', page.route + '.html');
         assertRequiredAnchors(expected, anchors(file), page.route);

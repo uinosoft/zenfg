@@ -5,13 +5,20 @@ import { root, contentDir, read, pages } from '../../../scripts/docs/catalog.mjs
 import { exportMarkdown, plainMarkdown, llmsIndex } from '../../../scripts/docs/export.mjs';
 import { visualThemes, visualMetrics } from '../../../packages/inspector/src/themePalette.ts';
 import { readThemePreference, themePreferenceKey } from '../../site/shared/theme/preference.ts';
+import { docsUi, chineseTheme, chineseSearch } from './locales.ts';
+import { tokenize } from './search.mjs';
 const meta = JSON.parse(read(resolve(contentDir, 'metadata.json')));
 const apiSidebar = JSON.parse(read(resolve(contentDir, 'api/typedoc-sidebar.json')));
-const sidebar = [...new Set(pages.map(p => p.group))].map(group => ({ text: group, items: pages.filter(p => p.group === group).map(p => ({ text: p.title, link: p.route === 'index' ? '/' : `/${p.route}` })) }));
-sidebar.push({ text: 'TypeScript API', items: apiSidebar });
-sidebar.push({ text: 'Rust API ↗', items: meta.packages.filter(p => p.registry === 'cargo' && p.published).map(p => ({ text: `${p.name} ${p.published}`, link: `https://docs.rs/${p.name}/${p.published}/` })) });
+function sidebar(locale: 'en' | 'zh-CN') {
+    const ui = docsUi[locale];
+    const result = [...new Set(pages.map(p => p.group))].map(group => ({ text: ui.groups[group as keyof typeof ui.groups], items: meta.pages.filter(p => p.locale === locale && p.group === group).map(p => ({ text: p.title, link: p.route === 'index' ? '/' : p.route.endsWith('/index') ? `/${p.route.slice(0, -5)}` : `/${p.route}` })) }));
+    result.push({ text: ui.context.api, items: apiSidebar });
+    result.push({ text: 'Rust API ↗', items: meta.packages.filter(p => p.registry === 'cargo' && p.published).map(p => ({ text: `${p.name} ${p.published}`, link: `https://docs.rs/${p.name}/${p.published}/` })) });
+    return result;
+}
 const paletteCss = Object.entries(visualThemes).map(([mode, t]) => `${mode === 'dark' ? 'html.dark' : ':root'}{${Object.entries({
     '--vp-c-bg': t.canvas, '--vp-c-bg-alt': t.sidebar, '--vp-c-bg-elv': t.panel, '--vp-c-bg-soft': t.inset,
+    '--vp-c-bg-hover': t.hover,
     '--vp-c-text-1': t.text, '--vp-c-text-2': t.secondary, '--vp-c-text-3': t.muted,
     '--vp-c-brand-1': t.accent, '--vp-c-brand-2': t.accent, '--vp-c-brand-3': t.accent,
     '--vp-c-divider': t.divider, '--vp-c-border': t.border,
@@ -21,7 +28,13 @@ export default defineConfig({
     title: 'ZenFG', description: 'FrameGraph guides and API reference for WebGPU and wgpu.', lang: 'en',
     srcDir: contentDir, outDir: 'dist', base: meta.docsBase,
     appearance: false, cleanUrls: false,
-    ignoreDeadLinks: [/^\/llms\.txt$/],
+    ignoreDeadLinks: [/^\/(?:zh-CN\/)?llms\.txt$/],
+    // Empty labels suppress the stock menu, which invents Chinese API URLs.
+    // The public theme slots below use the catalog's actual counterpart links.
+    locales: {
+        root: { lang: 'en', themeConfig: { sidebar: sidebar('en'), docsUi: docsUi.en } },
+        'zh-CN': { lang: 'zh-CN', description: docsUi['zh-CN'].description, themeConfig: { ...chineseTheme, sidebar: sidebar('zh-CN'), docsUi: docsUi['zh-CN'] } },
+    },
     head: [
         ['link', { rel: 'icon', href: meta.docsBase + 'favicon.ico', sizes: 'any' }],
         ['link', { rel: 'icon', href: meta.docsBase + 'favicon.svg', type: 'image/svg+xml' }],
@@ -37,8 +50,7 @@ export default defineConfig({
         logo: { src: '/brand/zenfg-mark.svg', alt: '' },
         logoLink: { link: meta.base, target: '_self' },
         nav: [],
-        sidebar,
-        search: { provider: 'local' },
+        search: { provider: 'local', options: { miniSearch: { options: { tokenize } }, locales: { 'zh-CN': { translations: chineseSearch } } } },
         outline: [2, 3],
         socialLinks: [{ icon: 'github', link: 'https://github.com/uinosoft/zenfg' }],
         footer: { message: 'Open source / MIT licensed' },
@@ -52,6 +64,12 @@ export default defineConfig({
             pageData.frontmatter.sourceUrl = entry.sourceUrl;
             pageData.frontmatter.editUrl = entry.editUrl;
             pageData.frontmatter.commit = meta.commit;
+            pageData.frontmatter.locale = entry.locale;
+            pageData.frontmatter.alternateUrl = entry.alternateUrl;
+            pageData.frontmatter.translationUrl = entry.translationUrl;
+            pageData.frontmatter.translationState = entry.translationState;
+            pageData.frontmatter.anchorMap = entry.anchorMap;
+            pageData.frontmatter.englishOnlyApi = entry.group === 'TypeScript API';
         }
         pageData.frontmatter.packageVersions = meta.packages.map(p => `${p.name} ${p.version}`).join(' · ');
         pageData.frontmatter.publishedPackageVersions = meta.packages.map(p => `${p.name} ${p.published ?? '(release tags unavailable)'}`).join(' / ');
@@ -65,7 +83,8 @@ export default defineConfig({
         return [
             ...social,
             ['link', { rel: 'alternate', type: 'text/markdown', href: pageData.frontmatter.markdownUrl }],
-            ['link', { rel: 'describedby', href: `${meta.docsBase}llms.txt` }],
+            ['link', { rel: 'describedby', href: `${meta.docsBase}${pageData.frontmatter.locale === 'zh-CN' ? 'zh-CN/' : ''}llms.txt` }],
+            ...(pageData.frontmatter.alternateUrl ? [['link', { rel: 'alternate', hreflang: pageData.frontmatter.locale === 'zh-CN' ? 'en' : 'zh-CN', href: pageData.frontmatter.alternateUrl }] as [string, Record<string, string>]] : []),
         ];
     },
     buildEnd(config) { exportMarkdown(config.outDir, meta); },
@@ -83,7 +102,7 @@ export default defineConfig({
                     if (requestUrl.searchParams.has('import') || req.headers['sec-fetch-dest'] === 'script') { next(); return; }
                     const url = requestUrl.pathname;
                     const current = JSON.parse(read(resolve(contentDir, 'metadata.json')));
-                    if (url === `${meta.docsBase}llms.txt`) { res.setHeader('Content-Type', 'text/plain; charset=utf-8'); res.end(llmsIndex(current)); return; }
+                    if (url === `${meta.docsBase}llms.txt` || url === `${meta.docsBase}zh-CN/llms.txt`) { res.setHeader('Content-Type', 'text/plain; charset=utf-8'); res.end(llmsIndex(current, url.includes('/zh-CN/') ? 'zh-CN' : 'en')); return; }
                     const page = current.pages.find(p => p.markdownUrl === url);
                     if (page) { res.setHeader('Content-Type', 'text/markdown; charset=utf-8'); res.end(plainMarkdown(page, current)); return; }
                     next();

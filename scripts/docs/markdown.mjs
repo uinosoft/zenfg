@@ -5,6 +5,13 @@ import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { dirname, resolve, relative, isAbsolute } from 'node:path';
 
 export const markdown = new MarkdownIt({ html: true });
+// Links in literal code are part of the example, never navigation metadata.
+export function mapProseLinks(text, rewrite) {
+    return text.split(/(```[^\n]*\n[\s\S]*?```|~~~[^\n]*\n[\s\S]*?~~~|`+[^`\n]*`+)/g).map((part, i) => i % 2 ? part : part
+        .replace(/(\]\()([^\s)]+)(\))/g, (_, left, url, right) => left + rewrite(url) + right)
+        .replace(/^(\[[^\]]+\]:\s*)(\S+)/gm, (_, left, url) => left + rewrite(url))
+        .replace(/(\b(?:href|src)=")(.*?)"/g, (_, left, url) => left + rewrite(url) + '"')).join('');
+}
 export function markdownFiles(directory) {
     return readdirSync(directory, { withFileTypes: true }).flatMap(entry => {
         if (['node_modules', 'dist', 'src', 'tests', '.vitepress', '.generated', '.git'].includes(entry.name)) return [];
@@ -112,5 +119,6 @@ export function assertBuildSources(metadata, commit, readSource) {
     if (metadata.commit !== commit) throw new Error('Documentation build is stale; rebuild for current HEAD.');
     for (const page of metadata.pages.filter(page => page.source)) {
         if (page.sourceHash !== sourceDigest(readSource(page.source))) throw new Error('Documentation build is stale for ' + page.source + '; rebuild after editing its source.');
+        if (page.translationSource && page.translationHash !== sourceDigest(readSource(page.translationSource))) throw new Error('Documentation build is stale for ' + page.translationSource + '; rebuild after editing its translation.');
     }
 }

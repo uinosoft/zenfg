@@ -1,5 +1,12 @@
 # TypeScript recipes
 
+<!-- generated:language:start -->
+**English** | [简体中文][documentation-zh]
+
+[documentation-en]: ./README.md
+[documentation-zh]: ./README.zh-CN.md
+<!-- generated:language:end -->
+
 These complete recipes import only supported ZenFG package entrypoints and are
 type-checked in CI. GPU devices, canvas contexts, pipelines, native resources,
 and external renderer adapters are explicit function parameters so the files

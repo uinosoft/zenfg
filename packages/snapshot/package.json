@@ -25,7 +25,9 @@
     "fixtures",
     "conformance",
     "SPEC.md",
+    "SPEC.zh-CN.md",
     "README.md",
+    "README.zh-CN.md",
     "LICENSE",
     "docs",
     "skills"
@@ -33,7 +35,7 @@
   "scripts": {
     "build": "node ../../scripts/build-package.mjs",
     "build:watch": "node ../../scripts/build-package.mjs --watch",
-    "prepack": "node ../../scripts/docs/skills.mjs --check --package && pnpm -r --filter \"@zenfg/snapshot...\" run build",
+    "prepack": "node ../../scripts/docs/i18n.mjs check --package && node ../../scripts/docs/skills.mjs --check --package && pnpm -r --filter \"@zenfg/snapshot...\" run build",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test": "node ../../scripts/run-tests.mjs packages/snapshot/tests",
     "pack": "pnpm pack --json"

@@ -1,5 +1,12 @@
 # Getting started with ZenFG
 
+<!-- generated:language:start -->
+**English** | [简体中文][documentation-zh]
+
+[documentation-en]: ./README.md
+[documentation-zh]: ./README.zh-CN.md
+<!-- generated:language:end -->
+
 Choose a path for your application. ZenFG coordinates graph-visible GPU work;
 your application owns the device, rendering policy, and presentation.
 
@@ -9,6 +16,7 @@ your application owns the device, rendering policy, and presentation.
 | Integrate Rust and wgpu | [Rust quick start](../crates/zenfg/README.md#quick-start) | A CPU-only compiled graph, followed by device-backed recipes |
 | Read or produce Snapshot data | [TypeScript Snapshot](../packages/snapshot/README.md) or [Rust Snapshot](../crates/zenfg-snapshot/README.md) | Validated, canonical portable diagnostics |
 | Embed a visual debugger | [Inspector quick start](../packages/inspector/README.md#quick-start) | A browser workbench for your captures |
+| Work with an AI coding assistant | [WebGPU Skills](../packages/webgpu/README.md#agent-skills), [Snapshot Skills](../packages/snapshot/README.md#agent-skills), or [Inspector Skills](../packages/inspector/README.md#agent-skills) | Package-specific English instructions; see each guide for release availability and pnpm approval |
 
 <a id="before-you-start"></a>
 <a id="continue-by-task"></a>

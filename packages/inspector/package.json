@@ -22,9 +22,12 @@
     "dist",
     "src",
     "README.md",
+    "README.zh-CN.md",
     "LICENSE",
     "THEMING.md",
+    "THEMING.zh-CN.md",
     "GUIDE.md",
+    "GUIDE.zh-CN.md",
     "docs",
     "skills"
   ],
@@ -36,7 +39,7 @@
   "scripts": {
     "build": "node ../../scripts/build-package.mjs",
     "build:watch": "node ../../scripts/build-package.mjs --watch",
-    "prepack": "node ../../scripts/docs/skills.mjs --check --package && pnpm -r --filter \"@zenfg/inspector...\" run build",
+    "prepack": "node ../../scripts/docs/i18n.mjs check --package && node ../../scripts/docs/skills.mjs --check --package && pnpm -r --filter \"@zenfg/inspector...\" run build",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test": "node ../../scripts/run-tests.mjs packages/inspector/tests",
     "pack": "pnpm pack --json"

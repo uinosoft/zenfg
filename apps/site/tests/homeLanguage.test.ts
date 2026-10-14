@@ -45,6 +45,7 @@ test('Home language updates content, shared navigation, metadata and accessible 
 	assert.equal(window.document.querySelector('.cover-story-marker')?.getAttribute('aria-label'), '探索此示例');
 	assert.equal(window.document.querySelector('[data-i18n=explore]')?.textContent, '探索');
 	assert.equal(window.localStorage.getItem('zenfg-language'), 'zh-CN');
+    assert.equal(window.document.querySelector('.hero-actions .primary')?.getAttribute('href'), './docs/zh-CN/getting-started.html');
     translated.forEach((element, index) => {
         const value = element.tagName === 'META' ? element.getAttribute('content') : element.textContent;
         assert.ok(value?.trim(), 'translated content is present');
@@ -56,6 +57,7 @@ test('Home language updates content, shared navigation, metadata and accessible 
 	toggle.click();
 	window.document.querySelector<HTMLButtonElement>('[data-language-choice=en]')!.click();
 	assert.equal(window.document.documentElement.lang, 'en');
+    assert.equal(window.document.querySelector('.hero-actions .primary')?.getAttribute('href'), './docs/getting-started.html');
 	assert.equal(window.document.querySelector('[aria-current=page]')?.textContent, 'Home');
 	assert.match(window.document.querySelector('[data-i18n=summary]')!.textContent, /composable/);
 	assert.equal(window.document.querySelector('[data-i18n=explore]')?.textContent, 'Explore');

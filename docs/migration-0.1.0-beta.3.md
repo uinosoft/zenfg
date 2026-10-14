@@ -1,5 +1,12 @@
 # Migrating from 0.1.0-beta.2 to 0.1.0-beta.3
 
+<!-- generated:language:start -->
+**English** | [简体中文][documentation-zh]
+
+[documentation-en]: ./migration-0.1.0-beta.3.md
+[documentation-zh]: ./migration-0.1.0-beta.3.zh-CN.md
+<!-- generated:language:end -->
+
 Usage contracts are maintained with their packages. Choose the relevant guide:
 
 - [WebGPU usage](../packages/webgpu/docs/README.md)

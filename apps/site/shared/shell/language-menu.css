@@ -1,0 +1,27 @@
+/* Language-menu presentation shared by the homepage and VitePress shell. */
+.site-language-menu { position: relative; font-size: var(--zenfg-font-control, 13px); line-height: 1.4; }
+.site-language {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 36px; min-height: 36px; padding: 0; box-sizing: border-box;
+    border: 1px solid transparent; border-radius: var(--project-control-radius, 6px);
+    color: var(--project-secondary); background: transparent; font: inherit; font-weight: 600; cursor: pointer;
+}
+.site-language:hover { color: var(--project-text); background: var(--project-hover); }
+.site-language:focus-visible { outline: 2px solid var(--project-accent); outline-offset: 2px; }
+.site-language .ui-icon { width: 16px; height: 16px; }
+.site-language-options {
+    position: absolute; z-index: 1; top: calc(100% + 8px); right: 0;
+    min-width: 156px; padding: 4px; border: 1px solid var(--project-divider, var(--zenfg-divider));
+    border-radius: var(--zenfg-radius-panel, 10px); background: var(--project-canvas, var(--zenfg-canvas)); box-shadow: 0 8px 24px #0002;
+}
+.site-language-options[hidden] { display: none !important; }
+.site-language-options :is(button, a) {
+    display: flex; justify-content: space-between; align-items: center; width: 100%; min-height: 44px;
+    padding: 8px 12px; gap: 20px; box-sizing: border-box; border: 0; border-radius: var(--project-control-radius, 6px);
+    background: transparent; color: var(--project-text); font: inherit; text-decoration: none; cursor: pointer; white-space: nowrap;
+}
+.site-language-options :is(button, a):hover, .site-language-options :is(button, a):focus-visible { background: var(--project-hover); }
+.site-language-options [aria-checked=true] { color: var(--project-accent); }
+.language-check { visibility: hidden; }
+[aria-checked=true] > .language-check { visibility: visible; }
+@media (pointer: coarse) { .site-language { min-width: 44px; min-height: 44px; } }

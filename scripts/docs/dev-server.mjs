@@ -3,6 +3,7 @@ import { watch } from 'node:fs';
 import { once } from 'node:events';
 import { resolve } from 'node:path';
 import { root, pages, recipes, packages } from './catalog.mjs';
+import { translationPath } from './i18n.mjs';
 
 // Regenerate with a fresh process, then start a fresh VitePress search index.
 // In-process Vite restarts retain VitePress's MiniSearch cache.
@@ -33,6 +34,7 @@ export async function serveDocs() {
     function stop() { stopping = true; clearTimeout(timer); for (const watcher of watchers) watcher.close(); child?.kill(); }
     function fail(error) { console.error(error); process.exitCode = 1; stop(); }
     const files = [...pages, ...recipes].map(p => p.source);
+    files.push(...pages.map(p => translationPath(p.source)));
     files.push('package.json', 'Cargo.toml', ...packages.map(p => `${p.directory}/${p.registry === 'npm' ? 'package.json' : 'Cargo.toml'}`));
     // Watch parent directories so atomic editor saves remain observable.
     const byDirectory = new Map();

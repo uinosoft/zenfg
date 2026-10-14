@@ -88,6 +88,15 @@ material. Before changing public semantics, examples, or release artifacts,
 read [Contributing](CONTRIBUTING.md). Source development uses pnpm for JavaScript
 and Cargo for Rust; install workspace dependencies with `pnpm install --frozen-lockfile`.
 
+## AI coding assistants
+
+Development builds provide English Agent Skills for
+[WebGPU integration](packages/webgpu/README.md#agent-skills),
+[Snapshot data](packages/snapshot/README.md#agent-skills), and
+[Inspector embedding](packages/inspector/README.md#agent-skills).
+Each package README explains release availability and pnpm installation/approval.
+This support is not yet available in the current npm releases.
+
 ## Integration levels
 
 The application owns its device, rendering policy and presentation. ZenFG

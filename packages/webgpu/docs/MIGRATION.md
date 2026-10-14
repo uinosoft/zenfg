@@ -1,5 +1,12 @@
 # @zenfg/webgpu upgrade notes
 
+<!-- generated:language:start -->
+**English** | [简体中文][documentation-zh]
+
+[documentation-en]: ./MIGRATION.md
+[documentation-zh]: ./MIGRATION.zh-CN.md
+<!-- generated:language:end -->
+
 Package API versions and Snapshot wire versions are independent. The historical
 changes below apply to the named releases, not to every current integration.
 

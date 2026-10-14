@@ -7,6 +7,7 @@
     "[zenfg-lifetime]: https://uinosoft.github.io/zenfg/docs/concepts/zenfg.html#lifetime-and-allocation\n",
     "[zenfg-migration]: https://uinosoft.github.io/zenfg/docs/migration/zenfg.html\n",
     "[zenfg-examples]: https://github.com/uinosoft/zenfg/tree/main/crates/zenfg/examples\n",
+    "[documentation-zh]: https://uinosoft.github.io/zenfg/docs/zh-CN/guides/zenfg.html\n",
     include_str!("../docs/README.md")
 )]
 #![warn(missing_docs)]

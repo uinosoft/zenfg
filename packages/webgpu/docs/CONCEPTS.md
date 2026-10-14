@@ -1,5 +1,12 @@
 # WebGPU concepts
 
+<!-- generated:language:start -->
+**English** | [简体中文][documentation-zh]
+
+[documentation-en]: ./CONCEPTS.md
+[documentation-zh]: ./CONCEPTS.zh-CN.md
+<!-- generated:language:end -->
+
 ZenFG is horizontal GPU scheduling infrastructure for WebGPU and wgpu. This guide describes @zenfg/webgpu. The Rust crate owns its own usage and
 lifecycle contract. Exact API signatures belong to packaged source documentation.
 
