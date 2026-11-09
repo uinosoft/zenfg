@@ -53,7 +53,7 @@ export async function checkOverview(page, output, fullSnapshot) {
         return { mainWidth: main.clientWidth - parseFloat(mainStyle.paddingLeft) - parseFloat(mainStyle.paddingRight),
             kpis: count('.zenfg-inspector-overview-kpis'), columns: count('.zenfg-inspector-overview-columns'), overflowY: getComputedStyle(el).overflowY,
             summary: bounds('.zenfg-inspector-overview-summary'), timing: bounds('.zenfg-inspector-overview-timing-panel'), columnsBounds: bounds('.zenfg-inspector-overview-columns'),
-            side: bounds('.zenfg-inspector-overview-side'), resources: bounds('.zenfg-inspector-overview-resources'), work: bounds('.zenfg-inspector-overview-work'),
+            side: bounds('.zenfg-inspector-overview-side'), resources: bounds('.zenfg-inspector-overview-resources'), workCards: el.querySelectorAll('.zenfg-inspector-overview-work').length,
             resourceFacts: bounds('.zenfg-inspector-overview-resource-body > .zenfg-inspector-overview-facts'), pool: bounds('.zenfg-inspector-overview-pool'),
             track: bounds('.zenfg-inspector-overview-timing-rows tr:first-child .zenfg-inspector-overview-bar'), fill: bounds('.zenfg-inspector-overview-timing-rows tr:first-child .zenfg-inspector-overview-bar > span'),
             name: bounds('.zenfg-inspector-overview-timing-rows tr:first-child .zenfg-inspector-overview-pass'),
@@ -76,7 +76,8 @@ export async function checkOverview(page, output, fullSnapshot) {
             assert.ok(Math.abs(layout.timing.x - layout.summary.x) <= 1 && Math.abs(layout.timing.width - layout.summary.width) <= 1, `${label}: stacked timing analysis uses full content width`);
             assert.ok(layout.side.y >= layout.timing.bottom, `${label}: supporting facts follow timing when the main container is narrow`);
         }
-        assert.ok(layout.work.y >= layout.resources.bottom && Math.abs(layout.work.x - layout.resources.x) <= 1, `${label}: resource and work panels stay vertically grouped`);
+        assert.equal(layout.workCards, 0, `${label}: the repeated work summary does not occupy a separate card`);
+        assert.ok(Math.abs(layout.resources.y - layout.side.y) <= 1 && Math.abs(layout.resources.x - layout.side.x) <= 1 && Math.abs(layout.resources.width - layout.side.width) <= 1, `${label}: resources fill the supporting column`);
         assert.ok(layout.pool.y >= layout.resourceFacts.bottom || layout.resourceFacts.right <= layout.pool.x, `${label}: resource facts and pool metrics do not overlap`);
         assert.ok(layout.track.width > 20 && Math.abs(layout.fill.width / layout.track.width - 0.88) < 0.01, `${label}: visible time bars use the millisecond axis, not 13.8% share`);
         assert.ok(layout.name.right <= layout.track.x + 1 || layout.name.bottom <= layout.track.y + 1 || layout.track.bottom <= layout.name.y + 1, `${label}: pass label does not overlap the time chart`);
@@ -101,6 +102,14 @@ export async function checkOverview(page, output, fullSnapshot) {
         assert.match(await overview.innerText(), /1\.591\s*ms/);
         assert.match(await overview.innerText(), /external/i);
         assert.equal(await overview.locator('.zenfg-inspector-overview-timing-totals [data-part="other"]').count(), 0);
+        assert.equal(await overview.getByRole('heading', { name: 'Work composition', exact: true }).count(), 0);
+        await metric('passes').getByRole('button', { name: '1 Culled', exact: true }).click();
+        assert.equal(await page.getByRole('tab', { name: 'Passes', exact: true }).getAttribute('aria-selected'), 'true');
+        assert.equal(await page.getByRole('combobox', { name: 'Pass compile state', exact: true }).inputValue(), 'culled');
+        await openOverview();
+        await overview.getByRole('button', { name: 'View all passes', exact: true }).click();
+        assert.equal(await page.getByRole('combobox', { name: 'Pass compile state', exact: true }).inputValue(), 'all');
+        await openOverview();
 
         // A user-selected metric and both disclosure states survive a capture refresh.
         await toggle('CPU').click();
@@ -115,6 +124,10 @@ export async function checkOverview(page, output, fullSnapshot) {
             await summary.press('Enter');
             assert.equal(await details.evaluate(el => el.open), true);
         }
+        const snapshotDetails = overview.locator('.zenfg-inspector-snapshot-details');
+        assert.match(await snapshotDetails.innerText(), /Frame-graph segments\s*2/);
+        assert.match(await snapshotDetails.innerText(), /External boundaries\s*1/);
+        assert.match(await snapshotDetails.innerText(), /Groups\s*2/);
         await setSnapshot(fullSnapshot);
         assert.equal(await toggle('CPU').getAttribute('aria-pressed'), 'true');
         assert.equal(await overview.locator('.zenfg-inspector-capture-details').evaluate(el => el.open), true);
@@ -173,6 +186,8 @@ export async function checkOverview(page, output, fullSnapshot) {
         }
         const multiPass = multiPassCapture(fullSnapshot);
         await setSnapshot(multiPass);
+        assert.equal(await metric('passes').getByRole('button', { name: /Culled/i }).count(), 0, 'no culled navigation occupies space when no pass was culled');
+        assert.doesNotMatch(await metric('passes').innerText(), /culled/i);
         assert.equal(await rows.count(), 5);
         assert.deepEqual(await rows.evaluateAll(elements => elements.map(el => el.dataset.nodeId)), [0, 1, 2, 3, 4].map(index => `node:timing-${index}`));
         assert.match(await rows.first().innerText(), /0\.440\s*ms.*13\.8%/s);

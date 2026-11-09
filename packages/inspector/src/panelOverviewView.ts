@@ -97,6 +97,12 @@ export class OverviewView {
       const count = snapshot.nodes.filter(node => node.kind === kind).length;
       return count ? [`${count} ${KIND_LABELS[kind].toLowerCase()}`] : [];
     }).join(' · ');
+    const passesKpi = this.createKpi('passes', 'Retained passes', String(snapshot.nodes.length), kindSummary || 'No retained passes', undefined,
+      'Passes kept by compilation. Resource declaration vertices are not passes.');
+    if (snapshot.culledNodes.length) {
+      passesKpi.querySelector('.zenfg-inspector-overview-note')!.append(document.createTextNode(' · '),
+        this.link(`${snapshot.culledNodes.length} Culled`, () => this.callbacks.onNavigate?.('passes', 'culled'), false));
+    }
     kpis.append(
       this.createKpi('gpu', 'GPU span', gpuAvailable ? (snapshot.profiling.gpuFrameDurationMicros / 1000).toFixed(3) : '—', gpuNote, gpuAvailable ? 'ms' : undefined,
         'Span from the first measured render/compute pass to the last, including intervals between passes.'),
@@ -106,8 +112,7 @@ export class OverviewView {
         ? metrics.physicalEstimatedBytes === undefined ? `${metrics.estimatedCoverage.physical.known}/${metrics.estimatedCoverage.physical.total} sizes known`
           : `${countLabel(snapshot.physicalAllocations.length, 'allocation')} · estimated`
         : 'Allocation report unavailable', undefined, 'Estimated physical transient allocations, counting each shared allocation once; excludes imported and surface resources.'),
-      this.createKpi('passes', 'Retained passes', String(snapshot.nodes.length), `${kindSummary || 'No retained passes'} / ${snapshot.culledNodes.length} culled`, undefined,
-        'Passes kept by compilation. Resource declaration vertices are not passes.'),
+      passesKpi,
     );
     const summary = element('section', 'summary');
     summary.setAttribute('aria-label', 'Frame overview');
@@ -126,7 +131,7 @@ export class OverviewView {
     this.renderTimings();
     timingPanel.append(heading, this.timingContent);
     const side = element('aside', 'side');
-    side.append(this.createResources(snapshot), this.createWork(snapshot));
+    side.append(this.createResources(snapshot));
     columns.append(timingPanel, side);
     this.updateDetails(snapshot);
     this.root.replaceChildren(summary, columns, this.captureDetails, this.snapshotDetails);
@@ -284,25 +289,6 @@ export class OverviewView {
     }
   }
 
-  private createWork(snapshot: FrameGraphDebugViewModel): HTMLElement {
-    const work = element('section', 'work');
-    work.classList.add('zenfg-inspector-overview-panel');
-    const heading = element('div', 'heading');
-    const kinds = element('div', 'kinds');
-    for (const kind of NODE_KINDS) {
-      const count = snapshot.nodes.filter(node => node.kind === kind).length;
-      if (!count) continue;
-      const label = element('span', 'kind-count', `${count} ${KIND_LABELS[kind]}`);
-      label.dataset.kind = kind; kinds.append(label);
-    }
-    kinds.append(this.link(`${snapshot.culledNodes.length} Culled`, () => this.callbacks.onNavigate?.('passes', 'culled'), false));
-    heading.append(element('h2', 'title', 'Work composition'), kinds);
-    const frameGraphSegments = snapshot.executionSegments.filter(segment => segment.kind === 'frame-graph').length;
-    const boundaries = snapshot.executionSegments.length - frameGraphSegments;
-    work.append(heading, element('p', 'note', `${countLabel(frameGraphSegments, 'frame-graph segment')} · ${countLabel(boundaries, 'external boundary', 'external boundaries')} · ${snapshot.availability.groups ? countLabel(snapshot.debugGroups.length, 'group') : 'Groups unknown'}`));
-    return work;
-  }
-
   private createResources(snapshot: FrameGraphDebugViewModel): HTMLElement {
     const panel = element('section', 'panel');
     panel.classList.add('zenfg-inspector-overview-resources');
@@ -358,6 +344,8 @@ export class OverviewView {
     replaceFacts(this.snapshotDetails, [
       ['Texture views', snapshot.availability.textureViews ? String(snapshot.textureViewById.size) : 'Unknown'],
       ['Groups', snapshot.availability.groups ? String(snapshot.debugGroups.length) : 'Unknown'],
+      ['Frame-graph segments', String(snapshot.executionSegments.filter(segment => segment.kind === 'frame-graph').length)],
+      ['External boundaries', String(snapshot.executionSegments.filter(segment => segment.kind === 'external-submission').length)],
       ['Recording order', snapshot.availability.recordingOrder ? 'Available' : 'Unknown'],
       ['Access regions', snapshot.availability.accessRegions ? 'Available' : 'Unknown'],
       ['Logical transient estimate', formatEstimateCoverage(snapshot.metrics.transientEstimatedByteSize, snapshot.metrics.estimatedCoverage.transient)],

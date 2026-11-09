@@ -91,6 +91,29 @@ test('Overview prioritizes actual GPU span, CPU collection, physical bytes and r
 	assert.doesNotMatch(view.root.textContent!, /\bFPS\b|draw calls|GPU utilization/i);
 });
 
+test('pass counts stay in the frame summary and structural facts stay in snapshot details', (t) => {
+	const window = installDom(); t.after(() => window.close());
+	const log = callbacks();
+	const view = new OverviewView(log.handlers);
+	view.setSnapshot(createDebugViewModel(fixture()));
+	assert.match(kpi(view, 'passes').textContent!, /2 render.*1 external/i);
+	button(kpi(view, 'passes'), '1 Culled').click();
+	assert.deepEqual(log.navigation, [['passes', 'culled']]);
+	assert.equal(view.root.querySelector('.zenfg-inspector-overview-work'), null);
+	assert.doesNotMatch(view.root.textContent!, /Work composition/);
+	const details = element<HTMLDetailsElement>(view.root, '.zenfg-inspector-snapshot-details');
+	assert.equal(details.open, false);
+	assert.match(details.textContent!, /Frame-graph segments\s*2/);
+	assert.match(details.textContent!, /External boundaries\s*1/);
+	assert.match(details.textContent!, /Groups\s*2/);
+	assert.doesNotMatch(element(view.root, '.zenfg-inspector-overview-summary').textContent!, /Frame-graph segments|External boundaries/);
+	view.setSnapshot(createDebugViewModel(timedCapture([440, 321])));
+	assert.equal(kpi(view, 'passes').querySelector('button'), null);
+	assert.doesNotMatch(kpi(view, 'passes').textContent!, /culled/i);
+	assert.match(details.textContent!, /Frame-graph segments\s*1/);
+	assert.match(details.textContent!, /External boundaries\s*0/);
+});
+
 test('Overview top five shares use every measured pass and ties follow execution order', (t) => {
 	const window = installDom(); t.after(() => window.close());
 	const view = new OverviewView(callbacks().handlers);

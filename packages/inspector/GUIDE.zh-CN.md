@@ -1,4 +1,4 @@
-<!-- translation: {"version":1,"source":"packages/inspector/GUIDE.md","sourceHash":"c1136cc62bee474ff1eb41c8b34d94afe35f75c1cf03cfb707c3388f94f60d99","state":"ready"} -->
+<!-- translation: {"version":1,"source":"packages/inspector/GUIDE.md","sourceHash":"1e8a7ace8e6e4efd6590c55e12e0ba923d6edfd8d1fbf08424169015945b3ec3","state":"ready"} -->
 
 <a id="zenfginspector-usage"></a>
 
@@ -153,7 +153,7 @@ Capture 操作始终同时请求 CPU 和 GPU 计时。数据提供方会收到 `
 
 | 视图 | 用途 |
 | --- | --- |
-| Overview | 显示全帧 GPU 时间跨度、CPU 执行耗时、物理分配估算、保留通道指标、GPU 或 CPU 耗时最长的五个通道、工作组成、资源/资源池摘要和诊断数量。可展开查看捕获元数据及其他 Snapshot 信息。 |
+| Overview | 显示全帧 GPU 时间跨度、CPU 执行耗时、物理分配估算、保留通道指标、GPU 或 CPU 耗时最长的五个通道、资源/资源池摘要和诊断数量。通道类型数量和非零已裁剪通道的快捷入口位于 Retained passes 指标中。可展开查看捕获元数据、分组数量和执行分段信息。 |
 | Graph | 展示 Frame Flow 结构，可按通道、资源、分组或输出搜索，并提供显式定位和可折叠图例。 |
 | Passes | 查看全部、保留或已裁剪通道，可按类型及名称/ID/分组筛选，并按执行顺序、GPU 或 CPU 排序。紧凑行中仍显示两种计时。独立的 Group Hierarchy 支持展开和路径搜索。 |
 | Resources | 可按名称/ID/分组、类型以及 Transient/Imported/Surface 筛选，并按名称、估算大小和首次使用排序。行内显示简要描述符；完整描述符和分配信息位于详情中。 |

@@ -184,7 +184,7 @@ Inspector instance and are not saved across sessions.
 
 | View | Purpose |
 | --- | --- |
-| Overview | Full-width GPU span, CPU execute, physical allocation estimate and retained-pass metrics, with the five slowest measured GPU or CPU passes, work composition, resource/pool summaries and diagnostic counts. Capture metadata and additional Snapshot facts are expandable. |
+| Overview | Full-width GPU span, CPU execute, physical allocation estimate and retained-pass metrics, with the five slowest measured GPU or CPU passes, resource/pool summaries and diagnostic counts. Pass-kind counts and a nonzero culled-pass shortcut appear with Retained passes. Capture metadata, group counts and execution-segment facts are expandable. |
 | Graph | Frame Flow structure, searchable by pass, resource, group, or output, with explicit target location and a collapsible legend. |
 | Passes | All, Retained, or Culled passes, filtered by kind and name/ID/group, with execution order, GPU, and CPU sorting. Both timings remain visible in compact rows. The separate Group Hierarchy has its own expansion and path search. |
 | Resources | Name/ID/group, type, and Transient/Imported/Surface filters, plus name, estimated size, and first-use sorting. Rows show concise descriptors; full descriptors and allocations remain in details. |
