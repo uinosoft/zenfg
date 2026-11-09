@@ -42,6 +42,21 @@ export async function checkOverview(page, output, fullSnapshot) {
         await page.evaluate(snapshot => themeQA.inspector.setSnapshot(snapshot), snapshot);
         await settle();
     };
+    const resizeMain = async width => {
+        await page.evaluate(width => {
+            // Re-evaluate outer padding after a host breakpoint, without rounding
+            // fractional CSS pixels through clientWidth.
+            for (let attempt = 0; attempt < 3; attempt++) {
+                const main = document.querySelector('.zenfg-inspector-main');
+                const style = getComputedStyle(main);
+                const inset = style.boxSizing === 'border-box' ? ['paddingLeft', 'paddingRight', 'borderLeftWidth', 'borderRightWidth'].reduce((sum, property) => sum + parseFloat(style[property]), 0) : 0;
+                const mainWidth = parseFloat(style.width) - inset;
+                const hostWidth = parseFloat(getComputedStyle(themeQA.host).width);
+                themeQA.host.style.width = `${hostWidth + width - mainWidth}px`;
+            }
+        }, width);
+        await settle();
+    };
     const expectNoOverflow = async label => {
         assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `${label}: page horizontal overflow`);
         assert.ok(await overview.evaluate(el => el.scrollWidth <= el.clientWidth + 1), `${label}: overview horizontal overflow`);
@@ -54,7 +69,8 @@ export async function checkOverview(page, output, fullSnapshot) {
         };
         const main = el.closest('.zenfg-inspector-main');
         const mainStyle = getComputedStyle(main);
-        return { mainWidth: main.clientWidth - parseFloat(mainStyle.paddingLeft) - parseFloat(mainStyle.paddingRight),
+        const mainInset = mainStyle.boxSizing === 'border-box' ? ['paddingLeft', 'paddingRight', 'borderLeftWidth', 'borderRightWidth'].reduce((sum, property) => sum + parseFloat(mainStyle[property]), 0) : 0;
+        return { mainWidth: parseFloat(mainStyle.width) - mainInset,
             kpis: count('.zenfg-inspector-overview-kpis'), columns: count('.zenfg-inspector-overview-columns'), overflowY: getComputedStyle(el).overflowY,
             summary: bounds('.zenfg-inspector-overview-summary'), timing: bounds('.zenfg-inspector-overview-timing-panel'), columnsBounds: bounds('.zenfg-inspector-overview-columns'),
             side: bounds('.zenfg-inspector-overview-side'), resources: bounds('.zenfg-inspector-overview-resources'), workCards: el.querySelectorAll('.zenfg-inspector-overview-work').length,
@@ -64,9 +80,14 @@ export async function checkOverview(page, output, fullSnapshot) {
             firstRow: bounds('.zenfg-inspector-overview-timing-rows tr:first-child'),
             overviewBottom: el.getBoundingClientRect().bottom,
             tails: [...el.querySelectorAll('.zenfg-inspector-overview-pass-suffix')].map(tail => {
-                const box = tail.getBoundingClientRect();
+                const text = tail.firstChild;
+                const lastCharacter = [...text.textContent].at(-1);
+                const range = document.createRange();
+                range.setStart(text, text.textContent.length - lastCharacter.length);
+                range.setEnd(text, text.textContent.length);
+                const box = range.getBoundingClientRect();
                 const name = tail.closest('button').getBoundingClientRect();
-                return { x: box.x, right: box.right, width: box.width, nameX: name.x, nameRight: name.right, clipped: tail.scrollWidth > tail.clientWidth + 1 };
+                return { x: box.x, right: box.right, width: box.width, nameX: name.x, nameRight: name.right };
             }),
             ticks: [...el.querySelectorAll('.zenfg-inspector-overview-axis > span')].filter(tick => getComputedStyle(tick).display !== 'none').map(tick => {
                 const box = tick.getBoundingClientRect();
@@ -92,7 +113,7 @@ export async function checkOverview(page, output, fullSnapshot) {
         assert.ok(layout.pool.y >= layout.resourceFacts.bottom || layout.resourceFacts.right <= layout.pool.x, `${label}: resource facts and pool metrics do not overlap`);
         assert.ok(layout.track.width > 20 && Math.abs(layout.fill.width / layout.track.width - 0.88) < 0.01, `${label}: visible time bars use the millisecond axis, not 13.8% share`);
         assert.ok(layout.name.right <= layout.track.x + 1 || layout.name.bottom <= layout.track.y + 1 || layout.track.bottom <= layout.name.y + 1, `${label}: pass label does not overlap the time chart`);
-        assert.ok(layout.tails.length > 0 && layout.tails.every(tail => tail.width > 0 && tail.x >= tail.nameX - 1 && tail.right <= tail.nameRight + 1 && !tail.clipped), `${label}: identifying long-name suffixes remain visible without overflow`);
+        assert.ok(layout.tails.length > 0 && layout.tails.every(tail => tail.width > 0 && tail.x >= tail.nameX - 1 && tail.right <= tail.nameRight + 1), `${label}: the final identifying character remains visible when a wide suffix crops from the left`);
         assert.ok(layout.ticks.length >= 2, `${label}: time axis retains visible start and end labels`);
         for (let index = 1; index < layout.ticks.length; index++) {
             assert.ok(layout.ticks[index - 1].right <= layout.ticks[index].x, `${label}: visible time-axis labels do not overlap`);
@@ -121,6 +142,7 @@ export async function checkOverview(page, output, fullSnapshot) {
         assert.equal(await overview.getByRole('heading', { name: 'Work composition', exact: true }).count(), 0);
         await metric('passes').getByRole('button', { name: '1 Culled', exact: true }).click();
         assert.equal(await page.getByRole('tab', { name: 'Passes', exact: true }).getAttribute('aria-selected'), 'true');
+        assert.equal(await page.getByRole('tab', { name: 'Passes', exact: true }).evaluate(el => el === document.activeElement), true, 'Culled navigation leaves focus on the visible destination tab');
         assert.equal(await page.getByRole('combobox', { name: 'Pass compile state', exact: true }).inputValue(), 'culled');
         await openOverview();
         await overview.getByRole('button', { name: 'View all passes', exact: true }).click();
@@ -130,6 +152,8 @@ export async function checkOverview(page, output, fullSnapshot) {
         // A user-selected metric and both disclosure states survive a capture refresh.
         await toggle('CPU').click();
         assert.equal(await toggle('CPU').getAttribute('aria-pressed'), 'true');
+        await setSnapshot(fullSnapshot);
+        assert.equal(await toggle('CPU').evaluate(el => el === document.activeElement), true, 'capture refresh retains timing-source focus');
         assert.equal(await rows.count(), 0);
         assert.equal(await overview.locator('.zenfg-inspector-overview-axis').count(), 0);
         assert.equal(await overview.locator('.zenfg-inspector-overview-timing-summary').count(), 0);
@@ -146,6 +170,7 @@ export async function checkOverview(page, output, fullSnapshot) {
         assert.match(await snapshotDetails.innerText(), /Groups\s*2/);
         await setSnapshot(fullSnapshot);
         assert.equal(await toggle('CPU').getAttribute('aria-pressed'), 'true');
+        assert.equal(await snapshotDetails.locator('summary').evaluate(el => el === document.activeElement), true, 'capture refresh retains disclosure focus');
         assert.equal(await overview.locator('.zenfg-inspector-capture-details').evaluate(el => el.open), true);
         assert.equal(await overview.locator('.zenfg-inspector-snapshot-details').evaluate(el => el.open), true);
 
@@ -154,7 +179,9 @@ export async function checkOverview(page, output, fullSnapshot) {
             status: 'available', executionDurationMicros: 100,
             nodes: [{ nodeId: 'node:scene', durationMicros: 40 }, { nodeId: 'node:external', durationMicros: 50 }, { nodeId: 'node:present', durationMicros: 10 }],
         };
+        await page.getByRole('button', { name: 'Export', exact: true }).focus();
         await setSnapshot(withCpu);
+        assert.equal(await page.getByRole('button', { name: 'Export', exact: true }).evaluate(el => el === document.activeElement), true, 'capture refresh leaves command-bar focus alone');
         assert.match(await value('cpu'), /0\.100\s*ms/);
         assert.equal(await rows.first().getAttribute('data-node-id'), 'node:external');
         assert.match(await rows.first().innerText(), /50(?:\.0)?%/);
@@ -163,6 +190,7 @@ export async function checkOverview(page, output, fullSnapshot) {
         // A hotspot uses the same selection/reveal path as other Inspector views.
         await rows.first().getByRole('button', { name: 'scene', exact: true }).click();
         assert.equal(await page.getByRole('tab', { name: 'Passes', exact: true }).getAttribute('aria-selected'), 'true');
+        assert.equal(await page.getByRole('tab', { name: 'Passes', exact: true }).evaluate(el => el === document.activeElement), true, 'pass reveal leaves focus on the visible destination tab');
         assert.equal(await page.locator('.zenfg-inspector-passes-view tr[data-selection-key="node:node:scene"]').evaluate(el => el.classList.contains('selected')), true);
         const inspector = page.getByRole('button', { name: 'Inspector', exact: true });
         const closeInspector = page.getByRole('button', { name: 'Close inspector', exact: true });
@@ -225,15 +253,8 @@ export async function checkOverview(page, output, fullSnapshot) {
             themeQA.host.style.height = '920px';
             themeQA.inspector.setTheme(themeQA.tokyoNightStorm);
         });
-        for (const mainWidth of [899, 900, 999, 1000]) {
-            await page.evaluate(mainWidth => {
-                const main = document.querySelector('.zenfg-inspector-main');
-                const style = getComputedStyle(main);
-                const contentWidth = main.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight);
-                const outsideMain = themeQA.host.getBoundingClientRect().width - contentWidth;
-                themeQA.host.style.width = `${mainWidth + outsideMain}px`;
-            }, mainWidth);
-            await settle();
+        for (const mainWidth of [599.5, 600, 601, 899, 899.5, 900, 999, 999.5, 1000]) {
+            await resizeMain(mainWidth);
             await overview.evaluate(el => { el.scrollTop = 0; });
             const layout = await readLayout();
             assert.equal(await page.evaluate(() => innerWidth), 1280, 'the host-resize check keeps the browser width unchanged');
@@ -242,6 +263,37 @@ export async function checkOverview(page, output, fullSnapshot) {
             await expectNoOverflow(`1280 browser / ${mainWidth} main`);
             await page.screenshot({ path: resolve(output, `dark-1280-main-${mainWidth}-overview-layout.png`), animations: 'disabled' });
         }
+
+        // Wide glyphs and microsecond timings expose clipping that ordinary
+        // ASCII names and a 0.5 ms axis cannot exercise.
+        const edgeCases = [
+            ...[599.5, 600, 601].map(width => [width, 440, false]),
+            ...[320, 899, 900, 1000].map(width => [width, 440, true]),
+            ...[600, 1000].flatMap(width => [4.4, 0.44, 0.044].map(maximum => [width, maximum, false])),
+        ];
+        for (const [mainWidth, maximum, largeType] of edgeCases) {
+            const edge = structuredClone(multiPass);
+            edge.graph.nodes[1].label = `${'中文名称'.repeat(40)}.depth.1`;
+            edge.graph.nodes[2].label = `${'😀'.repeat(60)}1`;
+            edge.graph.nodes[4].label = `${'A'.repeat(300)}.depth.2`;
+            const scale = maximum / 440;
+            edge.timings.gpu.frameSpanMicros *= scale;
+            for (const entry of edge.timings.gpu.nodes) entry.durationMicros *= scale;
+            await page.evaluate(largeType => themeQA.inspector.setTheme({ ...themeQA.tokyoNightStorm, variables: {
+                ...themeQA.tokyoNightStorm.variables,
+                '--zfgi-font-size': largeType ? '16px' : '13px',
+                '--zfgi-font-size-small': largeType ? '14px' : '12px',
+            } }), largeType);
+            await setSnapshot(edge);
+            await resizeMain(mainWidth);
+            const label = `${mainWidth}px main / ${maximum} µs / ${largeType ? '16/14' : '13/12'}px type`;
+            const layout = await readLayout();
+            assert.ok(Math.abs(layout.mainWidth - mainWidth) < 0.05, `${label}: exact embedded width`);
+            expectLayout(layout, label);
+            await expectNoOverflow(label);
+        }
+        await setSnapshot(multiPass);
+        await page.evaluate(() => themeQA.inspector.setTheme(themeQA.tokyoNightStorm));
         await page.evaluate(() => { themeQA.host.style.width = '100%'; });
 
         // Container width, rather than the surrounding browser page, determines layout.

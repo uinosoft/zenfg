@@ -374,3 +374,57 @@ test('capture and snapshot details preserve open state while refreshing frame an
 	assert.doesNotMatch(view.root.textContent!, /No recorded diagnostics/);
 	assert.match(element(view.root, '.zenfg-inspector-overview-diagnostics').textContent!, /1 error.*1 warning.*1 info/);
 });
+
+test('capture refresh restores Overview controls while leaving external keyboard focus alone', (t) => {
+	const window = installDom(); t.after(() => window.close());
+	const view = new OverviewView(callbacks().handlers);
+	document.body.append(view.root);
+	const source = fixture();
+	const refresh = () => view.setSnapshot(createDebugViewModel({ ...source, capture: { ...source.capture, frameIndex: 43 } }));
+	view.setSnapshot(createDebugViewModel(source));
+	for (const label of ['GPU', 'CPU', 'View all passes', 'View memory', 'View resources', 'View diagnostics', '1 Culled']) {
+		button(view.root, label).focus();
+		refresh();
+		assert.strictEqual(document.activeElement, button(view.root, label), `${label} keeps its keyboard focus after refresh`);
+	}
+	for (const selector of ['.zenfg-inspector-capture-details', '.zenfg-inspector-snapshot-details']) {
+		const details = element<HTMLDetailsElement>(view.root, selector);
+		details.open = true;
+		element(details, 'summary').focus();
+		refresh();
+		assert.strictEqual(document.activeElement, element(element(view.root, selector), 'summary'));
+		assert.equal(element<HTMLDetailsElement>(view.root, selector).open, true);
+	}
+	const outside = document.createElement('button');
+	outside.textContent = 'Outside'; document.body.append(outside); outside.focus();
+	refresh();
+	assert.strictEqual(document.activeElement, outside, 'refresh does not redirect focus from another part of the host page');
+});
+
+test('capture refresh tracks a focused pass by ID and falls back when it leaves the ranking', (t) => {
+	const window = installDom(); t.after(() => window.close());
+	const view = new OverviewView(callbacks().handlers);
+	document.body.append(view.root);
+	const source = timedCapture([7000, 6000, 5000, 4000, 3000, 2000]);
+	view.setSnapshot(createDebugViewModel(source));
+	element<HTMLButtonElement>(view.root, 'tr[data-node-id="node:1"] .zenfg-inspector-overview-pass').focus();
+	const renamed = { ...source, graph: { ...source.graph,
+		nodes: source.graph.nodes.map(node => node.id === 'node:1' ? { ...node, label: 'Renamed pass' } : node),
+	} };
+	view.setSnapshot(createDebugViewModel(renamed));
+	assert.strictEqual(document.activeElement, element(view.root, 'tr[data-node-id="node:1"] .zenfg-inspector-overview-pass'));
+	assert.equal(document.activeElement?.textContent, 'Renamed pass');
+	view.setSnapshot(createDebugViewModel(timedCapture([7000, 1, 5000, 4000, 3000, 2000])));
+	assert.equal(view.root.querySelector('tr[data-node-id="node:1"]'), null);
+	assert.strictEqual(document.activeElement, button(view.root, 'GPU'), 'a pass outside Top 5 falls back to the current timing mode');
+	const cpuCapture: FrameGraphSnapshot = { ...source, timings: { ...source.timings,
+		cpu: { status: 'available', executionDurationMicros: 2000, nodes: [{ nodeId: 'node:1', durationMicros: 1000 }] },
+	} };
+	view.setSnapshot(createDebugViewModel(cpuCapture));
+	button(view.root, 'CPU').click();
+	element<HTMLButtonElement>(view.root, 'tr[data-node-id="node:1"] .zenfg-inspector-overview-pass').focus();
+	view.setSnapshot(createDebugViewModel({ ...cpuCapture, timings: { ...cpuCapture.timings,
+		cpu: { status: 'unavailable', reason: 'not-collected' },
+	} }));
+	assert.strictEqual(document.activeElement, button(view.root, 'CPU'), 'a focused CPU pass falls back to CPU when its measurements disappear');
+});

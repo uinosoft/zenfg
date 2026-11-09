@@ -260,6 +260,55 @@ test('Overview pass shortcuts clear filters, return to the list and preserve pas
 	} finally { panel.destroy(); window.close(); }
 });
 
+test('focused Overview shortcuts move keyboard focus to the visible destination tab', () => {
+	const window = installDom();
+	const panel = mount();
+	try {
+		panel.setSnapshot(fixture());
+		for (const [label, tab] of [['1 Culled', 'Passes'], ['View all passes', 'Passes'], ['View resources', 'Resources'], ['View memory', 'Memory'], ['View diagnostics', 'Diagnostics']] as const) {
+			button(tabs(panel), 'Overview').click();
+			const origin = button(element(panel.dom, '.zenfg-inspector-overview-view'), label);
+			origin.focus(); origin.click();
+			const destination = element<HTMLButtonElement>(tabs(panel), 'button[aria-selected="true"]');
+			assert.ok(destination.textContent?.startsWith(tab), `${label} activates ${tab}`);
+			assert.strictEqual(document.activeElement, destination, `${label} places focus on ${tab}`);
+			assert.equal(destination.getAttribute('aria-selected'), 'true');
+			assert.equal(destination.closest('[hidden], [inert]'), null);
+		}
+	} finally { panel.destroy(); window.close(); }
+});
+
+test('same-name Overview pass reveals focus the destination without changing other focus policies', () => {
+	const window = installDom();
+	const panel = mount();
+	try {
+		const source = fixture();
+		const label = `Long ${'namespace.'.repeat(25)}shadow.depth.1`;
+		panel.setSnapshot({ ...source, graph: { ...source.graph,
+			nodes: source.graph.nodes.map(node => node.id === 'node:scene' || node.id === 'node:present' ? { ...node, label } : node),
+		} });
+		const overview = element(panel.dom, '.zenfg-inspector-overview-view');
+		for (const width of [1280, 800]) {
+			const workspace = element(panel.dom, '.zenfg-inspector-workspace');
+			workspace.getBoundingClientRect = () => ({ width, height: 600, x: 0, y: 0, left: 0, right: width, top: 0, bottom: 600, toJSON: () => ({}) });
+			button(tabs(panel), 'Overview').click();
+			const pass = element<HTMLButtonElement>(overview, 'tr[data-node-id="node:present"] .zenfg-inspector-overview-pass');
+			pass.focus(); pass.click();
+			assert.strictEqual(document.activeElement, button(tabs(panel), 'Passes'), `${width}px reveal finishes on the destination tab`);
+			assert.ok(element(panel.dom, '.zenfg-inspector-passes-view tr[data-selection-key="node:node:present"]').classList.contains('selected'));
+			assert.equal(button(tabs(panel), 'Passes').closest('[hidden], [inert]'), null);
+			if (width === 800) assert.equal(aside(panel).hidden, true, 'drawer closes before keyboard navigation resumes on Passes');
+		}
+		// A programmatic activation while focus remains in the command bar must
+		// not impose the Overview-to-tab keyboard handoff on that external focus.
+		button(tabs(panel), 'Overview').click();
+		const exportButton = element<HTMLButtonElement>(panel.dom, '.zenfg-inspector-export-action');
+		exportButton.focus();
+		button(overview, 'View resources').click();
+		assert.strictEqual(document.activeElement, exportButton);
+	} finally { panel.destroy(); window.close(); }
+});
+
 test('nonactive pages render on demand and retain old DOM until activated after capture', () => {
 	const window = installDom();
 	const panel = mount();

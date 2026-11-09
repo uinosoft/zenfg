@@ -95,7 +95,7 @@ export const PANEL_OVERVIEW_CSS = `
   font-size: var(--fgd-font-size); white-space: nowrap;
 }
 .zenfg-inspector-overview-pass-prefix { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
-.zenfg-inspector-overview-pass-suffix { flex: 0 0 auto; }
+.zenfg-inspector-overview-pass-suffix { display: flex; flex: 0 0 auto; justify-content: flex-end; max-width: 100%; overflow: hidden; }
 .zenfg-inspector-overview-kind { flex: 0 0 auto; color: var(--fgd-muted); font-size: var(--fgd-font-size-small); }
 .zenfg-inspector-overview-duration { color: var(--fgd-text); font-family: var(--fgd-font-mono); font-size: var(--fgd-font-size-small); text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .zenfg-inspector-overview-bar {
@@ -147,10 +147,10 @@ export const PANEL_OVERVIEW_CSS = `
   .zenfg-inspector-overview-resource-body { grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 20px; }
   .zenfg-inspector-overview-resource-body > .zenfg-inspector-overview-pool { padding-top: 0; padding-left: 20px; border-top: 0; border-left: 1px solid var(--fgd-border-subtle); }
 }
-@container zenfg-inspector-main (max-width: 999px) {
+@container zenfg-inspector-main (width < 1000px) {
   .zenfg-inspector-overview-columns { grid-template-columns: minmax(0, 1fr); }
 }
-@container zenfg-inspector-main (max-width: 899px) {
+@container zenfg-inspector-main (width < 900px) {
   .zenfg-inspector-overview-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .zenfg-inspector-overview-kpi:nth-child(3) { border-left: 0; }
   .zenfg-inspector-overview-kpi:nth-child(n + 3) { border-top: 1px solid var(--fgd-border-subtle); }
@@ -161,8 +161,9 @@ export const PANEL_OVERVIEW_CSS = `
   .zenfg-inspector-overview-pass-identity { flex-direction: column; align-items: flex-start; gap: 0; }
   .zenfg-inspector-overview-pass { min-height: 18px; }
   .zenfg-inspector-overview-kind { line-height: 1.2; }
+  .zenfg-inspector-overview-axis > span:nth-child(2) { display: none; }
 }
-@container zenfg-inspector-main (max-width: 599px) {
+@container zenfg-inspector-main (width < 600px) {
   .zenfg-inspector-overview-context { align-items: flex-start; flex-direction: column; padding: var(--fgd-space-4); }
   .zenfg-inspector-overview-identity > .zenfg-inspector-overview-source { flex-basis: 100%; padding-left: 0; border-left: 0; }
   .zenfg-inspector-overview-diagnostics { justify-content: start; }

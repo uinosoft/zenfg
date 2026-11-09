@@ -68,6 +68,8 @@ export class OverviewView {
   }
 
   setSnapshot(snapshot: FrameGraphDebugViewModel): void {
+    const active = this.root.ownerDocument.activeElement as HTMLElement | null;
+    const focusKey = active && this.root.contains(active) ? active.dataset.overviewFocus : undefined;
     this.snapshot = snapshot;
     if (!this.timingChosen) {
       this.timingMode = snapshot.metrics.timedNodeCount === 0 && snapshot.metrics.cpuTimedNodeCount > 0 ? 'cpu' : 'gpu';
@@ -99,7 +101,7 @@ export class OverviewView {
       'Passes kept by compilation. Resource declaration vertices are not passes.');
     if (snapshot.culledNodes.length) {
       passesKpi.querySelector('.zenfg-inspector-overview-note')!.append(document.createTextNode(' · '),
-        this.link(`${snapshot.culledNodes.length} Culled`, () => this.callbacks.onNavigate?.('passes', 'culled'), false));
+        this.link(`${snapshot.culledNodes.length} Culled`, () => this.callbacks.onNavigate?.('passes', 'culled'), false, 'culled'));
     }
     kpis.append(
       this.createKpi('gpu', 'GPU span', gpuAvailable ? (snapshot.profiling.gpuFrameDurationMicros / 1000).toFixed(3) : unavailableTiming(snapshot.profiling.reason, metrics.timingEligibleNodeCount), gpuNote, gpuAvailable ? 'ms' : undefined,
@@ -132,6 +134,11 @@ export class OverviewView {
     columns.append(timingPanel, side);
     this.updateDetails(snapshot);
     this.root.replaceChildren(summary, columns, this.captureDetails, this.snapshotDetails);
+    if (focusKey) {
+      const target = [...this.root.querySelectorAll<HTMLElement>('[data-overview-focus]')]
+        .find(control => control.dataset.overviewFocus === focusKey);
+      (target ?? (this.timingMode === 'gpu' ? this.gpuButton : this.cpuButton)).focus({ preventScroll: true });
+    }
   }
 
   private createKpi(metric: string, label: string, value: string, note: string, unit?: string, description?: string): HTMLElement {
@@ -166,6 +173,7 @@ export class OverviewView {
     const button = document.createElement('button');
     button.type = 'button';
     button.textContent = mode.toUpperCase();
+    button.dataset.overviewFocus = `timing:${mode}`;
     button.addEventListener('click', () => {
       this.timingChosen = true;
       this.timingMode = mode;
@@ -223,6 +231,7 @@ export class OverviewView {
       const name = element('button', 'pass');
       name.type = 'button'; name.title = label;
       name.setAttribute('aria-label', label);
+      name.dataset.overviewFocus = `node:${node.id}`;
       const characters = [...label];
       const suffixLength = characters.length > 24 ? 12 : 0;
       name.append(element('span', 'pass-prefix', suffixLength ? characters.slice(0, -suffixLength).join('') : label));
@@ -336,6 +345,7 @@ export class OverviewView {
     const details = element('details', 'details');
     details.classList.add(className);
     const summary = document.createElement('summary');
+    summary.dataset.overviewFocus = `details:${className}`;
     summary.append(createPanelIcon('chevron-right'), document.createTextNode(label));
     details.append(summary);
     return details;
@@ -371,9 +381,10 @@ export class OverviewView {
     ]);
   }
 
-  private link(label: string, onClick: () => void, arrow = true): HTMLButtonElement {
+  private link(label: string, onClick: () => void, arrow = true, focusKey = label): HTMLButtonElement {
     const button = element('button', 'link');
     button.type = 'button';
+    button.dataset.overviewFocus = `navigate:${focusKey}`;
     button.append(document.createTextNode(label));
     if (arrow) button.append(createPanelIcon('chevron-right'));
     button.addEventListener('click', onClick);

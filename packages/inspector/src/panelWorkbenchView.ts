@@ -341,6 +341,7 @@ export class FrameGraphDebugWorkbench {
 	setActiveTab(tab: WorkbenchTab): void {
 		if (this.destroyed) return;
 		if (this.activeTab === tab) return;
+		const focusFromOverview = this.activeTab === 'overview' && this.overviewRoot.contains(this.root.ownerDocument.activeElement);
 		if (this.activeTab === 'graph') {
 			this.graphLegend?.close();
 			this.graphView.revealOnNextRender = undefined;
@@ -350,6 +351,7 @@ export class FrameGraphDebugWorkbench {
 		this.updateActiveTab();
 		this.ensureActiveView();
 		this.updateWorkspaceState();
+		if (focusFromOverview) this.tabButtons.get(tab)?.focus({ preventScroll: true });
 		if (tab === 'graph') {
 			window.requestAnimationFrame(() => {
 				if (this.destroyed || this.activeTab !== 'graph') return;
