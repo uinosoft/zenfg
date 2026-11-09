@@ -59,6 +59,12 @@ function timingRows(view: OverviewView): HTMLTableRowElement[] {
 	return [...view.root.querySelectorAll<HTMLTableRowElement>('.zenfg-inspector-overview-timing-rows tr[data-node-id]')];
 }
 
+function fact(root: HTMLElement, label: string): HTMLElement {
+	const term = [...root.querySelectorAll('dt')].find(candidate => candidate.textContent === label);
+	assert.ok(term, `Missing fact ${label}`);
+	return element(term.parentElement!, 'dd');
+}
+
 function timedCapture(durations: readonly number[]): FrameGraphSnapshot {
 	const source = fixture('minimal');
 	const nodes: FrameGraphSnapshot['graph']['nodes'] = durations.map((_, index) => ({
@@ -78,8 +84,12 @@ test('Overview prioritizes actual GPU span, CPU collection, physical bytes and r
 	view.setSnapshot(createDebugViewModel(fixture()));
 	assert.equal(element(view.root, '.zenfg-inspector-overview-kpis').children.length, 4);
 	assert.match(value(view, 'gpu'), /1\.851/);
-	assert.match(kpi(view, 'cpu').textContent!, /Not collected/);
+	assert.equal(value(view, 'cpu'), 'Not collected');
+	assert.equal(element(kpi(view, 'cpu'), '.zenfg-inspector-overview-value').dataset.state, 'unknown');
 	assert.match(value(view, 'memory'), /7\.9/);
+	for (const metric of ['gpu', 'cpu', 'memory'] as const) {
+		assert.equal(kpi(view, metric).querySelector('.zenfg-inspector-overview-note'), null, `${metric} does not repeat a complete measurement or unavailable state`);
+	}
 	assert.match(value(view, 'passes'), /3/);
 	assert.match(kpi(view, 'passes').textContent!, /1.*culled/i);
 	assert.equal(button(view.root, 'GPU').getAttribute('aria-pressed'), 'true');
@@ -88,6 +98,8 @@ test('Overview prioritizes actual GPU span, CPU collection, physical bytes and r
 	assert.match(timingRows(view)[1]!.textContent!, /0\.181.*11\.4%/);
 	assert.match(element(view.root, '.zenfg-inspector-overview-coverage').textContent!, /2\/2/);
 	assert.match(element(view.root, '.zenfg-inspector-overview-external').textContent!, /1 external submission.*outside per-pass GPU timing/);
+	assert.equal(view.root.querySelector('.zenfg-inspector-overview-timing-summary'), null);
+	assert.match(element(view.root, '.zenfg-inspector-overview-scope-note').textContent!, /Share of measured pass sum/);
 	assert.doesNotMatch(view.root.textContent!, /\bFPS\b|draw calls|GPU utilization/i);
 });
 
@@ -151,6 +163,8 @@ test('timing summary excludes unmeasured passes from the tail and hides an absen
 		gpu: { ...source.timings.gpu, nodes: source.timings.gpu.nodes.slice(0, 7) },
 	} }));
 	assert.match(element(view.root, '.zenfg-inspector-overview-coverage').textContent!, /Partial.*7\/8/);
+	assert.equal(element(kpi(view, 'gpu'), '.zenfg-inspector-overview-note').textContent, 'Pass timing partial');
+	assert.doesNotMatch(kpi(view, 'gpu').textContent!, /7\/8/);
 	assert.equal(Number(element(view.root, '.zenfg-inspector-overview-timings').dataset.maxMicros), 500);
 	assert.equal(element(timingRows(view)[0]!, '.zenfg-inspector-overview-bar > span').style.width, '88%');
 	assert.match(timingRows(view)[0]!.textContent!, /0\.440.*24\.0%/);
@@ -158,7 +172,8 @@ test('timing summary excludes unmeasured passes from the tail and hides an absen
 	assert.match(other.textContent!, /2/);
 	assert.match(other.textContent!, /0\.200\s*ms.*10\.9%/);
 	view.setSnapshot(createDebugViewModel(timedCapture([440, 321])));
-	assert.equal(view.root.querySelector('.zenfg-inspector-overview-timing-totals [data-part="other"]'), null);
+	assert.equal(view.root.querySelector('.zenfg-inspector-overview-timing-summary'), null);
+	assert.match(element(view.root, '.zenfg-inspector-overview-scope-note').textContent!, /Share of measured pass sum/);
 });
 
 test('CPU-only capture defaults to CPU and explicit timing choice survives refreshed availability', (t) => {
@@ -204,6 +219,25 @@ test('partial timing retains measured zero without assigning zero-sum percentage
 	assert.match(element(view.root, '.zenfg-inspector-overview-coverage').textContent!, /Partial.*1\/2/i);
 	assert.equal(element(timingRows(view)[0]!, '.zenfg-inspector-overview-bar > span').style.width, '0%');
 	assert.equal(view.root.querySelector('.zenfg-inspector-overview-timing-composition'), null);
+	assert.equal(view.root.querySelector('.zenfg-inspector-overview-timing-summary'), null);
+	view.setSnapshot(createDebugViewModel(timedCapture([0, 0, 0, 0, 0, 0])));
+	assert.match(element(view.root, '.zenfg-inspector-overview-timing-summary').textContent!, /Top 5.*0\.000 ms.*—.*Other 1.*0\.000 ms.*—/);
+	assert.doesNotMatch(element(view.root, '.zenfg-inspector-overview-timing-summary').textContent!, /%|NaN|Infinity/);
+	assert.equal(view.root.querySelector('.zenfg-inspector-overview-timing-composition'), null);
+});
+
+test('partial CPU timing keeps execution total and measured coverage in separate roles', (t) => {
+	const window = installDom(); t.after(() => window.close());
+	const source = fixture();
+	const view = new OverviewView(callbacks().handlers);
+	view.setSnapshot(createDebugViewModel({ ...source, timings: {
+		gpu: { status: 'unavailable', reason: 'unsupported' },
+		cpu: { status: 'available', executionDurationMicros: 5000, nodes: [{ nodeId: 'node:scene', durationMicros: 1000 }] },
+	} }));
+	assert.match(value(view, 'cpu'), /5\.000/);
+	assert.equal(element(kpi(view, 'cpu'), '.zenfg-inspector-overview-note').textContent, 'Pass timing partial');
+	assert.doesNotMatch(kpi(view, 'cpu').textContent!, /1\/3/);
+	assert.match(element(view.root, '.zenfg-inspector-overview-coverage').textContent!, /1\.000 ms.*Partial.*1\/3/);
 });
 
 test('timing reasons and no eligible GPU work remain distinct from real zero allocations', (t) => {
@@ -213,6 +247,8 @@ test('timing reasons and no eligible GPU work remain distinct from real zero all
 	view.setSnapshot(createDebugViewModel(source));
 	assert.match(kpi(view, 'gpu').textContent!, /Unavailable/);
 	assert.match(kpi(view, 'cpu').textContent!, /Not collected/);
+	assert.equal(value(view, 'gpu'), 'Unavailable');
+	assert.equal(value(view, 'cpu'), 'Not collected');
 	assert.match(value(view, 'memory'), /^0(?:\s|$)/);
 	assert.match(element(view.root, '.zenfg-inspector-snapshot-details').textContent!, /timestamp-query-unsupported/);
 	assert.equal(view.root.querySelector('.zenfg-inspector-overview-axis'), null);
@@ -221,6 +257,7 @@ test('timing reasons and no eligible GPU work remain distinct from real zero all
 		nodes: source.graph.nodes.map((node) => ({ ...node, kind: 'command' })),
 	} }));
 	assert.match(kpi(view, 'gpu').textContent!, /Not applicable/);
+	assert.equal(value(view, 'gpu'), 'Not applicable');
 	assert.equal(timingRows(view).length, 0);
 	assert.doesNotMatch(view.root.textContent!, /NaN|Infinity/);
 });
@@ -236,13 +273,42 @@ test('physical memory estimates honor missing sizes and unavailable reports with
 	} }));
 	assert.match(value(view, 'memory'), /Unknown/);
 	assert.match(kpi(view, 'memory').textContent!, /0\/1/);
+	assert.equal(element(kpi(view, 'memory'), '.zenfg-inspector-overview-value').dataset.state, 'unknown');
 	view.setSnapshot(createDebugViewModel({ ...source, memory: { ...source.memory,
 		allocationReport: { status: 'unavailable', reason: 'not-requested' },
 	} }));
 	assert.match(value(view, 'memory'), /Unavailable/);
+	assert.equal(kpi(view, 'memory').querySelector('.zenfg-inspector-overview-note'), null);
 	view.setSnapshot(createDebugViewModel(source));
 	assert.match(value(view, 'memory'), /7\.9/);
 	assert.doesNotMatch(value(view, 'memory'), /Unknown/);
+	assert.equal(kpi(view, 'memory').querySelector('.zenfg-inspector-overview-note'), null);
+});
+
+test('resource summaries merge related facts and unavailable reports retain one group state', (t) => {
+	const window = installDom(); t.after(() => window.close());
+	const source = fixture();
+	const view = new OverviewView(callbacks().handlers);
+	view.setSnapshot(createDebugViewModel(source));
+	let resources = element(view.root, '.zenfg-inspector-overview-resources');
+	assert.match(fact(resources, 'Logical resources').textContent!, /2 textures\s*·\s*1 buffers?/);
+	assert.ok(![...resources.querySelectorAll('dt')].some(term => term.textContent === 'Textures / buffers'));
+	assert.equal(fact(resources, 'Physical allocations').textContent, '1');
+	assert.match(fact(resources, 'Idle retained estimate').textContent!, /7\.9 MiB/);
+	assert.match(fact(resources, 'Idle retained estimate').textContent!, /1 allocation/);
+	assert.equal(fact(resources, 'Cumulative reuse').textContent, '66.7%');
+	assert.equal(element(resources, '.zenfg-inspector-overview-pool h3').textContent, 'Resource pool');
+	assert.ok(![...resources.querySelectorAll('dt')].some(term => term.textContent === 'Idle allocations'));
+	view.setSnapshot(createDebugViewModel({ ...source, memory: {
+		allocationReport: { status: 'unavailable', reason: 'not-requested' },
+		poolReport: { status: 'unavailable', reason: 'not-requested' },
+	} }));
+	resources = element(view.root, '.zenfg-inspector-overview-resources');
+	assert.equal(resources.querySelectorAll('.zenfg-inspector-overview-report-state').length, 2);
+	assert.equal(resources.querySelectorAll('.zenfg-inspector-overview-pool .zenfg-inspector-overview-report-state').length, 1);
+	assert.equal(resources.querySelectorAll('.zenfg-inspector-overview-pool dl').length, 0);
+	assert.ok(![...resources.querySelectorAll('dt')].some(term => term.textContent === 'Physical allocations' || term.textContent === 'Alias savings estimate'));
+	assert.ok(fact(resources, 'Logical resources'));
 });
 
 test('alias capacity and cumulative pool reuse are distinct from physical allocation totals', (t) => {
@@ -258,6 +324,8 @@ test('alias capacity and cumulative pool reuse are distinct from physical alloca
 		poolReport: { status: 'available', acquireCount: 0, reuseCount: 0, createdCount: 0, retainedCount: 0, estimatedRetainedBytes: 0 },
 	} }));
 	assert.match(element(view.root, '.zenfg-inspector-overview-pool').textContent!, /Not applicable.*no acquisitions/i);
+	assert.match(fact(element(view.root, '.zenfg-inspector-overview-pool'), 'Idle retained estimate').textContent!, /0 B/);
+	assert.match(fact(element(view.root, '.zenfg-inspector-overview-pool'), 'Idle retained estimate').textContent!, /0 allocations/);
 	assert.doesNotMatch(view.root.textContent!, /NaN|Infinity/);
 });
 

@@ -4,7 +4,7 @@ import { createPanelIcon } from './panelIcons.ts';
 import { formatEstimatedBytes, formatEstimateCoverage, formatTimingCoverage, type WorkbenchCallbacks } from './panelWorkbenchHelpers.ts';
 
 type TimingMode = 'gpu' | 'cpu';
-type Fact = readonly [label: string, value: string];
+type Fact = readonly [label: string, value: string, detail?: string];
 const NODE_KINDS = ['render', 'compute', 'copy', 'clear-buffer', 'command', 'external-submission'] as const;
 const KIND_LABELS = { render: 'Render', compute: 'Compute', copy: 'Copy', 'clear-buffer': 'Clear', command: 'Command', 'external-submission': 'External' };
 
@@ -37,11 +37,12 @@ function formatAxisTick(micros: number): string {
 
 function facts(rows: readonly Fact[]): HTMLDListElement {
   const list = element('dl', 'facts');
-  for (const [label, value] of rows) {
+  for (const [label, value, detail] of rows) {
     const row = document.createElement('div');
     const description = document.createElement('dd');
-    description.textContent = value;
-    description.title = value;
+    if (detail) description.append(element('span', 'fact-value', value), document.createTextNode(' '), element('span', 'fact-detail', detail));
+    else description.textContent = value;
+    description.title = detail ? `${value} · ${detail}` : value;
     const term = document.createElement('dt');
     term.textContent = label;
     row.append(term, description);
@@ -87,11 +88,8 @@ export class OverviewView {
     const gpuAvailable = snapshot.profiling.status === 'available';
     const cpuAvailable = snapshot.cpuProfiling.status === 'available';
     const allocationAvailable = snapshot.protocol.memory.allocationReport.status === 'available';
-    const gpuNote = gpuAvailable
-      ? `${metrics.timedNodeCount}/${metrics.timingEligibleNodeCount} render + compute measured${metrics.timedNodeCount < metrics.timingEligibleNodeCount ? ' · Partial' : ''}`
-      : unavailableTiming(snapshot.profiling.reason, metrics.timingEligibleNodeCount);
-    const cpuNote = cpuAvailable ? `${metrics.cpuTimedNodeCount}/${snapshot.nodes.length} passes measured${metrics.cpuTimedNodeCount < snapshot.nodes.length ? ' · Partial' : ''}`
-      : unavailableTiming(snapshot.cpuProfiling.reason, snapshot.nodes.length);
+    const gpuNote = gpuAvailable && metrics.timedNodeCount < metrics.timingEligibleNodeCount ? 'Pass timing partial' : '';
+    const cpuNote = cpuAvailable && metrics.cpuTimedNodeCount < snapshot.nodes.length ? 'Pass timing partial' : '';
     const memory = allocationAvailable ? formatEstimateCoverage(metrics.physicalEstimatedBytes, metrics.estimatedCoverage.physical) : 'Unavailable';
     const kindSummary = NODE_KINDS.flatMap(kind => {
       const count = snapshot.nodes.filter(node => node.kind === kind).length;
@@ -104,14 +102,13 @@ export class OverviewView {
         this.link(`${snapshot.culledNodes.length} Culled`, () => this.callbacks.onNavigate?.('passes', 'culled'), false));
     }
     kpis.append(
-      this.createKpi('gpu', 'GPU span', gpuAvailable ? (snapshot.profiling.gpuFrameDurationMicros / 1000).toFixed(3) : '—', gpuNote, gpuAvailable ? 'ms' : undefined,
+      this.createKpi('gpu', 'GPU span', gpuAvailable ? (snapshot.profiling.gpuFrameDurationMicros / 1000).toFixed(3) : unavailableTiming(snapshot.profiling.reason, metrics.timingEligibleNodeCount), gpuNote, gpuAvailable ? 'ms' : undefined,
         'Span from the first measured render/compute pass to the last, including intervals between passes.'),
-      this.createKpi('cpu', 'CPU execute', cpuAvailable ? (snapshot.cpuProfiling.executionDurationMicros / 1000).toFixed(3) : '—', cpuNote, cpuAvailable ? 'ms' : undefined,
+      this.createKpi('cpu', 'CPU execute', cpuAvailable ? (snapshot.cpuProfiling.executionDurationMicros / 1000).toFixed(3) : unavailableTiming(snapshot.cpuProfiling.reason, snapshot.nodes.length), cpuNote, cpuAvailable ? 'ms' : undefined,
         'Synchronous execution elapsed time, including preparation and submission. Excludes recording, compilation and GPU completion.'),
-      this.createKpi('memory', 'Physical allocation estimate', memory.split(' · ')[0]!, allocationAvailable
-        ? metrics.physicalEstimatedBytes === undefined ? `${metrics.estimatedCoverage.physical.known}/${metrics.estimatedCoverage.physical.total} sizes known`
-          : `${countLabel(snapshot.physicalAllocations.length, 'allocation')} · estimated`
-        : 'Allocation report unavailable', undefined, 'Estimated physical transient allocations, counting each shared allocation once; excludes imported and surface resources.'),
+      this.createKpi('memory', 'Physical allocation estimate', memory.split(' · ')[0]!, allocationAvailable && metrics.physicalEstimatedBytes === undefined
+        ? `${metrics.estimatedCoverage.physical.known}/${metrics.estimatedCoverage.physical.total} sizes known` : '',
+        undefined, 'Estimated physical transient allocations, counting each shared allocation once; excludes imported and surface resources.'),
       passesKpi,
     );
     const summary = element('section', 'summary');
@@ -146,9 +143,10 @@ export class OverviewView {
     number.append(document.createTextNode(byteParts?.[1] ?? value));
     const valueUnit = unit ?? byteParts?.[2];
     if (valueUnit) number.append(document.createTextNode(' '), element('span', 'unit', valueUnit));
-    if (value === 'Unknown' || value === 'Unavailable') number.dataset.state = 'unknown';
+    if (['Unknown', 'Unavailable', 'Not collected', 'Not applicable'].includes(value)) number.dataset.state = 'unknown';
     if (description) kpi.title = description;
-    kpi.append(element('span', 'label', label), number, element('p', 'note', note));
+    kpi.append(element('span', 'label', label), number);
+    if (note) kpi.append(element('p', 'note', note));
     return kpi;
   }
 
@@ -192,7 +190,7 @@ export class OverviewView {
     const modeLabel = this.timingMode.toUpperCase();
     const timing = gpu ? snapshot.protocol.timings.gpu : snapshot.cpuProfiling;
     const coverage = element('p', 'coverage', measured.length
-      ? `Measured ${modeLabel} pass sum ${(total / 1000).toFixed(3)} ms · ${formatTimingCoverage(measured.length, eligible)}`
+      ? `${modeLabel} pass sum ${(total / 1000).toFixed(3)} ms · ${measured.length < eligible ? 'Partial · ' : ''}${measured.length}/${eligible} timed`
       : `${modeLabel} pass timing: ${timing.status === 'unavailable' ? unavailableTiming(timing.reason, eligible) : eligible === 0 ? 'Not applicable' : 'Not collected'} · ${eligible === 0 ? 'no eligible passes' : `0/${eligible} measured`}`);
     if (timing.status === 'unavailable') coverage.title = timing.reason;
     const table = element('table', 'timings');
@@ -252,7 +250,7 @@ export class OverviewView {
     }
     table.append(head, body);
     this.timingContent.replaceChildren(coverage, table);
-    if (ranked.length) {
+    if (ranked.length && sorted.length > ranked.length) {
       const topTotal = ranked.reduce((sum, node) => sum + duration(node)!, 0);
       const remaining = sorted.slice(ranked.length);
       const otherTotal = remaining.reduce((sum, node) => sum + duration(node)!, 0);
@@ -260,7 +258,7 @@ export class OverviewView {
       const totals = element('div', 'timing-totals');
       for (const [part, label, value] of [
         ['top', `Top ${ranked.length}`, topTotal],
-        ...(remaining.length ? [['other', `Other ${remaining.length} measured passes`, otherTotal] as const] : []),
+        ['other', `Other ${remaining.length}`, otherTotal],
       ] as const) {
         const item = document.createElement('span');
         item.dataset.part = part;
@@ -270,7 +268,7 @@ export class OverviewView {
         totals.append(item);
       }
       summary.append(totals);
-      if (total > 0 && remaining.length) {
+      if (total > 0) {
         const composition = element('div', 'timing-composition');
         composition.setAttribute('role', 'img');
         composition.setAttribute('aria-label', `Top ${ranked.length}: ${(topTotal / total * 100).toFixed(1)}% of measured pass sum; other ${remaining.length} measured passes: ${(otherTotal / total * 100).toFixed(1)}%`);
@@ -278,8 +276,12 @@ export class OverviewView {
         composition.append(document.createElement('span'), document.createElement('span'));
         summary.append(composition);
       }
-      summary.append(element('p', 'note', 'Share of measured pass sum; not total frame time.'));
       this.timingContent.append(summary);
+    }
+    if (ranked.length) {
+      const scope = element('p', 'note', 'Share of measured pass sum; not total frame time.');
+      scope.classList.add('zenfg-inspector-overview-scope-note');
+      this.timingContent.append(scope);
     }
     const externalCount = snapshot.nodes.filter(node => node.kind === 'external-submission').length;
     if (gpu && externalCount > 0) {
@@ -293,28 +295,41 @@ export class OverviewView {
     const panel = element('section', 'panel');
     panel.classList.add('zenfg-inspector-overview-resources');
     const heading = element('header', 'heading');
-    heading.append(element('h2', 'title', 'Resources & memory'), this.link('View memory', () => this.callbacks.onNavigate?.('memory')));
+    heading.append(element('h2', 'title', 'Resources & memory'));
     const allocationAvailable = snapshot.protocol.memory.allocationReport.status === 'available';
     const body = element('div', 'resource-body');
-    body.append(facts([
-      ['Logical resources', String(snapshot.resources.length)],
-      ['Textures / buffers', `${snapshot.resources.filter(resource => resource.kind === 'texture').length} / ${snapshot.resources.filter(resource => resource.kind === 'buffer').length}`],
-      ['Physical allocations', allocationAvailable ? String(snapshot.physicalAllocations.length) : 'Unavailable'],
-      ['Alias savings estimate', allocationAvailable ? formatEstimatedBytes(snapshot.metrics.aliasReuseBytes) : 'Unavailable'],
+    const allocations = element('section', 'allocations');
+    const textures = snapshot.resources.filter(resource => resource.kind === 'texture').length;
+    const buffers = snapshot.resources.filter(resource => resource.kind === 'buffer').length;
+    allocations.append(facts([
+      ['Logical resources', String(snapshot.resources.length), `${countLabel(textures, 'texture')} · ${countLabel(buffers, 'buffer')}`],
+      ...(allocationAvailable ? [
+        ['Physical allocations', String(snapshot.physicalAllocations.length)],
+        ['Alias savings estimate', formatEstimatedBytes(snapshot.metrics.aliasReuseBytes)],
+      ] as const : []),
     ]));
+    if (!allocationAvailable) allocations.append(this.createReportState('Allocation report unavailable', snapshot.protocol.memory.allocationReport.reason));
     const poolSection = element('section', 'pool');
-    poolSection.append(element('h3', 'subtitle', 'Resource pool · cumulative'));
+    poolSection.append(element('h3', 'subtitle', 'Resource pool'));
     const pool = snapshot.resourcePool;
-    poolSection.append(facts([
-      ['Reuse', pool.status === 'available' ? pool.acquireCount > 0 ? `${(pool.reuseCount / pool.acquireCount * 100).toFixed(1)}%` : 'Not applicable · no acquisitions' : 'Unavailable'],
-      ['Idle retained estimate', pool.status === 'available' ? formatEstimatedBytes(pool.estimatedRetainedBytes) : 'Unavailable'],
-      ['Idle allocations', pool.status === 'available' ? String(pool.retainedCount) : 'Unavailable'],
-    ]));
+    if (pool.status === 'available') {
+      poolSection.append(facts([
+        ['Cumulative reuse', pool.acquireCount > 0 ? `${(pool.reuseCount / pool.acquireCount * 100).toFixed(1)}%` : 'Not applicable · no acquisitions'],
+        ['Idle retained estimate', formatEstimatedBytes(pool.estimatedRetainedBytes), countLabel(pool.retainedCount, 'allocation')],
+      ]));
+    } else poolSection.append(this.createReportState('Pool report unavailable', pool.reason));
     const footer = document.createElement('footer');
-    footer.append(this.link('View resources', () => this.callbacks.onNavigate?.('resources')));
-    body.append(poolSection);
+    footer.append(this.link('View resources', () => this.callbacks.onNavigate?.('resources')),
+      this.link('View memory', () => this.callbacks.onNavigate?.('memory')));
+    body.append(allocations, poolSection);
     panel.append(heading, body, footer);
     return panel;
+  }
+
+  private createReportState(label: string, reason: string): HTMLElement {
+    const state = element('p', 'report-state', label);
+    state.title = reason;
+    return state;
   }
 
   private createDisclosure(label: string, className: string): HTMLDetailsElement {

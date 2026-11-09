@@ -10,9 +10,13 @@ function multiPassCapture(source) {
         kind: index === 3 || index >= 26 ? 'compute' : 'render', sideEffect: true,
         recordingOrder: index, compileState: { status: 'retained', executionOrder: index },
     }));
-    snapshot.graph = { groups: [], nodes, resources: [], textureViews: [], accesses: [], dependencies: [], roots: [],
+    for (let index = 0; index < 3; index++) {
+        const order = nodes.length;
+        nodes.push({ id: `node:copy-${index}`, label: `copy.readback.${index}`, kind: 'copy', sideEffect: true,
+            recordingOrder: order, compileState: { status: 'retained', executionOrder: order } });
+    }
+    snapshot.graph = { groups: snapshot.graph.groups, nodes, resources: snapshot.graph.resources, textureViews: snapshot.graph.textureViews, accesses: [], dependencies: [], roots: [],
         segments: [{ id: 'segment:timing', kind: 'frame-graph', order: 0, nodeIds: nodes.map(node => node.id) }] };
-    snapshot.memory = { allocationReport: { status: 'unavailable', reason: 'not-requested' }, poolReport: { status: 'unavailable', reason: 'not-requested' } };
     snapshot.timings = { cpu: { status: 'unavailable', reason: 'not-requested' }, gpu: {
         status: 'available', frameSpanMicros: 3456,
         nodes: durations.map((durationMicros, index) => ({ nodeId: nodes[index].id, durationMicros })),
@@ -54,9 +58,16 @@ export async function checkOverview(page, output, fullSnapshot) {
             kpis: count('.zenfg-inspector-overview-kpis'), columns: count('.zenfg-inspector-overview-columns'), overflowY: getComputedStyle(el).overflowY,
             summary: bounds('.zenfg-inspector-overview-summary'), timing: bounds('.zenfg-inspector-overview-timing-panel'), columnsBounds: bounds('.zenfg-inspector-overview-columns'),
             side: bounds('.zenfg-inspector-overview-side'), resources: bounds('.zenfg-inspector-overview-resources'), workCards: el.querySelectorAll('.zenfg-inspector-overview-work').length,
-            resourceFacts: bounds('.zenfg-inspector-overview-resource-body > .zenfg-inspector-overview-facts'), pool: bounds('.zenfg-inspector-overview-pool'),
+            resourceFacts: bounds('.zenfg-inspector-overview-allocations'), pool: bounds('.zenfg-inspector-overview-pool'),
             track: bounds('.zenfg-inspector-overview-timing-rows tr:first-child .zenfg-inspector-overview-bar'), fill: bounds('.zenfg-inspector-overview-timing-rows tr:first-child .zenfg-inspector-overview-bar > span'),
             name: bounds('.zenfg-inspector-overview-timing-rows tr:first-child .zenfg-inspector-overview-pass'),
+            firstRow: bounds('.zenfg-inspector-overview-timing-rows tr:first-child'),
+            overviewBottom: el.getBoundingClientRect().bottom,
+            tails: [...el.querySelectorAll('.zenfg-inspector-overview-pass-suffix')].map(tail => {
+                const box = tail.getBoundingClientRect();
+                const name = tail.closest('button').getBoundingClientRect();
+                return { x: box.x, right: box.right, width: box.width, nameX: name.x, nameRight: name.right, clipped: tail.scrollWidth > tail.clientWidth + 1 };
+            }),
             ticks: [...el.querySelectorAll('.zenfg-inspector-overview-axis > span')].filter(tick => getComputedStyle(tick).display !== 'none').map(tick => {
                 const box = tick.getBoundingClientRect();
                 return { x: box.x, right: box.right };
@@ -64,7 +75,7 @@ export async function checkOverview(page, output, fullSnapshot) {
     });
     const expectLayout = (layout, label) => {
         const wide = layout.mainWidth >= 1000;
-        assert.equal(layout.kpis, wide ? 4 : layout.mainWidth >= 600 ? 2 : 1, `${label}: KPI columns follow the main container`);
+        assert.equal(layout.kpis, layout.mainWidth >= 900 ? 4 : 2, `${label}: KPI columns follow the main container`);
         assert.equal(layout.columns, wide ? 2 : 1, `${label}: analysis columns follow the main container`);
         assert.equal(layout.overflowY, 'auto');
         assert.ok(layout.columnsBounds.y >= layout.summary.bottom, `${label}: analysis follows the frame summary`);
@@ -81,6 +92,7 @@ export async function checkOverview(page, output, fullSnapshot) {
         assert.ok(layout.pool.y >= layout.resourceFacts.bottom || layout.resourceFacts.right <= layout.pool.x, `${label}: resource facts and pool metrics do not overlap`);
         assert.ok(layout.track.width > 20 && Math.abs(layout.fill.width / layout.track.width - 0.88) < 0.01, `${label}: visible time bars use the millisecond axis, not 13.8% share`);
         assert.ok(layout.name.right <= layout.track.x + 1 || layout.name.bottom <= layout.track.y + 1 || layout.track.bottom <= layout.name.y + 1, `${label}: pass label does not overlap the time chart`);
+        assert.ok(layout.tails.length > 0 && layout.tails.every(tail => tail.width > 0 && tail.x >= tail.nameX - 1 && tail.right <= tail.nameRight + 1 && !tail.clipped), `${label}: identifying long-name suffixes remain visible without overflow`);
         assert.ok(layout.ticks.length >= 2, `${label}: time axis retains visible start and end labels`);
         for (let index = 1; index < layout.ticks.length; index++) {
             assert.ok(layout.ticks[index - 1].right <= layout.ticks[index].x, `${label}: visible time-axis labels do not overlap`);
@@ -91,7 +103,7 @@ export async function checkOverview(page, output, fullSnapshot) {
         await setSnapshot(fullSnapshot);
         await openOverview();
         assert.match(await value('gpu'), /1\.851\s*ms/);
-        assert.equal(await value('cpu'), '—');
+        assert.equal(await value('cpu'), 'Not collected');
         assert.match(await metric('cpu').innerText(), /not (?:collected|captured|requested)/i);
         assert.match(await value('memory'), /7\.9\s*MiB/);
         assert.match(await value('passes'), /3/);
@@ -102,6 +114,10 @@ export async function checkOverview(page, output, fullSnapshot) {
         assert.match(await overview.innerText(), /1\.591\s*ms/);
         assert.match(await overview.innerText(), /external/i);
         assert.equal(await overview.locator('.zenfg-inspector-overview-timing-totals [data-part="other"]').count(), 0);
+        assert.equal(await overview.locator('.zenfg-inspector-overview-timing-summary').count(), 0, 'no redundant Top N total when every measured pass is displayed');
+        assert.match(await overview.locator('.zenfg-inspector-overview-scope-note').innerText(), /Share of measured pass sum/);
+        assert.equal(await metric('gpu').locator('.zenfg-inspector-overview-note').count(), 0);
+        assert.equal(await metric('memory').locator('.zenfg-inspector-overview-note').count(), 0);
         assert.equal(await overview.getByRole('heading', { name: 'Work composition', exact: true }).count(), 0);
         await metric('passes').getByRole('button', { name: '1 Culled', exact: true }).click();
         assert.equal(await page.getByRole('tab', { name: 'Passes', exact: true }).getAttribute('aria-selected'), 'true');
@@ -196,6 +212,11 @@ export async function checkOverview(page, output, fullSnapshot) {
         assert.match(await overview.locator('.zenfg-inspector-overview-axis').innerText(), /0\.5(?:0+)?\s*ms/);
         assert.match(await overview.locator('.zenfg-inspector-overview-timing-totals [data-part="top"]').innerText(), /5.*1\.636\s*ms.*51\.3%/s);
         assert.match(await overview.locator('.zenfg-inspector-overview-timing-totals [data-part="other"]').innerText(), /33.*1\.555\s*ms.*48\.7%/s);
+        const resources = overview.locator('.zenfg-inspector-overview-resources');
+        assert.equal(await resources.locator('.zenfg-inspector-overview-report-state').count(), 0, 'available allocation and pool reports are present in layout screenshots');
+        assert.match(await resources.innerText(), /Logical resources\s*3\s*2 textures\s*·\s*1 buffers?/);
+        assert.match(await resources.innerText(), /Cumulative reuse\s*66\.7%/);
+        assert.match(await resources.innerText(), /Idle retained estimate\s*7\.9 MiB\s*1 allocation/);
 
         // Keep the browser wide while resizing the embedded host across the exact
         // main-container breakpoint; overview padding must not move the threshold.
@@ -204,7 +225,7 @@ export async function checkOverview(page, output, fullSnapshot) {
             themeQA.host.style.height = '920px';
             themeQA.inspector.setTheme(themeQA.tokyoNightStorm);
         });
-        for (const mainWidth of [999, 1000]) {
+        for (const mainWidth of [899, 900, 999, 1000]) {
             await page.evaluate(mainWidth => {
                 const main = document.querySelector('.zenfg-inspector-main');
                 const style = getComputedStyle(main);
@@ -244,6 +265,12 @@ export async function checkOverview(page, output, fullSnapshot) {
                 await overview.evaluate(el => { el.scrollTop = 0; });
                 const layout = await readLayout();
                 expectLayout(layout, `${width}/${height}/${mode}`);
+                const unknownSize = await metric('cpu').locator('.zenfg-inspector-overview-value').evaluate(el => parseFloat(getComputedStyle(el).fontSize));
+                const measuredSize = await metric('gpu').locator('.zenfg-inspector-overview-value').evaluate(el => parseFloat(getComputedStyle(el).fontSize));
+                assert.ok(unknownSize < measuredSize * 0.8, `${width}/${height}/${mode}: unavailable status uses secondary type size`);
+                if (width <= 390 && height === 844) {
+                    assert.ok(layout.firstRow.bottom <= Math.min(layout.overviewBottom, height), `${width}/${height}/${mode}: the first pass name, chart and values fit in the initial viewport`);
+                }
                 if (mode === 'custom') assert.equal(await metric('gpu').evaluate(el => getComputedStyle(el).color), 'rgb(35, 69, 103)', 'overview inherits custom host text');
                 await expectNoOverflow(`${width}/${height}/${mode}`);
                 for (const label of ['Import', 'Export']) {
@@ -288,14 +315,34 @@ export async function checkOverview(page, output, fullSnapshot) {
         assert.ok((await rows.allInnerTexts()).every(text => text.includes('—') && !text.includes('NaN')), 'zero total has no invented percentages');
         assert.equal(await overview.locator('.zenfg-inspector-overview-timing-composition').count(), 0, 'zero total has no invented composition');
 
+        const unavailable = structuredClone(multiPass);
+        unavailable.memory = { allocationReport: { status: 'unavailable', reason: 'not-requested' }, poolReport: { status: 'unavailable', reason: 'not-requested' } };
+        for (const resource of unavailable.graph.resources) delete resource.allocationId;
+        await setSnapshot(unavailable);
+        assert.equal(await value('memory'), 'Unavailable');
+        assert.equal(await metric('memory').locator('.zenfg-inspector-overview-note').count(), 0);
+        assert.equal(await resources.locator('.zenfg-inspector-overview-allocations .zenfg-inspector-overview-report-state').count(), 1);
+        assert.equal(await resources.locator('.zenfg-inspector-overview-pool .zenfg-inspector-overview-report-state').count(), 1);
+        assert.equal(await resources.locator('.zenfg-inspector-overview-pool dl').count(), 0);
+        assert.equal(await resources.getByText('Physical allocations', { exact: true }).count(), 0);
+        await expectNoOverflow('unavailable report group states');
+        await page.screenshot({ path: resolve(output, 'custom-390-480-overview-unavailable.png'), animations: 'disabled' });
+
         const partial = structuredClone(fullSnapshot);
         partial.timings.gpu.nodes = [partial.timings.gpu.nodes[0]];
         delete partial.memory.allocationReport.allocations[0].estimatedByteSize;
         partial.graph.nodes[0].label = 'A'.repeat(300);
         await setSnapshot(partial);
         assert.equal(await rows.count(), 1);
-        assert.match(await metric('gpu').innerText(), /1\s*\/\s*2|1 of 2/);
+        assert.match(await metric('gpu').innerText(), /Pass timing partial/);
+        assert.doesNotMatch(await metric('gpu').innerText(), /1\s*\/\s*2|1 of 2/);
+        assert.match(await overview.locator('.zenfg-inspector-overview-coverage').innerText(), /Partial.*1\/2/);
         assert.match(await value('memory'), /Unknown/i);
+        assert.match(await metric('memory').innerText(), /0\/1 sizes known/);
+        assert.equal(await metric('memory').locator('.zenfg-inspector-overview-value').getAttribute('data-state'), 'unknown');
+        const unknownMemorySize = await metric('memory').locator('.zenfg-inspector-overview-value').evaluate(el => parseFloat(getComputedStyle(el).fontSize));
+        const measuredGpuSize = await metric('gpu').locator('.zenfg-inspector-overview-value').evaluate(el => parseFloat(getComputedStyle(el).fontSize));
+        assert.ok(unknownMemorySize < measuredGpuSize * 0.8, 'unknown memory estimate uses secondary type size');
         await expectNoOverflow('partial capture and long pass name');
     } finally {
         await page.evaluate(() => {
