@@ -22,7 +22,6 @@ export const PANEL_LIST_CSS = `
 .zenfg-inspector-list-notes { min-width: 0; color: var(--fgd-muted); font: var(--fgd-font-size-small)/1.5 var(--fgd-font-ui); }
 .zenfg-inspector-list-notes > summary { width: fit-content; padding: 3px 0; color: var(--fgd-text-secondary); cursor: pointer; }
 .zenfg-inspector-list-notes > p { margin: 5px 0; max-width: 90ch; overflow-wrap: anywhere; }
-.zenfg-inspector-resource-notes { flex: 0 0 auto; max-height: 110px; overflow: auto; padding: 4px 10px; border-bottom: 1px solid var(--fgd-border-subtle); }
 .zenfg-inspector-view-toolbar button {
 	min-height: var(--fgd-control-height);
 	padding: var(--fgd-space-1) var(--fgd-space-2);
@@ -48,9 +47,6 @@ export const PANEL_LIST_CSS = `
 .zenfg-inspector-passes-view .zenfg-inspector-group-table td:first-child { padding-left: min(calc(8px + var(--fgd-group-depth-offset, 0px)), 100px); }
 .zenfg-inspector-group-table th:nth-child(4), .zenfg-inspector-group-table th:nth-child(5) { width: 21%; }
 .zenfg-inspector-group-table th:last-child { width: 116px; }
-.zenfg-inspector-resource-table th:first-child { width: 38%; }
-.zenfg-inspector-resource-table th:nth-child(2) { width: 23%; }
-.zenfg-inspector-resource-table th:last-child { width: 11%; }
 .zenfg-inspector-passes-view .zenfg-inspector-workbench-table .zenfg-inspector-list-row-meta,
 .zenfg-inspector-resources-view .zenfg-inspector-workbench-table .zenfg-inspector-list-row-meta,
 .zenfg-inspector-passes-view .zenfg-inspector-workbench-table .zenfg-inspector-list-row-extra,
@@ -59,7 +55,6 @@ export const PANEL_LIST_CSS = `
 .zenfg-inspector-resources-view .zenfg-inspector-list-measured { color: var(--fgd-text); font-weight: 600; }
 .zenfg-inspector-passes-view .zenfg-inspector-list-unmeasured,
 .zenfg-inspector-resources-view .zenfg-inspector-list-unmeasured { color: var(--fgd-muted); }
-.zenfg-inspector-resource-table[data-sort='size'] td:nth-child(3) { background: color-mix(in srgb, var(--fgd-accent) 5%, var(--fgd-canvas)); }
 .zenfg-inspector-group-table .zenfg-inspector-list-row-meta,
 .zenfg-inspector-group-table [data-timing] small { font-weight: 400; white-space: normal; }
 .zenfg-inspector-passes-view .zenfg-inspector-workbench-table [data-column='numeric'],
@@ -179,15 +174,11 @@ export const PANEL_LIST_CSS = `
 	.zenfg-inspector-group-table tr > :nth-child(2),
 	.zenfg-inspector-group-table tr > :nth-child(3),
 	.zenfg-inspector-group-table tr > :nth-child(6),
-	.zenfg-inspector-group-table tr > :nth-child(7),
-	.zenfg-inspector-resource-table tr > :nth-child(2) { display: none; }
+	.zenfg-inspector-group-table tr > :nth-child(7) { display: none; }
 	.zenfg-inspector-passes-view .zenfg-inspector-workbench-table .zenfg-inspector-list-row-meta,
 	.zenfg-inspector-resources-view .zenfg-inspector-workbench-table .zenfg-inspector-list-row-meta { display: block; white-space: normal; }
 	.zenfg-inspector-group-table th:first-child { width: auto; }
 	.zenfg-inspector-group-table th:nth-child(4), .zenfg-inspector-group-table th:nth-child(5) { width: 27%; }
-	.zenfg-inspector-resource-table th:first-child { width: 48%; }
-	.zenfg-inspector-resource-table th:nth-child(3) { width: 20%; }
-	.zenfg-inspector-resource-table th:nth-child(4) { width: 20%; }
 }
 @container zenfg-inspector-main (width < 600px) {
 	.zenfg-inspector-passes-view .zenfg-inspector-workbench-table,
@@ -211,29 +202,18 @@ export const PANEL_LIST_CSS = `
 	.zenfg-inspector-resources-view .zenfg-inspector-workbench-table td:first-child { grid-column: 1 / -1; position: static; max-width: none; padding-top: 10px; }
 	.zenfg-inspector-passes-view .zenfg-inspector-workbench-table .zenfg-inspector-relation-button,
 	.zenfg-inspector-resources-view .zenfg-inspector-workbench-table .zenfg-inspector-relation-button { white-space: normal; overflow-wrap: anywhere; }
-	.zenfg-inspector-passes-view .zenfg-inspector-workbench-table td:first-child > .zenfg-inspector-relation-button,
-	.zenfg-inspector-resources-view .zenfg-inspector-workbench-table td:first-child > .zenfg-inspector-relation-button,
-	.zenfg-inspector-resources-view .zenfg-inspector-list-group-path,
-	.zenfg-inspector-resources-view .zenfg-inspector-resource-descriptor {
+	.zenfg-inspector-passes-view .zenfg-inspector-workbench-table td:first-child > .zenfg-inspector-relation-button {
 		display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; white-space: normal;
 	}
 	.zenfg-inspector-passes-view .zenfg-inspector-group-table td:first-child > .zenfg-inspector-relation-button {
 		display: -webkit-inline-box; max-width: calc(100% - 29px); vertical-align: middle;
 	}
-	.zenfg-inspector-resource-table tr > :nth-child(4),
-	.zenfg-inspector-resource-table tr > :nth-child(5) { display: none; }
 	.zenfg-inspector-passes-view .zenfg-inspector-workbench-table .zenfg-inspector-list-row-extra,
 	.zenfg-inspector-resources-view .zenfg-inspector-workbench-table .zenfg-inspector-list-row-extra { display: block; white-space: normal; }
-	.zenfg-inspector-passes-view .zenfg-inspector-workbench-table [data-timing],
-	.zenfg-inspector-resources-view .zenfg-inspector-workbench-table td:nth-child(3) { text-align: left; padding-bottom: 10px; }
-	.zenfg-inspector-passes-view .zenfg-inspector-workbench-table [data-timing]::before,
-	.zenfg-inspector-resource-table td:nth-child(3)::before {
+	.zenfg-inspector-passes-view .zenfg-inspector-workbench-table [data-timing] { text-align: left; padding-bottom: 10px; }
+	.zenfg-inspector-passes-view .zenfg-inspector-workbench-table [data-timing]::before {
 		content: attr(data-label); display: block; margin-bottom: 2px; color: var(--fgd-muted); font: 400 var(--fgd-font-size-small)/1.4 var(--fgd-font-ui);
 	}
-	.zenfg-inspector-resources-view .zenfg-inspector-workbench-table tbody tr { grid-template-columns: minmax(0, 1fr) 110px; }
-	.zenfg-inspector-resources-view .zenfg-inspector-workbench-table td:first-child { grid-column: 1; grid-row: 1; }
-	.zenfg-inspector-resources-view .zenfg-inspector-workbench-table td:nth-child(3) { grid-column: 2; grid-row: 1; padding-top: 10px; }
-	.zenfg-inspector-resources-view .zenfg-inspector-resource-descriptor { white-space: normal; }
 	.zenfg-inspector-group-table tbody tr { position: relative; }
 	.zenfg-inspector-passes-view .zenfg-inspector-group-table td:first-child { padding-left: min(calc(8px + var(--fgd-group-depth-offset, 0px)), 100px, 25cqi); padding-right: 46px; }
 	.zenfg-inspector-passes-view .zenfg-inspector-group-table .zenfg-inspector-list-locate-cell { position: absolute; top: 7px; right: 5px; padding: 0; }

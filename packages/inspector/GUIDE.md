@@ -286,6 +286,23 @@ sum has no percentage. Click a pass to locate it in Passes, or **View all passes
 to clear pass filters and open the list while preserving its sort and the shared
 timing source. Expanded Overview disclosures stay with the Inspector instance.
 
+Resources show the name first, followed by kind, origin, and compact descriptor
+facts. Long names preserve their identifying tail, with the full name and ID on
+hover; group paths remain searchable and available in details. Size bars compare
+Snapshot-provided logical resource estimates against the largest known estimate
+in the entire capture. Search, filters, and sorting do not change that scale.
+Unknown estimates have no bar; `0 B` is a known zero. Declared buffer capacity is
+shown separately when it adds information and never fills a missing estimate.
+Logical estimates are distinct from shared physical allocations and actual GPU
+memory use. **Data scope** explains the fields and known-estimate coverage.
+
+Resource **Read** and **Write** counts include every declared access record,
+including repeated ranges and culled passes, rather than execution counts or
+unique pass counts. Select a count to open Relations filtered to that mode.
+Lifetime boundaries use inclusive retained execution **Order**, matching Passes;
+select a boundary to locate that pass. They are not elapsed time, and an
+unavailable lifetime does not imply an unused resource.
+
 Memory numbers are estimates with different scopes:
 
 | Metric | Meaning |
@@ -304,10 +321,12 @@ the visible rows and matching count only. A lifetime includes both first and las
 execution slots. Tick positions, grid lines, and resource bars share one stable
 Snapshot coordinate range; missing lifetimes have no bar.
 
-Lists use full tables at content widths of 1000px or more, merge secondary
-columns below 1000px, and reflow into compact rows below 600px. GPU/CPU timings
-and resource estimates remain visible when the selection pane reduces the main
-content width. Memory lifetimes use the same full execution-slot domain at every
+Group hierarchies merge secondary columns below 1000px and use compact rows
+below 600px. Pass timing rows reflow below 600px; Resources reflows below 800px,
+giving names the full row and placing size comparisons below them. These
+breakpoints use the available main content width, including an open selection
+dock. GPU/CPU timings and resource estimates remain visible. Memory lifetimes
+use the same full execution-slot domain at every
 width. Allocation folds and estimate information persist across captures;
 search temporarily expands matching allocations, and explicit location expands
 the target without changing ordinary selection behavior.
@@ -399,8 +418,11 @@ outline without a glow. Hovering a Summary or Relations link previews its target
 in the graph using the same rules, without changing selection or moving the view;
 leaving the link or changing/closing the detail pane clears the preview.
 
-Resource **Pass accesses** entries link only the pass name; access mode, write
-contents, producesValue, and available ranges remain descriptive text. Pass details
+Resource **Pass accesses** groups records by pass, with retained passes in
+execution Order followed by explicitly marked culled passes. Each declared
+record retains its access mode, write contents, producesValue, and available
+ranges as descriptive text. Only the pass name selects its details; the separate
+location icon navigates to Passes. Pass details
 use the same access facts. An access is not a graph
 relationship and is not mapped to an arbitrary dependency edge.
 Resource Relations also link to individual output roots by reason and range.

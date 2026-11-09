@@ -1,5 +1,6 @@
 import type { FrameGraphDebugNode, FrameGraphDebugViewModel } from './debugCaptureModel.ts';
 import { labelNode } from './panelDomHelpers.ts';
+import { setObjectName } from './panelWorkbenchHelpers.ts';
 
 export type PassTimingSource = 'gpu' | 'cpu';
 export type PassTimingNode = Omit<FrameGraphDebugNode, 'order'>;
@@ -88,19 +89,18 @@ export function createTimingIdentity(node: PassTimingNode, options: {
 	readonly nameClass?: string; readonly prefixClass?: string; readonly suffixClass?: string; readonly kindClass?: string;
 }): HTMLDivElement {
 	const identity = timingElement('div', 'identity'); const label = labelNode(node);
-	const name = timingElement('button', 'name'); name.type = 'button'; name.title = `${label} · ${node.id}`;
+	const name = timingElement('button', 'name'); name.type = 'button';
 	name.classList.add('zenfg-inspector-relation-button');
-	name.setAttribute('aria-label', label);
+	setObjectName(name, label, node.id);
 	if (options.focusKey) { name.dataset.passFocus = options.focusKey; name.dataset.overviewFocus = options.focusKey; }
 	if (options.nameClass) name.classList.add(options.nameClass);
-	const characters = [...label]; const suffixLength = characters.length > 24 ? 12 : 0;
-	const prefix = timingElement('span', 'name-prefix', suffixLength ? characters.slice(0, -suffixLength).join('') : label);
+	const prefix = name.querySelector<HTMLElement>('.zenfg-inspector-name-prefix')!;
+	prefix.classList.add('zenfg-inspector-timing-name-prefix');
 	if (options.prefixClass) prefix.classList.add(options.prefixClass);
-	name.append(prefix);
-	if (suffixLength) {
-		const suffix = timingElement('span', 'name-suffix', characters.slice(-suffixLength).join(''));
+	const suffix = name.querySelector<HTMLElement>('.zenfg-inspector-name-suffix');
+	if (suffix) {
+		suffix.classList.add('zenfg-inspector-timing-name-suffix');
 		if (options.suffixClass) suffix.classList.add(options.suffixClass);
-		name.append(suffix);
 	}
 	name.addEventListener('click', options.onSelect);
 	const kind = timingElement('span', 'kind', KIND_LABELS[node.kind]); kind.dataset.kind = node.kind;

@@ -1,5 +1,6 @@
 import type {
 	FrameGraphDebugAccess,
+	FrameGraphDebugAccessEdge,
 	FrameGraphDebugRoot,
 	FrameGraphDebugResourceRef,
 	FrameGraphDebugViewModel,
@@ -9,9 +10,11 @@ import { createPanelIcon } from './panelIcons.ts';
 import { RawDetailView } from './panelRawView.ts';
 import { resolveNodeSelection, resolveSelectedCanonicalDetail } from './panelSelection.ts';
 import type { InspectorTab, Selection, WorkbenchTab } from './panelTypes.ts';
+import type { ResourceAccessMode } from './panelResourcesView.ts';
 import {
 	createIconAction,
 	createRelationButton,
+	createResourceLifetime,
 	formatEstimatedBytes,
 	formatResourceDescriptor,
 	formatTimingCoverage,
@@ -20,14 +23,16 @@ import {
 	selectionKey,
 	groupPath,
 	resourceLabel,
+	resourceAccessCounts,
+	setObjectName,
 	type WorkbenchCallbacks,
 } from './panelWorkbenchHelpers.ts';
 
 type DetailRelation = readonly [label: string, selection: Selection, description?: string];
 
-function formatAccessFacts(access: FrameGraphDebugAccess): string {
+function formatAccessFacts(access: FrameGraphDebugAccess, includeMode = true): string {
 	return [
-		access.mode, access.access,
+		...(includeMode ? [access.mode] : []), access.access,
 		...(access.mode === 'write' ? [access.contents, access.producesValue ? 'produces a value' : 'does not produce a value'] : []),
 		...(access.bufferRange ? [`bytes ${access.bufferRange.offset}–${access.bufferRange.size === undefined ? 'end' : access.bufferRange.offset + access.bufferRange.size}`] : []),
 		...(access.textureRegion ? [formatTextureRegion(access.textureRegion)] : []),
@@ -57,6 +62,7 @@ export class InspectorView {
 	private snapshot: FrameGraphDebugViewModel | undefined;
 	private selected: Selection | undefined;
 	private activeTab: InspectorTab = 'summary';
+	private resourceAccessMode: ResourceAccessMode = 'all';
 	private open = false;
 	private hoveredLink: HTMLButtonElement | undefined;
 	private rawCache: { readonly snapshot: FrameGraphDebugViewModel; readonly key: string; readonly view: RawDetailView } | undefined;
@@ -115,7 +121,9 @@ export class InspectorView {
 	setSelection(selected: Selection | undefined, reveal = true): void {
 		if (!selected || !this.selected || selectionKey(selected) !== selectionKey(this.selected)) this.rawCache = undefined;
 		if (selected?.kind === 'resource'
-			&& (this.selected?.kind !== 'resource' || this.selected.id !== selected.id)) this.activeTab = 'summary';
+			&& (this.selected?.kind !== 'resource' || this.selected.id !== selected.id)) {
+			this.activeTab = 'summary'; this.resourceAccessMode = 'all';
+		}
 		this.selected = selected;
 		if (!selected) this.setOpen(false);
 		else if (reveal && !this.open) {
@@ -138,6 +146,12 @@ export class InspectorView {
 		return this.open;
 	}
 
+	showResourceAccesses(mode: ResourceAccessMode): void {
+		if (this.selected?.kind !== 'resource') return;
+		this.resourceAccessMode = mode; this.activeTab = 'relations'; this.setOpen(true); this.render();
+		this.tabs.get('relations')?.focus({ preventScroll: true });
+	}
+
 	private updateOpenState(): void {
 		this.root.hidden = !this.open;
 		this.root.classList.toggle('open', this.open);
@@ -145,6 +159,7 @@ export class InspectorView {
 
 	private render(): void {
 		const restoreFocus = this.content.contains(document.activeElement);
+		const detailFocus = restoreFocus ? (document.activeElement as HTMLElement).dataset.detailFocus : undefined;
 		for (const section of this.content.querySelectorAll<HTMLDetailsElement>('details[data-section-key]')) {
 			this.sectionStates.set(section.dataset.sectionKey!, section.open);
 		}
@@ -184,7 +199,10 @@ export class InspectorView {
 			this.content.append(this.createIdentity(snapshot, selected), this.createLocationActions(snapshot, selected), this.createSummary(snapshot, selected));
 		}
 		// Selecting a relation replaces its button. Keep keyboard focus in the pane.
-		if (restoreFocus) this.tabs.get(this.activeTab)?.focus();
+		if (restoreFocus) {
+			const target = detailFocus ? [...this.content.querySelectorAll<HTMLElement>('[data-detail-focus]')].find(element => element.dataset.detailFocus === detailFocus) : undefined;
+			(target ?? this.tabs.get(this.activeTab))?.focus({ preventScroll: true });
+		}
 	}
 
 	private selectionTitle(snapshot: FrameGraphDebugViewModel, selection: Selection): string {
@@ -264,7 +282,7 @@ export class InspectorView {
 		const layouts: Record<Selection['kind'], { metrics: readonly string[]; primary: readonly string[] }> = {
 			node: { metrics: ['GPU duration', 'CPU duration'], primary: ['Execution slot', 'Group', 'Segment', 'Accesses'] },
 			group: { metrics: ['GPU pass sum', 'CPU pass sum'], primary: ['Retained', 'Culled', 'GPU coverage', 'CPU coverage', 'Path'] },
-			resource: { metrics: ['Resource estimate'], primary: ['Lifetime', 'Allocation'] },
+			resource: { metrics: ['Logical estimate'], primary: ['Descriptor', 'Lifetime', 'Accesses', 'Allocation'] },
 			allocation: { metrics: ['Physical estimate', 'Logical resources'], primary: ['Alias'] },
 			root: { metrics: [], primary: ['Reason', 'Node', 'Resource', 'Range', 'Initial contents', 'Producers'] },
 			culled: { metrics: [], primary: ['Reason', 'Group', 'Accesses', 'Execution / segment / CPU / GPU'] },
@@ -383,11 +401,11 @@ export class InspectorView {
 				const resource = snapshot.resourceById.get(selection.id);
 				if (!resource) return this.summary([]);
 				return this.summary([
-					['Kind / origin', `${resource.kind} · ${resource.origin}`],
 					['Group', groupPath(snapshot, resource.debugGroupId)],
 					['Descriptor', formatResourceDescriptor(resource)],
-					['Resource estimate', `${formatEstimatedBytes(resource.estimatedByteSize)} · logical descriptor estimate`],
-					['Lifetime', resource.lifetime ? `execution slots ${resource.lifetime.firstUse}–${resource.lifetime.lastUse} (inclusive)` : 'Unavailable'],
+					['Logical estimate', `${formatEstimatedBytes(resource.estimatedByteSize)} · snapshot logical resource estimate`],
+					['Lifetime', createResourceLifetime(resource, new Map(snapshot.nodes.map(node => [node.order, node])), this.callbacks.onReveal)],
+					['Accesses', this.resourceAccessSummary(snapshot, resource.id)],
 					['Allocation', resource.physicalResourceId !== undefined
 						? this.createDetailLink(resource.physicalResourceId, { kind: 'allocation', id: resource.physicalResourceId })
 						: resource.origin !== 'transient' ? 'Not applicable · externally owned resource'
@@ -493,17 +511,7 @@ export class InspectorView {
 			}
 			case 'resource': {
 				const resource = snapshot.resourceById.get(selection.id);
-				const accesses = snapshot.accessesByResourceId.get(selection.id) ?? [];
-				const passRelations: DetailRelation[] = [];
-				for (const access of accesses) {
-					const nodeSelection = this.accessNodeSelection(snapshot, access.nodeId);
-					if (nodeSelection) passRelations.push([
-						this.accessNodeLabel(snapshot, access.nodeId),
-						nodeSelection,
-						formatAccessFacts(access),
-					]);
-				}
-				host.appendChild(this.relationGroup('Pass accesses', passRelations));
+				host.appendChild(this.resourcePassAccesses(snapshot, selection.id));
 				const roots = snapshot.roots.filter((root) => root.resource?.id === selection.id);
 				if (roots.length) host.appendChild(this.relationGroup('Output roots', roots.map((root) => [
 					`${root.reason} · ${formatRootRange(root)}`, { kind: 'root', key: root.key },
@@ -556,6 +564,78 @@ export class InspectorView {
 			host.appendChild(empty);
 		}
 		return host;
+	}
+
+	private resourceAccessSummary(snapshot: FrameGraphDebugViewModel, resourceId: string): HTMLElement {
+		const host = document.createElement('span'); host.className = 'zenfg-inspector-resource-accesses';
+		const [reads, writes] = resourceAccessCounts(snapshot, resourceId);
+		for (const [mode, count] of [['read', reads], ['write', writes]] as const) {
+			const button = document.createElement('button'); button.type = 'button'; button.className = 'zenfg-inspector-resource-access';
+			button.dataset.access = mode; button.disabled = count === 0;
+			const label = document.createElement('span'); label.textContent = mode === 'read' ? 'Read' : 'Write';
+			const number = document.createElement('strong'); number.textContent = String(count); button.append(label, number);
+			button.title = `${count} declared ${mode} access records, including repeated accesses and culled passes`;
+			button.setAttribute('aria-label', `Inspect ${count} declared ${mode} access records`);
+			button.addEventListener('click', () => this.showResourceAccesses(mode)); host.append(button);
+		}
+		return host;
+	}
+
+	private resourcePassAccesses(snapshot: FrameGraphDebugViewModel, resourceId: string): HTMLElement {
+		const section = document.createElement('section'); section.className = 'zenfg-inspector-resource-pass-accesses';
+		const heading = document.createElement('h3'); heading.textContent = 'Pass accesses'; section.append(heading);
+		const all = snapshot.accessesByResourceId.get(resourceId) ?? [];
+		const [reads, writes] = resourceAccessCounts(snapshot, resourceId);
+		const filters = document.createElement('div'); filters.className = 'zenfg-inspector-resource-access-filters';
+		filters.setAttribute('role', 'group'); filters.setAttribute('aria-label', 'Resource access filters');
+		for (const [mode, label, count] of [['all', 'All', all.length], ['read', 'Read', reads], ['write', 'Write', writes]] as const) {
+			const button = document.createElement('button'); button.type = 'button'; button.className = 'zenfg-inspector-inline-action';
+			button.textContent = `${label} ${count}`; button.setAttribute('aria-label', `Filter resource accesses: ${label}`);
+			button.dataset.detailFocus = `access-filter:${mode}`; button.setAttribute('aria-pressed', String(this.resourceAccessMode === mode));
+			button.addEventListener('click', () => { this.resourceAccessMode = mode; this.render(); }); filters.append(button);
+		}
+		const visible = all.filter(access => this.resourceAccessMode === 'all' || access.mode === this.resourceAccessMode);
+		const byPass = new Map<string, FrameGraphDebugAccessEdge[]>();
+		for (const access of visible) {
+			const entries = byPass.get(access.nodeId) ?? []; entries.push(access); byPass.set(access.nodeId, entries);
+		}
+		const culledCount = visible.filter(access => snapshot.culledById.has(access.nodeId)).length;
+		const note = document.createElement('p'); note.className = 'zenfg-inspector-muted';
+		note.textContent = `${visible.length} declared access ${visible.length === 1 ? 'record' : 'records'} · ${byPass.size} ${byPass.size === 1 ? 'pass' : 'passes'}${culledCount ? ` · ${culledCount} culled ${culledCount === 1 ? 'access' : 'accesses'}` : ''}`;
+		note.title = 'Each declared access is preserved, including repeated ranges. Retained is a compiler state, not proof of execution.';
+		section.append(filters, note);
+		const recordingOrders = new Map(snapshot.protocol.graph.nodes.map((node, index) => [node.id, node.recordingOrder ?? index]));
+		const groups = [...byPass].sort(([left], [right]) => {
+			const a = snapshot.nodeById.get(left)?.order; const b = snapshot.nodeById.get(right)?.order;
+			return a === undefined ? b === undefined ? (recordingOrders.get(left) ?? 0) - (recordingOrders.get(right) ?? 0) : 1 : b === undefined ? -1 : a - b;
+		});
+		for (const [nodeId, accesses] of groups) {
+			const selection = this.accessNodeSelection(snapshot, nodeId);
+			const node = snapshot.nodeById.get(nodeId); const culled = snapshot.culledById.get(nodeId);
+			const entry = document.createElement('div'); entry.className = 'zenfg-inspector-relation-entry'; entry.dataset.accessNodeId = nodeId;
+			const links = document.createElement('div'); links.className = 'zenfg-inspector-relation-links';
+			if (selection) {
+				const link = this.createDetailLink(this.accessNodeLabel(snapshot, nodeId), selection);
+				setObjectName(link, labelNode(node ?? culled!.node), nodeId);
+				link.setAttribute('aria-label', this.accessNodeLabel(snapshot, nodeId)); links.append(link);
+				if (this.callbacks.onReveal) links.append(this.revealButton(selection, 'passes', true));
+			} else links.textContent = nodeId;
+			const state = document.createElement('div'); state.className = 'zenfg-inspector-resource-pass-state';
+			const compile = document.createElement('span'); compile.dataset.state = culled ? 'culled' : 'retained';
+			compile.textContent = node ? `Retained · Order ${node.order}` : culled ? `Culled · not executed · ${culled.reason}` : 'Pass unavailable'; state.append(compile);
+			const records = document.createElement('ul'); records.className = 'zenfg-inspector-resource-access-records';
+			for (const access of accesses) {
+				const record = document.createElement('li'); record.title = access.accessId;
+				const mode = document.createElement('span'); mode.className = 'zenfg-inspector-resource-access-mode'; mode.dataset.access = access.mode;
+				mode.textContent = access.mode === 'read' ? 'Read' : 'Write';
+				record.append(mode, document.createTextNode(` · ${formatAccessFacts(access, false)}`)); records.append(record);
+			}
+			entry.append(links, state, records); section.append(entry);
+		}
+		if (groups.length === 0) {
+			const empty = document.createElement('p'); empty.className = 'zenfg-inspector-muted'; empty.textContent = 'No declared accesses match this filter.'; section.append(empty);
+		}
+		return section;
 	}
 
 	private accessRelations(title: string, accesses: readonly FrameGraphDebugAccess[]): HTMLElement {

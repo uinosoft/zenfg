@@ -130,7 +130,9 @@ export class FrameGraphDebugWorkbench {
 		}
 		this.graphRoot.append(graphViewport);
 		this.passes = new PassesView(callbacks, options.idPrefix, this.timingSource);
-		this.resources = new ResourcesView(callbacks, options.idPrefix);
+		this.resources = new ResourcesView(callbacks, options.idPrefix, (resourceId, mode) => {
+			callbacks.onSelect({ kind: 'resource', id: resourceId }); this.inspector.showResourceAccesses(mode);
+		});
 		this.memory = new MemoryView(callbacks, options.idPrefix);
 		this.diagnostics = new DiagnosticsView(callbacks, options.idPrefix);
 		this.inspector = new InspectorView(callbacks, (open) => this.handleInspectorOpenChange(open), options.idPrefix);

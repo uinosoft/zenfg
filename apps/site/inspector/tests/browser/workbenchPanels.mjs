@@ -383,7 +383,7 @@ export async function checkWorkbenchPanels(page, output, fullSnapshot, aliasSnap
                     }
                     if (view === 'Resources') {
                         const row = root.locator('tr[data-selection-key="resource:resource:scene-color"]');
-                        await within(row.locator('td').nth(2), root, `${mode}/${width} estimated size`);
+                        await within(row.locator('[data-resource-column="size"]'), root, `${mode}/${width} logical estimate`);
                         assert.match(await row.innerText(), /rgba16float.*1920×1080/);
                     }
                     if (view === 'Memory') {

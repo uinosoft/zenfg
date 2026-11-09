@@ -213,7 +213,7 @@ test('Resource Surface filter, ID/group search, size and lifetime sorting retain
 	assert.deepEqual(rows().map((row) => row.dataset.selectionKey), ['resource:resource:scene-color', 'resource:resource:unused-data', 'resource:resource:backbuffer']);
 	setSelect(view.root, 'Sort resources', 'lifetime');
 	assert.deepEqual(rows().map((row) => row.dataset.selectionKey), ['resource:resource:scene-color', 'resource:resource:unused-data', 'resource:resource:backbuffer']);
-	assert.equal(rows()[1]!.cells[2]!.textContent, '0 B');
+	assert.equal(rows()[1]!.querySelector('.zenfg-inspector-resource-size-value')!.textContent, '0 B');
 });
 
 test('Diagnostics preserves every message, sorts by severity stably and provides separate node/resource associations', (t) => {
@@ -344,7 +344,7 @@ test('Group hierarchy uses keyboard actions for parents and noninteractive leaf 
 	assert.deepEqual(log.graphToggles, []);
 });
 
-test('Resources expose descriptor and inclusive slots without replacing logical size with physical allocation size', (t) => {
+test('Resources expose compact descriptors and inclusive Order without replacing logical size with physical allocation size', (t) => {
 	const win = installDom(); t.after(() => win.close());
 	const source = fixture();
 	const model = createDebugViewModel({ ...source, graph: { ...source.graph, resources: source.graph.resources.map((resource) =>
@@ -352,10 +352,10 @@ test('Resources expose descriptor and inclusive slots without replacing logical 
 	) } });
 	const view = new ResourcesView(callbacks().handlers, 'resource-details'); view.setSnapshot(model);
 	const row = view.root.querySelector<HTMLTableRowElement>('tr[data-selection-key="resource:resource:scene-color"]')!;
-	assert.match(row.querySelector('.zenfg-inspector-resource-descriptor')!.textContent!, /rgba16float.*1920×1080×1/);
-	assert.equal(row.cells[2]!.textContent, '0 B');
-	assert.equal(row.cells[2]!.getAttribute('aria-label'), 'Estimated size: 0 B');
-	assert.match(row.querySelector('.zenfg-inspector-list-row-extra')!.textContent!, /Slots 0–2/);
+	assert.match(row.querySelector('.zenfg-inspector-resource-descriptor')!.textContent!, /rgba16float.*1920×1080/);
+	assert.equal(row.querySelector('.zenfg-inspector-resource-size-value')!.textContent, '0 B');
+	assert.equal(row.cells[1]!.getAttribute('aria-label'), 'Logical estimate: 0 B');
+	assert.match(row.querySelector('.zenfg-inspector-resource-lifetime')!.textContent!, /Order 0–2/);
 	const notes = view.root.querySelector<HTMLDetailsElement>('.zenfg-inspector-resource-notes')!; notes.open = true;
 	setSelect(view.root, 'Sort resources', 'size');
 	search(view.root, 'Search resource, ID or group', 'scene');
@@ -367,5 +367,5 @@ test('Resources expose descriptor and inclusive slots without replacing logical 
 	view.reveal({ kind: 'resource', id: 'resource:backbuffer' });
 	assert.equal(view.root.querySelectorAll('tr[data-selection-key]').length, 3);
 	assert.equal(view.root.querySelector<HTMLSelectElement>('[aria-label="Sort resources"]')!.value, 'size');
-	assert.equal(view.root.querySelector('.zenfg-inspector-resource-table th:nth-child(3)')!.getAttribute('aria-sort'), 'descending');
+	assert.equal(view.root.querySelector('.zenfg-inspector-resource-table th:nth-child(2)')!.getAttribute('aria-sort'), 'descending');
 });

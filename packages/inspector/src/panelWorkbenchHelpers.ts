@@ -2,7 +2,7 @@ import type {
 	FrameGraphDebugResource,
 	FrameGraphDebugViewModel,
 } from './debugCaptureModel.ts';
-import { createCell, formatBytes, labelResource } from './panelDomHelpers.ts';
+import { createCell, formatBytes, labelNode, labelResource } from './panelDomHelpers.ts';
 import { createPanelIcon, type PanelIconName } from './panelIcons.ts';
 import type { Selection, WorkbenchTab } from './panelTypes.ts';
 
@@ -167,6 +167,22 @@ export function createIconAction(icon: PanelIconName, label: string, onClick: ()
 	return button;
 }
 
+/** Keep the identifying tail visible while exposing the complete name and ID. */
+export function setObjectName(button: HTMLButtonElement, label: string, id: string): void {
+	button.classList.add('zenfg-inspector-object-name');
+	button.title = `${label} · ${id}`;
+	button.setAttribute('aria-label', label);
+	const characters = [...label];
+	const suffixLength = characters.length > 24 ? 12 : 0;
+	const prefix = document.createElement('span'); prefix.className = 'zenfg-inspector-name-prefix';
+	prefix.textContent = suffixLength ? characters.slice(0, -suffixLength).join('') : label;
+	button.replaceChildren(prefix);
+	if (suffixLength) {
+		const suffix = document.createElement('span'); suffix.className = 'zenfg-inspector-name-suffix';
+		suffix.textContent = characters.slice(-suffixLength).join(''); button.append(suffix);
+	}
+}
+
 export function createKindCell(kind: string, label = kind): HTMLTableCellElement {
 	const cell = createCell('', { column: 'kind', kind });
 	const marker = document.createElement('span');
@@ -206,6 +222,45 @@ export function formatResourceDescriptor(resource: FrameGraphDebugResource): str
 	return 'Unknown';
 }
 
+/** Compact identity facts; declared capacity never substitutes for an estimate. */
+export function formatResourceListDescriptor(resource: FrameGraphDebugResource): string {
+	const descriptor = resource.descriptor;
+	if (!descriptor) return '';
+	if ('size' in descriptor && typeof descriptor.size === 'number') {
+		return descriptor.size === resource.estimatedByteSize ? '' : `Capacity ${formatBytes(descriptor.size)}`;
+	}
+	if (!('format' in descriptor)) return '';
+	const { size } = descriptor;
+	const extent = `${size.width}×${size.height}${size.depthOrArrayLayers !== 1 ? `×${size.depthOrArrayLayers}` : ''}`;
+	return [descriptor.format, extent, descriptor.dimension !== '2d' ? descriptor.dimension : undefined,
+		descriptor.mipLevelCount > 1 ? `${descriptor.mipLevelCount} mips` : undefined,
+		descriptor.sampleCount > 1 ? `${descriptor.sampleCount}× MSAA` : undefined].filter(Boolean).join(' · ');
+}
+
+/** Inclusive retained execution-order boundaries, with explicit navigation. */
+export function createResourceLifetime(resource: FrameGraphDebugResource, nodesByOrder: ReadonlyMap<number, { readonly id: string; readonly label?: string }>,
+	onReveal: WorkbenchCallbacks['onReveal']): HTMLSpanElement {
+	const host = document.createElement('span'); host.className = 'zenfg-inspector-resource-lifetime';
+	const label = document.createElement('span'); label.className = 'zenfg-inspector-resource-order-label'; label.textContent = 'Order ';
+	host.append(label);
+	if (!resource.lifetime) { host.append('Unavailable'); host.title = 'Lifetime was not captured; this does not imply that the resource is unused.'; return host; }
+	host.title = 'Inclusive retained execution Order, matching Passes; not elapsed time.';
+	const { firstUse, lastUse } = resource.lifetime;
+	for (const [boundary, order] of (firstUse === lastUse ? [['only', firstUse]] : [['first', firstUse], ['last', lastUse]]) as readonly (readonly [string, number])[]) {
+		if (boundary === 'last') host.append('–');
+		const node = nodesByOrder.get(order);
+		if (node && onReveal) {
+			const button = document.createElement('button'); button.type = 'button'; button.className = 'zenfg-inspector-relation-button';
+			button.textContent = String(order); button.dataset.resourceFocus = `${resource.id}:order:${boundary}`;
+			button.title = `Locate ${boundary} use at Order ${order} in Passes: ${labelNode(node)}`;
+			button.setAttribute('aria-label', button.title);
+			button.addEventListener('click', () => onReveal({ kind: 'node', id: node.id }, 'passes')); host.append(button);
+		} else host.append(String(order));
+	}
+	return host;
+}
+
+/** Count declared records without deduplicating ranges or excluding culled nodes. */
 export function resourceAccessCounts(snapshot: FrameGraphDebugViewModel, resourceId: string): readonly [number, number] {
 	let reads = 0;
 	let writes = 0;

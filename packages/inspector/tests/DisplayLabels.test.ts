@@ -92,7 +92,7 @@ test('blank canonical labels remain inspectable through named Overview, Passes a
 	assert.equal(hotspot.textContent, 'node:scene'); hotspot.click();
 	const pass = passes.root.querySelector<HTMLButtonElement>('tr[data-selection-key="node:node:scene"] .zenfg-inspector-timing-name')!;
 	assert.equal(pass.textContent, 'node:scene'); pass.click();
-	const resource = resources.root.querySelector<HTMLButtonElement>('tr[data-selection-key="resource:resource:scene-color"] td > .zenfg-inspector-relation-button')!;
+	const resource = resources.root.querySelector<HTMLButtonElement>('tr[data-selection-key="resource:resource:scene-color"] .zenfg-inspector-object-name')!;
 	assert.equal(resource.textContent, 'resource:scene-color'); resource.click();
 	assert.deepEqual(reveals, [[{ kind: 'node', id: 'node:scene' }, 'passes']]);
 	assert.deepEqual(selections, [{ kind: 'node', id: 'node:scene' }, { kind: 'resource', id: 'resource:scene-color' }]);
