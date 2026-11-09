@@ -70,7 +70,10 @@ test('Passes includes retained and culled work with composable state, kind, ID s
 	const view = new PassesView(log.handlers, 'passes');
 	view.setSnapshot(createDebugViewModel(fixture()));
 	assert.deepEqual(listRows(view).map((row) => row.dataset.selectionKey), ['node:node:scene', 'node:node:external', 'node:node:present', 'culled:node:unused']);
-	assert.match(listRows(view)[3]!.textContent!, /CulledNot applicablecomputeNot executedNot applicable/);
+	assert.match(listRows(view)[3]!.textContent!, /Culled/);
+	assert.match(listRows(view)[3]!.textContent!, /compute/);
+	assert.match(listRows(view)[3]!.textContent!, /Not executed.*not-reachable-from-root/);
+	assert.equal(listRows(view)[3]!.querySelector('[data-timing]'), null);
 	assert.match(view.root.querySelector('.zenfg-inspector-result-count')!.textContent!, /4 \/ 4 passes/);
 	search(view.root, 'Search pass, ID or group', 'node:unused');
 	assert.equal(listRows(view).length, 1);
@@ -145,8 +148,8 @@ test('Pass and group GPU values distinguish missing, partial, zero and ineligibl
 	view.setSnapshot(createDebugViewModel({ ...snapshot, timings: { cpu: { status: 'unavailable', reason: 'not-requested' }, gpu: {
 		status: 'available', frameSpanMicros: 0, nodes: [{ nodeId: 'node:scene', durationMicros: 0 }],
 	} } }));
-	assert.equal(listRows(view)[0]!.cells[5]!.textContent, '0.000');
-	assert.equal(listRows(view)[2]!.cells[5]!.textContent, 'Not collected');
+	assert.equal(listRows(view)[0]!.querySelector('[data-timing="gpu"] .zenfg-inspector-pass-duration')!.textContent, '0.000');
+	assert.equal(listRows(view)[2]!.querySelector('[data-timing="gpu"]')!.textContent, 'Not collected');
 	assert.match(view.root.querySelector('.zenfg-inspector-list-context')!.textContent!, /Partial.*1\/2/);
 	assert.match(view.root.querySelector('[id$="group-list-panel"] tbody tr')!.textContent!, /0\.000 ms.*Partial.*1\/2/);
 	view.setSnapshot(createDebugViewModel({ ...snapshot, timings: { cpu: { status: 'unavailable', reason: 'not-requested' }, gpu: { status: 'unavailable', reason: 'disabled' } } }));
@@ -304,10 +307,10 @@ test('Pass timing notes preserve expansion and sort across refresh while keeping
 	const rows = listRows(view);
 	assert.equal(rows[0]!.dataset.selectionKey, 'node:node:scene');
 	assert.equal(rows[0]!.classList.contains('selected'), true);
-	assert.equal(rows[0]!.cells[5]!.getAttribute('aria-label'), 'GPU (ms): 0.000');
-	assert.equal(rows[0]!.cells[4]!.getAttribute('aria-label'), 'CPU (ms): Not collected');
-	assert.equal(view.root.querySelector('.zenfg-inspector-pass-table th:nth-child(6)')!.getAttribute('aria-sort'), 'descending');
-	assert.match(rows[0]!.querySelector('.zenfg-inspector-list-row-meta')!.textContent!, /Retained.*render.*#0/);
+	assert.match(rows[0]!.querySelector('[data-timing="gpu"]')!.getAttribute('aria-label')!, /^GPU: 0\.000 ms/);
+	assert.match(rows[0]!.querySelector('[data-timing="cpu"]')!.getAttribute('aria-label')!, /^CPU: Not collected/);
+	assert.match(view.root.querySelector('.zenfg-inspector-pass-table th[aria-sort="descending"]')!.textContent!, /GPU/);
+	assert.match(rows[0]!.querySelector('.zenfg-inspector-list-row-meta')!.textContent!, /render.*#0/);
 	search(view.root, 'Search pass, ID or group', 'present');
 	view.reveal({ kind: 'node', id: 'node:scene' });
 	assert.equal(view.root.querySelector<HTMLSelectElement>('[aria-label="Sort passes"]')!.value, 'gpu');

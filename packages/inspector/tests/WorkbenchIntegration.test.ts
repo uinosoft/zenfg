@@ -235,14 +235,22 @@ test('Overview pass shortcuts clear filters, return to the list and preserve pas
 			kind.value = 'compute'; kind.dispatchEvent(new Event('change'));
 			state.value = 'culled'; state.dispatchEvent(new Event('change'));
 		};
+		const scopeToPostFX = () => {
+			button(passes, 'Group Hierarchy').click();
+			element<HTMLButtonElement>(passes, 'button[aria-label="View passes in group Main / PostFX"]').click();
+			assert.equal(element(passes, '.zenfg-inspector-pass-scope').hidden, false);
+			assert.equal(passes.querySelectorAll('[id$="pass-list-panel"] tbody tr[data-selection-key]').length, 1);
+		};
 		const assertUnfiltered = () => {
 			assert.equal(button(tabs(panel), 'Passes').getAttribute('aria-selected'), 'true');
 			assert.equal(button(passes, 'Pass List').getAttribute('aria-selected'), 'true');
 			assert.equal(search.value, ''); assert.equal(kind.value, 'all'); assert.equal(state.value, 'all');
 			assert.equal(sort.value, 'cpu');
+			assert.equal(element(passes, '.zenfg-inspector-pass-scope').hidden, true);
 			assert.equal(passes.querySelectorAll('[id$="pass-list-panel"] tbody tr[data-selection-key]').length, 4);
 		};
 		sort.value = 'cpu'; sort.dispatchEvent(new Event('change'));
+		scopeToPostFX();
 		filterToCulled();
 		button(passes, 'Group Hierarchy').click();
 		button(tabs(panel), 'Overview').click();
@@ -250,6 +258,7 @@ test('Overview pass shortcuts clear filters, return to the list and preserve pas
 		button(overview, 'View all passes').click();
 		assertUnfiltered();
 		assert.equal(aside(panel).hidden, true);
+		scopeToPostFX();
 		filterToCulled();
 		button(tabs(panel), 'Overview').click();
 		button(overview, 'scene').click();
@@ -257,6 +266,13 @@ test('Overview pass shortcuts clear filters, return to the list and preserve pas
 		assert.equal(aside(panel).hidden, false);
 		assert.equal(element(aside(panel), 'header strong').textContent, 'scene');
 		assert.ok(button(passes, 'scene').closest('tr')?.classList.contains('selected'));
+		scopeToPostFX();
+		button(tabs(panel), 'Overview').click();
+		button(overview, '1 Culled').click();
+		assert.equal(element(passes, '.zenfg-inspector-pass-scope').hidden, true);
+		assert.equal(state.value, 'culled');
+		assert.equal(sort.value, 'cpu');
+		assert.ok(button(passes, 'unused').closest('tr'));
 	} finally { panel.destroy(); window.close(); }
 });
 

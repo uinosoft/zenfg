@@ -1,4 +1,4 @@
-<!-- translation: {"version":1,"source":"packages/inspector/GUIDE.md","sourceHash":"1e8a7ace8e6e4efd6590c55e12e0ba923d6edfd8d1fbf08424169015945b3ec3","state":"ready"} -->
+<!-- translation: {"version":1,"source":"packages/inspector/GUIDE.md","sourceHash":"74f79529787d3f422d9f6108d2ade4e6e2947b8648aa64f9133dc25852c29152","state":"ready"} -->
 
 <a id="zenfginspector-usage"></a>
 
@@ -155,12 +155,14 @@ Capture 操作始终同时请求 CPU 和 GPU 计时。数据提供方会收到 `
 | --- | --- |
 | Overview | 显示全帧 GPU 时间跨度、CPU 执行耗时、物理分配估算、保留通道指标、GPU 或 CPU 耗时最长的五个通道、资源/资源池摘要和诊断数量。通道类型数量和非零已裁剪通道的快捷入口位于 Retained passes 指标中。可展开查看捕获元数据、分组数量和执行分段信息。 |
 | Graph | 展示 Frame Flow 结构，可按通道、资源、分组或输出搜索，并提供显式定位和可折叠图例。 |
-| Passes | 查看全部、保留或已裁剪通道，可按类型及名称/ID/分组筛选，并按执行顺序、GPU 或 CPU 排序。紧凑行中仍显示两种计时。独立的 Group Hierarchy 支持展开和路径搜索。 |
+| Passes | 查看全部、保留或已裁剪通道，可按类型及名称/ID/分组筛选，并按执行顺序、GPU 或 CPU 排序。Pass List 使用 Name、CPU 和 GPU 三列；类型、顺序及读写数量与名称一起显示，并保留便于识别的名称后缀。Culled 视图以裁剪原因代替计时列。独立的 Group Hierarchy 支持展开、路径搜索和 View passes 操作。 |
 | Resources | 可按名称/ID/分组、类型以及 Transient/Imported/Surface 筛选，并按名称、估算大小和首次使用排序。行内显示简要描述符；完整描述符和分配信息位于详情中。 |
 | Memory | 显示物理分配和别名节省估算、单独的累计资源池摘要，以及可折叠的分配分组和包含首末执行槽的生命周期。支持搜索、按分配/大小排序以及 All/Aliased/Single/Unallocated 筛选。 |
 | Diagnostics | 显示捕获到的所有错误、警告和信息消息，包括重复代码。可按严重级别按钮计数，并按代码/消息搜索；Compilation 详情另行展示可展开的保留根、裁剪原因和执行分段。 |
 
 列表显示匹配数量和总数，支持连续滚动，并提供 **Clear filters**。Passes 先按执行顺序排列保留工作，再按录制顺序排列已裁剪工作；没有录制顺序时则按捕获顺序排列。保留表示编译器保留了某通道，并不证明 GPU 实际执行了它。已裁剪工作没有执行顺序、分段或 GPU 计时。Group Hierarchy 的箭头只改变树形结构；**Show in Graph** 是独立操作。
+
+Group Hierarchy 中的 **View passes** 会打开 Pass List，查看该组及其全部后代组中的通道，同时清除原有的搜索、类型和编译状态筛选，并保留排序方式。筛选范围显示完整分组路径及 **includes subgroups**；通过分组 ID 区分同名分组。此范围可以清除，捕获刷新后若该分组 ID 仍存在则继续保留。**Clear filters**、导航至全部或已裁剪通道，以及显式定位通道都会清除此范围。普通分组选择只打开详情，不改变通道筛选。分组摘要包含后代组，因此不能将父组与子组的汇总值相加。
 
 Diagnostics 会在每种严重级别内部保留捕获顺序；当消息同时引用节点和资源时，会分别提供链接。已裁剪节点的链接与保留节点相同。Diagnostics 标签页显示错误/警告数量。Overview 的 **Capture information** 中可查看来源、帧和捕获时间；未提供时间戳时显示为未知。**Legend** 按钮固定在左下角，可滚动面板在其上方展开，不改变画布尺寸和视口。再次点击按钮、使用面板关闭按钮、按 Escape 或点击面板外部即可关闭。
 图控件也悬浮在画布上。**Search** 打开搜索框，**Escape** 关闭。结果显示对象类型、ID 和可用的分组路径；精确名称和 ID 优先。使用方向键浏览结果，按 Enter 定位当前结果。**Display** 菜单含 Declarations、Groups 和 Collapse All。缩放控件显示当前比例，提供放大/缩小、**100%**、**Fit selection** 和适配整张图的 **Fit**。这些控件会保留选择状态且不会展开分组。选中分组后，可使用明确的 Expand/Collapse 控件或双击手势。
@@ -174,6 +176,8 @@ Diagnostics 会在每种严重级别内部保留捕获顺序；当消息同时�
 ### 计时与内存信息解读
 
 计时标签会区分未采集、部分覆盖、完全覆盖、不适用和测得为零。**Measured pass sum** 是可用通道计时的总和，并显示已计时/符合条件的数量；**GPU span** 单独显示。不会推测不透明外部工作的耗时。单个计时应在 Passes 中比较；Diagnostics 不会重复展示。
+
+Pass List 显示 CPU 和 GPU 的毫秒数，以及每个通道占整份捕获中该指标全部已测通道总和的比例。搜索、类型/状态筛选和分组范围不会改变占比分母或条形比例尺。比较条随 CPU/GPU 排序方式切换；其他排序方式在捕获具有 GPU 测量值时使用 GPU，否则使用 CPU。这些通道总和与 CPU 执行耗时及 GPU 时间跨度分别统计。缺失测量值不等于零，通道总和为零时不计算百分比。
 
 Overview 按耗时排列已测量的通道，并显示其占全部已测量通道总和的比例，包括前五名以外的通道。GPU 覆盖率统计保留的渲染/计算通道；CPU 覆盖率统计所有保留通道。总和为零时不计算百分比。点击通道可在 Passes 中定位；点击 **View all passes** 会清除 Pass 筛选并打开列表，同时保留排序方式。GPU/CPU 选择及已展开的 Overview 内容随 Inspector 实例保留。
 
