@@ -24,6 +24,17 @@ function unavailableTiming(reason: string, eligible: number): string {
   return reason === 'not-requested' || reason === 'not-collected' ? 'Not collected' : 'Unavailable';
 }
 
+function timingAxisMaximum(maximum: number): number {
+  if (maximum <= 0) return 0;
+  const magnitude = 10 ** Math.floor(Math.log10(maximum));
+  const normalized = maximum / magnitude;
+  return (normalized <= 1 ? 1 : normalized <= 2 ? 2 : normalized <= 5 ? 5 : 10) * magnitude;
+}
+
+function formatAxisTick(micros: number): string {
+  return (micros / 1000).toLocaleString('en-US', { maximumSignificantDigits: 3, useGrouping: false });
+}
+
 function facts(rows: readonly Fact[]): HTMLDListElement {
   const list = element('dl', 'facts');
   for (const [label, value] of rows) {
@@ -104,6 +115,7 @@ export class OverviewView {
 
     const columns = element('div', 'columns');
     const timingPanel = element('section', 'panel');
+    timingPanel.classList.add('zenfg-inspector-overview-timing-panel');
     const heading = element('header', 'heading');
     const timingSwitch = element('div', 'timing-switch');
     timingSwitch.setAttribute('role', 'group');
@@ -112,10 +124,10 @@ export class OverviewView {
     heading.append(element('h2', 'title', 'Pass timings'), timingSwitch,
       this.link('View all passes', () => this.callbacks.onNavigate?.('passes', 'all')));
     this.renderTimings();
-    timingPanel.append(heading, this.timingContent, this.createWork(snapshot));
-    columns.append(timingPanel, this.createResources(snapshot));
+    timingPanel.append(heading, this.timingContent);
+    columns.append(this.createResources(snapshot), this.createWork(snapshot));
     this.updateDetails(snapshot);
-    this.root.replaceChildren(summary, columns, this.captureDetails, this.snapshotDetails);
+    this.root.replaceChildren(summary, timingPanel, columns, this.captureDetails, this.snapshotDetails);
   }
 
   private createKpi(metric: string, label: string, value: string, note: string, unit?: string, description?: string): HTMLElement {
@@ -167,6 +179,9 @@ export class OverviewView {
     const measured = snapshot.nodes.filter(node => (!gpu || node.kind === 'render' || node.kind === 'compute') && duration(node) !== undefined);
     const eligible = gpu ? snapshot.metrics.timingEligibleNodeCount : snapshot.nodes.length;
     const total = measured.reduce((sum, node) => sum + duration(node)!, 0);
+    const sorted = [...measured].sort((a, b) => duration(b)! - duration(a)! || a.order - b.order || a.id.localeCompare(b.id));
+    const ranked = sorted.slice(0, 5);
+    const axisMaximum = timingAxisMaximum(ranked.length ? duration(ranked[0]!)! : 0);
     const modeLabel = this.timingMode.toUpperCase();
     const timing = gpu ? snapshot.protocol.timings.gpu : snapshot.cpuProfiling;
     const coverage = element('p', 'coverage', measured.length
@@ -175,36 +190,52 @@ export class OverviewView {
     if (timing.status === 'unavailable') coverage.title = timing.reason;
     const table = element('table', 'timings');
     table.setAttribute('aria-label', `${modeLabel} pass timing ranking`);
+    table.dataset.maxMicros = String(axisMaximum);
     const head = document.createElement('thead');
     const header = document.createElement('tr');
-    for (const label of ['Pass', 'Kind', 'Time', 'Share']) {
+    for (const label of ['Pass', 'Duration', 'Time', 'Share']) {
       const cell = document.createElement('th');
-      cell.scope = 'col'; cell.textContent = label; header.append(cell);
+      cell.scope = 'col';
+      if (label === 'Duration' && axisMaximum > 0) {
+        cell.className = 'zenfg-inspector-overview-timing-axis';
+        cell.setAttribute('aria-label', 'Duration in milliseconds');
+        const axis = element('div', 'axis');
+        for (const [index, value] of [0, axisMaximum / 2, axisMaximum].entries()) {
+          axis.append(element('span', 'tick', `${formatAxisTick(value)}${index === 2 ? ' ms' : ''}`));
+        }
+        cell.append(axis);
+      } else cell.textContent = label;
+      header.append(cell);
     }
     head.append(header);
     const body = element('tbody', 'timing-rows');
-    const ranked = [...measured].sort((a, b) => duration(b)! - duration(a)! || a.order - b.order || a.id.localeCompare(b.id)).slice(0, 5);
     for (const node of ranked) {
       const row = document.createElement('tr');
       row.dataset.nodeId = node.id;
       const nameCell = document.createElement('td');
-      const name = element('button', 'pass', labelNode(node));
-      name.type = 'button'; name.title = labelNode(node);
+      const identity = element('div', 'pass-identity');
+      const label = labelNode(node);
+      const name = element('button', 'pass');
+      name.type = 'button'; name.title = label;
+      name.setAttribute('aria-label', label);
+      const characters = [...label];
+      const suffixLength = characters.length > 24 ? 12 : 0;
+      name.append(element('span', 'pass-prefix', suffixLength ? characters.slice(0, -suffixLength).join('') : label));
+      if (suffixLength) name.append(element('span', 'pass-suffix', characters.slice(-suffixLength).join('')));
       name.addEventListener('click', () => this.callbacks.onReveal?.({ kind: 'node', id: node.id }, 'passes'));
-      nameCell.append(name);
-      const kindCell = document.createElement('td');
       const kind = element('span', 'kind', KIND_LABELS[node.kind]);
-      kind.dataset.kind = node.kind; kindCell.append(kind);
-      const timeCell = element('td', 'duration', `${(duration(node)! / 1000).toFixed(3)} ms`);
-      const share = document.createElement('td');
-      const shareContent = element('div', 'share');
+      kind.dataset.kind = node.kind;
+      identity.append(name, kind); nameCell.append(identity);
+      const plot = element('td', 'plot');
       const bar = element('span', 'bar');
       bar.setAttribute('aria-hidden', 'true');
       const fill = document.createElement('span');
+      fill.style.width = `${axisMaximum > 0 ? duration(node)! / axisMaximum * 100 : 0}%`;
+      bar.append(fill); plot.append(bar);
+      const timeCell = element('td', 'duration', `${(duration(node)! / 1000).toFixed(3)} ms`);
       const percentage = total > 0 ? duration(node)! / total * 100 : undefined;
-      fill.style.width = `${percentage ?? 0}%`; bar.append(fill);
-      shareContent.append(bar, element('span', 'percentage', percentage === undefined ? '—' : `${percentage.toFixed(1)}%`));
-      share.append(shareContent); row.append(nameCell, kindCell, timeCell, share); body.append(row);
+      const share = element('td', 'percentage', percentage === undefined ? '—' : `${percentage.toFixed(1)}%`);
+      row.append(nameCell, plot, timeCell, share); body.append(row);
     }
     if (!ranked.length) {
       const row = document.createElement('tr');
@@ -213,7 +244,36 @@ export class OverviewView {
       empty.colSpan = 4; row.append(empty); body.append(row);
     }
     table.append(head, body);
-    this.timingContent.replaceChildren(coverage, table, element('p', 'note', 'Share of measured pass sum'));
+    this.timingContent.replaceChildren(coverage, table);
+    if (ranked.length) {
+      const topTotal = ranked.reduce((sum, node) => sum + duration(node)!, 0);
+      const remaining = sorted.slice(ranked.length);
+      const otherTotal = remaining.reduce((sum, node) => sum + duration(node)!, 0);
+      const summary = element('div', 'timing-summary');
+      const totals = element('div', 'timing-totals');
+      for (const [part, label, value] of [
+        ['top', `Top ${ranked.length}`, topTotal],
+        ...(remaining.length ? [['other', `Other ${remaining.length} measured passes`, otherTotal] as const] : []),
+      ] as const) {
+        const item = document.createElement('span');
+        item.dataset.part = part;
+        const number = document.createElement('strong');
+        number.textContent = `${(value / 1000).toFixed(3)} ms · ${total > 0 ? `${(value / total * 100).toFixed(1)}%` : '—'}`;
+        item.append(document.createTextNode(`${label} `), number);
+        totals.append(item);
+      }
+      summary.append(totals);
+      if (total > 0 && remaining.length) {
+        const composition = element('div', 'timing-composition');
+        composition.setAttribute('role', 'img');
+        composition.setAttribute('aria-label', `Top ${ranked.length}: ${(topTotal / total * 100).toFixed(1)}% of measured pass sum; other ${remaining.length} measured passes: ${(otherTotal / total * 100).toFixed(1)}%`);
+        composition.style.setProperty('--top-share', `${topTotal / total * 100}%`);
+        composition.append(document.createElement('span'), document.createElement('span'));
+        summary.append(composition);
+      }
+      summary.append(element('p', 'note', 'Share of measured pass sum; not total frame time.'));
+      this.timingContent.append(summary);
+    }
     const externalCount = snapshot.nodes.filter(node => node.kind === 'external-submission').length;
     if (gpu && externalCount > 0) {
       const hint = element('p', 'external');
@@ -224,6 +284,7 @@ export class OverviewView {
 
   private createWork(snapshot: FrameGraphDebugViewModel): HTMLElement {
     const work = element('section', 'work');
+    work.classList.add('zenfg-inspector-overview-panel');
     const heading = element('div', 'heading');
     const kinds = element('div', 'kinds');
     for (const kind of NODE_KINDS) {
@@ -242,6 +303,7 @@ export class OverviewView {
 
   private createResources(snapshot: FrameGraphDebugViewModel): HTMLElement {
     const panel = element('section', 'panel');
+    panel.classList.add('zenfg-inspector-overview-resources');
     const heading = element('header', 'heading');
     heading.append(element('h2', 'title', 'Resources & memory'), this.link('View memory', () => this.callbacks.onNavigate?.('memory')));
     const allocationAvailable = snapshot.protocol.memory.allocationReport.status === 'available';

@@ -1,6 +1,26 @@
 import assert from 'node:assert/strict';
 import { resolve } from 'node:path';
 
+function multiPassCapture(source) {
+    const snapshot = structuredClone(source);
+    const names = ['mesh.deferred.gbuffer', 'mesh.directional-shadow.depth.1', 'postfx.ssr.denoise', 'fsr-taau.upscale-accumulate', 'mesh.directional-shadow.depth.2'];
+    const durations = [440, 321, 313, 293, 269, ...Array(32).fill(47), 51];
+    const nodes = durations.map((_, index) => ({
+        id: `node:timing-${index}`, label: names[index] ?? `lighting.additional-pass.${index}`,
+        kind: index === 3 || index >= 26 ? 'compute' : 'render', sideEffect: true,
+        recordingOrder: index, compileState: { status: 'retained', executionOrder: index },
+    }));
+    snapshot.graph = { groups: [], nodes, resources: [], textureViews: [], accesses: [], dependencies: [], roots: [],
+        segments: [{ id: 'segment:timing', kind: 'frame-graph', order: 0, nodeIds: nodes.map(node => node.id) }] };
+    snapshot.memory = { allocationReport: { status: 'unavailable', reason: 'not-requested' }, poolReport: { status: 'unavailable', reason: 'not-requested' } };
+    snapshot.timings = { cpu: { status: 'unavailable', reason: 'not-requested' }, gpu: {
+        status: 'available', frameSpanMicros: 3456,
+        nodes: durations.map((durationMicros, index) => ({ nodeId: nodes[index].id, durationMicros })),
+    } };
+    snapshot.diagnostics = [];
+    return snapshot;
+}
+
 // DOM acceptance for the redesigned overview. Real capture values complement
 // the synthetic edge cases covered by the Inspector unit tests.
 export async function checkOverview(page, output, fullSnapshot) {
@@ -37,11 +57,14 @@ export async function checkOverview(page, output, fullSnapshot) {
         assert.match(await rows.first().innerText(), /88\.6%/);
         assert.match(await overview.innerText(), /1\.591\s*ms/);
         assert.match(await overview.innerText(), /external/i);
+        assert.equal(await overview.locator('.zenfg-inspector-overview-timing-totals [data-part="other"]').count(), 0);
 
         // A user-selected metric and both disclosure states survive a capture refresh.
         await toggle('CPU').click();
         assert.equal(await toggle('CPU').getAttribute('aria-pressed'), 'true');
         assert.equal(await rows.count(), 0);
+        assert.equal(await overview.locator('.zenfg-inspector-overview-axis').count(), 0);
+        assert.equal(await overview.locator('.zenfg-inspector-overview-timing-summary').count(), 0);
         for (const name of ['.zenfg-inspector-capture-details', '.zenfg-inspector-snapshot-details']) {
             const details = overview.locator(name);
             const summary = details.locator('summary');
@@ -105,10 +128,19 @@ export async function checkOverview(page, output, fullSnapshot) {
             assert.equal(await page.getByRole('tab', { name: tab, exact: true }).getAttribute('aria-selected'), 'true');
             await openOverview();
         }
-        await setSnapshot(fullSnapshot);
+        const multiPass = multiPassCapture(fullSnapshot);
+        await setSnapshot(multiPass);
+        assert.equal(await rows.count(), 5);
+        assert.deepEqual(await rows.evaluateAll(elements => elements.map(el => el.dataset.nodeId)), [0, 1, 2, 3, 4].map(index => `node:timing-${index}`));
+        assert.match(await rows.first().innerText(), /0\.440\s*ms.*13\.8%/s);
+        assert.match(await overview.locator('.zenfg-inspector-overview-coverage').innerText(), /3\.191\s*ms.*38\/38/);
+        assert.equal(await overview.locator('.zenfg-inspector-overview-timings').getAttribute('data-max-micros'), '500');
+        assert.match(await overview.locator('.zenfg-inspector-overview-axis').innerText(), /0\.5(?:0+)?\s*ms/);
+        assert.match(await overview.locator('.zenfg-inspector-overview-timing-totals [data-part="top"]').innerText(), /5.*1\.636\s*ms.*51\.3%/s);
+        assert.match(await overview.locator('.zenfg-inspector-overview-timing-totals [data-part="other"]').innerText(), /33.*1\.555\s*ms.*48\.7%/s);
 
         // Container width, rather than the surrounding browser page, determines layout.
-        for (const [width, height] of [[1277, 920], [800, 920], [390, 844], [390, 480]]) {
+        for (const [width, height] of [[1277, 920], [800, 920], [390, 844], [320, 844], [390, 480]]) {
             await page.setViewportSize({ width, height });
             await page.evaluate(height => { themeQA.host.style.height = height + 'px'; }, height);
             for (const mode of ['dark', 'light', 'custom']) {
@@ -125,13 +157,33 @@ export async function checkOverview(page, output, fullSnapshot) {
                     } else themeQA.inspector.setTheme(mode === 'dark' ? themeQA.tokyoNightStorm : themeQA.tokyoNightLight);
                 }, mode);
                 await settle();
+                await overview.evaluate(el => { el.scrollTop = 0; });
                 const layout = await overview.evaluate(el => {
                     const count = selector => getComputedStyle(el.querySelector(selector)).gridTemplateColumns.split(/\s+/).filter(Boolean).length;
-                    return { kpis: count('.zenfg-inspector-overview-kpis'), columns: count('.zenfg-inspector-overview-columns'), overflowY: getComputedStyle(el).overflowY };
+                    const bounds = selector => {
+                        const box = el.querySelector(selector).getBoundingClientRect();
+                        return { x: box.x, y: box.y, width: box.width, height: box.height, right: box.right, bottom: box.bottom };
+                    };
+                    return { kpis: count('.zenfg-inspector-overview-kpis'), columns: count('.zenfg-inspector-overview-columns'), overflowY: getComputedStyle(el).overflowY,
+                        summary: bounds('.zenfg-inspector-overview-summary'), timing: bounds('.zenfg-inspector-overview-timing-panel'), lower: bounds('.zenfg-inspector-overview-columns'),
+                        track: bounds('.zenfg-inspector-overview-timing-rows tr:first-child .zenfg-inspector-overview-bar'), fill: bounds('.zenfg-inspector-overview-timing-rows tr:first-child .zenfg-inspector-overview-bar > span'),
+                        name: bounds('.zenfg-inspector-overview-timing-rows tr:first-child .zenfg-inspector-overview-pass'),
+                        ticks: [...el.querySelectorAll('.zenfg-inspector-overview-axis > span')].filter(tick => getComputedStyle(tick).display !== 'none').map(tick => {
+                            const box = tick.getBoundingClientRect();
+                            return { x: box.x, right: box.right };
+                        }).sort((a, b) => a.x - b.x) };
                 });
                 assert.equal(layout.kpis, width >= 1000 ? 4 : width >= 600 ? 2 : 1, `${width}/${height}/${mode}: KPI columns`);
                 assert.equal(layout.columns, width >= 1000 ? 2 : 1, `${width}/${height}/${mode}: lower columns`);
                 assert.equal(layout.overflowY, 'auto');
+                assert.ok(Math.abs(layout.timing.x - layout.summary.x) <= 1 && Math.abs(layout.timing.width - layout.summary.width) <= 1, `${width}/${height}/${mode}: timing analysis uses full content width`);
+                assert.ok(layout.timing.y >= layout.summary.bottom && layout.lower.y >= layout.timing.bottom, `${width}/${height}/${mode}: summary, timing analysis and supporting facts have separate rows`);
+                assert.ok(layout.track.width > 20 && Math.abs(layout.fill.width / layout.track.width - 0.88) < 0.01, `${width}/${height}/${mode}: visible time bars use the millisecond axis, not 13.8% share`);
+                assert.ok(layout.name.right <= layout.track.x + 1 || layout.name.bottom <= layout.track.y + 1 || layout.track.bottom <= layout.name.y + 1, `${width}/${height}/${mode}: pass label does not overlap the time chart`);
+                assert.ok(layout.ticks.length >= 2, `${width}/${height}/${mode}: time axis retains visible start and end labels`);
+                for (let index = 1; index < layout.ticks.length; index++) {
+                    assert.ok(layout.ticks[index - 1].right <= layout.ticks[index].x, `${width}/${height}/${mode}: visible time-axis labels do not overlap`);
+                }
                 if (mode === 'custom') assert.equal(await metric('gpu').evaluate(el => getComputedStyle(el).color), 'rgb(35, 69, 103)', 'overview inherits custom host text');
                 await expectNoOverflow(`${width}/${height}/${mode}`);
                 for (const label of ['Import', 'Export']) {
@@ -147,6 +199,14 @@ export async function checkOverview(page, output, fullSnapshot) {
                 await page.getByRole('menuitem', { name: 'Download JSON', exact: true }).press('Escape');
                 assert.equal(await page.getByRole('button', { name: 'Export', exact: true }).evaluate(el => el === document.activeElement), true);
                 await page.screenshot({ path: resolve(output, `${mode}-${width}-${height}-overview-redesign.png`), animations: 'disabled' });
+                if (width < 600) {
+                    await overview.evaluate(el => {
+                        const panel = el.querySelector('.zenfg-inspector-overview-timing-panel');
+                        el.scrollTop += panel.getBoundingClientRect().top - el.getBoundingClientRect().top;
+                    });
+                    await settle();
+                    await page.screenshot({ path: resolve(output, `${mode}-${width}-${height}-overview-timing.png`), animations: 'disabled' });
+                }
             }
         }
         assert.ok(await overview.evaluate(el => el.scrollHeight > el.clientHeight), '390 × 480 overview scrolls');
@@ -166,6 +226,7 @@ export async function checkOverview(page, output, fullSnapshot) {
         assert.match(await value('cpu'), /0\.000\s*ms/);
         assert.equal(await rows.count(), 2, 'measured zero-duration passes remain visible');
         assert.ok((await rows.allInnerTexts()).every(text => text.includes('—') && !text.includes('NaN')), 'zero total has no invented percentages');
+        assert.equal(await overview.locator('.zenfg-inspector-overview-timing-composition').count(), 0, 'zero total has no invented composition');
 
         const partial = structuredClone(fullSnapshot);
         partial.timings.gpu.nodes = [partial.timings.gpu.nodes[0]];

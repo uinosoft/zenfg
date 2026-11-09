@@ -101,6 +101,41 @@ test('Overview top five shares use every measured pass and ties follow execution
 	assert.match(rows[0]!.textContent!, /7\.000.*25\.0%/);
 	assert.match(rows[1]!.textContent!, /6\.000.*21\.4%/);
 	assert.match(element(view.root, '.zenfg-inspector-overview-coverage').textContent!, /7\/7/);
+	// The main chart compares milliseconds on a common axis, while the labels
+	// retain shares of every measured pass, including the undisplayed tail.
+	const table = element(view.root, '.zenfg-inspector-overview-timings');
+	assert.equal(Number(table.dataset.maxMicros), 10_000);
+	assert.equal(element(rows[0]!, '.zenfg-inspector-overview-bar > span').style.width, '70%');
+	assert.equal(element(rows[1]!, '.zenfg-inspector-overview-bar > span').style.width, '60%');
+	const axis = element(view.root, '.zenfg-inspector-overview-axis');
+	assert.match(axis.textContent!, /10(?:\.0+)?\s*ms/);
+	const top = element(view.root, '.zenfg-inspector-overview-timing-totals [data-part="top"]');
+	const other = element(view.root, '.zenfg-inspector-overview-timing-totals [data-part="other"]');
+	assert.match(top.textContent!, /5/);
+	assert.match(top.textContent!, /26\.000\s*ms.*92\.9%/);
+	assert.match(other.textContent!, /2/);
+	assert.match(other.textContent!, /2\.000\s*ms.*7\.1%/);
+	assert.ok(view.root.querySelector('.zenfg-inspector-overview-timing-composition'));
+});
+
+test('timing summary excludes unmeasured passes from the tail and hides an absent tail', (t) => {
+	const window = installDom(); t.after(() => window.close());
+	const view = new OverviewView(callbacks().handlers);
+	const source = timedCapture([440, 321, 313, 293, 269, 200, 0, 111]);
+	assert.equal(source.timings.gpu.status, 'available');
+	if (source.timings.gpu.status !== 'available') return;
+	view.setSnapshot(createDebugViewModel({ ...source, timings: { ...source.timings,
+		gpu: { ...source.timings.gpu, nodes: source.timings.gpu.nodes.slice(0, 7) },
+	} }));
+	assert.match(element(view.root, '.zenfg-inspector-overview-coverage').textContent!, /Partial.*7\/8/);
+	assert.equal(Number(element(view.root, '.zenfg-inspector-overview-timings').dataset.maxMicros), 500);
+	assert.equal(element(timingRows(view)[0]!, '.zenfg-inspector-overview-bar > span').style.width, '88%');
+	assert.match(timingRows(view)[0]!.textContent!, /0\.440.*24\.0%/);
+	const other = element(view.root, '.zenfg-inspector-overview-timing-totals [data-part="other"]');
+	assert.match(other.textContent!, /2/);
+	assert.match(other.textContent!, /0\.200\s*ms.*10\.9%/);
+	view.setSnapshot(createDebugViewModel(timedCapture([440, 321])));
+	assert.equal(view.root.querySelector('.zenfg-inspector-overview-timing-totals [data-part="other"]'), null);
 });
 
 test('CPU-only capture defaults to CPU and explicit timing choice survives refreshed availability', (t) => {
@@ -116,6 +151,9 @@ test('CPU-only capture defaults to CPU and explicit timing choice survives refre
 	assert.deepEqual(timingRows(view).map((row) => row.dataset.nodeId), ['node:external', 'node:scene', 'node:present']);
 	assert.match(timingRows(view)[0]!.textContent!, /75\.0%/);
 	assert.match(element(view.root, '.zenfg-inspector-overview-coverage').textContent!, /3\/3/);
+	assert.match(element(view.root, '.zenfg-inspector-overview-coverage').textContent!, /4\.000\s*ms/);
+	assert.equal(Number(element(view.root, '.zenfg-inspector-overview-timings').dataset.maxMicros), 5000);
+	assert.equal(element(timingRows(view)[0]!, '.zenfg-inspector-overview-bar > span').style.width, '60%');
 	view.setSnapshot(createDebugViewModel({ ...source, timings: { cpu, gpu: source.timings.gpu } }));
 	assert.equal(button(view.root, 'GPU').getAttribute('aria-pressed'), 'true');
 	button(view.root, 'CPU').click();
@@ -141,6 +179,8 @@ test('partial timing retains measured zero without assigning zero-sum percentage
 	assert.match(timingRows(view)[0]!.textContent!, /—/);
 	assert.doesNotMatch(timingRows(view)[0]!.textContent!, /%|NaN|Infinity/);
 	assert.match(element(view.root, '.zenfg-inspector-overview-coverage').textContent!, /Partial.*1\/2/i);
+	assert.equal(element(timingRows(view)[0]!, '.zenfg-inspector-overview-bar > span').style.width, '0%');
+	assert.equal(view.root.querySelector('.zenfg-inspector-overview-timing-composition'), null);
 });
 
 test('timing reasons and no eligible GPU work remain distinct from real zero allocations', (t) => {
@@ -152,6 +192,8 @@ test('timing reasons and no eligible GPU work remain distinct from real zero all
 	assert.match(kpi(view, 'cpu').textContent!, /Not collected/);
 	assert.match(value(view, 'memory'), /^0(?:\s|$)/);
 	assert.match(element(view.root, '.zenfg-inspector-snapshot-details').textContent!, /timestamp-query-unsupported/);
+	assert.equal(view.root.querySelector('.zenfg-inspector-overview-axis'), null);
+	assert.equal(view.root.querySelector('.zenfg-inspector-overview-timing-summary'), null);
 	view.setSnapshot(createDebugViewModel({ ...source, graph: { ...source.graph,
 		nodes: source.graph.nodes.map((node) => ({ ...node, kind: 'command' })),
 	} }));
