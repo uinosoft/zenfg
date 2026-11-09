@@ -77,6 +77,9 @@ export async function checkOverview(page, output, fullSnapshot) {
             resourceFacts: bounds('.zenfg-inspector-overview-allocations'), pool: bounds('.zenfg-inspector-overview-pool'),
             track: bounds('.zenfg-inspector-overview-timing-rows tr:first-child .zenfg-inspector-overview-bar'), fill: bounds('.zenfg-inspector-overview-timing-rows tr:first-child .zenfg-inspector-overview-bar > span'),
             name: bounds('.zenfg-inspector-overview-timing-rows tr:first-child .zenfg-inspector-overview-pass'),
+            identity: bounds('.zenfg-inspector-overview-timing-rows tr:first-child .zenfg-inspector-timing-identity'),
+            attributes: bounds('.zenfg-inspector-overview-timing-rows tr:first-child .zenfg-inspector-timing-attributes'),
+            accessCopies: el.querySelector('.zenfg-inspector-overview-timing-rows tr:first-child').querySelectorAll('.zenfg-inspector-timing-accesses').length,
             firstRow: bounds('.zenfg-inspector-overview-timing-rows tr:first-child'),
             overviewBottom: el.getBoundingClientRect().bottom,
             tails: [...el.querySelectorAll('.zenfg-inspector-overview-pass-suffix')].map(tail => {
@@ -89,7 +92,7 @@ export async function checkOverview(page, output, fullSnapshot) {
                 const name = tail.closest('button').getBoundingClientRect();
                 return { x: box.x, right: box.right, width: box.width, nameX: name.x, nameRight: name.right };
             }),
-            ticks: [...el.querySelectorAll('.zenfg-inspector-overview-axis > span')].filter(tick => getComputedStyle(tick).display !== 'none').map(tick => {
+            ticks: [...el.querySelectorAll('.zenfg-inspector-timing-axis > span')].filter(tick => getComputedStyle(tick).display !== 'none').map(tick => {
                 const box = tick.getBoundingClientRect();
                 return { x: box.x, right: box.right };
             }).sort((a, b) => a.x - b.x) };
@@ -113,6 +116,8 @@ export async function checkOverview(page, output, fullSnapshot) {
         assert.ok(layout.pool.y >= layout.resourceFacts.bottom || layout.resourceFacts.right <= layout.pool.x, `${label}: resource facts and pool metrics do not overlap`);
         assert.ok(layout.track.width > 20 && Math.abs(layout.fill.width / layout.track.width - 0.88) < 0.01, `${label}: visible time bars use the millisecond axis, not 13.8% share`);
         assert.ok(layout.name.right <= layout.track.x + 1 || layout.name.bottom <= layout.track.y + 1 || layout.track.bottom <= layout.name.y + 1, `${label}: pass label does not overlap the time chart`);
+        assert.ok(Math.abs(layout.name.width - layout.identity.width) < 1 && layout.attributes.y >= layout.name.bottom - 1, `${label}: the pass name fills a separate line above its Kind and access counts`);
+        assert.equal(layout.accessCopies, 1, `${label}: access counts appear once per row`);
         assert.ok(layout.tails.length > 0 && layout.tails.every(tail => tail.width > 0 && tail.x >= tail.nameX - 1 && tail.right <= tail.nameRight + 1), `${label}: the final identifying character remains visible when a wide suffix crops from the left`);
         assert.ok(layout.ticks.length >= 2, `${label}: time axis retains visible start and end labels`);
         for (let index = 1; index < layout.ticks.length; index++) {
@@ -130,6 +135,7 @@ export async function checkOverview(page, output, fullSnapshot) {
         assert.match(await value('passes'), /3/);
         assert.equal(await toggle('GPU').getAttribute('aria-pressed'), 'true');
         assert.equal(await rows.count(), 2);
+        assert.equal(await overview.locator('[data-timing-column="order"]').count(), 0, 'Overview omits the execution-order column');
         assert.equal(await rows.first().getAttribute('data-node-id'), 'node:scene');
         assert.match(await rows.first().innerText(), /88\.6%/);
         assert.match(await overview.innerText(), /1\.591\s*ms/);
@@ -155,7 +161,7 @@ export async function checkOverview(page, output, fullSnapshot) {
         await setSnapshot(fullSnapshot);
         assert.equal(await toggle('CPU').evaluate(el => el === document.activeElement), true, 'capture refresh retains timing-source focus');
         assert.equal(await rows.count(), 0);
-        assert.equal(await overview.locator('.zenfg-inspector-overview-axis').count(), 0);
+        assert.equal(await overview.locator('.zenfg-inspector-timing-axis').count(), 0);
         assert.equal(await overview.locator('.zenfg-inspector-overview-timing-summary').count(), 0);
         for (const name of ['.zenfg-inspector-capture-details', '.zenfg-inspector-snapshot-details']) {
             const details = overview.locator(name);
@@ -207,7 +213,7 @@ export async function checkOverview(page, output, fullSnapshot) {
         await closeInspector.click();
 
         // View all clears filters/subview while retaining the chosen sort order.
-        await page.getByRole('combobox', { name: 'Sort passes', exact: true }).selectOption('cpu');
+        await page.getByRole('combobox', { name: 'Sort passes', exact: true }).selectOption('time');
         await page.getByRole('searchbox', { name: 'Search pass, ID or group', exact: true }).fill('missing');
         await page.getByRole('combobox', { name: 'Pass kind', exact: true }).selectOption('compute');
         await page.getByRole('combobox', { name: 'Pass compile state', exact: true }).selectOption('culled');
@@ -218,7 +224,7 @@ export async function checkOverview(page, output, fullSnapshot) {
         assert.equal(await page.getByRole('searchbox', { name: 'Search pass, ID or group', exact: true }).inputValue(), '');
         assert.equal(await page.getByRole('combobox', { name: 'Pass kind', exact: true }).inputValue(), 'all');
         assert.equal(await page.getByRole('combobox', { name: 'Pass compile state', exact: true }).inputValue(), 'all');
-        assert.equal(await page.getByRole('combobox', { name: 'Sort passes', exact: true }).inputValue(), 'cpu');
+        assert.equal(await page.getByRole('combobox', { name: 'Sort passes', exact: true }).inputValue(), 'time');
         await openOverview();
         await overview.locator('.zenfg-inspector-capture-details > summary').click();
         await overview.locator('.zenfg-inspector-snapshot-details > summary').click();
@@ -237,7 +243,7 @@ export async function checkOverview(page, output, fullSnapshot) {
         assert.match(await rows.first().innerText(), /0\.440\s*ms.*13\.8%/s);
         assert.match(await overview.locator('.zenfg-inspector-overview-coverage').innerText(), /3\.191\s*ms.*38\/38/);
         assert.equal(await overview.locator('.zenfg-inspector-overview-timings').getAttribute('data-max-micros'), '500');
-        assert.match(await overview.locator('.zenfg-inspector-overview-axis').innerText(), /0\.5(?:0+)?\s*ms/);
+        assert.match(await overview.locator('.zenfg-inspector-timing-axis').innerText(), /0\.5(?:0+)?\s*ms/);
         assert.match(await overview.locator('.zenfg-inspector-overview-timing-totals [data-part="top"]').innerText(), /5.*1\.636\s*ms.*51\.3%/s);
         assert.match(await overview.locator('.zenfg-inspector-overview-timing-totals [data-part="other"]').innerText(), /33.*1\.555\s*ms.*48\.7%/s);
         const resources = overview.locator('.zenfg-inspector-overview-resources');

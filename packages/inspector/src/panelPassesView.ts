@@ -1,6 +1,7 @@
 import type { FrameGraphDebugGroup, FrameGraphDebugNode, FrameGraphDebugViewModel } from './debugCaptureModel.ts';
 import { createCell, labelNode } from './panelDomHelpers.ts';
 import { createPanelIcon } from './panelIcons.ts';
+import { PassTimingSourceState, appendTimingCells, createTimingIdentity, nodeTimingDuration, renderTimingHeader, timingDomain } from './panelPassTiming.ts';
 import type { PassesSubview, Selection } from './panelTypes.ts';
 import {
 	createEmptyTableRow, createIconAction, createFilterSelect, createSearchInput, createSelectionCell,
@@ -8,38 +9,14 @@ import {
 	groupPath, registerSelectable, selectionKey, type WorkbenchCallbacks, updateSelectedRows,
 } from './panelWorkbenchHelpers.ts';
 
-type PassSort = 'order' | 'label' | 'kind' | 'gpu' | 'cpu';
+type PassSort = 'order' | 'label' | 'kind' | 'time';
 type TimingSource = 'cpu' | 'gpu';
-type TimingDomain = { readonly total: number; readonly maximum: number; readonly measured: number };
 type PassEntry = {
 	readonly node: Omit<FrameGraphDebugNode, 'order'>;
 	readonly selection: Selection;
 	readonly order?: number;
 	readonly recordingOrder: number;
 };
-
-function nodeDuration(node: Omit<FrameGraphDebugNode, 'order'>, source: TimingSource): number | undefined {
-	return source === 'cpu' ? node.cpuDurationMicros
-		: node.kind === 'render' || node.kind === 'compute' ? node.gpuDurationMicros : undefined;
-}
-
-function axisMaximum(maximum: number): number {
-	if (maximum <= 0) return 0;
-	const magnitude = 10 ** Math.floor(Math.log10(maximum));
-	const normalized = maximum / magnitude;
-	const rounded = (normalized <= 1 ? 1 : normalized <= 2 ? 2 : normalized <= 5 ? 5 : 10) * magnitude;
-	return Number.isFinite(rounded) && rounded > 0 ? rounded : maximum;
-}
-
-function timingDomain(nodes: readonly FrameGraphDebugNode[], source: TimingSource): TimingDomain {
-	let total = 0; let maximum = 0; let measured = 0;
-	for (const node of nodes) {
-		const duration = nodeDuration(node, source);
-		if (duration === undefined) continue;
-		total += duration; maximum = Math.max(maximum, duration); measured++;
-	}
-	return { total, maximum: axisMaximum(maximum), measured };
-}
 
 export class PassesView {
 	readonly root = document.createElement('section');
@@ -51,7 +28,7 @@ export class PassesView {
 	private readonly listPane = document.createElement('div');
 	private readonly groupsPane = document.createElement('div');
 	private readonly listTable = createTableScroller([
-		{ label: 'Name' }, { label: 'CPU (ms)', column: 'numeric' }, { label: 'GPU (ms)', column: 'numeric' },
+		{ label: 'Order', column: 'numeric' }, { label: 'Pass' }, { label: 'Duration' }, { label: 'Time', column: 'numeric' }, { label: 'Share', column: 'numeric' },
 	]);
 	private readonly groupsTable = createTableScroller([
 		{ label: 'Group' }, { label: 'Retained', column: 'numeric' }, { label: 'Culled', column: 'numeric' },
@@ -64,8 +41,10 @@ export class PassesView {
 	private readonly groupCount = document.createElement('span');
 	private readonly clearButton = document.createElement('button');
 	private readonly timing = document.createElement('div');
-	private readonly cpuCoverage = document.createElement('span');
-	private readonly gpuCoverage = document.createElement('span');
+	private readonly coverage = document.createElement('span');
+	private readonly timingSwitch = document.createElement('div');
+	private readonly gpuButton = this.createTimingButton('gpu');
+	private readonly cpuButton = this.createTimingButton('cpu');
 	private readonly matchedTiming = document.createElement('p');
 	private readonly groupScope = document.createElement('div');
 	private readonly scopePath = document.createElement('span');
@@ -85,7 +64,7 @@ export class PassesView {
 	private status = 'all';
 	private sort: PassSort = 'order';
 
-	constructor(private readonly callbacks: WorkbenchCallbacks, idPrefix: string) {
+	constructor(private readonly callbacks: WorkbenchCallbacks, idPrefix: string, private readonly timingSource = new PassTimingSourceState()) {
 		this.root.className = 'zenfg-inspector-view zenfg-inspector-passes-view';
 		this.root.id = `${idPrefix}-view-passes`;
 		this.root.setAttribute('role', 'tabpanel');
@@ -105,7 +84,7 @@ export class PassesView {
 			['clear-buffer', 'Clear Buffer'], ['command', 'Command'], ['external-submission', 'External'],
 		], (value) => { this.kind = value; this.renderRows(); });
 		const sort = createFilterSelect('Sort passes', this.sort, [
-			['order', 'Execution order'], ['label', 'Name'], ['kind', 'Kind'], ['gpu', 'GPU: slowest first'], ['cpu', 'CPU: slowest first'],
+			['order', 'Execution order'], ['label', 'Name'], ['kind', 'Kind'], ['time', 'Time: slowest first'],
 		], (value) => { this.sort = value as PassSort; this.renderRows(); });
 		const clear = this.clearButton;
 		clear.type = 'button'; clear.textContent = 'Clear filters';
@@ -138,15 +117,19 @@ export class PassesView {
 		this.timing.className = 'zenfg-inspector-list-context';
 		const coverage = document.createElement('div');
 		coverage.className = 'zenfg-inspector-list-coverage';
-		this.cpuCoverage.dataset.timing = 'cpu'; this.gpuCoverage.dataset.timing = 'gpu';
-		coverage.append(this.cpuCoverage, this.gpuCoverage);
+		coverage.append(this.coverage);
+		this.timingSwitch.className = 'zenfg-inspector-timing-switch';
+		this.timingSwitch.setAttribute('role', 'group'); this.timingSwitch.setAttribute('aria-label', 'Pass timing source');
+		this.timingSwitch.append(this.gpuButton, this.cpuButton);
+		const controls = document.createElement('div'); controls.className = 'zenfg-inspector-pass-timing-controls';
+		controls.append(this.timingSwitch, coverage);
 		this.matchedTiming.className = 'zenfg-inspector-pass-matched';
 		this.timingNotes.className = 'zenfg-inspector-list-notes';
 		const noteSummary = document.createElement('summary'); noteSummary.textContent = 'Timing & compile notes';
 		const scope = document.createElement('p');
-		scope.textContent = 'Retained means kept by compilation; it does not prove GPU execution. CPU measures synchronous elapsed time for retained passes. GPU timestamps cover retained render/compute passes; external submission work is opaque. Zero durations may reflect clock or timestamp precision. Shares use the complete capture\'s measured pass sum, not total frame time. Filtering does not change the share denominator or the millisecond bar axis.';
+		scope.textContent = 'Retained means kept by compilation; it does not prove GPU execution. CPU measures synchronous elapsed time for retained passes. GPU timestamps cover retained render/compute passes; external submission work is opaque. Zero durations may reflect clock or timestamp precision. Bars and shares use the selected source\'s complete-capture measurements; filtering and sorting do not change their axis or denominator. Shares are not percentages of total frame time. Reads and Writes count declared access records, not GPU instructions or distinct resources.';
 		this.timingNotes.append(noteSummary, scope, this.timingAvailability);
-		this.timing.append(coverage, this.matchedTiming, this.timingNotes);
+		this.timing.append(controls, this.matchedTiming, this.timingNotes);
 		this.listTable.table.classList.add('zenfg-inspector-pass-table');
 		this.listTable.table.setAttribute('aria-label', 'Pass timing comparison');
 		this.groupsTable.table.classList.add('zenfg-inspector-group-table');
@@ -166,12 +149,16 @@ export class PassesView {
 	}
 
 	setSnapshot(snapshot: FrameGraphDebugViewModel): void {
+		const active = this.root.ownerDocument.activeElement;
+		const focusFromGroups = active === this.groupsButton || this.groupToolbar.contains(active) || this.groupsPane.contains(active);
 		this.snapshot = snapshot;
+		this.timingSource.initialize(snapshot);
 		if (this.groupScopeId && !snapshot.groupById.has(this.groupScopeId)) this.groupScopeId = undefined;
 		if (snapshot.debugGroups.length === 0 && this.subview === 'groups') this.subview = 'list';
 		this.groupsButton.disabled = snapshot.debugGroups.length === 0;
 		for (const path of this.collapsedGroups) if (!snapshot.groupByPathKey.has(path)) this.collapsedGroups.delete(path);
 		this.renderRows(); this.updateSubview();
+		if (focusFromGroups && this.groupsButton.disabled) this.listButton.focus({ preventScroll: true });
 	}
 
 	setSelection(selected: Selection | undefined): void {
@@ -216,6 +203,13 @@ export class PassesView {
 		return button;
 	}
 
+	private createTimingButton(source: TimingSource): HTMLButtonElement {
+		const button = document.createElement('button'); button.type = 'button'; button.textContent = source.toUpperCase();
+		button.dataset.source = source; button.dataset.passFocus = `source:${source}`;
+		button.addEventListener('click', () => { this.timingSource.choose(source); this.renderRows(); });
+		return button;
+	}
+
 	private updateSubview(): void {
 		const listActive = this.subview === 'list';
 		this.listButton.setAttribute('aria-selected', String(listActive));
@@ -247,75 +241,47 @@ export class PassesView {
 		this.clearButton.hidden = !this.search && this.kind === 'all' && this.status === 'all' && this.groupScopeId === undefined;
 		passes.sort((a, b) => this.compareNodes(a, b)); this.count.textContent = `${passes.length} / ${entries.length} passes`;
 		const metrics = snapshot.metrics;
-		this.cpuCoverage.textContent = `Capture CPU · ${formatTimingCoverage(metrics.cpuTimedNodeCount, snapshot.nodes.length)}`;
-		this.gpuCoverage.textContent = `Capture GPU · ${formatTimingCoverage(metrics.timedNodeCount, metrics.timingEligibleNodeCount)}`;
-		const unavailable = [snapshot.cpuProfiling.status === 'unavailable' ? `CPU unavailable: ${snapshot.cpuProfiling.reason}.` : undefined,
-			snapshot.profiling.status === 'unavailable' ? `GPU unavailable: ${snapshot.profiling.reason}.` : undefined].filter(Boolean);
-		this.timingAvailability.textContent = unavailable.join(' '); this.timingAvailability.hidden = unavailable.length === 0;
-		const domains = { cpu: timingDomain(snapshot.nodes, 'cpu'), gpu: timingDomain(snapshot.nodes, 'gpu') };
-		const primary: TimingSource = this.sort === 'cpu' || this.sort === 'gpu' ? this.sort
-			: domains.gpu.measured ? 'gpu' : domains.cpu.measured ? 'cpu' : 'gpu';
-		const matched = passes.filter(entry => entry.selection.kind === 'node' && nodeDuration(entry.node, primary) !== undefined);
-		const matchedTotal = matched.reduce((sum, entry) => sum + nodeDuration(entry.node, primary)!, 0);
-		const matchedShare = matched.length && domains[primary].total > 0 ? `${(matchedTotal / domains[primary].total * 100).toFixed(1)}%` : '—';
-		this.matchedTiming.textContent = `Matched ${primary.toUpperCase()}: ${matched.length ? `${(matchedTotal / 1000).toFixed(3)} ms` : '—'} · ${matchedShare} of capture pass sum`;
+		const source = this.timingSource.source;
+		const timed = source === 'cpu' ? metrics.cpuTimedNodeCount : metrics.timedNodeCount;
+		const eligible = source === 'cpu' ? snapshot.nodes.length : metrics.timingEligibleNodeCount;
+		this.coverage.textContent = `Capture ${source.toUpperCase()} · ${formatTimingCoverage(timed, eligible)}`;
+		this.coverage.dataset.timing = source;
+		this.gpuButton.setAttribute('aria-pressed', String(source === 'gpu')); this.cpuButton.setAttribute('aria-pressed', String(source === 'cpu'));
+		const profiling = source === 'cpu' ? snapshot.cpuProfiling : snapshot.profiling;
+		this.timingAvailability.textContent = profiling.status === 'unavailable' ? `${source.toUpperCase()} unavailable: ${profiling.reason}.` : '';
+		this.timingAvailability.hidden = profiling.status !== 'unavailable';
+		const domain = timingDomain(snapshot.nodes, source);
+		this.matchedTiming.hidden = !this.search && this.kind === 'all' && this.status === 'all' && this.groupScopeId === undefined;
+		const matched = passes.filter(entry => entry.selection.kind === 'node' && nodeTimingDuration(entry.node, source) !== undefined);
+		const matchedTotal = matched.reduce((sum, entry) => sum + nodeTimingDuration(entry.node, source)!, 0);
+		const matchedShare = matched.length && domain.total > 0 ? `${(matchedTotal / domain.total * 100).toFixed(1)}%` : '—';
+		this.matchedTiming.dataset.source = source;
+		this.matchedTiming.textContent = `Matched ${source.toUpperCase()}: ${matched.length ? `${(matchedTotal / 1000).toFixed(3)} ms` : '—'} · ${matchedShare} of capture pass sum`;
 		this.listTable.table.dataset.sort = this.sort;
-		this.listTable.table.dataset.primary = primary;
 		this.listTable.table.dataset.status = this.status;
-		this.listTable.table.dataset.maxMicros = String(domains[primary].maximum);
-		for (const [index, header] of Array.from(this.listTable.table.querySelectorAll('th')).entries()) {
-			header.setAttribute('aria-sort', this.status !== 'culled' && (this.sort === 'cpu' && index === 1 || this.sort === 'gpu' && index === 2) ? 'descending' : 'none');
-			if (index === 0) continue;
-			const source: TimingSource = index === 1 ? 'cpu' : 'gpu';
-			header.dataset.timing = source;
-			header.dataset.primary = String(source === primary);
-			header.hidden = this.status === 'culled' && source === 'gpu';
-			header.colSpan = this.status === 'culled' && source === 'cpu' ? 2 : 1;
-			header.textContent = this.status === 'culled' ? 'Culled reason' : `${source.toUpperCase()} (ms)`;
-			if (this.status !== 'culled' && source === primary && domains[source].maximum > 0) {
-				const axis = document.createElement('span'); axis.className = 'zenfg-inspector-pass-axis';
-				axis.setAttribute('aria-label', `${source.toUpperCase()} duration axis in milliseconds`);
-				for (const [tick, value] of [0, domains[source].maximum / 2, domains[source].maximum].entries()) {
-					const mark = document.createElement('span');
-					mark.textContent = `${(value / 1000).toLocaleString('en-US', { maximumSignificantDigits: 3, useGrouping: false })}${tick === 2 ? ' ms' : ''}`;
-					axis.append(mark);
-				}
-				header.append(axis);
-			}
-		}
+		renderTimingHeader(this.listTable.table, source, domain, { order: true, culled: this.status === 'culled', sort: this.sort === 'time' ? 'descending' : 'none' });
 		for (const { node, selection, order } of passes) {
 			const row = document.createElement('tr'); registerSelectable(this.rows, row, selection, this.callbacks);
 			row.dataset.passState = selection.kind === 'culled' ? 'culled' : 'retained';
-			const labelCell = createSelectionCell(labelNode(node), selection, this.callbacks); labelCell.title = `${labelNode(node)} · ${node.id}`;
-			const name = labelCell.querySelector<HTMLButtonElement>('button')!;
-			name.classList.add('zenfg-inspector-pass-name'); name.title = labelCell.title;
-			name.setAttribute('aria-label', labelNode(node)); name.dataset.passFocus = `node:${node.id}`;
-			const characters = [...labelNode(node)]; const suffixLength = characters.length > 24 ? 12 : 0;
-			const prefix = document.createElement('span'); prefix.className = 'zenfg-inspector-pass-name-prefix';
-			prefix.textContent = suffixLength ? characters.slice(0, -suffixLength).join('') : labelNode(node);
-			name.replaceChildren(prefix);
-			if (suffixLength) {
-				const suffix = document.createElement('span'); suffix.className = 'zenfg-inspector-pass-name-suffix'; suffix.textContent = characters.slice(-suffixLength).join('');
-				name.append(suffix);
-			}
-			if (node.debugGroupId !== undefined) {
-				const group = document.createElement('small'); group.className = 'zenfg-inspector-list-group-path';
-				group.textContent = groupPath(snapshot, node.debugGroupId); group.title = group.textContent; labelCell.appendChild(group);
-			}
-			const metadata = document.createElement('small'); metadata.className = 'zenfg-inspector-list-row-meta zenfg-inspector-pass-identity';
-			metadata.textContent = `${selection.kind === 'culled' ? 'Culled · ' : ''}${node.kind}${order === undefined ? '' : ` · #${order}`} · ${node.reads.length} R / ${node.writes.length} W`;
-			labelCell.appendChild(metadata);
-			row.append(labelCell);
+			const orderCell = document.createElement('td'); orderCell.dataset.timingColumn = 'order'; orderCell.className = 'zenfg-inspector-timing-order';
+			orderCell.textContent = order === undefined ? '—' : String(order);
+			orderCell.setAttribute('aria-label', `Execution order: ${order === undefined ? 'Not applicable' : order}`);
+			const labelCell = document.createElement('td'); labelCell.dataset.timingColumn = 'name'; labelCell.title = `${labelNode(node)} · ${node.id}`;
+			const identity = createTimingIdentity(node, { onSelect: () => this.callbacks.onSelect(selection), focusKey: `node:${node.id}`,
+				nameClass: 'zenfg-inspector-pass-name', prefixClass: 'zenfg-inspector-pass-name-prefix', suffixClass: 'zenfg-inspector-pass-name-suffix' });
+			identity.querySelector<HTMLButtonElement>('button')!.dataset.passFocus = `node:${node.id}`;
+			labelCell.append(identity);
+			row.append(orderCell, labelCell);
 			if (selection.kind === 'culled') {
-				const reason = document.createElement('td'); reason.className = 'zenfg-inspector-pass-reason'; reason.colSpan = 2;
+				const reason = document.createElement('td'); reason.className = 'zenfg-inspector-pass-reason zenfg-inspector-timing-state'; reason.colSpan = 3;
 				reason.textContent = `Not executed · ${snapshot.culledById.get(node.id)?.reason ?? 'Culled by compilation'}`;
 				row.append(reason);
 			} else {
-				row.append(this.createPassTimingCell(node, 'cpu', domains.cpu, primary), this.createPassTimingCell(node, 'gpu', domains.gpu, primary));
+				appendTimingCells(row, node, source, domain);
 			}
 			this.listTable.body.appendChild(row);
 		}
-		if (passes.length === 0) this.listTable.body.appendChild(createEmptyTableRow(3, 'No passes match the current filters.'));
+		if (passes.length === 0) this.listTable.body.appendChild(createEmptyTableRow(5, 'No passes match the current filters.'));
 		const scope = this.groupScopeId ? snapshot.groupById.get(this.groupScopeId) : undefined;
 		this.scopePath.textContent = scope?.path.join(' / ') ?? ''; this.scopePath.title = this.scopePath.textContent;
 		this.updateSubview();
@@ -324,31 +290,6 @@ export class PassesView {
 			const target = [...this.root.querySelectorAll<HTMLElement>('[data-pass-focus]')].find(candidate => candidate.dataset.passFocus === focusKey && !candidate.closest('[hidden]'));
 			(target ?? (this.subview === 'list' ? this.listButton : this.groupsButton)).focus({ preventScroll: true });
 		}
-	}
-
-	private createPassTimingCell(node: Omit<FrameGraphDebugNode, 'order'>, source: TimingSource, domain: TimingDomain, primary: TimingSource): HTMLTableCellElement {
-		const duration = nodeDuration(node, source);
-		const value = duration !== undefined ? (duration / 1000).toFixed(3)
-			: source === 'cpu' ? 'Not collected' : node.kind === 'external-submission' ? 'Opaque'
-				: node.kind === 'render' || node.kind === 'compute' ? 'Not collected' : 'Not applicable';
-		const cell = this.createTimingCell('', `${source.toUpperCase()} (ms)`, source, duration !== undefined);
-		cell.dataset.primary = String(source === primary);
-		const number = document.createElement('span'); number.className = 'zenfg-inspector-pass-duration'; number.textContent = value;
-		cell.append(number);
-		if (duration !== undefined) {
-			const share = domain.total > 0 ? `${(duration / domain.total * 100).toFixed(1)}%` : '—';
-			const percentage = document.createElement('span'); percentage.className = 'zenfg-inspector-pass-share'; percentage.textContent = share;
-			cell.append(percentage);
-			if (source === primary) {
-				const bar = document.createElement('span'); bar.className = 'zenfg-inspector-pass-bar'; bar.setAttribute('aria-hidden', 'true');
-				const fill = document.createElement('span'); fill.style.width = `${domain.maximum > 0 ? duration / domain.maximum * 100 : 0}%`;
-				bar.append(fill); cell.append(bar);
-			}
-			cell.setAttribute('aria-label', `${source.toUpperCase()}: ${value} ms; ${share} of capture measured pass sum`);
-		} else cell.setAttribute('aria-label', `${source.toUpperCase()}: ${value}`);
-		cell.title = source === 'cpu' ? 'Synchronous elapsed time; zero may reflect clock precision. External nodes include synchronous submission.'
-			: 'GPU timestamps cover retained render/compute passes. External submission internals are opaque.';
-		return cell;
 	}
 
 	private renderGroups(snapshot: FrameGraphDebugViewModel): void {
@@ -456,8 +397,10 @@ export class PassesView {
 		switch (this.sort) {
 			case 'label': return labelNode(a.node).localeCompare(labelNode(b.node)) || order();
 			case 'kind': return a.node.kind.localeCompare(b.node.kind) || order();
-			case 'cpu': return (b.node.cpuDurationMicros ?? -1) - (a.node.cpuDurationMicros ?? -1) || order();
-			case 'gpu': return (b.node.gpuDurationMicros ?? -1) - (a.node.gpuDurationMicros ?? -1) || order();
+			case 'time': {
+				const source = this.timingSource.source;
+				return (nodeTimingDuration(b.node, source) ?? -1) - (nodeTimingDuration(a.node, source) ?? -1) || order();
+			}
 			case 'order': return order();
 		}
 	}

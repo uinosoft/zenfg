@@ -245,11 +245,12 @@ test('Overview pass shortcuts clear filters, return to the list and preserve pas
 			assert.equal(button(tabs(panel), 'Passes').getAttribute('aria-selected'), 'true');
 			assert.equal(button(passes, 'Pass List').getAttribute('aria-selected'), 'true');
 			assert.equal(search.value, ''); assert.equal(kind.value, 'all'); assert.equal(state.value, 'all');
-			assert.equal(sort.value, 'cpu');
+			assert.equal(sort.value, 'time');
 			assert.equal(element(passes, '.zenfg-inspector-pass-scope').hidden, true);
 			assert.equal(passes.querySelectorAll('[id$="pass-list-panel"] tbody tr[data-selection-key]').length, 4);
 		};
-		sort.value = 'cpu'; sort.dispatchEvent(new Event('change'));
+		button(passes, 'CPU').click();
+		sort.value = 'time'; sort.dispatchEvent(new Event('change'));
 		scopeToPostFX();
 		filterToCulled();
 		button(passes, 'Group Hierarchy').click();
@@ -261,6 +262,7 @@ test('Overview pass shortcuts clear filters, return to the list and preserve pas
 		scopeToPostFX();
 		filterToCulled();
 		button(tabs(panel), 'Overview').click();
+		button(overview, 'GPU').click();
 		button(overview, 'scene').click();
 		assertUnfiltered();
 		assert.equal(aside(panel).hidden, false);
@@ -271,9 +273,61 @@ test('Overview pass shortcuts clear filters, return to the list and preserve pas
 		button(overview, '1 Culled').click();
 		assert.equal(element(passes, '.zenfg-inspector-pass-scope').hidden, true);
 		assert.equal(state.value, 'culled');
-		assert.equal(sort.value, 'cpu');
+		assert.equal(sort.value, 'time');
 		assert.ok(button(passes, 'unused').closest('tr'));
 	} finally { panel.destroy(); window.close(); }
+});
+
+test('Overview and Passes share timing focus while keeping pass order and filters independent', () => {
+	const window = installDom(); const panel = mount();
+	try {
+		const source = fixture();
+		panel.setSnapshot({ ...source, timings: { ...source.timings, cpu: { status: 'available', executionDurationMicros: 1200,
+			nodes: [{ nodeId: 'node:scene', durationMicros: 100 }, { nodeId: 'node:external', durationMicros: 800 }, { nodeId: 'node:present', durationMicros: 0 }],
+		} } });
+		const passes = element(panel.dom, '.zenfg-inspector-passes-view');
+		const overview = element(panel.dom, '.zenfg-inspector-overview-view');
+		const sourceOf = (root: HTMLElement) => element<HTMLTableElement>(root, '.zenfg-inspector-timing-table').dataset.source;
+		assert.equal(passes.querySelector('tbody tr'), null, 'timing choice does not eagerly create inactive lists');
+		button(tabs(panel), 'Overview').click(); button(overview, 'CPU').click(); button(overview, 'View all passes').click();
+		assert.equal(sourceOf(passes), 'cpu');
+		const sort = element<HTMLSelectElement>(passes, '[aria-label="Sort passes"]');
+		const passOrder = () => [...passes.querySelectorAll<HTMLElement>('.zenfg-inspector-pass-table tr[data-selection-key]')].map(row => row.dataset.selectionKey);
+		sort.value = 'time'; sort.dispatchEvent(new Event('change'));
+		assert.equal(passOrder()[0], 'node:node:external');
+		button(passes, 'GPU').click(); assert.equal(passOrder()[0], 'node:node:scene');
+		sort.value = 'order'; sort.dispatchEvent(new Event('change')); const executionOrder = passOrder();
+		button(passes, 'CPU').click(); assert.deepEqual(passOrder(), executionOrder);
+		button(passes, 'Group Hierarchy').click();
+		element<HTMLButtonElement>(passes, '[aria-label="View passes in group Main / PostFX"]').click();
+		const search = element<HTMLInputElement>(passes, '[aria-label="Search pass, ID or group"]');
+		search.value = 'present'; search.dispatchEvent(new Event('input'));
+		button(tabs(panel), 'Overview').click(); button(overview, 'GPU').click();
+		assert.equal(sourceOf(passes), 'cpu', 'inactive list retains its DOM until opened');
+		button(tabs(panel), 'Passes').click(); assert.equal(sourceOf(passes), 'gpu');
+		assert.equal(search.value, 'present'); assert.equal(sort.value, 'order');
+		assert.equal(element(passes, '.zenfg-inspector-pass-scope').hidden, false);
+		assert.deepEqual(passOrder(), ['node:node:present']);
+	} finally { panel.destroy(); window.close(); }
+});
+
+test('explicit timing choices survive lazy capture refreshes and remain isolated per Inspector', () => {
+	const window = installDom(); const panel = mount(); const peer = mount();
+	try {
+		const source = fixture(); panel.setSnapshot(source); peer.setSnapshot(source);
+		button(tabs(panel), 'Passes').click(); const passes = element(panel.dom, '.zenfg-inspector-passes-view');
+		button(passes, 'CPU').focus(); button(passes, 'CPU').click();
+		assert.strictEqual(document.activeElement, button(passes, 'CPU'));
+		button(tabs(panel), 'Graph').click(); panel.setSnapshot(source);
+		button(tabs(panel), 'Overview').click();
+		assert.equal(element<HTMLTableElement>(panel.dom, '.zenfg-inspector-overview-timings').dataset.source, 'cpu');
+		assert.match(element(panel.dom, '.zenfg-inspector-overview-coverage').textContent!, /CPU.*Not collected/);
+		button(tabs(panel), 'Passes').click();
+		assert.equal(element<HTMLTableElement>(passes, '.zenfg-inspector-pass-table').dataset.source, 'cpu');
+		assert.equal(passes.querySelector('.zenfg-inspector-timing-bar'), null, 'missing CPU measurements do not acquire GPU bars');
+		button(tabs(peer), 'Overview').click();
+		assert.equal(element<HTMLTableElement>(peer.dom, '.zenfg-inspector-overview-timings').dataset.source, 'gpu');
+	} finally { panel.destroy(); peer.destroy(); window.close(); }
 });
 
 test('focused Overview shortcuts move keyboard focus to the visible destination tab', () => {

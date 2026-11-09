@@ -1175,7 +1175,7 @@ test('filters clear-buffer passes, searches labels, and sorts timed passes by GP
 	kind.dispatchEvent(new Event('change'));
 	const sort = panel.dom.querySelector<HTMLSelectElement>('[aria-label="Sort passes"]');
 	assert.ok(sort);
-	sort.value = 'gpu';
+	sort.value = 'time';
 	sort.dispatchEvent(new Event('change'));
 	assert.deepEqual(passListLabels(panel.dom), ['slow-pass', 'fast-pass', 'clear-pass']);
 

@@ -12,6 +12,7 @@ import { GraphSearch } from './panelGraphSearch.ts';
 import { GraphLegend } from './panelGraphLegend.ts';
 import type { GraphViewState, Selection, WorkbenchTab } from './panelTypes.ts';
 import { enableTabKeyboard, type WorkbenchCallbacks } from './panelWorkbenchHelpers.ts';
+import { PassTimingSourceState } from './panelPassTiming.ts';
 
 export type FrameGraphDebugWorkbenchActions = {
 	onCapture(): void;
@@ -61,6 +62,9 @@ export class FrameGraphDebugWorkbench {
 	private readonly graphSearch: GraphSearch;
 	private readonly graphLegend: GraphLegend | undefined;
 	private readonly dirtyViews = new Set<WorkbenchTab>();
+	private readonly timingSource = new PassTimingSourceState(() => {
+		for (const tab of ['overview', 'passes'] as const) if (tab !== this.activeTab) this.dirtyViews.add(tab);
+	});
 	private readonly inspectorOpenButton = document.createElement('button');
 	private readonly captureButton = document.createElement('button');
 	private readonly importButton = document.createElement('button');
@@ -89,7 +93,7 @@ export class FrameGraphDebugWorkbench {
 		options: FrameGraphDebugWorkbenchOptions,
 	) {
 		this.root.className = 'zenfg-inspector-workbench';
-		this.overview = new OverviewView(callbacks);
+		this.overview = new OverviewView(callbacks, this.timingSource);
 		this.commandBar.className = 'zenfg-inspector-workbench-command-bar';
 		this.brand.className = 'zenfg-inspector-brand';
 		if (options.branding === false) this.commandBar.classList.add('branding-hidden');
@@ -125,7 +129,7 @@ export class FrameGraphDebugWorkbench {
 			graphViewport.append(this.graphLegend.root);
 		}
 		this.graphRoot.append(graphViewport);
-		this.passes = new PassesView(callbacks, options.idPrefix);
+		this.passes = new PassesView(callbacks, options.idPrefix, this.timingSource);
 		this.resources = new ResourcesView(callbacks, options.idPrefix);
 		this.memory = new MemoryView(callbacks, options.idPrefix);
 		this.diagnostics = new DiagnosticsView(callbacks, options.idPrefix);
@@ -249,6 +253,7 @@ export class FrameGraphDebugWorkbench {
 	}
 
 	setSnapshot(snapshot: FrameGraphDebugViewModel, selected: Selection | undefined): void {
+		this.timingSource.initialize(snapshot);
 		this.hasSnapshot = true;
 		this.snapshot = snapshot;
 		this.selected = selected;

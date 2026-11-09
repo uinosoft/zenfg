@@ -5,6 +5,7 @@ import { PANEL_DETAIL_CSS } from './panelDetailStyles.ts';
 import { PANEL_MEMORY_CSS } from './panelMemoryStyles.ts';
 import { PANEL_OVERVIEW_CSS } from './panelOverviewStyles.ts';
 import { PANEL_DIAGNOSTICS_CSS } from './panelDiagnosticsStyles.ts';
+import { PANEL_TIMING_CSS } from './panelTimingStyles.ts';
 
 const STYLE_ELEMENT_ID = 'zenfg-inspector-panel-styles';
 
@@ -1016,6 +1017,6 @@ export function ensureFrameGraphInspectorStyles(): void {
 
 	const style = document.createElement('style');
 	style.id = STYLE_ELEMENT_ID;
-	style.textContent = FRAME_GRAPH_DEBUG_PANEL_CSS + PANEL_WORKBENCH_CSS + PANEL_LIST_CSS + PANEL_DETAIL_CSS + PANEL_MEMORY_CSS + PANEL_OVERVIEW_CSS + PANEL_DIAGNOSTICS_CSS;
+	style.textContent = FRAME_GRAPH_DEBUG_PANEL_CSS + PANEL_WORKBENCH_CSS + PANEL_LIST_CSS + PANEL_DETAIL_CSS + PANEL_MEMORY_CSS + PANEL_OVERVIEW_CSS + PANEL_DIAGNOSTICS_CSS + PANEL_TIMING_CSS;
 	document.head.appendChild(style);
 }

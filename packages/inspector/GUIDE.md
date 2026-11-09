@@ -186,17 +186,27 @@ Inspector instance and are not saved across sessions.
 | --- | --- |
 | Overview | Full-width GPU span, CPU execute, physical allocation estimate and retained-pass metrics, with the five slowest measured GPU or CPU passes, resource/pool summaries and diagnostic counts. Pass-kind counts and a nonzero culled-pass shortcut appear with Retained passes. Capture metadata, group counts and execution-segment facts are expandable. |
 | Graph | Frame Flow structure, searchable by pass, resource, group, or output, with explicit target location and a collapsible legend. |
-| Passes | All, Retained, or Culled passes, filtered by kind and name/ID/group, with execution order, GPU, and CPU sorting. Pass List uses Name, CPU, and GPU columns; kind, order, and read/write counts accompany the name, with identifying name suffixes preserved. Culled view shows culling reasons instead of timing columns. The separate Group Hierarchy has its own expansion, path search, and View passes action. |
+| Passes | All, Retained, or Culled passes, filtered by kind and name/ID/group, with execution-order, name, kind, or selected-source duration sorting. Pass List compares one CPU or GPU timing source at a time, using the same pass names, kind chips, axis, bars, milliseconds, and shares as Overview. Identifying name suffixes remain visible. Culled rows show culling reasons instead of timings. The separate Group Hierarchy has its own expansion, path search, and View passes action. |
 | Resources | Name/ID/group, type, and Transient/Imported/Surface filters, plus name, estimated size, and first-use sorting. Rows show concise descriptors; full descriptors and allocations remain in details. |
 | Memory | Physical allocation and alias savings estimates, a separate cumulative pool summary, and collapsible allocation groups with inclusive execution-slot lifetimes. Search, allocation/size sorting, and All/Aliased/Single/Unallocated filters are available. |
 | Diagnostics | Every captured error, warning, and informational message, including repeated codes. Counted severity buttons and code/message search filter messages; Compilation details separately contains expandable retention roots, culling reasons, and execution segments. |
 
 Lists show the matching and total counts, retain continuous scrolling, and offer
-**Clear filters**. Passes order retained work by execution order, then culled work
+**Clear filters**. By default, Passes order retained work by execution order, then culled work
 by recording order when available, falling back to capture order. Retained means
 the compiler kept a pass; it does not itself prove GPU execution. Culled work has
 no execution order, segment, or GPU timing. The Group Hierarchy arrows only change
 that tree; **Show in Graph** is a separate action.
+
+Overview and Pass List place the pass name on its own first line, with kind and
+a single Read/Write summary on the second line. Counts describe declared
+Snapshot access entries. Read/Write labels use the corresponding Graph relation
+colors; the counts use the normal text color.
+
+Pass List adds an Order column for zero-based retained execution order; culled
+rows show —. Overview has no Order column. Group paths are omitted from Pass
+List rows, while group-path search, Group Hierarchy, and the full scoped group
+path remain available.
 
 **View passes** in Group Hierarchy opens Pass List for that group and all its
 descendants, clears previous search/kind/compile-state filters, and preserves the
@@ -250,19 +260,31 @@ pass timings with its timed/eligible count; **GPU span** is displayed separately
 Opaque external work has no inferred duration. Passes is the comparison table
 for individual timings; Diagnostics does not repeat it.
 
-Pass List shows CPU and GPU milliseconds and each pass's share of that metric's
-whole-capture measured pass sum. Search, kind/state filters, and group scope do
-not change share denominators or bar scales. The comparison bar follows CPU/GPU
-sorting; other sorts use GPU when the capture has GPU measurements, falling back
-to CPU. These pass sums are separate from CPU execute elapsed time and GPU span.
-Missing measurements are not zero, and a zero pass sum has no percentage.
+Overview and Pass List share one CPU/GPU timing-source choice per Inspector
+instance. The initial source is CPU only when CPU has measured passes and GPU
+has none; otherwise it is GPU, including when neither source has measurements.
+After an explicit choice, capture refreshes keep that source even when its
+measurements become unavailable. Switching the source preserves pass filters
+and group scope. Duration sorting follows the selected source and reorders
+passes when the source changes; execution-order, name, and kind sorting keep
+their order. Pass details retain both CPU and GPU readings.
+
+Both views show the selected source's milliseconds and share of its whole-capture
+measured pass sum. Each source has its own capture-wide millisecond axis; search,
+kind/state filters, group scope, and sorting do not change that source's share
+denominator or bar scale. With pass filters active, Matched shows the selected
+source's measured sum and share of its capture total. These pass sums are
+separate from CPU execute elapsed time and GPU span. Missing or opaque
+measurements show a text state without a bar. Missing measurements are not zero,
+and a zero pass sum has no percentage.
 
 Overview ranks measured passes by duration and shows their share of the entire
-measured pass sum, including passes outside the top five. GPU coverage counts
+measured pass sum, including passes outside the top five; remaining measured
+passes are summarized separately. GPU coverage counts
 retained render/compute passes; CPU coverage counts all retained passes. A zero
 sum has no percentage. Click a pass to locate it in Passes, or **View all passes**
-to clear pass filters and open the list while preserving its sort. The GPU/CPU
-choice and expanded Overview disclosures stay with the Inspector instance.
+to clear pass filters and open the list while preserving its sort and the shared
+timing source. Expanded Overview disclosures stay with the Inspector instance.
 
 Memory numbers are estimates with different scopes:
 

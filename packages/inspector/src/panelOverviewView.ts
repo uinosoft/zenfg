@@ -1,9 +1,9 @@
 import type { FrameGraphDebugNode, FrameGraphDebugViewModel } from './debugCaptureModel.ts';
-import { labelNode } from './panelDomHelpers.ts';
 import { createPanelIcon } from './panelIcons.ts';
 import { formatEstimatedBytes, formatEstimateCoverage, formatTimingCoverage, type WorkbenchCallbacks } from './panelWorkbenchHelpers.ts';
+import { appendTimingCells, createTimingIdentity, nodeTimingDuration, PassTimingSourceState, renderTimingHeader, timingDomain, type PassTimingSource } from './panelPassTiming.ts';
 
-type TimingMode = 'gpu' | 'cpu';
+type TimingMode = PassTimingSource;
 type Fact = readonly [label: string, value: string, detail?: string];
 const NODE_KINDS = ['render', 'compute', 'copy', 'clear-buffer', 'command', 'external-submission'] as const;
 const KIND_LABELS = { render: 'Render', compute: 'Compute', copy: 'Copy', 'clear-buffer': 'Clear', command: 'Command', 'external-submission': 'External' };
@@ -22,17 +22,6 @@ function countLabel(count: number, singular: string, plural = `${singular}s`): s
 function unavailableTiming(reason: string, eligible: number): string {
   if (eligible === 0) return 'Not applicable';
   return reason === 'not-requested' || reason === 'not-collected' ? 'Not collected' : 'Unavailable';
-}
-
-function timingAxisMaximum(maximum: number): number {
-  if (maximum <= 0) return 0;
-  const magnitude = 10 ** Math.floor(Math.log10(maximum));
-  const normalized = maximum / magnitude;
-  return (normalized <= 1 ? 1 : normalized <= 2 ? 2 : normalized <= 5 ? 5 : 10) * magnitude;
-}
-
-function formatAxisTick(micros: number): string {
-  return (micros / 1000).toLocaleString('en-US', { maximumSignificantDigits: 3, useGrouping: false });
 }
 
 function facts(rows: readonly Fact[]): HTMLDListElement {
@@ -60,10 +49,9 @@ export class OverviewView {
   private readonly gpuButton = this.createTimingButton('gpu');
   private readonly cpuButton = this.createTimingButton('cpu');
   private snapshot: FrameGraphDebugViewModel | undefined;
-  private timingMode: TimingMode = 'gpu';
-  private timingChosen = false;
+  private get timingMode(): TimingMode { return this.timingSource.source; }
 
-  constructor(private readonly callbacks: WorkbenchCallbacks) {
+  constructor(private readonly callbacks: WorkbenchCallbacks, private readonly timingSource = new PassTimingSourceState()) {
     this.root.className = 'zenfg-inspector-capture-summary';
   }
 
@@ -71,9 +59,7 @@ export class OverviewView {
     const active = this.root.ownerDocument.activeElement as HTMLElement | null;
     const focusKey = active && this.root.contains(active) ? active.dataset.overviewFocus : undefined;
     this.snapshot = snapshot;
-    if (!this.timingChosen) {
-      this.timingMode = snapshot.metrics.timedNodeCount === 0 && snapshot.metrics.cpuTimedNodeCount > 0 ? 'cpu' : 'gpu';
-    }
+    this.timingSource.initialize(snapshot);
     const context = element('div', 'context');
     const identity = element('div', 'identity');
     const runtime = snapshot.protocol.producer.runtime;
@@ -122,6 +108,7 @@ export class OverviewView {
     timingPanel.classList.add('zenfg-inspector-overview-timing-panel');
     const heading = element('header', 'heading');
     const timingSwitch = element('div', 'timing-switch');
+    timingSwitch.classList.add('zenfg-inspector-timing-switch');
     timingSwitch.setAttribute('role', 'group');
     timingSwitch.setAttribute('aria-label', 'Pass timing source');
     timingSwitch.append(this.gpuButton, this.cpuButton);
@@ -173,10 +160,10 @@ export class OverviewView {
     const button = document.createElement('button');
     button.type = 'button';
     button.textContent = mode.toUpperCase();
+    button.dataset.source = mode;
     button.dataset.overviewFocus = `timing:${mode}`;
     button.addEventListener('click', () => {
-      this.timingChosen = true;
-      this.timingMode = mode;
+      this.timingSource.choose(mode);
       this.renderTimings();
     });
     return button;
@@ -188,13 +175,13 @@ export class OverviewView {
     this.gpuButton.setAttribute('aria-pressed', String(this.timingMode === 'gpu'));
     this.cpuButton.setAttribute('aria-pressed', String(this.timingMode === 'cpu'));
     const gpu = this.timingMode === 'gpu';
-    const duration = (node: FrameGraphDebugNode): number | undefined => gpu ? node.gpuDurationMicros : node.cpuDurationMicros;
+    const duration = (node: FrameGraphDebugNode): number | undefined => nodeTimingDuration(node, this.timingMode);
     const measured = snapshot.nodes.filter(node => (!gpu || node.kind === 'render' || node.kind === 'compute') && duration(node) !== undefined);
     const eligible = gpu ? snapshot.metrics.timingEligibleNodeCount : snapshot.nodes.length;
-    const total = measured.reduce((sum, node) => sum + duration(node)!, 0);
+    const domain = timingDomain(snapshot.nodes, this.timingMode);
+    const total = domain.total;
     const sorted = [...measured].sort((a, b) => duration(b)! - duration(a)! || a.order - b.order || a.id.localeCompare(b.id));
     const ranked = sorted.slice(0, 5);
-    const axisMaximum = timingAxisMaximum(ranked.length ? duration(ranked[0]!)! : 0);
     const modeLabel = this.timingMode.toUpperCase();
     const timing = gpu ? snapshot.protocol.timings.gpu : snapshot.cpuProfiling;
     const coverage = element('p', 'coverage', measured.length
@@ -203,53 +190,23 @@ export class OverviewView {
     if (timing.status === 'unavailable') coverage.title = timing.reason;
     const table = element('table', 'timings');
     table.setAttribute('aria-label', `${modeLabel} pass timing ranking`);
-    table.dataset.maxMicros = String(axisMaximum);
-    const head = document.createElement('thead');
-    const header = document.createElement('tr');
-    for (const label of ['Pass', 'Duration', 'Time', 'Share']) {
-      const cell = document.createElement('th');
-      cell.scope = 'col';
-      if (label === 'Duration' && axisMaximum > 0) {
-        cell.className = 'zenfg-inspector-overview-timing-axis';
-        cell.setAttribute('aria-label', 'Duration in milliseconds');
-        const axis = element('div', 'axis');
-        for (const [index, value] of [0, axisMaximum / 2, axisMaximum].entries()) {
-          axis.append(element('span', 'tick', `${formatAxisTick(value)}${index === 2 ? ' ms' : ''}`));
-        }
-        cell.append(axis);
-      } else cell.textContent = label;
-      header.append(cell);
-    }
-    head.append(header);
+    renderTimingHeader(table, this.timingMode, domain, { order: false, sort: 'descending' });
+    table.querySelector('[data-timing-column="plot"]')?.classList.add('zenfg-inspector-overview-timing-axis');
+    table.querySelector('.zenfg-inspector-timing-axis')?.classList.add('zenfg-inspector-overview-axis');
     const body = element('tbody', 'timing-rows');
     for (const node of ranked) {
       const row = document.createElement('tr');
       row.dataset.nodeId = node.id;
       const nameCell = document.createElement('td');
-      const identity = element('div', 'pass-identity');
-      const label = labelNode(node);
-      const name = element('button', 'pass');
-      name.type = 'button'; name.title = label;
-      name.setAttribute('aria-label', label);
-      name.dataset.overviewFocus = `node:${node.id}`;
-      const characters = [...label];
-      const suffixLength = characters.length > 24 ? 12 : 0;
-      name.append(element('span', 'pass-prefix', suffixLength ? characters.slice(0, -suffixLength).join('') : label));
-      if (suffixLength) name.append(element('span', 'pass-suffix', characters.slice(-suffixLength).join('')));
-      name.addEventListener('click', () => this.callbacks.onReveal?.({ kind: 'node', id: node.id }, 'passes'));
-      const kind = element('span', 'kind', KIND_LABELS[node.kind]);
-      kind.dataset.kind = node.kind;
-      identity.append(name, kind); nameCell.append(identity);
-      const plot = element('td', 'plot');
-      const bar = element('span', 'bar');
-      bar.setAttribute('aria-hidden', 'true');
-      const fill = document.createElement('span');
-      fill.style.width = `${axisMaximum > 0 ? duration(node)! / axisMaximum * 100 : 0}%`;
-      bar.append(fill); plot.append(bar);
-      const timeCell = element('td', 'duration', `${(duration(node)! / 1000).toFixed(3)} ms`);
-      const percentage = total > 0 ? duration(node)! / total * 100 : undefined;
-      const share = element('td', 'percentage', percentage === undefined ? '—' : `${percentage.toFixed(1)}%`);
-      row.append(nameCell, plot, timeCell, share); body.append(row);
+      nameCell.dataset.timingColumn = 'name';
+      const identity = createTimingIdentity(node, {
+        onSelect: () => this.callbacks.onReveal?.({ kind: 'node', id: node.id }, 'passes'), focusKey: `node:${node.id}`,
+        nameClass: 'zenfg-inspector-overview-pass', prefixClass: 'zenfg-inspector-overview-pass-prefix',
+        suffixClass: 'zenfg-inspector-overview-pass-suffix', kindClass: 'zenfg-inspector-overview-kind',
+      });
+      identity.classList.add('zenfg-inspector-overview-pass-identity'); nameCell.append(identity); row.append(nameCell);
+      appendTimingCells(row, node, this.timingMode, domain, { plotClass: 'zenfg-inspector-overview-plot', barClass: 'zenfg-inspector-overview-bar', durationClass: 'zenfg-inspector-overview-duration', shareClass: 'zenfg-inspector-overview-percentage' });
+      body.append(row);
     }
     if (!ranked.length) {
       const row = document.createElement('tr');
@@ -257,7 +214,7 @@ export class OverviewView {
       if (timing.status === 'unavailable') empty.title = timing.reason;
       empty.colSpan = 4; row.append(empty); body.append(row);
     }
-    table.append(head, body);
+    table.append(body);
     this.timingContent.replaceChildren(coverage, table);
     if (ranked.length && sorted.length > ranked.length) {
       const topTotal = ranked.reduce((sum, node) => sum + duration(node)!, 0);
