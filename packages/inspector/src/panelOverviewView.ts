@@ -125,9 +125,11 @@ export class OverviewView {
       this.link('View all passes', () => this.callbacks.onNavigate?.('passes', 'all')));
     this.renderTimings();
     timingPanel.append(heading, this.timingContent);
-    columns.append(this.createResources(snapshot), this.createWork(snapshot));
+    const side = element('aside', 'side');
+    side.append(this.createResources(snapshot), this.createWork(snapshot));
+    columns.append(timingPanel, side);
     this.updateDetails(snapshot);
-    this.root.replaceChildren(summary, timingPanel, columns, this.captureDetails, this.snapshotDetails);
+    this.root.replaceChildren(summary, columns, this.captureDetails, this.snapshotDetails);
   }
 
   private createKpi(metric: string, label: string, value: string, note: string, unit?: string, description?: string): HTMLElement {
@@ -307,7 +309,8 @@ export class OverviewView {
     const heading = element('header', 'heading');
     heading.append(element('h2', 'title', 'Resources & memory'), this.link('View memory', () => this.callbacks.onNavigate?.('memory')));
     const allocationAvailable = snapshot.protocol.memory.allocationReport.status === 'available';
-    panel.append(heading, facts([
+    const body = element('div', 'resource-body');
+    body.append(facts([
       ['Logical resources', String(snapshot.resources.length)],
       ['Textures / buffers', `${snapshot.resources.filter(resource => resource.kind === 'texture').length} / ${snapshot.resources.filter(resource => resource.kind === 'buffer').length}`],
       ['Physical allocations', allocationAvailable ? String(snapshot.physicalAllocations.length) : 'Unavailable'],
@@ -323,7 +326,8 @@ export class OverviewView {
     ]));
     const footer = document.createElement('footer');
     footer.append(this.link('View resources', () => this.callbacks.onNavigate?.('resources')));
-    panel.append(poolSection, footer);
+    body.append(poolSection);
+    panel.append(heading, body, footer);
     return panel;
   }
 

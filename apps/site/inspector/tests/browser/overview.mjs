@@ -42,6 +42,49 @@ export async function checkOverview(page, output, fullSnapshot) {
         assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `${label}: page horizontal overflow`);
         assert.ok(await overview.evaluate(el => el.scrollWidth <= el.clientWidth + 1), `${label}: overview horizontal overflow`);
     };
+    const readLayout = () => overview.evaluate(el => {
+        const count = selector => getComputedStyle(el.querySelector(selector)).gridTemplateColumns.split(/\s+/).filter(Boolean).length;
+        const bounds = selector => {
+            const box = el.querySelector(selector).getBoundingClientRect();
+            return { x: box.x, y: box.y, width: box.width, height: box.height, right: box.right, bottom: box.bottom };
+        };
+        const main = el.closest('.zenfg-inspector-main');
+        const mainStyle = getComputedStyle(main);
+        return { mainWidth: main.clientWidth - parseFloat(mainStyle.paddingLeft) - parseFloat(mainStyle.paddingRight),
+            kpis: count('.zenfg-inspector-overview-kpis'), columns: count('.zenfg-inspector-overview-columns'), overflowY: getComputedStyle(el).overflowY,
+            summary: bounds('.zenfg-inspector-overview-summary'), timing: bounds('.zenfg-inspector-overview-timing-panel'), columnsBounds: bounds('.zenfg-inspector-overview-columns'),
+            side: bounds('.zenfg-inspector-overview-side'), resources: bounds('.zenfg-inspector-overview-resources'), work: bounds('.zenfg-inspector-overview-work'),
+            resourceFacts: bounds('.zenfg-inspector-overview-resource-body > .zenfg-inspector-overview-facts'), pool: bounds('.zenfg-inspector-overview-pool'),
+            track: bounds('.zenfg-inspector-overview-timing-rows tr:first-child .zenfg-inspector-overview-bar'), fill: bounds('.zenfg-inspector-overview-timing-rows tr:first-child .zenfg-inspector-overview-bar > span'),
+            name: bounds('.zenfg-inspector-overview-timing-rows tr:first-child .zenfg-inspector-overview-pass'),
+            ticks: [...el.querySelectorAll('.zenfg-inspector-overview-axis > span')].filter(tick => getComputedStyle(tick).display !== 'none').map(tick => {
+                const box = tick.getBoundingClientRect();
+                return { x: box.x, right: box.right };
+            }).sort((a, b) => a.x - b.x) };
+    });
+    const expectLayout = (layout, label) => {
+        const wide = layout.mainWidth >= 1000;
+        assert.equal(layout.kpis, wide ? 4 : layout.mainWidth >= 600 ? 2 : 1, `${label}: KPI columns follow the main container`);
+        assert.equal(layout.columns, wide ? 2 : 1, `${label}: analysis columns follow the main container`);
+        assert.equal(layout.overflowY, 'auto');
+        assert.ok(layout.columnsBounds.y >= layout.summary.bottom, `${label}: analysis follows the frame summary`);
+        if (wide) {
+            assert.ok(layout.timing.right <= layout.side.x && Math.abs(layout.timing.y - layout.side.y) <= 1, `${label}: timing and supporting facts sit side by side`);
+            assert.ok(Math.abs(layout.timing.width / (layout.timing.width + layout.side.width) - 2 / 3) < 0.04, `${label}: timing receives approximately two thirds of the analysis width`);
+            assert.ok(layout.pool.y >= layout.resourceFacts.bottom, `${label}: the narrow resources panel stacks facts and pool metrics`);
+        } else {
+            assert.ok(Math.abs(layout.timing.x - layout.summary.x) <= 1 && Math.abs(layout.timing.width - layout.summary.width) <= 1, `${label}: stacked timing analysis uses full content width`);
+            assert.ok(layout.side.y >= layout.timing.bottom, `${label}: supporting facts follow timing when the main container is narrow`);
+        }
+        assert.ok(layout.work.y >= layout.resources.bottom && Math.abs(layout.work.x - layout.resources.x) <= 1, `${label}: resource and work panels stay vertically grouped`);
+        assert.ok(layout.pool.y >= layout.resourceFacts.bottom || layout.resourceFacts.right <= layout.pool.x, `${label}: resource facts and pool metrics do not overlap`);
+        assert.ok(layout.track.width > 20 && Math.abs(layout.fill.width / layout.track.width - 0.88) < 0.01, `${label}: visible time bars use the millisecond axis, not 13.8% share`);
+        assert.ok(layout.name.right <= layout.track.x + 1 || layout.name.bottom <= layout.track.y + 1 || layout.track.bottom <= layout.name.y + 1, `${label}: pass label does not overlap the time chart`);
+        assert.ok(layout.ticks.length >= 2, `${label}: time axis retains visible start and end labels`);
+        for (let index = 1; index < layout.ticks.length; index++) {
+            assert.ok(layout.ticks[index - 1].right <= layout.ticks[index].x, `${label}: visible time-axis labels do not overlap`);
+        }
+    };
 
     try {
         await setSnapshot(fullSnapshot);
@@ -139,8 +182,34 @@ export async function checkOverview(page, output, fullSnapshot) {
         assert.match(await overview.locator('.zenfg-inspector-overview-timing-totals [data-part="top"]').innerText(), /5.*1\.636\s*ms.*51\.3%/s);
         assert.match(await overview.locator('.zenfg-inspector-overview-timing-totals [data-part="other"]').innerText(), /33.*1\.555\s*ms.*48\.7%/s);
 
+        // Keep the browser wide while resizing the embedded host across the exact
+        // main-container breakpoint; overview padding must not move the threshold.
+        await page.setViewportSize({ width: 1280, height: 920 });
+        await page.evaluate(() => {
+            themeQA.host.style.height = '920px';
+            themeQA.inspector.setTheme(themeQA.tokyoNightStorm);
+        });
+        for (const mainWidth of [999, 1000]) {
+            await page.evaluate(mainWidth => {
+                const main = document.querySelector('.zenfg-inspector-main');
+                const style = getComputedStyle(main);
+                const contentWidth = main.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight);
+                const outsideMain = themeQA.host.getBoundingClientRect().width - contentWidth;
+                themeQA.host.style.width = `${mainWidth + outsideMain}px`;
+            }, mainWidth);
+            await settle();
+            await overview.evaluate(el => { el.scrollTop = 0; });
+            const layout = await readLayout();
+            assert.equal(await page.evaluate(() => innerWidth), 1280, 'the host-resize check keeps the browser width unchanged');
+            assert.ok(Math.abs(layout.mainWidth - mainWidth) < 0.5, `main container reaches ${mainWidth}px independently of the browser`);
+            expectLayout(layout, `1280 browser / ${mainWidth} main`);
+            await expectNoOverflow(`1280 browser / ${mainWidth} main`);
+            await page.screenshot({ path: resolve(output, `dark-1280-main-${mainWidth}-overview-layout.png`), animations: 'disabled' });
+        }
+        await page.evaluate(() => { themeQA.host.style.width = '100%'; });
+
         // Container width, rather than the surrounding browser page, determines layout.
-        for (const [width, height] of [[1277, 920], [800, 920], [390, 844], [320, 844], [390, 480]]) {
+        for (const [width, height] of [[1280, 920], [1277, 920], [1024, 920], [800, 920], [390, 844], [320, 844], [390, 480]]) {
             await page.setViewportSize({ width, height });
             await page.evaluate(height => { themeQA.host.style.height = height + 'px'; }, height);
             for (const mode of ['dark', 'light', 'custom']) {
@@ -158,32 +227,8 @@ export async function checkOverview(page, output, fullSnapshot) {
                 }, mode);
                 await settle();
                 await overview.evaluate(el => { el.scrollTop = 0; });
-                const layout = await overview.evaluate(el => {
-                    const count = selector => getComputedStyle(el.querySelector(selector)).gridTemplateColumns.split(/\s+/).filter(Boolean).length;
-                    const bounds = selector => {
-                        const box = el.querySelector(selector).getBoundingClientRect();
-                        return { x: box.x, y: box.y, width: box.width, height: box.height, right: box.right, bottom: box.bottom };
-                    };
-                    return { kpis: count('.zenfg-inspector-overview-kpis'), columns: count('.zenfg-inspector-overview-columns'), overflowY: getComputedStyle(el).overflowY,
-                        summary: bounds('.zenfg-inspector-overview-summary'), timing: bounds('.zenfg-inspector-overview-timing-panel'), lower: bounds('.zenfg-inspector-overview-columns'),
-                        track: bounds('.zenfg-inspector-overview-timing-rows tr:first-child .zenfg-inspector-overview-bar'), fill: bounds('.zenfg-inspector-overview-timing-rows tr:first-child .zenfg-inspector-overview-bar > span'),
-                        name: bounds('.zenfg-inspector-overview-timing-rows tr:first-child .zenfg-inspector-overview-pass'),
-                        ticks: [...el.querySelectorAll('.zenfg-inspector-overview-axis > span')].filter(tick => getComputedStyle(tick).display !== 'none').map(tick => {
-                            const box = tick.getBoundingClientRect();
-                            return { x: box.x, right: box.right };
-                        }).sort((a, b) => a.x - b.x) };
-                });
-                assert.equal(layout.kpis, width >= 1000 ? 4 : width >= 600 ? 2 : 1, `${width}/${height}/${mode}: KPI columns`);
-                assert.equal(layout.columns, width >= 1000 ? 2 : 1, `${width}/${height}/${mode}: lower columns`);
-                assert.equal(layout.overflowY, 'auto');
-                assert.ok(Math.abs(layout.timing.x - layout.summary.x) <= 1 && Math.abs(layout.timing.width - layout.summary.width) <= 1, `${width}/${height}/${mode}: timing analysis uses full content width`);
-                assert.ok(layout.timing.y >= layout.summary.bottom && layout.lower.y >= layout.timing.bottom, `${width}/${height}/${mode}: summary, timing analysis and supporting facts have separate rows`);
-                assert.ok(layout.track.width > 20 && Math.abs(layout.fill.width / layout.track.width - 0.88) < 0.01, `${width}/${height}/${mode}: visible time bars use the millisecond axis, not 13.8% share`);
-                assert.ok(layout.name.right <= layout.track.x + 1 || layout.name.bottom <= layout.track.y + 1 || layout.track.bottom <= layout.name.y + 1, `${width}/${height}/${mode}: pass label does not overlap the time chart`);
-                assert.ok(layout.ticks.length >= 2, `${width}/${height}/${mode}: time axis retains visible start and end labels`);
-                for (let index = 1; index < layout.ticks.length; index++) {
-                    assert.ok(layout.ticks[index - 1].right <= layout.ticks[index].x, `${width}/${height}/${mode}: visible time-axis labels do not overlap`);
-                }
+                const layout = await readLayout();
+                expectLayout(layout, `${width}/${height}/${mode}`);
                 if (mode === 'custom') assert.equal(await metric('gpu').evaluate(el => getComputedStyle(el).color), 'rgb(35, 69, 103)', 'overview inherits custom host text');
                 await expectNoOverflow(`${width}/${height}/${mode}`);
                 for (const label of ['Import', 'Export']) {
@@ -240,6 +285,7 @@ export async function checkOverview(page, output, fullSnapshot) {
     } finally {
         await page.evaluate(() => {
             themeQA.host.style.height = '800px';
+            themeQA.host.style.width = '100%';
             themeQA.host.style.removeProperty('--zfgi-text');
             themeQA.host.style.removeProperty('--zfgi-accent');
             delete themeQA.host.dataset.zfgiTheme;
