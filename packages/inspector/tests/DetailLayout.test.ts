@@ -11,7 +11,7 @@ function installDom(): Window {
 	return window;
 }
 
-function createLayout(initialWidth = 1400) {
+function createLayout(initialWidth = 1400, resolveFocus?: (previous: HTMLElement) => HTMLElement | undefined) {
 	let width = initialWidth;
 	const host = document.createElement('div');
 	const chrome = document.createElement('nav');
@@ -24,7 +24,7 @@ function createLayout(initialWidth = 1400) {
 	const aside = document.createElement('aside');
 	aside.append(document.createElement('button'));
 	workspace.append(main, aside); host.append(chrome, workspace); document.body.append(host);
-	const layout = new DetailLayout(workspace, main, aside, chrome, () => layout.update(false));
+	const layout = new DetailLayout(workspace, main, aside, chrome, () => layout.update(false), resolveFocus);
 	const divider = workspace.querySelector<HTMLElement>('[role="separator"]')!;
 	const backdrop = workspace.querySelector<HTMLElement>('.zenfg-inspector-detail-backdrop')!;
 	return {
@@ -124,5 +124,19 @@ test('pointer resizing clamps to the same bounds and stops after pointer release
 		pointer('pointerup', 0);
 		pointer('pointermove', 860);
 		assert.equal(view.width(), 332);
+	} finally { view.destroy(); window.close(); }
+});
+
+test('closing a refreshed drawer resolves a rebuilt opener and rejects a hidden replacement', () => {
+	const window = installDom();
+	let replacement: HTMLElement | undefined;
+	const view = createLayout(390, () => replacement);
+	try {
+		const opener = document.createElement('button'); view.main.append(opener); opener.focus(); view.layout.update(true);
+		opener.remove(); replacement = document.createElement('button'); view.main.append(replacement);
+		view.layout.update(false); assert.ok(document.activeElement === replacement);
+		replacement.focus(); view.layout.update(true); replacement.remove();
+		replacement = document.createElement('button'); const hidden = document.createElement('div'); hidden.hidden = true; hidden.append(replacement); view.main.append(hidden);
+		view.layout.update(false); assert.equal(document.activeElement?.getAttribute('role'), 'tab');
 	} finally { view.destroy(); window.close(); }
 });

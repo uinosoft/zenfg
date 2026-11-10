@@ -235,14 +235,23 @@ test('Overview pass shortcuts clear filters, return to the list and preserve pas
 			kind.value = 'compute'; kind.dispatchEvent(new Event('change'));
 			state.value = 'culled'; state.dispatchEvent(new Event('change'));
 		};
+		const scopeToPostFX = () => {
+			button(passes, 'Group Hierarchy').click();
+			element<HTMLButtonElement>(passes, 'button[aria-label="View passes in group Main / PostFX"]').click();
+			assert.equal(element(passes, '.zenfg-inspector-pass-scope').hidden, false);
+			assert.equal(passes.querySelectorAll('[id$="pass-list-panel"] tbody tr[data-selection-key]').length, 1);
+		};
 		const assertUnfiltered = () => {
 			assert.equal(button(tabs(panel), 'Passes').getAttribute('aria-selected'), 'true');
 			assert.equal(button(passes, 'Pass List').getAttribute('aria-selected'), 'true');
 			assert.equal(search.value, ''); assert.equal(kind.value, 'all'); assert.equal(state.value, 'all');
-			assert.equal(sort.value, 'cpu');
+			assert.equal(sort.value, 'time');
+			assert.equal(element(passes, '.zenfg-inspector-pass-scope').hidden, true);
 			assert.equal(passes.querySelectorAll('[id$="pass-list-panel"] tbody tr[data-selection-key]').length, 4);
 		};
-		sort.value = 'cpu'; sort.dispatchEvent(new Event('change'));
+		button(passes, 'CPU').click();
+		sort.value = 'time'; sort.dispatchEvent(new Event('change'));
+		scopeToPostFX();
 		filterToCulled();
 		button(passes, 'Group Hierarchy').click();
 		button(tabs(panel), 'Overview').click();
@@ -250,13 +259,123 @@ test('Overview pass shortcuts clear filters, return to the list and preserve pas
 		button(overview, 'View all passes').click();
 		assertUnfiltered();
 		assert.equal(aside(panel).hidden, true);
+		scopeToPostFX();
 		filterToCulled();
 		button(tabs(panel), 'Overview').click();
+		button(overview, 'GPU').click();
 		button(overview, 'scene').click();
 		assertUnfiltered();
 		assert.equal(aside(panel).hidden, false);
 		assert.equal(element(aside(panel), 'header strong').textContent, 'scene');
 		assert.ok(button(passes, 'scene').closest('tr')?.classList.contains('selected'));
+		scopeToPostFX();
+		button(tabs(panel), 'Overview').click();
+		button(overview, '1 Culled').click();
+		assert.equal(element(passes, '.zenfg-inspector-pass-scope').hidden, true);
+		assert.equal(state.value, 'culled');
+		assert.equal(sort.value, 'time');
+		assert.ok(button(passes, 'unused').closest('tr'));
+	} finally { panel.destroy(); window.close(); }
+});
+
+test('Overview and Passes share timing focus while keeping pass order and filters independent', () => {
+	const window = installDom(); const panel = mount();
+	try {
+		const source = fixture();
+		panel.setSnapshot({ ...source, timings: { ...source.timings, cpu: { status: 'available', executionDurationMicros: 1200,
+			nodes: [{ nodeId: 'node:scene', durationMicros: 100 }, { nodeId: 'node:external', durationMicros: 800 }, { nodeId: 'node:present', durationMicros: 0 }],
+		} } });
+		const passes = element(panel.dom, '.zenfg-inspector-passes-view');
+		const overview = element(panel.dom, '.zenfg-inspector-overview-view');
+		const sourceOf = (root: HTMLElement) => element<HTMLTableElement>(root, '.zenfg-inspector-timing-table').dataset.source;
+		assert.equal(passes.querySelector('tbody tr'), null, 'timing choice does not eagerly create inactive lists');
+		button(tabs(panel), 'Overview').click(); button(overview, 'CPU').click(); button(overview, 'View all passes').click();
+		assert.equal(sourceOf(passes), 'cpu');
+		const sort = element<HTMLSelectElement>(passes, '[aria-label="Sort passes"]');
+		const passOrder = () => [...passes.querySelectorAll<HTMLElement>('.zenfg-inspector-pass-table tr[data-selection-key]')].map(row => row.dataset.selectionKey);
+		sort.value = 'time'; sort.dispatchEvent(new Event('change'));
+		assert.equal(passOrder()[0], 'node:node:external');
+		button(passes, 'GPU').click(); assert.equal(passOrder()[0], 'node:node:scene');
+		sort.value = 'order'; sort.dispatchEvent(new Event('change')); const executionOrder = passOrder();
+		button(passes, 'CPU').click(); assert.deepEqual(passOrder(), executionOrder);
+		button(passes, 'Group Hierarchy').click();
+		element<HTMLButtonElement>(passes, '[aria-label="View passes in group Main / PostFX"]').click();
+		const search = element<HTMLInputElement>(passes, '[aria-label="Search pass, ID or group"]');
+		search.value = 'present'; search.dispatchEvent(new Event('input'));
+		button(tabs(panel), 'Overview').click(); button(overview, 'GPU').click();
+		assert.equal(sourceOf(passes), 'cpu', 'inactive list retains its DOM until opened');
+		button(tabs(panel), 'Passes').click(); assert.equal(sourceOf(passes), 'gpu');
+		assert.equal(search.value, 'present'); assert.equal(sort.value, 'order');
+		assert.equal(element(passes, '.zenfg-inspector-pass-scope').hidden, false);
+		assert.deepEqual(passOrder(), ['node:node:present']);
+	} finally { panel.destroy(); window.close(); }
+});
+
+test('explicit timing choices survive lazy capture refreshes and remain isolated per Inspector', () => {
+	const window = installDom(); const panel = mount(); const peer = mount();
+	try {
+		const source = fixture(); panel.setSnapshot(source); peer.setSnapshot(source);
+		button(tabs(panel), 'Passes').click(); const passes = element(panel.dom, '.zenfg-inspector-passes-view');
+		button(passes, 'CPU').focus(); button(passes, 'CPU').click();
+		assert.strictEqual(document.activeElement, button(passes, 'CPU'));
+		button(tabs(panel), 'Graph').click(); panel.setSnapshot(source);
+		button(tabs(panel), 'Overview').click();
+		assert.equal(element<HTMLTableElement>(panel.dom, '.zenfg-inspector-overview-timings').dataset.source, 'cpu');
+		assert.match(element(panel.dom, '.zenfg-inspector-overview-coverage').textContent!, /CPU.*Not collected/);
+		button(tabs(panel), 'Passes').click();
+		assert.equal(element<HTMLTableElement>(passes, '.zenfg-inspector-pass-table').dataset.source, 'cpu');
+		assert.equal(passes.querySelector('.zenfg-inspector-timing-bar'), null, 'missing CPU measurements do not acquire GPU bars');
+		button(tabs(peer), 'Overview').click();
+		assert.equal(element<HTMLTableElement>(peer.dom, '.zenfg-inspector-overview-timings').dataset.source, 'gpu');
+	} finally { panel.destroy(); peer.destroy(); window.close(); }
+});
+
+test('focused Overview shortcuts move keyboard focus to the visible destination tab', () => {
+	const window = installDom();
+	const panel = mount();
+	try {
+		panel.setSnapshot(fixture());
+		for (const [label, tab] of [['1 Culled', 'Passes'], ['View all passes', 'Passes'], ['View resources', 'Resources'], ['View memory', 'Memory'], ['View diagnostics', 'Diagnostics']] as const) {
+			button(tabs(panel), 'Overview').click();
+			const origin = button(element(panel.dom, '.zenfg-inspector-overview-view'), label);
+			origin.focus(); origin.click();
+			const destination = element<HTMLButtonElement>(tabs(panel), 'button[aria-selected="true"]');
+			assert.ok(destination.textContent?.startsWith(tab), `${label} activates ${tab}`);
+			assert.strictEqual(document.activeElement, destination, `${label} places focus on ${tab}`);
+			assert.equal(destination.getAttribute('aria-selected'), 'true');
+			assert.equal(destination.closest('[hidden], [inert]'), null);
+		}
+	} finally { panel.destroy(); window.close(); }
+});
+
+test('same-name Overview pass reveals focus the destination without changing other focus policies', () => {
+	const window = installDom();
+	const panel = mount();
+	try {
+		const source = fixture();
+		const label = `Long ${'namespace.'.repeat(25)}shadow.depth.1`;
+		panel.setSnapshot({ ...source, graph: { ...source.graph,
+			nodes: source.graph.nodes.map(node => node.id === 'node:scene' || node.id === 'node:present' ? { ...node, label } : node),
+		} });
+		const overview = element(panel.dom, '.zenfg-inspector-overview-view');
+		for (const width of [1280, 800]) {
+			const workspace = element(panel.dom, '.zenfg-inspector-workspace');
+			workspace.getBoundingClientRect = () => ({ width, height: 600, x: 0, y: 0, left: 0, right: width, top: 0, bottom: 600, toJSON: () => ({}) });
+			button(tabs(panel), 'Overview').click();
+			const pass = element<HTMLButtonElement>(overview, 'tr[data-node-id="node:present"] .zenfg-inspector-overview-pass');
+			pass.focus(); pass.click();
+			assert.strictEqual(document.activeElement, button(tabs(panel), 'Passes'), `${width}px reveal finishes on the destination tab`);
+			assert.ok(element(panel.dom, '.zenfg-inspector-passes-view tr[data-selection-key="node:node:present"]').classList.contains('selected'));
+			assert.equal(button(tabs(panel), 'Passes').closest('[hidden], [inert]'), null);
+			if (width === 800) assert.equal(aside(panel).hidden, true, 'drawer closes before keyboard navigation resumes on Passes');
+		}
+		// A programmatic activation while focus remains in the command bar must
+		// not impose the Overview-to-tab keyboard handoff on that external focus.
+		button(tabs(panel), 'Overview').click();
+		const exportButton = element<HTMLButtonElement>(panel.dom, '.zenfg-inspector-export-action');
+		exportButton.focus();
+		button(overview, 'View resources').click();
+		assert.strictEqual(document.activeElement, exportButton);
 	} finally { panel.destroy(); window.close(); }
 });
 
@@ -270,13 +389,13 @@ test('nonactive pages render on demand and retain old DOM until activated after 
 		assert.equal(memory.querySelector('.zenfg-inspector-memory-resource'), null);
 		assert.equal(panel.dom.querySelector('.zenfg-inspector-passes-view tbody tr'), null);
 		button(tabs(panel), 'Memory').click();
-		const row = element(memory, '.zenfg-inspector-memory-resource');
+		const row = element(memory, '.zenfg-inspector-memory-allocation');
 		assert.match(row.textContent!, /scene-color/);
 		button(tabs(panel), 'Passes').click();
 		panel.setSnapshot({ ...source, capture: { ...source.capture, frameIndex: 43 }, graph: { ...source.graph,
 			resources: source.graph.resources.map((resource) => resource.id === 'resource:scene-color' ? { ...resource, label: 'Renamed scene buffer' } : resource),
 		} });
-		assert.strictEqual(memory.querySelector('.zenfg-inspector-memory-resource'), row);
+		assert.strictEqual(memory.querySelector('.zenfg-inspector-memory-allocation'), row);
 		assert.doesNotMatch(memory.textContent!, /Renamed scene buffer/);
 		button(tabs(panel), 'Memory').click();
 		assert.notStrictEqual(memory.querySelector('.zenfg-inspector-memory-resource'), row);

@@ -184,19 +184,38 @@ Inspector instance and are not saved across sessions.
 
 | View | Purpose |
 | --- | --- |
-| Overview | Full-width GPU span, CPU execute, physical allocation estimate and retained-pass metrics, with the five slowest measured GPU or CPU passes, work composition, resource/pool summaries and diagnostic counts. Capture metadata and additional Snapshot facts are expandable. |
+| Overview | Full-width GPU span, CPU execute, physical allocation estimate and retained-pass metrics, with the five slowest measured GPU or CPU passes, resource/pool summaries and diagnostic counts. Pass-kind counts and a nonzero culled-pass shortcut appear with Retained passes. Capture metadata, group counts and execution-segment facts are expandable. |
 | Graph | Frame Flow structure, searchable by pass, resource, group, or output, with explicit target location and a collapsible legend. |
-| Passes | All, Retained, or Culled passes, filtered by kind and name/ID/group, with execution order, GPU, and CPU sorting. Both timings remain visible in compact rows. The separate Group Hierarchy has its own expansion and path search. |
+| Passes | All, Retained, or Culled passes, filtered by kind and name/ID/group, with execution-order, name, kind, or selected-source duration sorting. Pass List compares one CPU or GPU timing source at a time, using the same pass names, kind chips, axis, bars, milliseconds, and shares as Overview. Identifying name suffixes remain visible. Culled rows show culling reasons instead of timings. The separate Group Hierarchy has its own expansion, path search, and View passes action. |
 | Resources | Name/ID/group, type, and Transient/Imported/Surface filters, plus name, estimated size, and first-use sorting. Rows show concise descriptors; full descriptors and allocations remain in details. |
-| Memory | Physical allocation and alias savings estimates, a separate cumulative pool summary, and collapsible allocation groups with inclusive execution-slot lifetimes. Search, allocation/size sorting, and All/Aliased/Single/Unallocated filters are available. |
+| Memory | Physical allocation and alias savings estimates, a compact separate pool summary, and inclusive Pass Order lifetimes. Single and Shared allocations use the same collapsed physical rows with expandable logical resources. Allocation/physical-size sorting stays global; members remain with their parent. Search and All/Shared/Single/Unreferenced/Unallocated filters are available. |
 | Diagnostics | Every captured error, warning, and informational message, including repeated codes. Counted severity buttons and code/message search filter messages; Compilation details separately contains expandable retention roots, culling reasons, and execution segments. |
 
 Lists show the matching and total counts, retain continuous scrolling, and offer
-**Clear filters**. Passes order retained work by execution order, then culled work
+**Clear filters**. By default, Passes order retained work by execution order, then culled work
 by recording order when available, falling back to capture order. Retained means
 the compiler kept a pass; it does not itself prove GPU execution. Culled work has
 no execution order, segment, or GPU timing. The Group Hierarchy arrows only change
 that tree; **Show in Graph** is a separate action.
+
+Overview and Pass List place the pass name on its own first line, with kind and
+a single Read/Write summary on the second line. Counts describe declared
+Snapshot access entries. Read/Write labels use the corresponding Graph relation
+colors; the counts use the normal text color.
+
+Pass List adds an Order column for zero-based retained execution order; culled
+rows show —. Overview has no Order column. Group paths are omitted from Pass
+List rows, while group-path search, Group Hierarchy, and the full scoped group
+path remain available.
+
+**View passes** in Group Hierarchy opens Pass List for that group and all its
+descendants, clears previous search/kind/compile-state filters, and preserves the
+sort. The scope shows the full group path and **includes subgroups**; group IDs
+keep identically named groups distinct. The scope can be cleared and survives a
+capture refresh while that group ID still exists. **Clear filters**, navigation
+to all or culled passes, and explicitly locating a pass clear the scope. Ordinary
+group selection opens details without changing the pass filters. Group summaries
+include descendants, so parent and child totals must not be added together.
 
 Diagnostics preserve capture order within each severity and offer separate
 node and resource links when a message references both. Culled-node links work
@@ -241,12 +260,48 @@ pass timings with its timed/eligible count; **GPU span** is displayed separately
 Opaque external work has no inferred duration. Passes is the comparison table
 for individual timings; Diagnostics does not repeat it.
 
+Overview and Pass List share one CPU/GPU timing-source choice per Inspector
+instance. The initial source is CPU only when CPU has measured passes and GPU
+has none; otherwise it is GPU, including when neither source has measurements.
+After an explicit choice, capture refreshes keep that source even when its
+measurements become unavailable. Switching the source preserves pass filters
+and group scope. Duration sorting follows the selected source and reorders
+passes when the source changes; execution-order, name, and kind sorting keep
+their order. Pass details retain both CPU and GPU readings.
+
+Both views show the selected source's milliseconds and share of its whole-capture
+measured pass sum. Each source has its own capture-wide millisecond axis; search,
+kind/state filters, group scope, and sorting do not change that source's share
+denominator or bar scale. With pass filters active, Matched shows the selected
+source's measured sum and share of its capture total. These pass sums are
+separate from CPU execute elapsed time and GPU span. Missing or opaque
+measurements show a text state without a bar. Missing measurements are not zero,
+and a zero pass sum has no percentage.
+
 Overview ranks measured passes by duration and shows their share of the entire
-measured pass sum, including passes outside the top five. GPU coverage counts
+measured pass sum, including passes outside the top five; remaining measured
+passes are summarized separately. GPU coverage counts
 retained render/compute passes; CPU coverage counts all retained passes. A zero
 sum has no percentage. Click a pass to locate it in Passes, or **View all passes**
-to clear pass filters and open the list while preserving its sort. The GPU/CPU
-choice and expanded Overview disclosures stay with the Inspector instance.
+to clear pass filters and open the list while preserving its sort and the shared
+timing source. Expanded Overview disclosures stay with the Inspector instance.
+
+Resources show the name first, followed by kind, origin, and compact descriptor
+facts. Long names preserve their identifying tail, with the full name and ID on
+hover; group paths remain searchable and available in details. Size bars compare
+Snapshot-provided logical resource estimates against the largest known estimate
+in the entire capture. Search, filters, and sorting do not change that scale.
+Unknown estimates have no bar; `0 B` is a known zero. Declared buffer capacity is
+shown separately when it adds information and never fills a missing estimate.
+Logical estimates are distinct from shared physical allocations and actual GPU
+memory use. **Data scope** explains the fields and known-estimate coverage.
+
+Resource **Read** and **Write** counts include every declared access record,
+including repeated ranges and culled passes, rather than execution counts or
+unique pass counts. Select a count to open Relations filtered to that mode.
+Lifetime boundaries use inclusive retained execution **Order**, matching Passes;
+select a boundary to locate that pass. They are not elapsed time, and an
+unavailable lifetime does not imply an unused resource.
 
 Memory numbers are estimates with different scopes:
 
@@ -255,8 +310,15 @@ Memory numbers are estimates with different scopes:
 | Transient estimate | Declared estimated sizes of transient logical resources. |
 | Logical capacity | Allocation capacity counted for each assigned logical transient resource. |
 | Physical allocation estimate | Estimated sizes of physical allocations in the allocation report, counted once each. |
-| Alias savings estimate | Logical capacity minus physical allocation estimate, where both are known. |
-| Idle retained estimate | Producer-reported idle pool allocations at sampling time, which may outlive this graph. |
+| Alias savings estimate | Sum of `(transient member count − 1) × allocation capacity` for each allocation with multiple transient members. The same estimate appears in Overview. |
+| Idle pool estimate | Producer-reported idle pool allocations at sampling time, which may outlive this graph. |
+
+Unreferenced allocations remain in the physical total but do not offset alias
+savings. Missing sizes on Single or unreferenced allocations do not invalidate
+known savings; a missing shared allocation size makes the savings unknown and
+shows its coverage. Imported and surface members do not contribute to savings.
+**Data scope** separates referenced and unreferenced physical estimates from
+logical capacity. Shared membership does not explain allocator decisions.
 
 An unavailable report is not zero. Unknown resource/allocation sizes remain
 unknown, and partial summaries show the known-size coverage. A valid empty report
@@ -264,12 +326,40 @@ can contain real zero totals. None of these metrics is total GPU memory or a
 measured peak. Memory summaries always cover the entire Snapshot; filters change
 the visible rows and matching count only. A lifetime includes both first and last
 execution slots. Tick positions, grid lines, and resource bars share one stable
-Snapshot coordinate range; missing lifetimes have no bar.
+Snapshot coordinate range; missing lifetimes have no bar. The domain also
+includes Imported/Surface members explicitly assigned to reported allocations;
+these rows show their origin.
 
-Lists use full tables at content widths of 1000px or more, merge secondary
-columns below 1000px, and reflow into compact rows below 600px. GPU/CPU timings
-and resource estimates remain visible when the selection pane reduces the main
-content width. Memory lifetimes use the same full execution-slot domain at every
+Memory top-level rows always represent physical allocations. Single and Shared
+rows start collapsed and use the same columns, with Physical capacity counted
+once per allocation. Single rows preview their sole logical resource. Expand
+either kind to inspect logical resource rows, whose sizes are labeled Logical.
+Global allocation-order or physical-size sorting moves the complete allocation;
+expanded members stay with their parent in first-use order. Unreferenced
+allocations have no expansion control. Unallocated logical resources appear in
+a separate section and sort by logical estimate there.
+
+Allocation tracks show the union of known logical lifetimes, merging overlapping
+or adjacent inclusive slots while preserving gaps. They do not measure physical
+residency. Missing member lifetimes show partial coverage; absent lifetimes do
+not invent occupied slots. Search, filtering, and folding preserve the complete
+allocation coverage and capture-wide axis even when only one member matches.
+
+Select an allocation name or its coverage track to inspect that allocation.
+Select a resource preview, expanded resource name, or resource lifetime track to
+inspect the logical resource. The location icon goes to Resources; an inclusive
+Order boundary locates its retained pass. Explicit resource location unfolds the
+parent and clears blocking filters while retaining the chosen sort. Long names
+retain identifying suffixes and full-name tooltips. Refreshes and folds restore
+focus to the corresponding control or a useful fallback when the target
+disappears. Filters and the timeline axis stay together while scrolling.
+
+Group hierarchies merge secondary columns below 1000px and use compact rows
+below 600px. Pass timing rows reflow below 600px; Resources and Memory reflow
+below 800px, giving names the full row and placing sizes and lifetimes below. These
+breakpoints use the available main content width, including an open selection
+dock. GPU/CPU timings and resource estimates remain visible. Memory lifetimes
+use the same full execution-slot domain at every
 width. Allocation folds and estimate information persist across captures;
 search temporarily expands matching allocations, and explicit location expands
 the target without changing ordinary selection behavior.
@@ -361,8 +451,11 @@ outline without a glow. Hovering a Summary or Relations link previews its target
 in the graph using the same rules, without changing selection or moving the view;
 leaving the link or changing/closing the detail pane clears the preview.
 
-Resource **Pass accesses** entries link only the pass name; access mode, write
-contents, producesValue, and available ranges remain descriptive text. Pass details
+Resource **Pass accesses** groups records by pass, with retained passes in
+execution Order followed by explicitly marked culled passes. Each declared
+record retains its access mode, write contents, producesValue, and available
+ranges as descriptive text. Only the pass name selects its details; the separate
+location icon navigates to Passes. Pass details
 use the same access facts. An access is not a graph
 relationship and is not mapped to an arbitrary dependency edge.
 Resource Relations also link to individual output roots by reason and range.

@@ -149,12 +149,16 @@ export type FrameGraphDebugMetrics = {
 	readonly transientEstimatedByteSize?: number;
 	readonly logicalCapacityBytes?: number;
 	readonly physicalEstimatedBytes?: number;
+	readonly referencedPhysicalEstimatedBytes?: number;
+	readonly unreferencedPhysicalEstimatedBytes?: number;
+	/** Extra transient members times allocation capacity, summed per shared allocation. */
 	readonly aliasReuseBytes?: number;
 	readonly aliasedAllocationCount: number;
 	readonly estimatedCoverage: {
 		readonly transient: EstimateCoverage;
 		readonly logical: EstimateCoverage;
 		readonly physical: EstimateCoverage;
+		readonly alias: EstimateCoverage;
 	};
 };
 
@@ -400,6 +404,11 @@ export function createDebugViewModel(
 		.filter((resource) => resource.physicalResourceId !== undefined)
 		.map((resource) => allocationById.get(resource.physicalResourceId!)?.estimatedByteSize);
 	const logicalCapacityBytes = allocationAvailable ? sumKnown(logicalAllocationSizes) : undefined;
+	const transientIds = new Set(transientResources.map(resource => resource.id));
+	const aliasSizes = physicalAllocations.flatMap(allocation => {
+		const members = allocation.resourceIds.filter(id => transientIds.has(id)).length;
+		return members > 1 ? [allocation.estimatedByteSize === undefined ? undefined : (members - 1) * allocation.estimatedByteSize] : [];
+	});
 	const metrics: FrameGraphDebugMetrics = {
 		timingEligibleNodeCount: timingEligibleNodes.length,
 		timedNodeCount: timedNodes.length,
@@ -409,14 +418,15 @@ export function createDebugViewModel(
 		transientEstimatedByteSize,
 		logicalCapacityBytes,
 		physicalEstimatedBytes,
-		aliasReuseBytes: logicalCapacityBytes === undefined || physicalEstimatedBytes === undefined
-			? undefined
-			: Math.max(0, logicalCapacityBytes - physicalEstimatedBytes),
+		referencedPhysicalEstimatedBytes: allocationAvailable ? sumKnown(physicalAllocations.filter(allocation => allocation.resourceIds.length > 0).map(allocation => allocation.estimatedByteSize)) : undefined,
+		unreferencedPhysicalEstimatedBytes: allocationAvailable ? sumKnown(physicalAllocations.filter(allocation => allocation.resourceIds.length === 0).map(allocation => allocation.estimatedByteSize)) : undefined,
+		aliasReuseBytes: allocationAvailable ? sumKnown(aliasSizes) : undefined,
 		aliasedAllocationCount: physicalAllocations.filter((allocation) => allocation.resourceIds.length > 1).length,
 		estimatedCoverage: {
 			transient: estimateCoverage(transientResources.map((resource) => resource.estimatedByteSize)),
 			logical: estimateCoverage(logicalAllocationSizes),
 			physical: estimateCoverage(physicalSizes),
+			alias: estimateCoverage(aliasSizes),
 		},
 	};
 

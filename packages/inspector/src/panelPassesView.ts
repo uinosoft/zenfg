@@ -1,14 +1,16 @@
 import type { FrameGraphDebugGroup, FrameGraphDebugNode, FrameGraphDebugViewModel } from './debugCaptureModel.ts';
 import { createCell, labelNode } from './panelDomHelpers.ts';
 import { createPanelIcon } from './panelIcons.ts';
+import { PassTimingSourceState, appendTimingCells, createTimingIdentity, nodeTimingDuration, renderTimingHeader, timingDomain } from './panelPassTiming.ts';
 import type { PassesSubview, Selection } from './panelTypes.ts';
 import {
-	createEmptyTableRow, createIconAction, createKindCell, createFilterSelect, createSearchInput, createSelectionCell,
+	createEmptyTableRow, createIconAction, createFilterSelect, createSearchInput, createSelectionCell,
 	createTableScroller, createViewToolbar, enableTabKeyboard, formatTimingCoverage,
 	groupPath, registerSelectable, selectionKey, type WorkbenchCallbacks, updateSelectedRows,
 } from './panelWorkbenchHelpers.ts';
 
-type PassSort = 'order' | 'label' | 'kind' | 'gpu' | 'cpu';
+type PassSort = 'order' | 'label' | 'kind' | 'time';
+type TimingSource = 'cpu' | 'gpu';
 type PassEntry = {
 	readonly node: Omit<FrameGraphDebugNode, 'order'>;
 	readonly selection: Selection;
@@ -26,21 +28,26 @@ export class PassesView {
 	private readonly listPane = document.createElement('div');
 	private readonly groupsPane = document.createElement('div');
 	private readonly listTable = createTableScroller([
-		{ label: 'Name' }, { label: 'Compile state', column: 'kind' }, { label: 'Order', column: 'numeric' },
-		{ label: 'Kind', column: 'kind' }, { label: 'CPU (ms)', column: 'numeric' }, { label: 'GPU (ms)', column: 'numeric' }, { label: 'R / W', column: 'numeric' },
+		{ label: 'Order', column: 'numeric' }, { label: 'Pass' }, { label: 'Duration' }, { label: 'Time', column: 'numeric' }, { label: 'Share', column: 'numeric' },
 	]);
 	private readonly groupsTable = createTableScroller([
 		{ label: 'Group' }, { label: 'Retained', column: 'numeric' }, { label: 'Culled', column: 'numeric' },
 		{ label: 'CPU sum', column: 'numeric' }, { label: 'GPU pass sum', column: 'numeric' }, { label: 'Inputs', column: 'numeric' },
-		{ label: 'Outputs', column: 'numeric' }, { label: 'Locate' },
+		{ label: 'Outputs', column: 'numeric' }, { label: 'Actions' },
 	]);
 	private readonly rows = new Map<string, HTMLElement[]>();
 	private readonly collapsedGroups = new Set<string>();
 	private readonly count = document.createElement('span');
 	private readonly groupCount = document.createElement('span');
+	private readonly clearButton = document.createElement('button');
 	private readonly timing = document.createElement('div');
-	private readonly cpuCoverage = document.createElement('span');
-	private readonly gpuCoverage = document.createElement('span');
+	private readonly coverage = document.createElement('span');
+	private readonly timingSwitch = document.createElement('div');
+	private readonly gpuButton = this.createTimingButton('gpu');
+	private readonly cpuButton = this.createTimingButton('cpu');
+	private readonly matchedTiming = document.createElement('p');
+	private readonly groupScope = document.createElement('div');
+	private readonly scopePath = document.createElement('span');
 	private readonly timingNotes = document.createElement('details');
 	private readonly timingAvailability = document.createElement('p');
 	private readonly searchInput: HTMLInputElement;
@@ -52,11 +59,12 @@ export class PassesView {
 	private subview: PassesSubview = 'list';
 	private search = '';
 	private groupSearch = '';
+	private groupScopeId: string | undefined;
 	private kind = 'all';
 	private status = 'all';
 	private sort: PassSort = 'order';
 
-	constructor(private readonly callbacks: WorkbenchCallbacks, idPrefix: string) {
+	constructor(private readonly callbacks: WorkbenchCallbacks, idPrefix: string, private readonly timingSource = new PassTimingSourceState()) {
 		this.root.className = 'zenfg-inspector-view zenfg-inspector-passes-view';
 		this.root.id = `${idPrefix}-view-passes`;
 		this.root.setAttribute('role', 'tabpanel');
@@ -76,11 +84,16 @@ export class PassesView {
 			['clear-buffer', 'Clear Buffer'], ['command', 'Command'], ['external-submission', 'External'],
 		], (value) => { this.kind = value; this.renderRows(); });
 		const sort = createFilterSelect('Sort passes', this.sort, [
-			['order', 'Execution order'], ['label', 'Name'], ['kind', 'Kind'], ['gpu', 'GPU: slowest first'], ['cpu', 'CPU: slowest first'],
+			['order', 'Execution order'], ['label', 'Name'], ['kind', 'Kind'], ['time', 'Time: slowest first'],
 		], (value) => { this.sort = value as PassSort; this.renderRows(); });
-		const clear = document.createElement('button');
+		const clear = this.clearButton;
 		clear.type = 'button'; clear.textContent = 'Clear filters';
-		clear.addEventListener('click', () => { this.clearFilters(); this.renderRows(); });
+		clear.dataset.passFocus = 'filters-clear';
+		clear.addEventListener('click', () => {
+			const focused = this.root.ownerDocument.activeElement === clear;
+			this.clearFilters(); this.renderRows();
+			if (focused) this.searchInput.focus({ preventScroll: true });
+		});
 		this.count.className = 'zenfg-inspector-result-count'; this.count.setAttribute('role', 'status');
 		this.toolbar.append(this.searchInput, this.statusSelect, this.kindSelect, sort, clear, this.count);
 		this.groupSearchInput = createSearchInput('Search group path or ID', '', (value) => {
@@ -93,19 +106,34 @@ export class PassesView {
 		});
 		this.groupCount.className = 'zenfg-inspector-result-count'; this.groupCount.setAttribute('role', 'status');
 		this.groupToolbar.append(this.groupSearchInput, clearGroups, this.groupCount);
+		this.groupScope.className = 'zenfg-inspector-pass-scope';
+		this.scopePath.className = 'zenfg-inspector-pass-scope-path';
+		const scopeNote = document.createElement('small');
+		scopeNote.className = 'zenfg-inspector-pass-scope-note'; scopeNote.textContent = 'includes subgroups';
+		const clearScope = document.createElement('button'); clearScope.type = 'button'; clearScope.textContent = 'Clear group scope';
+		clearScope.dataset.passFocus = 'scope-clear';
+		clearScope.addEventListener('click', () => { this.groupScopeId = undefined; this.renderRows(); });
+		this.groupScope.append(this.scopePath, scopeNote, clearScope);
 		this.timing.className = 'zenfg-inspector-list-context';
 		const coverage = document.createElement('div');
 		coverage.className = 'zenfg-inspector-list-coverage';
-		this.cpuCoverage.dataset.timing = 'cpu'; this.gpuCoverage.dataset.timing = 'gpu';
-		coverage.append(this.cpuCoverage, this.gpuCoverage);
+		coverage.append(this.coverage);
+		this.timingSwitch.className = 'zenfg-inspector-timing-switch';
+		this.timingSwitch.setAttribute('role', 'group'); this.timingSwitch.setAttribute('aria-label', 'Pass timing source');
+		this.timingSwitch.append(this.gpuButton, this.cpuButton);
+		const controls = document.createElement('div'); controls.className = 'zenfg-inspector-pass-timing-controls';
+		controls.append(this.timingSwitch, coverage);
+		this.matchedTiming.className = 'zenfg-inspector-pass-matched';
 		this.timingNotes.className = 'zenfg-inspector-list-notes';
 		const noteSummary = document.createElement('summary'); noteSummary.textContent = 'Timing & compile notes';
 		const scope = document.createElement('p');
-		scope.textContent = 'Retained means kept by compilation; it does not prove GPU execution. CPU measures synchronous elapsed time for retained passes. GPU timestamps cover retained render/compute passes; external submission work is opaque. Zero durations may reflect clock or timestamp precision.';
+		scope.textContent = 'Retained means kept by compilation; it does not prove GPU execution. CPU measures synchronous elapsed time for retained passes. GPU timestamps cover retained render/compute passes; external submission work is opaque. Zero durations may reflect clock or timestamp precision. Bars and shares use the selected source\'s complete-capture measurements; filtering and sorting do not change their axis or denominator. Shares are not percentages of total frame time. Reads and Writes count declared access records, not GPU instructions or distinct resources.';
 		this.timingNotes.append(noteSummary, scope, this.timingAvailability);
-		this.timing.append(coverage, this.timingNotes);
+		this.timing.append(controls, this.matchedTiming, this.timingNotes);
 		this.listTable.table.classList.add('zenfg-inspector-pass-table');
+		this.listTable.table.setAttribute('aria-label', 'Pass timing comparison');
 		this.groupsTable.table.classList.add('zenfg-inspector-group-table');
+		this.groupsTable.table.setAttribute('aria-label', 'Group totals including subgroups');
 		this.listButton.id = `${idPrefix}-list-subtab`;
 		this.listButton.setAttribute('aria-controls', `${idPrefix}-pass-list-panel`);
 		this.groupsButton.id = `${idPrefix}-groups-subtab`;
@@ -116,16 +144,21 @@ export class PassesView {
 		this.groupsPane.id = `${idPrefix}-group-list-panel`; this.groupsPane.className = 'zenfg-inspector-subview';
 		this.groupsPane.setAttribute('role', 'tabpanel'); this.groupsPane.setAttribute('aria-labelledby', this.groupsButton.id);
 		this.groupsPane.appendChild(this.groupsTable.scroller);
-		this.root.append(this.tabList, this.toolbar, this.groupToolbar, this.timing, this.listPane, this.groupsPane);
+		this.root.append(this.tabList, this.toolbar, this.groupToolbar, this.groupScope, this.timing, this.listPane, this.groupsPane);
 		this.updateSubview();
 	}
 
 	setSnapshot(snapshot: FrameGraphDebugViewModel): void {
+		const active = this.root.ownerDocument.activeElement;
+		const focusFromGroups = active === this.groupsButton || this.groupToolbar.contains(active) || this.groupsPane.contains(active);
 		this.snapshot = snapshot;
+		this.timingSource.initialize(snapshot);
+		if (this.groupScopeId && !snapshot.groupById.has(this.groupScopeId)) this.groupScopeId = undefined;
 		if (snapshot.debugGroups.length === 0 && this.subview === 'groups') this.subview = 'list';
 		this.groupsButton.disabled = snapshot.debugGroups.length === 0;
 		for (const path of this.collapsedGroups) if (!snapshot.groupByPathKey.has(path)) this.collapsedGroups.delete(path);
 		this.renderRows(); this.updateSubview();
+		if (focusFromGroups && this.groupsButton.disabled) this.listButton.focus({ preventScroll: true });
 	}
 
 	setSelection(selected: Selection | undefined): void {
@@ -159,6 +192,7 @@ export class PassesView {
 
 	private clearFilters(): void {
 		this.search = ''; this.kind = 'all'; this.status = 'all';
+		this.groupScopeId = undefined;
 		this.searchInput.value = ''; this.kindSelect.value = 'all'; this.statusSelect.value = 'all';
 	}
 
@@ -169,6 +203,13 @@ export class PassesView {
 		return button;
 	}
 
+	private createTimingButton(source: TimingSource): HTMLButtonElement {
+		const button = document.createElement('button'); button.type = 'button'; button.textContent = source.toUpperCase();
+		button.dataset.source = source; button.dataset.passFocus = `source:${source}`;
+		button.addEventListener('click', () => { this.timingSource.choose(source); this.renderRows(); });
+		return button;
+	}
+
 	private updateSubview(): void {
 		const listActive = this.subview === 'list';
 		this.listButton.setAttribute('aria-selected', String(listActive));
@@ -176,12 +217,16 @@ export class PassesView {
 		this.listButton.tabIndex = listActive ? 0 : -1; this.groupsButton.tabIndex = listActive ? -1 : 0;
 		this.listButton.classList.toggle('active', listActive); this.groupsButton.classList.toggle('active', !listActive);
 		this.listPane.hidden = !listActive; this.groupsPane.hidden = listActive;
-		this.toolbar.hidden = !listActive; this.groupToolbar.hidden = listActive; this.timing.hidden = !listActive;
+		this.toolbar.hidden = !listActive; this.groupToolbar.hidden = listActive; this.timing.hidden = !listActive || this.status === 'culled';
+		this.groupScope.hidden = !listActive || this.groupScopeId === undefined;
 	}
 
 	private renderRows(): void {
 		const snapshot = this.snapshot;
 		if (!snapshot) return;
+		const document = this.root.ownerDocument;
+		const active = document.activeElement as HTMLElement | null;
+		const focusKey = active && this.root.contains(active) ? active.dataset.passFocus : undefined;
 		this.rows.clear(); this.listTable.body.replaceChildren(); this.groupsTable.body.replaceChildren();
 		const entries = snapshot.protocol.graph.nodes.flatMap((canonical, index): PassEntry[] => {
 			const node = snapshot.nodeById.get(canonical.id) ?? snapshot.culledById.get(canonical.id)?.node;
@@ -193,43 +238,58 @@ export class PassesView {
 			}];
 		});
 		const passes = entries.filter((entry) => this.matchesNode(snapshot, entry));
+		this.clearButton.hidden = !this.search && this.kind === 'all' && this.status === 'all' && this.groupScopeId === undefined;
 		passes.sort((a, b) => this.compareNodes(a, b)); this.count.textContent = `${passes.length} / ${entries.length} passes`;
 		const metrics = snapshot.metrics;
-		this.cpuCoverage.textContent = `CPU · ${formatTimingCoverage(metrics.cpuTimedNodeCount, snapshot.nodes.length)}`;
-		this.gpuCoverage.textContent = `GPU · ${formatTimingCoverage(metrics.timedNodeCount, metrics.timingEligibleNodeCount)}`;
-		const unavailable = [snapshot.cpuProfiling.status === 'unavailable' ? `CPU unavailable: ${snapshot.cpuProfiling.reason}.` : undefined,
-			snapshot.profiling.status === 'unavailable' ? `GPU unavailable: ${snapshot.profiling.reason}.` : undefined].filter(Boolean);
-		this.timingAvailability.textContent = unavailable.join(' '); this.timingAvailability.hidden = unavailable.length === 0;
+		const source = this.timingSource.source;
+		const timed = source === 'cpu' ? metrics.cpuTimedNodeCount : metrics.timedNodeCount;
+		const eligible = source === 'cpu' ? snapshot.nodes.length : metrics.timingEligibleNodeCount;
+		this.coverage.textContent = `Capture ${source.toUpperCase()} · ${formatTimingCoverage(timed, eligible)}`;
+		this.coverage.dataset.timing = source;
+		this.gpuButton.setAttribute('aria-pressed', String(source === 'gpu')); this.cpuButton.setAttribute('aria-pressed', String(source === 'cpu'));
+		const profiling = source === 'cpu' ? snapshot.cpuProfiling : snapshot.profiling;
+		this.timingAvailability.textContent = profiling.status === 'unavailable' ? `${source.toUpperCase()} unavailable: ${profiling.reason}.` : '';
+		this.timingAvailability.hidden = profiling.status !== 'unavailable';
+		const domain = timingDomain(snapshot.nodes, source);
+		this.matchedTiming.hidden = !this.search && this.kind === 'all' && this.status === 'all' && this.groupScopeId === undefined;
+		const matched = passes.filter(entry => entry.selection.kind === 'node' && nodeTimingDuration(entry.node, source) !== undefined);
+		const matchedTotal = matched.reduce((sum, entry) => sum + nodeTimingDuration(entry.node, source)!, 0);
+		const matchedShare = matched.length && domain.total > 0 ? `${(matchedTotal / domain.total * 100).toFixed(1)}%` : '—';
+		this.matchedTiming.dataset.source = source;
+		this.matchedTiming.textContent = `Matched ${source.toUpperCase()}: ${matched.length ? `${(matchedTotal / 1000).toFixed(3)} ms` : '—'} · ${matchedShare} of capture pass sum`;
 		this.listTable.table.dataset.sort = this.sort;
-		for (const [index, header] of Array.from(this.listTable.table.querySelectorAll('th')).entries()) {
-			header.setAttribute('aria-sort', this.sort === 'cpu' && index === 4 || this.sort === 'gpu' && index === 5 ? 'descending' : 'none');
-		}
+		this.listTable.table.dataset.status = this.status;
+		renderTimingHeader(this.listTable.table, source, domain, { order: true, culled: this.status === 'culled', sort: this.sort === 'time' ? 'descending' : 'none' });
 		for (const { node, selection, order } of passes) {
 			const row = document.createElement('tr'); registerSelectable(this.rows, row, selection, this.callbacks);
-			const labelCell = createSelectionCell(labelNode(node), selection, this.callbacks); labelCell.title = `${labelNode(node)} · ${node.id}`;
-			if (node.debugGroupId !== undefined) {
-				const group = document.createElement('small'); group.className = 'zenfg-inspector-list-group-path';
-				group.textContent = groupPath(snapshot, node.debugGroupId); group.title = group.textContent; labelCell.appendChild(group);
+			row.dataset.passState = selection.kind === 'culled' ? 'culled' : 'retained';
+			const orderCell = document.createElement('td'); orderCell.dataset.timingColumn = 'order'; orderCell.className = 'zenfg-inspector-timing-order';
+			orderCell.textContent = order === undefined ? '—' : String(order);
+			orderCell.setAttribute('aria-label', `Execution order: ${order === undefined ? 'Not applicable' : order}`);
+			const labelCell = document.createElement('td'); labelCell.dataset.timingColumn = 'name'; labelCell.title = `${labelNode(node)} · ${node.id}`;
+			const identity = createTimingIdentity(node, { onSelect: () => this.callbacks.onSelect(selection), focusKey: `node:${node.id}`,
+				nameClass: 'zenfg-inspector-pass-name', prefixClass: 'zenfg-inspector-pass-name-prefix', suffixClass: 'zenfg-inspector-pass-name-suffix' });
+			identity.querySelector<HTMLButtonElement>('button')!.dataset.passFocus = `node:${node.id}`;
+			labelCell.append(identity);
+			row.append(orderCell, labelCell);
+			if (selection.kind === 'culled') {
+				const reason = document.createElement('td'); reason.className = 'zenfg-inspector-pass-reason zenfg-inspector-timing-state'; reason.colSpan = 3;
+				reason.textContent = `Not executed · ${snapshot.culledById.get(node.id)?.reason ?? 'Culled by compilation'}`;
+				row.append(reason);
+			} else {
+				appendTimingCells(row, node, source, domain);
 			}
-			const metadata = document.createElement('small'); metadata.className = 'zenfg-inspector-list-row-meta';
-			metadata.textContent = `${selection.kind === 'culled' ? 'Culled' : 'Retained'} · ${node.kind}${order === undefined ? '' : ` · #${order}`}`;
-			labelCell.appendChild(metadata);
-			const accesses = document.createElement('small'); accesses.className = 'zenfg-inspector-list-row-extra';
-			accesses.textContent = `${node.reads.length} reads · ${node.writes.length} writes`; labelCell.appendChild(accesses);
-			const stateCell = createKindCell(selection.kind === 'culled' ? 'culled' : 'retained', selection.kind === 'culled' ? 'Culled' : 'Retained');
-			stateCell.title = selection.kind === 'culled' ? snapshot.culledById.get(node.id)?.reason ?? '' : 'Kept by compilation; this does not prove GPU execution.';
-			const gpu = selection.kind === 'culled' ? 'Not applicable' : node.kind === 'external-submission' ? 'Opaque'
-				: node.gpuDurationMicros !== undefined ? (node.gpuDurationMicros / 1000).toFixed(3)
-					: node.kind === 'render' || node.kind === 'compute' ? 'Not collected' : 'Not applicable';
-			const cpu = selection.kind === 'culled' ? 'Not executed' : node.cpuDurationMicros === undefined ? 'Not collected' : (node.cpuDurationMicros / 1000).toFixed(3);
-			const cpuCell = this.createTimingCell(cpu, 'CPU (ms)', 'cpu', node.cpuDurationMicros !== undefined && selection.kind !== 'culled');
-			cpuCell.title = 'Synchronous elapsed time; zero may reflect clock precision. External nodes include synchronous submission.';
-			row.append(labelCell, stateCell, createCell(order === undefined ? 'Not applicable' : String(order), { column: 'numeric' }),
-				createKindCell(node.kind), cpuCell, this.createTimingCell(gpu, 'GPU (ms)', 'gpu', node.gpuDurationMicros !== undefined && selection.kind !== 'culled' && node.kind !== 'external-submission'), createCell(`${node.reads.length} / ${node.writes.length}`, { column: 'numeric' }));
 			this.listTable.body.appendChild(row);
 		}
-		if (passes.length === 0) this.listTable.body.appendChild(createEmptyTableRow(7, 'No passes match the current filters.'));
+		if (passes.length === 0) this.listTable.body.appendChild(createEmptyTableRow(5, 'No passes match the current filters.'));
+		const scope = this.groupScopeId ? snapshot.groupById.get(this.groupScopeId) : undefined;
+		this.scopePath.textContent = scope?.path.join(' / ') ?? ''; this.scopePath.title = this.scopePath.textContent;
+		this.updateSubview();
 		this.renderGroups(snapshot); updateSelectedRows(this.rows, this.selected);
+		if (focusKey) {
+			const target = [...this.root.querySelectorAll<HTMLElement>('[data-pass-focus]')].find(candidate => candidate.dataset.passFocus === focusKey && !candidate.closest('[hidden]'));
+			(target ?? (this.subview === 'list' ? this.listButton : this.groupsButton)).focus({ preventScroll: true });
+		}
 	}
 
 	private renderGroups(snapshot: FrameGraphDebugViewModel): void {
@@ -261,6 +321,7 @@ export class PassesView {
 			const selection: Selection = { kind: 'group', pathKey: group.pathKey };
 			const row = document.createElement('tr'); registerSelectable(this.rows, row, selection, this.callbacks);
 			const labelCell = createSelectionCell(group.label, selection, this.callbacks);
+			labelCell.querySelector<HTMLButtonElement>('button')!.dataset.passFocus = `group:${group.id}`;
 			labelCell.style.setProperty('--fgd-group-depth-offset', `${group.depth * 18}px`); labelCell.title = group.path.join(' / ');
 			const expanded = this.groupSearch.length > 0 || !this.collapsedGroups.has(group.pathKey);
 			if (parents.has(group.id)) {
@@ -270,6 +331,7 @@ export class PassesView {
 				toggle.title = this.groupSearch ? 'Matching groups and ancestors are expanded while searching.' : 'Toggle this group hierarchy';
 				toggle.setAttribute('aria-label', `${expanded ? 'Collapse' : 'Expand'} group ${group.path.join(' / ')}`);
 				toggle.setAttribute('aria-expanded', String(expanded));
+				toggle.dataset.passFocus = `fold:${group.id}`;
 				toggle.addEventListener('click', () => {
 					if (expanded) this.collapsedGroups.add(group.pathKey); else this.collapsedGroups.delete(group.pathKey);
 					this.renderRows();
@@ -284,8 +346,17 @@ export class PassesView {
 			const metadata = document.createElement('small'); metadata.className = 'zenfg-inspector-list-row-meta';
 			metadata.textContent = `${summary.retainedNodeCount} retained · ${summary.culledNodeCount} culled · ${summary.inputResources.length} inputs · ${summary.outputResources.length} outputs`;
 			labelCell.appendChild(metadata);
-			const revealCell = document.createElement('td'); revealCell.className = 'zenfg-inspector-list-locate-cell';
-			revealCell.appendChild(createIconAction('locate', `Show in Graph: ${group.path.join(' / ')}`, () => this.callbacks.onReveal?.(selection, 'graph')));
+			const revealCell = document.createElement('td'); revealCell.className = 'zenfg-inspector-group-actions';
+			const drill = document.createElement('button'); drill.type = 'button'; drill.textContent = 'View passes';
+			drill.className = 'zenfg-inspector-group-view-passes'; drill.setAttribute('aria-label', `View passes in group ${group.path.join(' / ')}`);
+			drill.dataset.passFocus = `passes:${group.id}`;
+			drill.addEventListener('click', () => {
+				this.clearFilters(); this.groupScopeId = group.id; this.subview = 'list';
+				this.renderRows(); this.listButton.focus({ preventScroll: true });
+			});
+			const graph = createIconAction('locate', `Show in Graph: ${group.path.join(' / ')}`, () => this.callbacks.onReveal?.(selection, 'graph'));
+			graph.dataset.passFocus = `graph:${group.id}`;
+			revealCell.append(drill, graph);
 			row.append(labelCell, createCell(String(summary.retainedNodeCount), { column: 'numeric' }),
 				createCell(String(summary.culledNodeCount), { column: 'numeric' }),
 				this.createGroupTimingCell(summary.cpuWorkDurationMicros, summary.cpuTimedNodeCount, summary.retainedNodeCount, 'CPU sum'),
@@ -314,6 +385,7 @@ export class PassesView {
 
 	private matchesNode(snapshot: FrameGraphDebugViewModel, entry: PassEntry): boolean {
 		const { node, selection } = entry;
+		if (this.groupScopeId && (!node.debugGroupId || !snapshot.groupById.get(node.debugGroupId)?.ancestorIds.includes(this.groupScopeId))) return false;
 		if (this.status === 'retained' && selection.kind !== 'node' || this.status === 'culled' && selection.kind !== 'culled') return false;
 		if (this.kind !== 'all' && node.kind !== this.kind) return false;
 		return !this.search || `${labelNode(node)} ${node.id} ${groupPath(snapshot, node.debugGroupId)}`.toLocaleLowerCase().includes(this.search);
@@ -325,8 +397,10 @@ export class PassesView {
 		switch (this.sort) {
 			case 'label': return labelNode(a.node).localeCompare(labelNode(b.node)) || order();
 			case 'kind': return a.node.kind.localeCompare(b.node.kind) || order();
-			case 'cpu': return (b.node.cpuDurationMicros ?? -1) - (a.node.cpuDurationMicros ?? -1) || order();
-			case 'gpu': return (b.node.gpuDurationMicros ?? -1) - (a.node.gpuDurationMicros ?? -1) || order();
+			case 'time': {
+				const source = this.timingSource.source;
+				return (nodeTimingDuration(b.node, source) ?? -1) - (nodeTimingDuration(a.node, source) ?? -1) || order();
+			}
 			case 'order': return order();
 		}
 	}

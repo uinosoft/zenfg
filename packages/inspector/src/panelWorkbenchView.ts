@@ -12,6 +12,7 @@ import { GraphSearch } from './panelGraphSearch.ts';
 import { GraphLegend } from './panelGraphLegend.ts';
 import type { GraphViewState, Selection, WorkbenchTab } from './panelTypes.ts';
 import { enableTabKeyboard, type WorkbenchCallbacks } from './panelWorkbenchHelpers.ts';
+import { PassTimingSourceState } from './panelPassTiming.ts';
 
 export type FrameGraphDebugWorkbenchActions = {
 	onCapture(): void;
@@ -61,6 +62,9 @@ export class FrameGraphDebugWorkbench {
 	private readonly graphSearch: GraphSearch;
 	private readonly graphLegend: GraphLegend | undefined;
 	private readonly dirtyViews = new Set<WorkbenchTab>();
+	private readonly timingSource = new PassTimingSourceState(() => {
+		for (const tab of ['overview', 'passes'] as const) if (tab !== this.activeTab) this.dirtyViews.add(tab);
+	});
 	private readonly inspectorOpenButton = document.createElement('button');
 	private readonly captureButton = document.createElement('button');
 	private readonly importButton = document.createElement('button');
@@ -89,7 +93,7 @@ export class FrameGraphDebugWorkbench {
 		options: FrameGraphDebugWorkbenchOptions,
 	) {
 		this.root.className = 'zenfg-inspector-workbench';
-		this.overview = new OverviewView(callbacks);
+		this.overview = new OverviewView(callbacks, this.timingSource);
 		this.commandBar.className = 'zenfg-inspector-workbench-command-bar';
 		this.brand.className = 'zenfg-inspector-brand';
 		if (options.branding === false) this.commandBar.classList.add('branding-hidden');
@@ -125,8 +129,10 @@ export class FrameGraphDebugWorkbench {
 			graphViewport.append(this.graphLegend.root);
 		}
 		this.graphRoot.append(graphViewport);
-		this.passes = new PassesView(callbacks, options.idPrefix);
-		this.resources = new ResourcesView(callbacks, options.idPrefix);
+		this.passes = new PassesView(callbacks, options.idPrefix, this.timingSource);
+		this.resources = new ResourcesView(callbacks, options.idPrefix, (resourceId, mode) => {
+			callbacks.onSelect({ kind: 'resource', id: resourceId }); this.inspector.showResourceAccesses(mode);
+		});
 		this.memory = new MemoryView(callbacks, options.idPrefix);
 		this.diagnostics = new DiagnosticsView(callbacks, options.idPrefix);
 		this.inspector = new InspectorView(callbacks, (open) => this.handleInspectorOpenChange(open), options.idPrefix);
@@ -235,7 +241,7 @@ export class FrameGraphDebugWorkbench {
 		this.feedback.hidden = true;
 		this.feedback.append(this.feedbackTitle, this.commandStatus);
 		this.root.append(this.commandBar, this.feedback, this.workspace);
-		this.detailLayout = new DetailLayout(this.workspace, this.main, this.inspector.root, this.commandBar, () => this.inspector.setOpen(false));
+		this.detailLayout = new DetailLayout(this.workspace, this.main, this.inspector.root, this.commandBar, () => this.inspector.setOpen(false), previous => this.memory.resolveFocus(previous));
 		this.workspace.addEventListener('detail-layout-change', () => this.resizeGraph());
 		this.showEmptyState('empty', 'Drop a ZenFG Snapshot here or choose Import.', 'Files are processed locally in your browser.');
 		this.setSnapshotActionState({
@@ -249,6 +255,7 @@ export class FrameGraphDebugWorkbench {
 	}
 
 	setSnapshot(snapshot: FrameGraphDebugViewModel, selected: Selection | undefined): void {
+		this.timingSource.initialize(snapshot);
 		this.hasSnapshot = true;
 		this.snapshot = snapshot;
 		this.selected = selected;
@@ -341,6 +348,7 @@ export class FrameGraphDebugWorkbench {
 	setActiveTab(tab: WorkbenchTab): void {
 		if (this.destroyed) return;
 		if (this.activeTab === tab) return;
+		const focusFromOverview = this.activeTab === 'overview' && this.overviewRoot.contains(this.root.ownerDocument.activeElement);
 		if (this.activeTab === 'graph') {
 			this.graphLegend?.close();
 			this.graphView.revealOnNextRender = undefined;
@@ -350,6 +358,7 @@ export class FrameGraphDebugWorkbench {
 		this.updateActiveTab();
 		this.ensureActiveView();
 		this.updateWorkspaceState();
+		if (focusFromOverview) this.tabButtons.get(tab)?.focus({ preventScroll: true });
 		if (tab === 'graph') {
 			window.requestAnimationFrame(() => {
 				if (this.destroyed || this.activeTab !== 'graph') return;
@@ -473,6 +482,7 @@ export class FrameGraphDebugWorkbench {
 	destroy(): void {
 		this.destroyed = true;
 		this.setExportMenuOpen(false);
+		this.memory.destroy();
 		this.detailLayout.destroy();
 		this.graphSearch.destroy();
 		this.graphLegend?.destroy();

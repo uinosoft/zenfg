@@ -70,7 +70,10 @@ test('Passes includes retained and culled work with composable state, kind, ID s
 	const view = new PassesView(log.handlers, 'passes');
 	view.setSnapshot(createDebugViewModel(fixture()));
 	assert.deepEqual(listRows(view).map((row) => row.dataset.selectionKey), ['node:node:scene', 'node:node:external', 'node:node:present', 'culled:node:unused']);
-	assert.match(listRows(view)[3]!.textContent!, /CulledNot applicablecomputeNot executedNot applicable/);
+	assert.equal(listRows(view)[3]!.dataset.passState, 'culled');
+	assert.match(listRows(view)[3]!.textContent!, /Compute/);
+	assert.match(listRows(view)[3]!.textContent!, /Not executed.*not-reachable-from-root/);
+	assert.equal(listRows(view)[3]!.querySelector('[data-timing]'), null);
 	assert.match(view.root.querySelector('.zenfg-inspector-result-count')!.textContent!, /4 \/ 4 passes/);
 	search(view.root, 'Search pass, ID or group', 'node:unused');
 	assert.equal(listRows(view).length, 1);
@@ -145,8 +148,8 @@ test('Pass and group GPU values distinguish missing, partial, zero and ineligibl
 	view.setSnapshot(createDebugViewModel({ ...snapshot, timings: { cpu: { status: 'unavailable', reason: 'not-requested' }, gpu: {
 		status: 'available', frameSpanMicros: 0, nodes: [{ nodeId: 'node:scene', durationMicros: 0 }],
 	} } }));
-	assert.equal(listRows(view)[0]!.cells[5]!.textContent, '0.000');
-	assert.equal(listRows(view)[2]!.cells[5]!.textContent, 'Not collected');
+	assert.equal(listRows(view)[0]!.querySelector('[data-timing="gpu"] .zenfg-inspector-pass-duration')!.textContent, '0.000');
+	assert.equal(listRows(view)[2]!.querySelector('[data-timing="gpu"]')!.textContent, 'Not collected');
 	assert.match(view.root.querySelector('.zenfg-inspector-list-context')!.textContent!, /Partial.*1\/2/);
 	assert.match(view.root.querySelector('[id$="group-list-panel"] tbody tr')!.textContent!, /0\.000 ms.*Partial.*1\/2/);
 	view.setSnapshot(createDebugViewModel({ ...snapshot, timings: { cpu: { status: 'unavailable', reason: 'not-requested' }, gpu: { status: 'unavailable', reason: 'disabled' } } }));
@@ -210,7 +213,7 @@ test('Resource Surface filter, ID/group search, size and lifetime sorting retain
 	assert.deepEqual(rows().map((row) => row.dataset.selectionKey), ['resource:resource:scene-color', 'resource:resource:unused-data', 'resource:resource:backbuffer']);
 	setSelect(view.root, 'Sort resources', 'lifetime');
 	assert.deepEqual(rows().map((row) => row.dataset.selectionKey), ['resource:resource:scene-color', 'resource:resource:unused-data', 'resource:resource:backbuffer']);
-	assert.equal(rows()[1]!.cells[2]!.textContent, '0 B');
+	assert.equal(rows()[1]!.querySelector('.zenfg-inspector-resource-size-value')!.textContent, '0 B');
 });
 
 test('Diagnostics preserves every message, sorts by severity stably and provides separate node/resource associations', (t) => {
@@ -276,7 +279,7 @@ test('CPU sort preserves real zero and puts uncollected nodes last', t => {
  const model=createDebugViewModel({...snapshot,timings:{...snapshot.timings,cpu:{status:'available',executionDurationMicros:100,nodes:[{nodeId:'node:scene',durationMicros:0},{nodeId:'node:external',durationMicros:80}]}}});
  assert.equal(model.metrics.cpuTimedNodeCount,2);assert.equal(model.metrics.cpuWorkDurationMicros,80);
  const view=new PassesView(callbacks().handlers,'cpu');view.setSnapshot(model);
- setSelect(view.root,'Sort passes','cpu');
+ button(view.root,'CPU').click(); setSelect(view.root,'Sort passes','time');
  assert.deepEqual(listRows(view).slice(0,2).map(r=>r.dataset.selectionKey),['node:node:external','node:node:scene']);
  assert.match(listRows(view)[1]!.textContent!,/0.000/);
  for(const group of model.debugGroups){const ids=new Set(model.nodes.filter(n=>n.debugGroupId&&model.groupById.get(n.debugGroupId)?.ancestorIds.includes(group.id)).map(n=>n.id));
@@ -293,24 +296,27 @@ test('Pass timing notes preserve expansion and sort across refresh while keeping
 	const view = new PassesView(callbacks().handlers, 'notes'); view.setSnapshot(model);
 	const notes = view.root.querySelector<HTMLDetailsElement>('.zenfg-inspector-list-notes')!;
 	assert.equal(notes.open, false);
+	button(view.root, 'CPU').click();
 	assert.match(notes.textContent!, /CPU unavailable: not-requested/);
+	button(view.root, 'GPU').click();
 	assert.match(view.root.querySelector('.zenfg-inspector-list-coverage')!.textContent!, /GPU.*Partial.*1\/2/);
 	notes.open = true;
-	setSelect(view.root, 'Sort passes', 'gpu');
+	setSelect(view.root, 'Sort passes', 'time');
 	view.setSelection({ kind: 'node', id: 'node:scene' });
 	view.setSnapshot(model);
 	assert.equal(notes.open, true, 'refresh retains the existing explanation control');
-	assert.equal(view.root.querySelector<HTMLSelectElement>('[aria-label="Sort passes"]')!.value, 'gpu');
+	assert.equal(view.root.querySelector<HTMLSelectElement>('[aria-label="Sort passes"]')!.value, 'time');
 	const rows = listRows(view);
 	assert.equal(rows[0]!.dataset.selectionKey, 'node:node:scene');
 	assert.equal(rows[0]!.classList.contains('selected'), true);
-	assert.equal(rows[0]!.cells[5]!.getAttribute('aria-label'), 'GPU (ms): 0.000');
-	assert.equal(rows[0]!.cells[4]!.getAttribute('aria-label'), 'CPU (ms): Not collected');
-	assert.equal(view.root.querySelector('.zenfg-inspector-pass-table th:nth-child(6)')!.getAttribute('aria-sort'), 'descending');
-	assert.match(rows[0]!.querySelector('.zenfg-inspector-list-row-meta')!.textContent!, /Retained.*render.*#0/);
+	assert.match(rows[0]!.querySelector('[data-timing="gpu"]')!.getAttribute('aria-label')!, /^GPU: 0\.000 ms/);
+	assert.equal(rows[0]!.querySelector('[data-timing="cpu"]'), null);
+	assert.match(view.root.querySelector('.zenfg-inspector-pass-table th[aria-sort="descending"]')!.getAttribute('aria-label')!, /GPU.*sorted descending/);
+	assert.equal(rows[0]!.querySelector('.zenfg-inspector-timing-kind')!.textContent, 'Render');
+	assert.equal(rows[0]!.querySelector('[data-timing-column="order"]')!.textContent, '0');
 	search(view.root, 'Search pass, ID or group', 'present');
 	view.reveal({ kind: 'node', id: 'node:scene' });
-	assert.equal(view.root.querySelector<HTMLSelectElement>('[aria-label="Sort passes"]')!.value, 'gpu');
+	assert.equal(view.root.querySelector<HTMLSelectElement>('[aria-label="Sort passes"]')!.value, 'time');
 	assert.equal(listRows(view).length, 4);
 });
 
@@ -338,7 +344,7 @@ test('Group hierarchy uses keyboard actions for parents and noninteractive leaf 
 	assert.deepEqual(log.graphToggles, []);
 });
 
-test('Resources expose descriptor and inclusive slots without replacing logical size with physical allocation size', (t) => {
+test('Resources expose compact descriptors and inclusive Order without replacing logical size with physical allocation size', (t) => {
 	const win = installDom(); t.after(() => win.close());
 	const source = fixture();
 	const model = createDebugViewModel({ ...source, graph: { ...source.graph, resources: source.graph.resources.map((resource) =>
@@ -346,10 +352,10 @@ test('Resources expose descriptor and inclusive slots without replacing logical 
 	) } });
 	const view = new ResourcesView(callbacks().handlers, 'resource-details'); view.setSnapshot(model);
 	const row = view.root.querySelector<HTMLTableRowElement>('tr[data-selection-key="resource:resource:scene-color"]')!;
-	assert.match(row.querySelector('.zenfg-inspector-resource-descriptor')!.textContent!, /rgba16float.*1920×1080×1/);
-	assert.equal(row.cells[2]!.textContent, '0 B');
-	assert.equal(row.cells[2]!.getAttribute('aria-label'), 'Estimated size: 0 B');
-	assert.match(row.querySelector('.zenfg-inspector-list-row-extra')!.textContent!, /Slots 0–2/);
+	assert.match(row.querySelector('.zenfg-inspector-resource-descriptor')!.textContent!, /rgba16float.*1920×1080/);
+	assert.equal(row.querySelector('.zenfg-inspector-resource-size-value')!.textContent, '0 B');
+	assert.equal(row.cells[1]!.getAttribute('aria-label'), 'Logical estimate: 0 B');
+	assert.match(row.querySelector('.zenfg-inspector-resource-lifetime')!.textContent!, /Order 0–2/);
 	const notes = view.root.querySelector<HTMLDetailsElement>('.zenfg-inspector-resource-notes')!; notes.open = true;
 	setSelect(view.root, 'Sort resources', 'size');
 	search(view.root, 'Search resource, ID or group', 'scene');
@@ -361,5 +367,5 @@ test('Resources expose descriptor and inclusive slots without replacing logical 
 	view.reveal({ kind: 'resource', id: 'resource:backbuffer' });
 	assert.equal(view.root.querySelectorAll('tr[data-selection-key]').length, 3);
 	assert.equal(view.root.querySelector<HTMLSelectElement>('[aria-label="Sort resources"]')!.value, 'size');
-	assert.equal(view.root.querySelector('.zenfg-inspector-resource-table th:nth-child(3)')!.getAttribute('aria-sort'), 'descending');
+	assert.equal(view.root.querySelector('.zenfg-inspector-resource-table th:nth-child(2)')!.getAttribute('aria-sort'), 'descending');
 });

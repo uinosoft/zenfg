@@ -11,6 +11,8 @@ import { checkOverview } from './overview.mjs';
 import { checkGraphImprovements } from './graphImprovements.mjs';
 import { checkWorkbenchPanels } from './workbenchPanels.mjs';
 import { checkThemeIsolation } from './themeIsolation.mjs';
+import { checkResources } from './resources.mjs';
+import { checkMemory } from './memory.mjs';
 
 const root = resolve(import.meta.dirname, '../../../../../');
 const output = resolve(root, '.test-dist/inspector-theme-qa');
@@ -68,6 +70,8 @@ try {
     await checkOverview(page, output, fullSnapshot);
     await checkGraphImprovements(page, output);
     await checkWorkbenchPanels(page, output, fullSnapshot, aliasSnapshot);
+    await checkResources(page, output, fullSnapshot);
+    await checkMemory(page, output, fullSnapshot);
     for (const width of [1277, 1024, 390]) {
         await page.setViewportSize({ width, height: width === 390 ? 844 : 920 });
         for (const mode of ['dark', 'light']) {

@@ -1,10 +1,10 @@
 import type { FrameGraphDebugNode, FrameGraphDebugViewModel } from './debugCaptureModel.ts';
-import { labelNode } from './panelDomHelpers.ts';
 import { createPanelIcon } from './panelIcons.ts';
 import { formatEstimatedBytes, formatEstimateCoverage, formatTimingCoverage, type WorkbenchCallbacks } from './panelWorkbenchHelpers.ts';
+import { appendTimingCells, createTimingIdentity, nodeTimingDuration, PassTimingSourceState, renderTimingHeader, timingDomain, type PassTimingSource } from './panelPassTiming.ts';
 
-type TimingMode = 'gpu' | 'cpu';
-type Fact = readonly [label: string, value: string];
+type TimingMode = PassTimingSource;
+type Fact = readonly [label: string, value: string, detail?: string];
 const NODE_KINDS = ['render', 'compute', 'copy', 'clear-buffer', 'command', 'external-submission'] as const;
 const KIND_LABELS = { render: 'Render', compute: 'Compute', copy: 'Copy', 'clear-buffer': 'Clear', command: 'Command', 'external-submission': 'External' };
 
@@ -26,11 +26,12 @@ function unavailableTiming(reason: string, eligible: number): string {
 
 function facts(rows: readonly Fact[]): HTMLDListElement {
   const list = element('dl', 'facts');
-  for (const [label, value] of rows) {
+  for (const [label, value, detail] of rows) {
     const row = document.createElement('div');
     const description = document.createElement('dd');
-    description.textContent = value;
-    description.title = value;
+    if (detail) description.append(element('span', 'fact-value', value), document.createTextNode(' '), element('span', 'fact-detail', detail));
+    else description.textContent = value;
+    description.title = detail ? `${value} · ${detail}` : value;
     const term = document.createElement('dt');
     term.textContent = label;
     row.append(term, description);
@@ -48,18 +49,17 @@ export class OverviewView {
   private readonly gpuButton = this.createTimingButton('gpu');
   private readonly cpuButton = this.createTimingButton('cpu');
   private snapshot: FrameGraphDebugViewModel | undefined;
-  private timingMode: TimingMode = 'gpu';
-  private timingChosen = false;
+  private get timingMode(): TimingMode { return this.timingSource.source; }
 
-  constructor(private readonly callbacks: WorkbenchCallbacks) {
+  constructor(private readonly callbacks: WorkbenchCallbacks, private readonly timingSource = new PassTimingSourceState()) {
     this.root.className = 'zenfg-inspector-capture-summary';
   }
 
   setSnapshot(snapshot: FrameGraphDebugViewModel): void {
+    const active = this.root.ownerDocument.activeElement as HTMLElement | null;
+    const focusKey = active && this.root.contains(active) ? active.dataset.overviewFocus : undefined;
     this.snapshot = snapshot;
-    if (!this.timingChosen) {
-      this.timingMode = snapshot.metrics.timedNodeCount === 0 && snapshot.metrics.cpuTimedNodeCount > 0 ? 'cpu' : 'gpu';
-    }
+    this.timingSource.initialize(snapshot);
     const context = element('div', 'context');
     const identity = element('div', 'identity');
     const runtime = snapshot.protocol.producer.runtime;
@@ -76,27 +76,28 @@ export class OverviewView {
     const gpuAvailable = snapshot.profiling.status === 'available';
     const cpuAvailable = snapshot.cpuProfiling.status === 'available';
     const allocationAvailable = snapshot.protocol.memory.allocationReport.status === 'available';
-    const gpuNote = gpuAvailable
-      ? `${metrics.timedNodeCount}/${metrics.timingEligibleNodeCount} render + compute measured${metrics.timedNodeCount < metrics.timingEligibleNodeCount ? ' · Partial' : ''}`
-      : unavailableTiming(snapshot.profiling.reason, metrics.timingEligibleNodeCount);
-    const cpuNote = cpuAvailable ? `${metrics.cpuTimedNodeCount}/${snapshot.nodes.length} passes measured${metrics.cpuTimedNodeCount < snapshot.nodes.length ? ' · Partial' : ''}`
-      : unavailableTiming(snapshot.cpuProfiling.reason, snapshot.nodes.length);
+    const gpuNote = gpuAvailable && metrics.timedNodeCount < metrics.timingEligibleNodeCount ? 'Pass timing partial' : '';
+    const cpuNote = cpuAvailable && metrics.cpuTimedNodeCount < snapshot.nodes.length ? 'Pass timing partial' : '';
     const memory = allocationAvailable ? formatEstimateCoverage(metrics.physicalEstimatedBytes, metrics.estimatedCoverage.physical) : 'Unavailable';
     const kindSummary = NODE_KINDS.flatMap(kind => {
       const count = snapshot.nodes.filter(node => node.kind === kind).length;
       return count ? [`${count} ${KIND_LABELS[kind].toLowerCase()}`] : [];
     }).join(' · ');
+    const passesKpi = this.createKpi('passes', 'Retained passes', String(snapshot.nodes.length), kindSummary || 'No retained passes', undefined,
+      'Passes kept by compilation. Resource declaration vertices are not passes.');
+    if (snapshot.culledNodes.length) {
+      passesKpi.querySelector('.zenfg-inspector-overview-note')!.append(document.createTextNode(' · '),
+        this.link(`${snapshot.culledNodes.length} Culled`, () => this.callbacks.onNavigate?.('passes', 'culled'), false, 'culled'));
+    }
     kpis.append(
-      this.createKpi('gpu', 'GPU span', gpuAvailable ? (snapshot.profiling.gpuFrameDurationMicros / 1000).toFixed(3) : '—', gpuNote, gpuAvailable ? 'ms' : undefined,
+      this.createKpi('gpu', 'GPU span', gpuAvailable ? (snapshot.profiling.gpuFrameDurationMicros / 1000).toFixed(3) : unavailableTiming(snapshot.profiling.reason, metrics.timingEligibleNodeCount), gpuNote, gpuAvailable ? 'ms' : undefined,
         'Span from the first measured render/compute pass to the last, including intervals between passes.'),
-      this.createKpi('cpu', 'CPU execute', cpuAvailable ? (snapshot.cpuProfiling.executionDurationMicros / 1000).toFixed(3) : '—', cpuNote, cpuAvailable ? 'ms' : undefined,
+      this.createKpi('cpu', 'CPU execute', cpuAvailable ? (snapshot.cpuProfiling.executionDurationMicros / 1000).toFixed(3) : unavailableTiming(snapshot.cpuProfiling.reason, snapshot.nodes.length), cpuNote, cpuAvailable ? 'ms' : undefined,
         'Synchronous execution elapsed time, including preparation and submission. Excludes recording, compilation and GPU completion.'),
-      this.createKpi('memory', 'Physical allocation estimate', memory.split(' · ')[0]!, allocationAvailable
-        ? metrics.physicalEstimatedBytes === undefined ? `${metrics.estimatedCoverage.physical.known}/${metrics.estimatedCoverage.physical.total} sizes known`
-          : `${countLabel(snapshot.physicalAllocations.length, 'allocation')} · estimated`
-        : 'Allocation report unavailable', undefined, 'Estimated physical transient allocations, counting each shared allocation once; excludes imported and surface resources.'),
-      this.createKpi('passes', 'Retained passes', String(snapshot.nodes.length), `${kindSummary || 'No retained passes'} / ${snapshot.culledNodes.length} culled`, undefined,
-        'Passes kept by compilation. Resource declaration vertices are not passes.'),
+      this.createKpi('memory', 'Physical allocation estimate', memory.split(' · ')[0]!, allocationAvailable && metrics.physicalEstimatedBytes === undefined
+        ? `${metrics.estimatedCoverage.physical.known}/${metrics.estimatedCoverage.physical.total} sizes known` : '',
+        undefined, 'Estimated physical transient allocations, counting each shared allocation once; excludes imported and surface resources.'),
+      passesKpi,
     );
     const summary = element('section', 'summary');
     summary.setAttribute('aria-label', 'Frame overview');
@@ -104,18 +105,27 @@ export class OverviewView {
 
     const columns = element('div', 'columns');
     const timingPanel = element('section', 'panel');
+    timingPanel.classList.add('zenfg-inspector-overview-timing-panel');
     const heading = element('header', 'heading');
     const timingSwitch = element('div', 'timing-switch');
+    timingSwitch.classList.add('zenfg-inspector-timing-switch');
     timingSwitch.setAttribute('role', 'group');
     timingSwitch.setAttribute('aria-label', 'Pass timing source');
     timingSwitch.append(this.gpuButton, this.cpuButton);
     heading.append(element('h2', 'title', 'Pass timings'), timingSwitch,
       this.link('View all passes', () => this.callbacks.onNavigate?.('passes', 'all')));
     this.renderTimings();
-    timingPanel.append(heading, this.timingContent, this.createWork(snapshot));
-    columns.append(timingPanel, this.createResources(snapshot));
+    timingPanel.append(heading, this.timingContent);
+    const side = element('aside', 'side');
+    side.append(this.createResources(snapshot));
+    columns.append(timingPanel, side);
     this.updateDetails(snapshot);
     this.root.replaceChildren(summary, columns, this.captureDetails, this.snapshotDetails);
+    if (focusKey) {
+      const target = [...this.root.querySelectorAll<HTMLElement>('[data-overview-focus]')]
+        .find(control => control.dataset.overviewFocus === focusKey);
+      (target ?? (this.timingMode === 'gpu' ? this.gpuButton : this.cpuButton)).focus({ preventScroll: true });
+    }
   }
 
   private createKpi(metric: string, label: string, value: string, note: string, unit?: string, description?: string): HTMLElement {
@@ -127,9 +137,10 @@ export class OverviewView {
     number.append(document.createTextNode(byteParts?.[1] ?? value));
     const valueUnit = unit ?? byteParts?.[2];
     if (valueUnit) number.append(document.createTextNode(' '), element('span', 'unit', valueUnit));
-    if (value === 'Unknown' || value === 'Unavailable') number.dataset.state = 'unknown';
+    if (['Unknown', 'Unavailable', 'Not collected', 'Not applicable'].includes(value)) number.dataset.state = 'unknown';
     if (description) kpi.title = description;
-    kpi.append(element('span', 'label', label), number, element('p', 'note', note));
+    kpi.append(element('span', 'label', label), number);
+    if (note) kpi.append(element('p', 'note', note));
     return kpi;
   }
 
@@ -149,9 +160,10 @@ export class OverviewView {
     const button = document.createElement('button');
     button.type = 'button';
     button.textContent = mode.toUpperCase();
+    button.dataset.source = mode;
+    button.dataset.overviewFocus = `timing:${mode}`;
     button.addEventListener('click', () => {
-      this.timingChosen = true;
-      this.timingMode = mode;
+      this.timingSource.choose(mode);
       this.renderTimings();
     });
     return button;
@@ -163,48 +175,38 @@ export class OverviewView {
     this.gpuButton.setAttribute('aria-pressed', String(this.timingMode === 'gpu'));
     this.cpuButton.setAttribute('aria-pressed', String(this.timingMode === 'cpu'));
     const gpu = this.timingMode === 'gpu';
-    const duration = (node: FrameGraphDebugNode): number | undefined => gpu ? node.gpuDurationMicros : node.cpuDurationMicros;
+    const duration = (node: FrameGraphDebugNode): number | undefined => nodeTimingDuration(node, this.timingMode);
     const measured = snapshot.nodes.filter(node => (!gpu || node.kind === 'render' || node.kind === 'compute') && duration(node) !== undefined);
     const eligible = gpu ? snapshot.metrics.timingEligibleNodeCount : snapshot.nodes.length;
-    const total = measured.reduce((sum, node) => sum + duration(node)!, 0);
+    const domain = timingDomain(snapshot.nodes, this.timingMode);
+    const total = domain.total;
+    const sorted = [...measured].sort((a, b) => duration(b)! - duration(a)! || a.order - b.order || a.id.localeCompare(b.id));
+    const ranked = sorted.slice(0, 5);
     const modeLabel = this.timingMode.toUpperCase();
     const timing = gpu ? snapshot.protocol.timings.gpu : snapshot.cpuProfiling;
     const coverage = element('p', 'coverage', measured.length
-      ? `Measured ${modeLabel} pass sum ${(total / 1000).toFixed(3)} ms · ${formatTimingCoverage(measured.length, eligible)}`
+      ? `${modeLabel} pass sum ${(total / 1000).toFixed(3)} ms · ${measured.length < eligible ? 'Partial · ' : ''}${measured.length}/${eligible} timed`
       : `${modeLabel} pass timing: ${timing.status === 'unavailable' ? unavailableTiming(timing.reason, eligible) : eligible === 0 ? 'Not applicable' : 'Not collected'} · ${eligible === 0 ? 'no eligible passes' : `0/${eligible} measured`}`);
     if (timing.status === 'unavailable') coverage.title = timing.reason;
     const table = element('table', 'timings');
     table.setAttribute('aria-label', `${modeLabel} pass timing ranking`);
-    const head = document.createElement('thead');
-    const header = document.createElement('tr');
-    for (const label of ['Pass', 'Kind', 'Time', 'Share']) {
-      const cell = document.createElement('th');
-      cell.scope = 'col'; cell.textContent = label; header.append(cell);
-    }
-    head.append(header);
+    renderTimingHeader(table, this.timingMode, domain, { order: false, sort: 'descending' });
+    table.querySelector('[data-timing-column="plot"]')?.classList.add('zenfg-inspector-overview-timing-axis');
+    table.querySelector('.zenfg-inspector-timing-axis')?.classList.add('zenfg-inspector-overview-axis');
     const body = element('tbody', 'timing-rows');
-    const ranked = [...measured].sort((a, b) => duration(b)! - duration(a)! || a.order - b.order || a.id.localeCompare(b.id)).slice(0, 5);
     for (const node of ranked) {
       const row = document.createElement('tr');
       row.dataset.nodeId = node.id;
       const nameCell = document.createElement('td');
-      const name = element('button', 'pass', labelNode(node));
-      name.type = 'button'; name.title = labelNode(node);
-      name.addEventListener('click', () => this.callbacks.onReveal?.({ kind: 'node', id: node.id }, 'passes'));
-      nameCell.append(name);
-      const kindCell = document.createElement('td');
-      const kind = element('span', 'kind', KIND_LABELS[node.kind]);
-      kind.dataset.kind = node.kind; kindCell.append(kind);
-      const timeCell = element('td', 'duration', `${(duration(node)! / 1000).toFixed(3)} ms`);
-      const share = document.createElement('td');
-      const shareContent = element('div', 'share');
-      const bar = element('span', 'bar');
-      bar.setAttribute('aria-hidden', 'true');
-      const fill = document.createElement('span');
-      const percentage = total > 0 ? duration(node)! / total * 100 : undefined;
-      fill.style.width = `${percentage ?? 0}%`; bar.append(fill);
-      shareContent.append(bar, element('span', 'percentage', percentage === undefined ? '—' : `${percentage.toFixed(1)}%`));
-      share.append(shareContent); row.append(nameCell, kindCell, timeCell, share); body.append(row);
+      nameCell.dataset.timingColumn = 'name';
+      const identity = createTimingIdentity(node, {
+        onSelect: () => this.callbacks.onReveal?.({ kind: 'node', id: node.id }, 'passes'), focusKey: `node:${node.id}`,
+        nameClass: 'zenfg-inspector-overview-pass', prefixClass: 'zenfg-inspector-overview-pass-prefix',
+        suffixClass: 'zenfg-inspector-overview-pass-suffix', kindClass: 'zenfg-inspector-overview-kind',
+      });
+      identity.classList.add('zenfg-inspector-overview-pass-identity'); nameCell.append(identity); row.append(nameCell);
+      appendTimingCells(row, node, this.timingMode, domain, { plotClass: 'zenfg-inspector-overview-plot', barClass: 'zenfg-inspector-overview-bar', durationClass: 'zenfg-inspector-overview-duration', shareClass: 'zenfg-inspector-overview-percentage' });
+      body.append(row);
     }
     if (!ranked.length) {
       const row = document.createElement('tr');
@@ -212,8 +214,41 @@ export class OverviewView {
       if (timing.status === 'unavailable') empty.title = timing.reason;
       empty.colSpan = 4; row.append(empty); body.append(row);
     }
-    table.append(head, body);
-    this.timingContent.replaceChildren(coverage, table, element('p', 'note', 'Share of measured pass sum'));
+    table.append(body);
+    this.timingContent.replaceChildren(coverage, table);
+    if (ranked.length && sorted.length > ranked.length) {
+      const topTotal = ranked.reduce((sum, node) => sum + duration(node)!, 0);
+      const remaining = sorted.slice(ranked.length);
+      const otherTotal = remaining.reduce((sum, node) => sum + duration(node)!, 0);
+      const summary = element('div', 'timing-summary');
+      const totals = element('div', 'timing-totals');
+      for (const [part, label, value] of [
+        ['top', `Top ${ranked.length}`, topTotal],
+        ['other', `Other ${remaining.length}`, otherTotal],
+      ] as const) {
+        const item = document.createElement('span');
+        item.dataset.part = part;
+        const number = document.createElement('strong');
+        number.textContent = `${(value / 1000).toFixed(3)} ms · ${total > 0 ? `${(value / total * 100).toFixed(1)}%` : '—'}`;
+        item.append(document.createTextNode(`${label} `), number);
+        totals.append(item);
+      }
+      summary.append(totals);
+      if (total > 0) {
+        const composition = element('div', 'timing-composition');
+        composition.setAttribute('role', 'img');
+        composition.setAttribute('aria-label', `Top ${ranked.length}: ${(topTotal / total * 100).toFixed(1)}% of measured pass sum; other ${remaining.length} measured passes: ${(otherTotal / total * 100).toFixed(1)}%`);
+        composition.style.setProperty('--top-share', `${topTotal / total * 100}%`);
+        composition.append(document.createElement('span'), document.createElement('span'));
+        summary.append(composition);
+      }
+      this.timingContent.append(summary);
+    }
+    if (ranked.length) {
+      const scope = element('p', 'note', 'Share of measured pass sum; not total frame time.');
+      scope.classList.add('zenfg-inspector-overview-scope-note');
+      this.timingContent.append(scope);
+    }
     const externalCount = snapshot.nodes.filter(node => node.kind === 'external-submission').length;
     if (gpu && externalCount > 0) {
       const hint = element('p', 'external');
@@ -222,53 +257,52 @@ export class OverviewView {
     }
   }
 
-  private createWork(snapshot: FrameGraphDebugViewModel): HTMLElement {
-    const work = element('section', 'work');
-    const heading = element('div', 'heading');
-    const kinds = element('div', 'kinds');
-    for (const kind of NODE_KINDS) {
-      const count = snapshot.nodes.filter(node => node.kind === kind).length;
-      if (!count) continue;
-      const label = element('span', 'kind-count', `${count} ${KIND_LABELS[kind]}`);
-      label.dataset.kind = kind; kinds.append(label);
-    }
-    kinds.append(this.link(`${snapshot.culledNodes.length} Culled`, () => this.callbacks.onNavigate?.('passes', 'culled'), false));
-    heading.append(element('h2', 'title', 'Work composition'), kinds);
-    const frameGraphSegments = snapshot.executionSegments.filter(segment => segment.kind === 'frame-graph').length;
-    const boundaries = snapshot.executionSegments.length - frameGraphSegments;
-    work.append(heading, element('p', 'note', `${countLabel(frameGraphSegments, 'frame-graph segment')} · ${countLabel(boundaries, 'external boundary', 'external boundaries')} · ${snapshot.availability.groups ? countLabel(snapshot.debugGroups.length, 'group') : 'Groups unknown'}`));
-    return work;
-  }
-
   private createResources(snapshot: FrameGraphDebugViewModel): HTMLElement {
     const panel = element('section', 'panel');
+    panel.classList.add('zenfg-inspector-overview-resources');
     const heading = element('header', 'heading');
-    heading.append(element('h2', 'title', 'Resources & memory'), this.link('View memory', () => this.callbacks.onNavigate?.('memory')));
+    heading.append(element('h2', 'title', 'Resources & memory'));
     const allocationAvailable = snapshot.protocol.memory.allocationReport.status === 'available';
-    panel.append(heading, facts([
-      ['Logical resources', String(snapshot.resources.length)],
-      ['Textures / buffers', `${snapshot.resources.filter(resource => resource.kind === 'texture').length} / ${snapshot.resources.filter(resource => resource.kind === 'buffer').length}`],
-      ['Physical allocations', allocationAvailable ? String(snapshot.physicalAllocations.length) : 'Unavailable'],
-      ['Alias savings estimate', allocationAvailable ? formatEstimatedBytes(snapshot.metrics.aliasReuseBytes) : 'Unavailable'],
+    const body = element('div', 'resource-body');
+    const allocations = element('section', 'allocations');
+    const textures = snapshot.resources.filter(resource => resource.kind === 'texture').length;
+    const buffers = snapshot.resources.filter(resource => resource.kind === 'buffer').length;
+    allocations.append(facts([
+      ['Logical resources', String(snapshot.resources.length), `${countLabel(textures, 'texture')} · ${countLabel(buffers, 'buffer')}`],
+      ...(allocationAvailable ? [
+        ['Physical allocations', String(snapshot.physicalAllocations.length)],
+        ['Alias savings estimate', formatEstimatedBytes(snapshot.metrics.aliasReuseBytes), snapshot.metrics.aliasReuseBytes === undefined ? `${snapshot.metrics.estimatedCoverage.alias.known}/${snapshot.metrics.estimatedCoverage.alias.total} shared allocation sizes known` : undefined],
+      ] as const : []),
     ]));
+    if (!allocationAvailable) allocations.append(this.createReportState('Allocation report unavailable', snapshot.protocol.memory.allocationReport.reason));
     const poolSection = element('section', 'pool');
-    poolSection.append(element('h3', 'subtitle', 'Resource pool · cumulative'));
+    poolSection.append(element('h3', 'subtitle', 'Resource pool'));
     const pool = snapshot.resourcePool;
-    poolSection.append(facts([
-      ['Reuse', pool.status === 'available' ? pool.acquireCount > 0 ? `${(pool.reuseCount / pool.acquireCount * 100).toFixed(1)}%` : 'Not applicable · no acquisitions' : 'Unavailable'],
-      ['Idle retained estimate', pool.status === 'available' ? formatEstimatedBytes(pool.estimatedRetainedBytes) : 'Unavailable'],
-      ['Idle allocations', pool.status === 'available' ? String(pool.retainedCount) : 'Unavailable'],
-    ]));
+    if (pool.status === 'available') {
+      poolSection.append(facts([
+        ['Cumulative reuse', pool.acquireCount > 0 ? `${(pool.reuseCount / pool.acquireCount * 100).toFixed(1)}%` : 'Not applicable · no acquisitions'],
+        ['Idle retained estimate', formatEstimatedBytes(pool.estimatedRetainedBytes), countLabel(pool.retainedCount, 'allocation')],
+      ]));
+    } else poolSection.append(this.createReportState('Pool report unavailable', pool.reason));
     const footer = document.createElement('footer');
-    footer.append(this.link('View resources', () => this.callbacks.onNavigate?.('resources')));
-    panel.append(poolSection, footer);
+    footer.append(this.link('View resources', () => this.callbacks.onNavigate?.('resources')),
+      this.link('View memory', () => this.callbacks.onNavigate?.('memory')));
+    body.append(allocations, poolSection);
+    panel.append(heading, body, footer);
     return panel;
+  }
+
+  private createReportState(label: string, reason: string): HTMLElement {
+    const state = element('p', 'report-state', label);
+    state.title = reason;
+    return state;
   }
 
   private createDisclosure(label: string, className: string): HTMLDetailsElement {
     const details = element('details', 'details');
     details.classList.add(className);
     const summary = document.createElement('summary');
+    summary.dataset.overviewFocus = `details:${className}`;
     summary.append(createPanelIcon('chevron-right'), document.createTextNode(label));
     details.append(summary);
     return details;
@@ -292,6 +326,8 @@ export class OverviewView {
     replaceFacts(this.snapshotDetails, [
       ['Texture views', snapshot.availability.textureViews ? String(snapshot.textureViewById.size) : 'Unknown'],
       ['Groups', snapshot.availability.groups ? String(snapshot.debugGroups.length) : 'Unknown'],
+      ['Frame-graph segments', String(snapshot.executionSegments.filter(segment => segment.kind === 'frame-graph').length)],
+      ['External boundaries', String(snapshot.executionSegments.filter(segment => segment.kind === 'external-submission').length)],
       ['Recording order', snapshot.availability.recordingOrder ? 'Available' : 'Unknown'],
       ['Access regions', snapshot.availability.accessRegions ? 'Available' : 'Unknown'],
       ['Logical transient estimate', formatEstimateCoverage(snapshot.metrics.transientEstimatedByteSize, snapshot.metrics.estimatedCoverage.transient)],
@@ -302,9 +338,10 @@ export class OverviewView {
     ]);
   }
 
-  private link(label: string, onClick: () => void, arrow = true): HTMLButtonElement {
+  private link(label: string, onClick: () => void, arrow = true, focusKey = label): HTMLButtonElement {
     const button = element('button', 'link');
     button.type = 'button';
+    button.dataset.overviewFocus = `navigate:${focusKey}`;
     button.append(document.createTextNode(label));
     if (arrow) button.append(createPanelIcon('chevron-right'));
     button.addEventListener('click', onClick);
