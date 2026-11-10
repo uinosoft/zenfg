@@ -28,7 +28,7 @@ export class MemoryView {
 	private readonly filterSelect: HTMLSelectElement;
 	private readonly resizeObserver: ResizeObserver | undefined;
 	private readonly rows = new Map<string, HTMLElement[]>();
-	private readonly collapsedAllocations = new Set<string>();
+	private readonly expandedAllocations = new Set<string>();
 	private snapshot: FrameGraphDebugViewModel | undefined;
 	private nodesByOrder = new Map<number, { readonly id: string; readonly label?: string }>();
 	private selected: Selection | undefined;
@@ -69,26 +69,33 @@ export class MemoryView {
 
 	setSnapshot(snapshot: FrameGraphDebugViewModel): void {
 		this.snapshot = snapshot; this.nodesByOrder = new Map(snapshot.nodes.map(node => [node.order, node]));
-		for (const id of this.collapsedAllocations) if (!snapshot.allocationById.has(id) || snapshot.allocationById.get(id)!.resourceIds.length <= 1) this.collapsedAllocations.delete(id);
+		for (const id of this.expandedAllocations) if (!snapshot.allocationById.has(id)) this.expandedAllocations.delete(id);
 		this.renderMetrics(); this.renderTimeline();
 	}
 	setSelection(selected: Selection | undefined): void { this.selected = selected; this.updateSelection(); }
 	destroy(): void { this.resizeObserver?.disconnect(); }
 
-	/** Resolve a rebuilt control when closing a detail drawer after capture refresh. */
+	/** Restore a logical resource control or its current allocation after a rebuild. */
 	resolveFocus(previous: HTMLElement): HTMLElement | undefined {
 		const key = previous.dataset.memoryFocus; if (!key) return undefined;
-		const allocation = previous.closest<HTMLElement>('[data-allocation-id]')?.dataset.allocationId;
+		const previousAllocation = previous.closest<HTMLElement>('[data-allocation-id]')?.dataset.allocationId;
+		const selectedKey = previous.closest<HTMLElement>('[data-selection-key]')?.dataset.selectionKey;
+		const resourceId = selectedKey?.startsWith('resource:') ? selectedKey.slice('resource:'.length) : undefined;
+		const allocation = resourceId ? this.snapshot?.resourceById.get(resourceId)?.physicalResourceId ?? previousAllocation : previousAllocation;
 		const candidates = [...this.timeline.querySelectorAll<HTMLElement>('[data-memory-focus]')].filter(element => !element.matches(':disabled') && !element.closest('[hidden]'));
-		return candidates.find(element => element.dataset.memoryFocus === key) ?? candidates.find(element => element.dataset.memoryFocus === `${allocation}:name`) ?? this.search;
+		return candidates.find(element => element.dataset.memoryFocus === key)
+			?? candidates.find(element => resourceId !== undefined && element.dataset.memoryFocus === `${resourceId}:name`)
+			?? candidates.find(element => resourceId !== undefined && element.dataset.memoryFocus === `${resourceId}:preview`)
+			?? candidates.find(element => element.dataset.memoryFocus === `${allocation}:name`) ?? this.search;
 	}
 
 	/** Explicit navigation removes blockers and unfolds the complete allocation. */
 	reveal(selection: Selection): void {
 		const allocationId = selection.kind === 'allocation' ? selection.id : selection.kind === 'resource' ? this.snapshot?.resourceById.get(selection.id)?.physicalResourceId : undefined;
-		if (allocationId !== undefined) this.collapsedAllocations.delete(allocationId);
+		if (allocationId !== undefined) this.expandedAllocations.add(allocationId);
 		this.clearFilters(); this.setSelection(selection); this.updateStickyInset();
-		const target = this.rows.get(selectionKey(selection))?.[0];
+		const targets = this.rows.get(selectionKey(selection));
+		const target = (selection.kind === 'resource' ? targets?.find(element => element.classList.contains('zenfg-inspector-memory-resource')) : undefined) ?? targets?.[0];
 		target?.scrollIntoView?.({ block: 'nearest', inline: 'nearest' });
 		const button = target?.matches('button') ? target : target?.querySelector<HTMLElement>('.zenfg-inspector-relation-button');
 		button?.focus({ preventScroll: true });
@@ -137,7 +144,7 @@ export class MemoryView {
 		this.estimateContent.replaceChildren(estimates,
 			createMutedText('Whole-capture estimates, not total GPU memory or a measured peak. Logical transient estimates include culled-only resources. Logical capacity counts the assigned allocation capacity for each transient resource.'),
 			createMutedText('Alias savings sum (transient member count − 1) × capacity for each shared allocation. Unreferenced allocations stay in the physical total and do not offset savings. Shared records describe allocation membership; Single does not explain allocator decisions.'),
-			createMutedText('Lifetimes use inclusive retained Pass Order, not milliseconds. Missing lifetimes are unavailable, not proof of non-use. Filtering and folding retain the full capture domain and totals. Allocations sort by physical size; unallocated resources sort by logical estimate. Idle pool metrics are separate and reuse is cumulative.'),
+			createMutedText('Lifetimes use inclusive retained Pass Order, not milliseconds. Missing lifetimes are unavailable, not proof of non-use. Filtering and folding retain the full capture domain and totals. Physical allocations are top-level rows sorted as a whole; expanded logical resources stay with their parent. Allocation tracks combine known logical lifetimes and preserve gaps, not physical residency. Missing member lifetimes make coverage partial. Unallocated resources sort separately by logical estimate. Idle pool metrics are separate and reuse is cumulative.'),
 		);
 		const option = this.filterSelect.querySelector<HTMLOptionElement>('option[value="unallocated"]'); if (option) option.textContent = available ? 'Unallocated' : 'Allocation unavailable';
 	}
@@ -154,6 +161,7 @@ export class MemoryView {
 			sizeCharacters = Math.max(sizeCharacters, formatEstimatedBytes(resource.estimatedByteSize).length);
 			if (resource.lifetime) rangeCharacters = Math.max(rangeCharacters, String(resource.lifetime.firstUse).length + String(resource.lifetime.lastUse).length + 1);
 		}
+		for (const allocation of snapshot.physicalAllocations) sizeCharacters = Math.max(sizeCharacters, formatEstimatedBytes(allocation.estimatedByteSize).length);
 		this.root.style.setProperty('--fgd-memory-size-width', `${sizeCharacters}ch`); this.root.style.setProperty('--fgd-memory-range-width', `${rangeCharacters}ch`);
 		this.controls.querySelector('.zenfg-inspector-memory-axis')?.remove(); this.controls.append(this.createAxis(analysis.minUse, analysis.maxUse, ticks));
 		const query = this.query.trim().toLocaleLowerCase(); this.clearButton.hidden = !query && this.filter === 'all';
@@ -167,32 +175,33 @@ export class MemoryView {
 		});
 		if (this.sort === 'size') groups.sort((a, b) => compareSize(a.allocation.estimatedByteSize, b.allocation.estimatedByteSize));
 		let shown = 0;
+
 		for (const group of groups) {
-			if (group.allocation.resourceIds.length === 1 && group.resources.length === 1) {
-				const row = this.createResourceRow(group.resources[0]!, analysis.minUse, analysis.maxUse, ticks, group.allocation);
-				row.classList.add('zenfg-inspector-memory-single'); this.timeline.append(row);
-			} else {
-				const expanded = query !== '' || !this.collapsedAllocations.has(group.allocation.id);
-				const section = document.createElement('div'); section.className = 'zenfg-inspector-memory-allocation-group'; section.dataset.allocationId = group.allocation.id;
-				const members = document.createElement('div'); members.id = `${this.root.id}-allocation-${encodeURIComponent(group.allocation.id)}`;
-				members.className = 'zenfg-inspector-memory-allocation-resources'; members.hidden = !expanded;
-				section.append(this.createAllocationHeader(group, expanded, members.id, query !== ''), members);
-				if (expanded) for (const resource of group.resources) members.append(this.createResourceRow(resource, analysis.minUse, analysis.maxUse, ticks));
-				this.timeline.append(section);
-			}
-			shown += group.resources.length;
+			const expanded = group.resources.length > 0 && (query !== '' || this.expandedAllocations.has(group.allocation.id));
+			const section = document.createElement('div'); section.className = 'zenfg-inspector-memory-allocation-group'; section.dataset.allocationId = group.allocation.id;
+			section.setAttribute('role', 'group'); section.setAttribute('aria-label', `Physical allocation ${group.allocation.id}`);
+			section.dataset.sharing = group.allocation.resourceIds.length > 1 ? 'shared' : group.allocation.resourceIds.length === 1 ? 'single' : 'unreferenced';
+			section.classList.toggle('is-expanded', expanded);
+			const members = document.createElement('div'); members.id = `${this.root.id}-allocation-${encodeURIComponent(group.allocation.id)}`;
+			members.className = 'zenfg-inspector-memory-allocation-resources'; members.hidden = !expanded;
+			members.setAttribute('role', 'group'); members.setAttribute('aria-label', 'Logical resources');
+			section.append(this.createAllocationHeader(group, expanded, members.id, query !== '', analysis.minUse, analysis.maxUse, ticks), members);
+			if (expanded) for (const resource of group.resources) members.append(this.createResourceRow(resource, analysis.minUse, analysis.maxUse, ticks));
+			this.timeline.append(section); shown += group.resources.length;
 		}
 		const allUnallocated = snapshot.resources.filter(resource => resource.origin === 'transient' && (resource.physicalResourceId === undefined || !snapshot.allocationById.has(resource.physicalResourceId)));
 		const unallocated = this.filter === 'all' || this.filter === 'unallocated' ? allUnallocated.filter(matches) : [];
 		if (this.sort === 'size') unallocated.sort((a, b) => compareSize(a.estimatedByteSize, b.estimatedByteSize));
 		if (unallocated.length) {
-			const header = document.createElement('div'); header.className = 'zenfg-inspector-memory-allocation muted'; header.dataset.kind = 'unallocated';
-			header.textContent = snapshot.protocol.memory.allocationReport.status === 'available' ? 'Unallocated transient resources' : 'Transient resources — allocation report unavailable'; this.timeline.append(header);
-			for (const resource of unallocated) this.timeline.append(this.createResourceRow(resource, analysis.minUse, analysis.maxUse, ticks)); shown += unallocated.length;
+			const section = document.createElement('section'); section.className = 'zenfg-inspector-memory-unallocated';
+			const header = document.createElement('h3'); header.className = 'zenfg-inspector-memory-unallocated-heading';
+			header.textContent = snapshot.protocol.memory.allocationReport.status === 'available' ? 'Unallocated logical resources' : 'Logical resources — allocation report unavailable'; section.append(header);
+			for (const resource of unallocated) section.append(this.createResourceRow(resource, analysis.minUse, analysis.maxUse, ticks));
+			this.timeline.append(section); shown += unallocated.length;
 		}
 		const total = analysis.allocations.reduce((sum, group) => sum + group.resources.length, 0) + allUnallocated.length;
 		this.count.textContent = `${groups.length} / ${analysis.allocations.length} allocations · ${shown} / ${total} resources`;
-		if (!groups.length && !unallocated.length) this.timeline.append(createMutedText(total > 0 ? 'No resources match these filters.' : 'No transient resource lifetimes.'));
+		if (!groups.length && !unallocated.length) this.timeline.append(createMutedText(analysis.allocations.length || total ? 'No allocations or logical resources match these filters.' : 'No allocations or logical resources to display.'));
 		this.updateSelection(); this.updateStickyInset();
 		if (focusKey) {
 			const target = this.resolveFocus(active!)!;
@@ -205,9 +214,9 @@ export class MemoryView {
 		const allocationId = this.selected?.kind === 'allocation' ? this.selected.id : this.selected?.kind === 'resource' ? this.snapshot?.resourceById.get(this.selected.id)?.physicalResourceId : undefined;
 		for (const row of this.timeline.querySelectorAll<HTMLElement>('[data-allocation-id]')) row.classList.toggle('related-allocation', row.dataset.allocationId === allocationId);
 	}
-	private allocationLink(allocation: FrameGraphDebugPhysicalAllocation, compact = false): HTMLButtonElement {
+	private allocationLink(allocation: FrameGraphDebugPhysicalAllocation): HTMLButtonElement {
 		const selection: Selection = { kind: 'allocation', id: allocation.id };
-		const label = `${compact ? 'Alloc' : 'Allocation'} ${allocation.id.replace(/^allocation:/, '')}`;
+		const label = `Allocation ${allocation.id.replace(/^allocation:/, '')}`;
 		const button = createRelationButton(label, selection, this.callbacks.onSelect); setObjectName(button, label, allocation.id);
 		button.classList.add('zenfg-inspector-memory-allocation-link'); button.dataset.memoryFocus = `${allocation.id}:name`;
 		registerSelectable(this.rows, button, selection, this.callbacks); return button;
@@ -216,26 +225,69 @@ export class MemoryView {
 		const badge = document.createElement('span'); badge.className = 'zenfg-inspector-resource-badge'; badge.dataset[attribute] = value;
 		badge.textContent = value[0]!.toUpperCase() + value.slice(1); return badge;
 	}
-	private createAllocationHeader(group: AliasAnalysisAllocation, expanded: boolean, membersId: string, searching: boolean): HTMLElement {
-		const selection: Selection = { kind: 'allocation', id: group.allocation.id };
-		const header = document.createElement('div'); header.className = 'zenfg-inspector-memory-allocation'; header.dataset.kind = group.allocation.kind; header.dataset.allocationId = group.allocation.id;
+
+	private createAllocationHeader(group: AliasAnalysisAllocation, expanded: boolean, membersId: string, searching: boolean, minUse: number, maxUse: number, ticks: readonly number[]): HTMLElement {
+		const { allocation, coverage } = group, selection: Selection = { kind: 'allocation', id: allocation.id };
+		const header = document.createElement('div'); header.className = 'zenfg-inspector-memory-allocation'; header.dataset.kind = allocation.kind; header.dataset.allocationId = allocation.id;
 		registerSelectable(this.rows, header, selection, this.callbacks);
-		const leading = document.createElement('div'); leading.className = 'zenfg-inspector-memory-allocation-leading';
+		const name = document.createElement('div'); name.className = 'zenfg-inspector-memory-name';
+		const identity = document.createElement('div'); identity.className = 'zenfg-inspector-memory-identity';
+		const title = document.createElement('div'); title.className = 'zenfg-inspector-memory-title';
 		if (group.resources.length) {
-			const toggle = createIconAction(expanded ? 'chevron-down' : 'chevron-right', `${expanded ? 'Collapse' : 'Expand'} allocation ${group.allocation.id}`, () => {
+			const toggle = createIconAction(expanded ? 'chevron-down' : 'chevron-right', `${expanded ? 'Collapse' : 'Expand'} allocation ${allocation.id}`, () => {
 				toggle.focus({ preventScroll: true });
-				if (expanded) this.collapsedAllocations.add(group.allocation.id); else this.collapsedAllocations.delete(group.allocation.id); this.renderTimeline();
+				if (expanded) this.expandedAllocations.delete(allocation.id); else this.expandedAllocations.add(allocation.id); this.renderTimeline();
 			});
-			toggle.classList.add('zenfg-inspector-memory-toggle'); toggle.dataset.allocationToggle = group.allocation.id; toggle.dataset.memoryFocus = `${group.allocation.id}:toggle`;
+			toggle.classList.add('zenfg-inspector-memory-toggle'); toggle.dataset.allocationToggle = allocation.id; toggle.dataset.memoryFocus = `${allocation.id}:toggle`;
 			toggle.setAttribute('aria-expanded', String(expanded)); toggle.setAttribute('aria-controls', membersId); toggle.disabled = searching;
-			if (searching) toggle.title = 'Matching allocations stay expanded while searching'; leading.append(toggle);
-		}
-		leading.append(this.allocationLink(group.allocation));
-		const meta = document.createElement('div'); meta.className = 'zenfg-inspector-memory-allocation-meta';
+			if (searching) toggle.title = 'Matching allocations stay expanded while searching'; title.append(toggle);
+		} else { const spacer = document.createElement('span'); spacer.className = 'zenfg-inspector-memory-toggle-spacer'; spacer.setAttribute('aria-hidden', 'true'); title.append(spacer); }
+		title.append(this.allocationLink(allocation));
 		const state = document.createElement('span'); state.className = 'zenfg-inspector-memory-sharing';
-		state.textContent = group.aliases ? `Shared ×${group.allocation.resourceIds.length}${group.resources.length !== group.allocation.resourceIds.length ? ` · ${group.resources.length} matching` : ''}` : 'Unreferenced';
-		meta.append(this.createBadge(group.allocation.kind), document.createTextNode(`Physical ${formatEstimatedBytes(group.allocation.estimatedByteSize)}`), state);
-		meta.title = `Compatibility class: ${group.allocation.compatibilityClassId}`; header.append(leading, meta); return header;
+		state.textContent = group.aliases ? `Shared ×${allocation.resourceIds.length}` : allocation.resourceIds.length ? 'Single' : 'Unreferenced'; title.append(state);
+		const attributes = document.createElement('div'); attributes.className = 'zenfg-inspector-memory-attributes'; attributes.append(this.createBadge(allocation.kind));
+		if (allocation.resourceIds.length === 1 && group.resources[0]) {
+			const resource = group.resources[0], resourceSelection: Selection = { kind: 'resource', id: resource.id };
+			const preview = createRelationButton(labelResource(resource), resourceSelection, this.callbacks.onSelect); setObjectName(preview, labelResource(resource), resource.id);
+			preview.setAttribute('aria-label', `Inspect logical resource ${labelResource(resource)}`); preview.classList.add('zenfg-inspector-memory-preview'); preview.dataset.memoryFocus = `${resource.id}:preview`;
+			registerSelectable(this.rows, preview, resourceSelection, this.callbacks); attributes.append(preview);
+		} else if (allocation.resourceIds.length) {
+			const note = document.createElement('span'); note.className = 'zenfg-inspector-memory-member-count';
+			note.textContent = group.resources.length !== allocation.resourceIds.length ? `${group.resources.length} / ${allocation.resourceIds.length} logical resources matching` : `${allocation.resourceIds.length} logical resources`; attributes.append(note);
+		}
+		attributes.title = `Compatibility class: ${allocation.compatibilityClassId}`; identity.append(title, attributes); name.append(identity);
+		const first = coverage.intervals[0], last = coverage.intervals.at(-1);
+		const range = this.createRange(allocation.id, first && last ? { firstUse: first.firstUse, lastUse: last.lastUse } : undefined);
+		if (!coverage.total) { range.textContent = '—'; range.title = 'No logical resources reference this allocation.'; }
+		else if (coverage.known < coverage.total) { const note = document.createElement('small'); note.className = 'zenfg-inspector-memory-coverage-state'; note.textContent = `${coverage.known}/${coverage.total} known`; range.append(note); }
+		const description = `Known logical lifetime coverage · ${coverage.known}/${coverage.total} lifetimes captured · inclusive Pass Order, not physical residency`;
+		const track = this.createTrack(selection, allocation.kind, coverage.intervals, minUse, maxUse, ticks, description);
+		header.append(name, range, track, this.createSize('Physical', allocation.estimatedByteSize)); return header;
+	}
+	private createRange(id: string, lifetime: FrameGraphDebugResource['lifetime']): HTMLElement {
+		const range = document.createElement('span'); range.className = 'zenfg-inspector-memory-range'; range.append(createResourceLifetime({ id, lifetime }, this.nodesByOrder, this.callbacks.onReveal));
+		for (const boundary of range.querySelectorAll<HTMLElement>('[data-resource-focus]')) boundary.dataset.memoryFocus = boundary.dataset.resourceFocus;
+		return range;
+	}
+	private createTrack(selection: Extract<Selection, { kind: 'allocation' | 'resource' }>, kind: string, intervals: readonly { readonly firstUse: number; readonly lastUse: number }[], minUse: number, maxUse: number, ticks: readonly number[], description: string): HTMLButtonElement {
+		const track = document.createElement('button'); track.type = 'button'; track.className = 'zenfg-inspector-memory-track'; track.disabled = !intervals.length;
+		track.dataset.memoryFocus = `${selection.id}:lifetime`; track.title = description;
+		const label = selection.kind === 'resource' ? labelResource(this.snapshot!.resourceById.get(selection.id)!) : `Allocation ${selection.id.replace(/^allocation:/, '')}`;
+		track.setAttribute('aria-label', `Inspect ${label}; ${description}`); track.addEventListener('click', () => this.callbacks.onSelect(selection));
+		const slots = maxUse - minUse + 1;
+		for (const value of ticks) { const grid = document.createElement('span'); grid.className = 'zenfg-inspector-memory-gridline'; grid.style.left = `${((value - minUse + .5) / slots) * 100}%`; grid.setAttribute('aria-hidden', 'true'); track.append(grid); }
+		for (const interval of intervals) {
+			const bar = document.createElement('span'); bar.className = `zenfg-inspector-memory-bar ${kind}`; bar.setAttribute('aria-hidden', 'true');
+			bar.style.left = `${((interval.firstUse - minUse) / slots) * 100}%`; bar.style.width = `${((interval.lastUse - interval.firstUse + 1) / slots) * 100}%`; track.append(bar);
+		}
+		if (!intervals.length) { const empty = document.createElement('span'); empty.className = 'zenfg-inspector-memory-bar empty'; track.append(empty); }
+		return track;
+	}
+	private createSize(scope: 'Physical' | 'Logical', bytes: number | undefined): HTMLElement {
+		const size = document.createElement('span'); size.className = 'zenfg-inspector-memory-size'; size.dataset.scope = scope.toLowerCase(); size.dataset.state = bytes === undefined ? 'unknown' : 'known';
+		size.title = `${scope} estimate: ${formatEstimatedBytes(bytes)}`;
+		const label = document.createElement('span'); label.className = 'zenfg-inspector-memory-size-label'; label.textContent = scope;
+		const value = document.createElement('span'); value.className = 'zenfg-inspector-memory-size-value'; value.textContent = formatEstimatedBytes(bytes); size.append(label, value); return size;
 	}
 	private createMetric(label: string, value: string, explanation: string, note?: string): HTMLElement {
 		const item = document.createElement('div'); item.className = 'zenfg-inspector-memory-metric'; item.title = explanation;
@@ -250,7 +302,7 @@ export class MemoryView {
 	}
 	private createAxis(minUse: number, maxUse: number, ticks: readonly number[]): HTMLElement {
 		const axis = document.createElement('div'); axis.className = 'zenfg-inspector-memory-axis';
-		const label = document.createElement('span'); label.textContent = 'Resource / allocation';
+		const label = document.createElement('span'); label.textContent = 'Allocation / resource';
 		const order = document.createElement('span'); order.textContent = 'Order'; order.title = 'First and last retained Pass Order, inclusive; select a boundary to locate its pass.';
 		const track = document.createElement('div'); track.className = 'zenfg-inspector-memory-axis-track'; track.setAttribute('aria-label', 'Pass Order');
 		if (!ticks.length) track.textContent = 'No execution lifetimes';
@@ -261,9 +313,9 @@ export class MemoryView {
 			tick.style.setProperty('--fgd-memory-tick-position', `${position}%`); tick.style.setProperty('--fgd-memory-tick-half-width', halfWidth);
 			tick.textContent = String(value); track.append(tick);
 		}
-		const size = document.createElement('span'); size.textContent = 'Logical estimate'; axis.append(label, order, track, size); return axis;
+		const size = document.createElement('span'); size.textContent = 'Estimate'; size.title = 'Physical capacity for allocations; logical estimates for resource rows.'; axis.append(label, order, track, size); return axis;
 	}
-	private createResourceRow(resource: FrameGraphDebugResource, minUse: number, maxUse: number, ticks: readonly number[], allocation?: FrameGraphDebugPhysicalAllocation): HTMLElement {
+	private createResourceRow(resource: FrameGraphDebugResource, minUse: number, maxUse: number, ticks: readonly number[]): HTMLElement {
 		const selection: Selection = { kind: 'resource', id: resource.id };
 		const row = document.createElement('div'); row.className = 'zenfg-inspector-memory-resource'; row.dataset.kind = resource.kind;
 		if (resource.physicalResourceId !== undefined) row.dataset.allocationId = resource.physicalResourceId;
@@ -276,31 +328,19 @@ export class MemoryView {
 		if (this.callbacks.onReveal) { const reveal = createIconAction('locate', `Locate ${labelResource(resource)} in Resources`, () => this.callbacks.onReveal?.(selection, 'resources'));
 			reveal.classList.add('zenfg-inspector-memory-reveal'); reveal.dataset.memoryFocus = `${resource.id}:locate`; title.append(reveal); }
 		identity.append(title);
-		if (allocation || !resource.physicalResourceId || resource.origin !== 'transient') {
+
+		if (!resource.physicalResourceId || resource.origin !== 'transient') {
 			const attributes = document.createElement('div'); attributes.className = 'zenfg-inspector-memory-attributes'; attributes.append(this.createBadge(resource.kind));
 			if (resource.origin !== 'transient') attributes.append(this.createBadge(resource.origin, 'origin'));
-			if (allocation) { const capacity = document.createElement('span'); capacity.textContent = `Physical ${formatEstimatedBytes(allocation.estimatedByteSize)}`; attributes.append(this.allocationLink(allocation, true), capacity); }
-			else if (!resource.physicalResourceId) attributes.append(document.createTextNode(this.snapshot!.protocol.memory.allocationReport.status === 'available' ? 'Unallocated' : 'Allocation unavailable'));
+			if (!resource.physicalResourceId) attributes.append(document.createTextNode(this.snapshot!.protocol.memory.allocationReport.status === 'available' ? 'Unallocated' : 'Allocation unavailable'));
 			identity.append(attributes);
 		}
 		name.append(identity);
-		const range = document.createElement('span'); range.className = 'zenfg-inspector-memory-range';
-		range.append(createResourceLifetime(resource, this.nodesByOrder, this.callbacks.onReveal));
-		for (const boundary of range.querySelectorAll<HTMLElement>('[data-resource-focus]')) boundary.dataset.memoryFocus = boundary.dataset.resourceFocus;
-		const track = document.createElement('button'); track.type = 'button'; track.className = 'zenfg-inspector-memory-track'; track.disabled = !resource.lifetime;
-		track.dataset.memoryFocus = `${resource.id}:lifetime`;
-		track.setAttribute('aria-label', `Inspect ${labelResource(resource)}; ${resource.lifetime ? `Order ${resource.lifetime.firstUse}–${resource.lifetime.lastUse}, inclusive` : 'lifetime unavailable'}`);
-		track.addEventListener('click', () => this.callbacks.onSelect(selection));
-		const slots = maxUse - minUse + 1;
-		for (const value of ticks) { const grid = document.createElement('span'); grid.className = 'zenfg-inspector-memory-gridline'; grid.style.left = `${((value - minUse + .5) / slots) * 100}%`; grid.setAttribute('aria-hidden', 'true'); track.append(grid); }
-		const bar = document.createElement('span'); bar.className = `zenfg-inspector-memory-bar ${resource.kind}`; bar.setAttribute('aria-hidden', 'true');
-		if (resource.lifetime) { bar.style.left = `${((resource.lifetime.firstUse - minUse) / slots) * 100}%`; bar.style.width = `${((resource.lifetime.lastUse - resource.lifetime.firstUse + 1) / slots) * 100}%`; bar.title = `Pass Order ${resource.lifetime.firstUse}–${resource.lifetime.lastUse} (inclusive), not elapsed time`; }
-		else bar.classList.add('empty'); track.append(bar);
-		const size = document.createElement('span'); size.className = 'zenfg-inspector-memory-size';
-		size.textContent = formatEstimatedBytes(resource.estimatedByteSize); size.title = `Logical estimate: ${formatEstimatedBytes(resource.estimatedByteSize)}`;
-		size.dataset.state = resource.estimatedByteSize === undefined ? 'unknown' : 'known';
-		const sizeLabel = document.createElement('span'); sizeLabel.className = 'zenfg-inspector-memory-size-label'; sizeLabel.textContent = 'Logical '; size.prepend(sizeLabel);
-		row.append(name, range, track, size); return row;
+
+		const range = this.createRange(resource.id, resource.lifetime);
+		const track = this.createTrack(selection, resource.kind, resource.lifetime ? [resource.lifetime] : [], minUse, maxUse, ticks,
+			resource.lifetime ? `Order ${resource.lifetime.firstUse}–${resource.lifetime.lastUse}, inclusive` : 'Lifetime unavailable');
+		row.append(name, range, track, this.createSize('Logical', resource.estimatedByteSize)); return row;
 	}
 }
 

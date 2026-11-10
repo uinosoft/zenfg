@@ -389,13 +389,13 @@ test('nonactive pages render on demand and retain old DOM until activated after 
 		assert.equal(memory.querySelector('.zenfg-inspector-memory-resource'), null);
 		assert.equal(panel.dom.querySelector('.zenfg-inspector-passes-view tbody tr'), null);
 		button(tabs(panel), 'Memory').click();
-		const row = element(memory, '.zenfg-inspector-memory-resource');
+		const row = element(memory, '.zenfg-inspector-memory-allocation');
 		assert.match(row.textContent!, /scene-color/);
 		button(tabs(panel), 'Passes').click();
 		panel.setSnapshot({ ...source, capture: { ...source.capture, frameIndex: 43 }, graph: { ...source.graph,
 			resources: source.graph.resources.map((resource) => resource.id === 'resource:scene-color' ? { ...resource, label: 'Renamed scene buffer' } : resource),
 		} });
-		assert.strictEqual(memory.querySelector('.zenfg-inspector-memory-resource'), row);
+		assert.strictEqual(memory.querySelector('.zenfg-inspector-memory-allocation'), row);
 		assert.doesNotMatch(memory.textContent!, /Renamed scene buffer/);
 		button(tabs(panel), 'Memory').click();
 		assert.notStrictEqual(memory.querySelector('.zenfg-inspector-memory-resource'), row);

@@ -238,7 +238,7 @@ export function formatResourceListDescriptor(resource: FrameGraphDebugResource):
 }
 
 /** Inclusive retained execution-order boundaries, with explicit navigation. */
-export function createResourceLifetime(resource: FrameGraphDebugResource, nodesByOrder: ReadonlyMap<number, { readonly id: string; readonly label?: string }>,
+export function createResourceLifetime(resource: Pick<FrameGraphDebugResource, 'id' | 'lifetime'>, nodesByOrder: ReadonlyMap<number, { readonly id: string; readonly label?: string }>,
 	onReveal: WorkbenchCallbacks['onReveal']): HTMLSpanElement {
 	const host = document.createElement('span'); host.className = 'zenfg-inspector-resource-lifetime';
 	const label = document.createElement('span'); label.className = 'zenfg-inspector-resource-order-label'; label.textContent = 'Order ';

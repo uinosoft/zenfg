@@ -188,7 +188,7 @@ Inspector instance and are not saved across sessions.
 | Graph | Frame Flow structure, searchable by pass, resource, group, or output, with explicit target location and a collapsible legend. |
 | Passes | All, Retained, or Culled passes, filtered by kind and name/ID/group, with execution-order, name, kind, or selected-source duration sorting. Pass List compares one CPU or GPU timing source at a time, using the same pass names, kind chips, axis, bars, milliseconds, and shares as Overview. Identifying name suffixes remain visible. Culled rows show culling reasons instead of timings. The separate Group Hierarchy has its own expansion, path search, and View passes action. |
 | Resources | Name/ID/group, type, and Transient/Imported/Surface filters, plus name, estimated size, and first-use sorting. Rows show concise descriptors; full descriptors and allocations remain in details. |
-| Memory | Physical allocation and alias savings estimates, a compact separate pool summary, and inclusive Pass Order lifetimes. Single allocations share one row with their resource; Shared allocations fold and order members by first use. Search, allocation/size sorting, and All/Shared/Single/Unreferenced/Unallocated filters are available. |
+| Memory | Physical allocation and alias savings estimates, a compact separate pool summary, and inclusive Pass Order lifetimes. Single and Shared allocations use the same collapsed physical rows with expandable logical resources. Allocation/physical-size sorting stays global; members remain with their parent. Search and All/Shared/Single/Unreferenced/Unallocated filters are available. |
 | Diagnostics | Every captured error, warning, and informational message, including repeated codes. Counted severity buttons and code/message search filter messages; Compilation details separately contains expandable retention roots, culling reasons, and execution segments. |
 
 Lists show the matching and total counts, retain continuous scrolling, and offer
@@ -330,14 +330,29 @@ Snapshot coordinate range; missing lifetimes have no bar. The domain also
 includes Imported/Surface members explicitly assigned to reported allocations;
 these rows show their origin.
 
-Memory rows distinguish physical allocation capacity from each resource's
-logical estimate. Select a resource name or lifetime bar to inspect that resource,
-or an allocation name to inspect the allocation; the location icon goes to
-Resources. Select an inclusive Order boundary to locate its retained pass. Long
-resource and allocation names retain identifying suffixes and full-name tooltips.
-Refreshes and folds restore focus to the corresponding control or a useful
-fallback when the target disappears. Filters and the timeline axis stay together
-while scrolling.
+Memory top-level rows always represent physical allocations. Single and Shared
+rows start collapsed and use the same columns, with Physical capacity counted
+once per allocation. Single rows preview their sole logical resource. Expand
+either kind to inspect logical resource rows, whose sizes are labeled Logical.
+Global allocation-order or physical-size sorting moves the complete allocation;
+expanded members stay with their parent in first-use order. Unreferenced
+allocations have no expansion control. Unallocated logical resources appear in
+a separate section and sort by logical estimate there.
+
+Allocation tracks show the union of known logical lifetimes, merging overlapping
+or adjacent inclusive slots while preserving gaps. They do not measure physical
+residency. Missing member lifetimes show partial coverage; absent lifetimes do
+not invent occupied slots. Search, filtering, and folding preserve the complete
+allocation coverage and capture-wide axis even when only one member matches.
+
+Select an allocation name or its coverage track to inspect that allocation.
+Select a resource preview, expanded resource name, or resource lifetime track to
+inspect the logical resource. The location icon goes to Resources; an inclusive
+Order boundary locates its retained pass. Explicit resource location unfolds the
+parent and clears blocking filters while retaining the chosen sort. Long names
+retain identifying suffixes and full-name tooltips. Refreshes and folds restore
+focus to the corresponding control or a useful fallback when the target
+disappears. Filters and the timeline axis stay together while scrolling.
 
 Group hierarchies merge secondary columns below 1000px and use compact rows
 below 600px. Pass timing rows reflow below 600px; Resources and Memory reflow

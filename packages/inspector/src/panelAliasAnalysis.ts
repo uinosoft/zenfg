@@ -11,10 +11,17 @@ export type AliasAnalysisResource = {
     readonly nonAliasReasons: readonly string[];
 };
 
+export type AllocationLifetimeCoverage = {
+    readonly intervals: readonly { readonly firstUse: number; readonly lastUse: number }[];
+    readonly known: number;
+    readonly total: number;
+};
+
 export type AliasAnalysisAllocation = {
     readonly allocation: FrameGraphDebugPhysicalAllocation;
     readonly resources: readonly FrameGraphDebugResource[];
     readonly aliases: boolean;
+    readonly coverage: AllocationLifetimeCoverage;
 };
 
 export type AliasAnalysis = {
@@ -42,6 +49,7 @@ export function analyzeSnapshotAliases(snapshot: FrameGraphDebugViewModel): Alia
             allocation,
             resources,
             aliases: resources.length > 1,
+            coverage: allocationLifetimeCoverage(resources),
         };
     });
 
@@ -117,4 +125,17 @@ function describeAliasStatus(status: AliasAnalysisResource['aliasStatus']): read
         // decisions by comparing every pair of logical resources.
         case 'single': return ['This physical allocation contains one logical resource.'];
     }
+}
+
+/** Union of known logical lifetimes; gaps and unknown members are preserved. */
+function allocationLifetimeCoverage(resources: readonly FrameGraphDebugResource[]): AllocationLifetimeCoverage {
+    const lifetimes = resources.flatMap(resource => resource.lifetime ? [{ ...resource.lifetime }] : [])
+        .sort((a, b) => a.firstUse - b.firstUse || a.lastUse - b.lastUse);
+    const intervals: { firstUse: number; lastUse: number }[] = [];
+    for (const lifetime of lifetimes) {
+        const previous = intervals.at(-1);
+        if (previous && lifetime.firstUse <= previous.lastUse + 1) previous.lastUse = Math.max(previous.lastUse, lifetime.lastUse);
+        else intervals.push(lifetime);
+    }
+    return { intervals, known: lifetimes.length, total: resources.length };
 }

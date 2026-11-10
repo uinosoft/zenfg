@@ -269,8 +269,8 @@ export async function checkWorkbenchPanels(page, output, fullSnapshot, aliasSnap
         await setSnapshot(aliasSnapshot); await openView('Memory');
         const memory = page.locator('.zenfg-inspector-memory-view');
         const allocation = memory.locator('.zenfg-inspector-memory-allocation').first();
-        const fold = allocation.getByRole('button', { name: /^Collapse allocation / });
-        await fold.focus(); await fold.press('Enter');
+        const fold = allocation.locator('[data-allocation-toggle]');
+        await fold.focus(); await fold.press('Enter'); await fold.press('Enter');
         const collapsedName = await allocation.getByRole('button', { name: /^Expand allocation / }).getAttribute('aria-label');
         await setSnapshot(aliasSnapshot);
         assert.equal(await memory.getByRole('button', { name: collapsedName, exact: true }).count(), 1);
@@ -394,7 +394,7 @@ export async function checkWorkbenchPanels(page, output, fullSnapshot, aliasSnap
                     if (view === 'Memory') {
                         assert.ok(await root.locator('.zenfg-inspector-memory-timeline').evaluate(el => el.scrollWidth <= el.clientWidth + 1), `${mode}/${width}: full lifecycle domain fits`);
                         assert.match(await root.innerText(), /Physical allocation estimate.*7\.9/s);
-                        const bar = root.locator('.zenfg-inspector-memory-resource').first().locator('.zenfg-inspector-memory-track');
+                        const bar = root.locator('.zenfg-inspector-memory-allocation').first().locator('.zenfg-inspector-memory-track');
                         await within(bar, root, `${mode}/${width} lifecycle`);
                     }
                     await noOverflow(`${mode}/${width}/${height}/${view}`);
@@ -419,7 +419,10 @@ export async function checkWorkbenchPanels(page, output, fullSnapshot, aliasSnap
                     }
 					if (view === 'Memory' && height === 480) {
 						await root.locator('.zenfg-inspector-memory-resource').first().scrollIntoViewIfNeeded();
-						assert.ok(await root.locator('.zenfg-inspector-memory-scroller').evaluate(el => el.scrollTop > 0), 'small memory panel scrolls to its lifetimes');
+						const lifecycle = await root.locator('.zenfg-inspector-memory-allocation').first().locator('.zenfg-inspector-memory-track').boundingBox();
+						const controls = await root.locator('.zenfg-inspector-memory-controls').boundingBox();
+						const viewport = await root.locator('.zenfg-inspector-memory-scroller').boundingBox();
+						assert.ok(lifecycle.y >= controls.y + controls.height - 1 && lifecycle.y + lifecycle.height <= viewport.y + viewport.height + 1, 'small memory panel keeps its lifetime visible below sticky controls');
 						await page.screenshot({ path: resolve(output, `${mode}-${width}-${height}-memory-lifetimes-redesign.png`), animations: 'disabled' });
 						await root.locator('.zenfg-inspector-memory-scroller').evaluate(el => { el.scrollTop = 0; });
 					}
