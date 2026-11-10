@@ -21,6 +21,7 @@ export class DetailLayout {
 		private readonly aside: HTMLElement,
 		private readonly chrome: HTMLElement,
 		private readonly onClose: () => void,
+		private readonly resolveFocus?: (previous: HTMLElement) => HTMLElement | undefined,
 	) {
 		this.backdrop.type = 'button';
 		this.backdrop.className = 'zenfg-inspector-detail-backdrop';
@@ -87,7 +88,8 @@ export class DetailLayout {
 			for (let parent: HTMLElement | null = element; parent; parent = parent.parentElement) if (parent.inert) return false;
 			return true;
 		};
-		const target = isAvailable(this.previousFocus) ? this.previousFocus
+		const replacement = this.previousFocus && !isAvailable(this.previousFocus) ? this.resolveFocus?.(this.previousFocus) : undefined;
+		const target = isAvailable(this.previousFocus) ? this.previousFocus : isAvailable(replacement) ? replacement
 			: this.chrome.querySelector<HTMLElement>('[role="tab"][aria-selected="true"]') ?? undefined;
 		if (isAvailable(target)) target.focus({ preventScroll: true });
 	}

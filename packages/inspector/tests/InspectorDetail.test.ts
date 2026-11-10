@@ -382,3 +382,19 @@ test('allocation Summary labels zero logical members as unreferenced', () => {
 		assert.doesNotMatch(view.root.querySelector('.zenfg-inspector-detail-summary')!.textContent!, /single/);
 	} finally { window.close(); }
 });
+
+test('Memory location is available for transient resources and explicitly allocated external members', () => {
+	const window = installDom(); const calls: unknown[] = [];
+	try {
+		const source = fixture(), selection: Selection = { kind: 'resource', id: 'resource:backbuffer' };
+		const view = detailView({ onReveal: (selection, tab) => calls.push([selection, tab]) });
+		const memoryAction = () => [...view.root.querySelectorAll<HTMLButtonElement>('button')].find(button => button.textContent === 'Locate in Memory');
+		view.setSnapshot(createDebugViewModel(source)); view.setSelection(selection); assert.equal(memoryAction(), undefined);
+		for (const origin of ['imported', 'surface'] as const) {
+			const assigned: FrameGraphSnapshot = { ...source, graph: { ...source.graph, resources: source.graph.resources.map(resource => resource.id === selection.id ? { ...resource, origin, allocationId: 'allocation:texture-0' } : resource) } };
+			view.setSnapshot(createDebugViewModel(assigned)); const locate = memoryAction(); assert.ok(locate); locate.click();
+		}
+		assert.deepEqual(calls, [[selection, 'memory'], [selection, 'memory']]);
+		view.setSnapshot(createDebugViewModel(source)); view.setSelection({ kind: 'resource', id: 'resource:unused-data' }); assert.ok(memoryAction());
+	} finally { window.close(); }
+});

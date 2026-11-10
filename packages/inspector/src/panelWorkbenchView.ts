@@ -241,7 +241,7 @@ export class FrameGraphDebugWorkbench {
 		this.feedback.hidden = true;
 		this.feedback.append(this.feedbackTitle, this.commandStatus);
 		this.root.append(this.commandBar, this.feedback, this.workspace);
-		this.detailLayout = new DetailLayout(this.workspace, this.main, this.inspector.root, this.commandBar, () => this.inspector.setOpen(false));
+		this.detailLayout = new DetailLayout(this.workspace, this.main, this.inspector.root, this.commandBar, () => this.inspector.setOpen(false), previous => this.memory.resolveFocus(previous));
 		this.workspace.addEventListener('detail-layout-change', () => this.resizeGraph());
 		this.showEmptyState('empty', 'Drop a ZenFG Snapshot here or choose Import.', 'Files are processed locally in your browser.');
 		this.setSnapshotActionState({
@@ -482,6 +482,7 @@ export class FrameGraphDebugWorkbench {
 	destroy(): void {
 		this.destroyed = true;
 		this.setExportMenuOpen(false);
+		this.memory.destroy();
 		this.detailLayout.destroy();
 		this.graphSearch.destroy();
 		this.graphLegend?.destroy();

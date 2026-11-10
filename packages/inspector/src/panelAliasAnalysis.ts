@@ -50,7 +50,9 @@ export function analyzeSnapshotAliases(snapshot: FrameGraphDebugViewModel): Alia
     let minUse = Number.POSITIVE_INFINITY;
     let maxUse = Number.NEGATIVE_INFINITY;
     for (const resource of snapshot.resources) {
-        if (resource.origin !== 'transient' || !resource.lifetime) {
+        // Include every displayed allocation member, even if an external origin
+        // is explicitly associated with a reported allocation.
+        if (!resource.lifetime || resource.origin !== 'transient' && !allocationById.has(resource.physicalResourceId ?? '')) {
             continue;
         }
         minUse = Math.min(minUse, resource.lifetime.firstUse);

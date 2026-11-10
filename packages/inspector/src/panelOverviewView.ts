@@ -271,7 +271,7 @@ export class OverviewView {
       ['Logical resources', String(snapshot.resources.length), `${countLabel(textures, 'texture')} · ${countLabel(buffers, 'buffer')}`],
       ...(allocationAvailable ? [
         ['Physical allocations', String(snapshot.physicalAllocations.length)],
-        ['Alias savings estimate', formatEstimatedBytes(snapshot.metrics.aliasReuseBytes)],
+        ['Alias savings estimate', formatEstimatedBytes(snapshot.metrics.aliasReuseBytes), snapshot.metrics.aliasReuseBytes === undefined ? `${snapshot.metrics.estimatedCoverage.alias.known}/${snapshot.metrics.estimatedCoverage.alias.total} shared allocation sizes known` : undefined],
       ] as const : []),
     ]));
     if (!allocationAvailable) allocations.append(this.createReportState('Allocation report unavailable', snapshot.protocol.memory.allocationReport.reason));

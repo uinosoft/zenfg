@@ -188,7 +188,7 @@ Inspector instance and are not saved across sessions.
 | Graph | Frame Flow structure, searchable by pass, resource, group, or output, with explicit target location and a collapsible legend. |
 | Passes | All, Retained, or Culled passes, filtered by kind and name/ID/group, with execution-order, name, kind, or selected-source duration sorting. Pass List compares one CPU or GPU timing source at a time, using the same pass names, kind chips, axis, bars, milliseconds, and shares as Overview. Identifying name suffixes remain visible. Culled rows show culling reasons instead of timings. The separate Group Hierarchy has its own expansion, path search, and View passes action. |
 | Resources | Name/ID/group, type, and Transient/Imported/Surface filters, plus name, estimated size, and first-use sorting. Rows show concise descriptors; full descriptors and allocations remain in details. |
-| Memory | Physical allocation and alias savings estimates, a separate cumulative pool summary, and collapsible allocation groups with inclusive execution-slot lifetimes. Search, allocation/size sorting, and All/Aliased/Single/Unallocated filters are available. |
+| Memory | Physical allocation and alias savings estimates, a compact separate pool summary, and inclusive Pass Order lifetimes. Single allocations share one row with their resource; Shared allocations fold and order members by first use. Search, allocation/size sorting, and All/Shared/Single/Unreferenced/Unallocated filters are available. |
 | Diagnostics | Every captured error, warning, and informational message, including repeated codes. Counted severity buttons and code/message search filter messages; Compilation details separately contains expandable retention roots, culling reasons, and execution segments. |
 
 Lists show the matching and total counts, retain continuous scrolling, and offer
@@ -310,8 +310,15 @@ Memory numbers are estimates with different scopes:
 | Transient estimate | Declared estimated sizes of transient logical resources. |
 | Logical capacity | Allocation capacity counted for each assigned logical transient resource. |
 | Physical allocation estimate | Estimated sizes of physical allocations in the allocation report, counted once each. |
-| Alias savings estimate | Logical capacity minus physical allocation estimate, where both are known. |
-| Idle retained estimate | Producer-reported idle pool allocations at sampling time, which may outlive this graph. |
+| Alias savings estimate | Sum of `(transient member count − 1) × allocation capacity` for each allocation with multiple transient members. The same estimate appears in Overview. |
+| Idle pool estimate | Producer-reported idle pool allocations at sampling time, which may outlive this graph. |
+
+Unreferenced allocations remain in the physical total but do not offset alias
+savings. Missing sizes on Single or unreferenced allocations do not invalidate
+known savings; a missing shared allocation size makes the savings unknown and
+shows its coverage. Imported and surface members do not contribute to savings.
+**Data scope** separates referenced and unreferenced physical estimates from
+logical capacity. Shared membership does not explain allocator decisions.
 
 An unavailable report is not zero. Unknown resource/allocation sizes remain
 unknown, and partial summaries show the known-size coverage. A valid empty report
@@ -319,11 +326,22 @@ can contain real zero totals. None of these metrics is total GPU memory or a
 measured peak. Memory summaries always cover the entire Snapshot; filters change
 the visible rows and matching count only. A lifetime includes both first and last
 execution slots. Tick positions, grid lines, and resource bars share one stable
-Snapshot coordinate range; missing lifetimes have no bar.
+Snapshot coordinate range; missing lifetimes have no bar. The domain also
+includes Imported/Surface members explicitly assigned to reported allocations;
+these rows show their origin.
+
+Memory rows distinguish physical allocation capacity from each resource's
+logical estimate. Select a resource name or lifetime bar to inspect that resource,
+or an allocation name to inspect the allocation; the location icon goes to
+Resources. Select an inclusive Order boundary to locate its retained pass. Long
+resource and allocation names retain identifying suffixes and full-name tooltips.
+Refreshes and folds restore focus to the corresponding control or a useful
+fallback when the target disappears. Filters and the timeline axis stay together
+while scrolling.
 
 Group hierarchies merge secondary columns below 1000px and use compact rows
-below 600px. Pass timing rows reflow below 600px; Resources reflows below 800px,
-giving names the full row and placing size comparisons below them. These
+below 600px. Pass timing rows reflow below 600px; Resources and Memory reflow
+below 800px, giving names the full row and placing sizes and lifetimes below. These
 breakpoints use the available main content width, including an open selection
 dock. GPU/CPU timings and resource estimates remain visible. Memory lifetimes
 use the same full execution-slot domain at every

@@ -787,7 +787,10 @@ export class InspectorView {
 		if (selection.kind === 'node' || selection.kind === 'group' || selection.kind === 'resource' || selection.kind === 'root') {
 			actions.appendChild(this.revealButton(selection, 'graph'));
 		}
-		if (selection.kind === 'resource' && snapshot.resourceById.get(selection.id)?.origin === 'transient') actions.appendChild(this.revealButton(selection, 'memory'));
+		if (selection.kind === 'resource') {
+			const resource = snapshot.resourceById.get(selection.id);
+			if (resource && (resource.origin === 'transient' || snapshot.allocationById.has(resource.physicalResourceId ?? ''))) actions.appendChild(this.revealButton(selection, 'memory'));
+		}
 		if (selection.kind === 'culled') {
 			const note = document.createElement('span');
 			note.className = 'zenfg-inspector-muted';
