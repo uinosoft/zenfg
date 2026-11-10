@@ -380,6 +380,11 @@ export async function checkWorkbenchPanels(page, output, fullSnapshot, aliasSnap
                         const row = root.locator('tr[data-selection-key="node:node:scene"]');
                         await within(row.locator('[data-timing-column="time"]'), root, `${mode}/${width} selected GPU timing`);
                         assert.equal(await row.locator('.zenfg-inspector-timing-number').innerText(), '0.020');
+                        const orderAlignment = await root.locator('.zenfg-inspector-pass-table').evaluate(table => {
+                            const cells = [...table.querySelectorAll('td[data-timing-column="order"], th[data-timing-column="order"]')].filter(cell => getComputedStyle(cell).position !== 'absolute');
+                            return cells.every(cell => { const range = document.createRange(); range.selectNodeContents(cell); const text = range.getBoundingClientRect(), box = cell.getBoundingClientRect(); return Math.abs(text.x + text.width / 2 - box.x - box.width / 2) < 1; });
+                        });
+                        assert.ok(orderAlignment, `${mode}/${width}: Order headings and values share their column center`);
                     }
                     if (view === 'Resources') {
                         const row = root.locator('tr[data-selection-key="resource:resource:scene-color"]');

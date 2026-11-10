@@ -15,9 +15,9 @@ export const PANEL_TIMING_CSS = `
   height: 34px; position: sticky; top: 0; z-index: 2; color: var(--fgd-muted); background: var(--fgd-panel);
   font: 500 var(--fgd-font-size-small)/1.4 var(--fgd-font-ui); letter-spacing: 0; text-align: left;
 }
-.zenfg-inspector .zenfg-inspector-timing-table[data-source] th[data-timing-column='name'] { width: clamp(220px, 32cqi, 360px); }
-.zenfg-inspector .zenfg-inspector-timing-table[data-source] th[data-timing-column='order'] { width: 54px; left: auto; text-align: right; }
-.zenfg-inspector .zenfg-inspector-timing-table[data-source] td[data-timing-column='order'] { position: static; color: var(--fgd-muted); text-align: right; white-space: nowrap; font: var(--fgd-font-size-small)/1.4 var(--fgd-font-mono); font-variant-numeric: tabular-nums; }
+.zenfg-inspector .zenfg-inspector-timing-table[data-source] th[data-timing-column='name'] { width: calc(clamp(220px, 32cqi, 360px) + var(--fgd-timing-name-gutter, 0px)); }
+.zenfg-inspector .zenfg-inspector-timing-table[data-source] th[data-timing-column='order'] { width: 54px; left: auto; text-align: center; }
+.zenfg-inspector .zenfg-inspector-timing-table[data-source] td[data-timing-column='order'] { position: static; color: var(--fgd-muted); text-align: center; white-space: nowrap; font: var(--fgd-font-size-small)/1.4 var(--fgd-font-mono); font-variant-numeric: tabular-nums; }
 .zenfg-inspector .zenfg-inspector-timing-table[data-source] th[data-timing-column='time'] { width: calc(var(--fgd-font-size-small) * 8); text-align: right; }
 .zenfg-inspector .zenfg-inspector-timing-table[data-source] th[data-timing-column='share'] { width: calc(var(--fgd-font-size-small) * 5.5); text-align: right; }
 .zenfg-inspector .zenfg-inspector-timing-table[data-source] tbody tr:last-child td { border-bottom: 0; }
@@ -106,4 +106,8 @@ export const PANEL_TIMING_CSS = `
   .zenfg-inspector .zenfg-inspector-timing-table[data-source][data-order='true'] th[colspan] { grid-column: 1 / -1; }
   .zenfg-inspector-timing-axis > span:nth-child(2) { display: none; }
 }
+/* Let the table gutters extend into card padding while keeping text aligned. */
+.zenfg-inspector .zenfg-inspector-overview-timings[data-source] { --fgd-timing-name-gutter: var(--fgd-space-2); width: calc(100% + 2 * var(--fgd-space-2)); margin-inline: calc(-1 * var(--fgd-space-2)); }
+.zenfg-inspector .zenfg-inspector-overview-timings[data-source] thead > tr { background: var(--fgd-panel); }
+
 `;

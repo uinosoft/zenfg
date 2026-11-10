@@ -81,6 +81,13 @@ export async function checkOverview(page, output, fullSnapshot) {
             attributes: bounds('.zenfg-inspector-overview-timing-rows tr:first-child .zenfg-inspector-timing-attributes'),
             accessCopies: el.querySelector('.zenfg-inspector-overview-timing-rows tr:first-child').querySelectorAll('.zenfg-inspector-timing-accesses').length,
             firstRow: bounds('.zenfg-inspector-overview-timing-rows tr:first-child'),
+            heading: bounds('.zenfg-inspector-overview-timing-panel h2'), coverage: bounds('.zenfg-inspector-overview-coverage'), scope: bounds('.zenfg-inspector-overview-scope-note'),
+            share: bounds('.zenfg-inspector-overview-timing-rows tr:first-child .zenfg-inspector-timing-share-number'),
+            contentLeft: (() => { const panel = el.querySelector('.zenfg-inspector-overview-timing-panel'); const style = getComputedStyle(panel); return panel.getBoundingClientRect().left + parseFloat(style.borderLeftWidth) + parseFloat(style.paddingLeft); })(),
+            contentRight: (() => { const panel = el.querySelector('.zenfg-inspector-overview-timing-panel'); const style = getComputedStyle(panel); return panel.getBoundingClientRect().right - parseFloat(style.borderRightWidth) - parseFloat(style.paddingRight); })(),
+            table: bounds('.zenfg-inspector-overview-timings'),
+            shareHeader: (() => { const cell = el.querySelector('th[data-timing-column="share"]'); const range = document.createRange(); range.selectNodeContents(cell); const box = range.getBoundingClientRect(); return { x: box.x, right: box.right }; })(),
+            headerX: (() => { const cell = el.querySelector('th[data-timing-column="name"]'); if (getComputedStyle(cell).position === 'absolute') return undefined; const range = document.createRange(); range.selectNodeContents(cell); return range.getBoundingClientRect().x; })(),
             overviewBottom: el.getBoundingClientRect().bottom,
             tails: [...el.querySelectorAll('.zenfg-inspector-overview-pass-suffix')].map(tail => {
                 const text = tail.firstChild;
@@ -117,6 +124,11 @@ export async function checkOverview(page, output, fullSnapshot) {
         assert.ok(layout.track.width > 20 && Math.abs(layout.fill.width / layout.track.width - 0.88) < 0.01, `${label}: visible time bars use the millisecond axis, not 13.8% share`);
         assert.ok(layout.name.right <= layout.track.x + 1 || layout.name.bottom <= layout.track.y + 1 || layout.track.bottom <= layout.name.y + 1, `${label}: pass label does not overlap the time chart`);
         assert.ok(Math.abs(layout.name.width - layout.identity.width) < 1 && layout.attributes.y >= layout.name.bottom - 1, `${label}: the pass name fills a separate line above its Kind and access counts`);
+        assert.ok([layout.heading, layout.coverage, layout.scope, layout.name, layout.attributes].every(box => Math.abs(box.x - layout.contentLeft) < 1), `${label}: timing content shares the card's left edge`);
+        if (layout.headerX !== undefined) assert.ok(Math.abs(layout.headerX - layout.contentLeft) < 1, `${label}: Pass header aligns with the card content`);
+        assert.ok(Math.abs(layout.share.right - layout.contentRight) < 1, `${label}: Share aligns with the card's right edge`);
+        if (layout.headerX !== undefined) assert.ok(layout.headerX - layout.table.x >= 7, `${label}: Pass has visible space inside the header background`);
+        assert.ok(layout.table.right - layout.shareHeader.right >= 7, `${label}: Share has visible space inside the header background`);
         assert.equal(layout.accessCopies, 1, `${label}: access counts appear once per row`);
         assert.ok(layout.tails.length > 0 && layout.tails.every(tail => tail.width > 0 && tail.x >= tail.nameX - 1 && tail.right <= tail.nameRight + 1), `${label}: the final identifying character remains visible when a wide suffix crops from the left`);
         assert.ok(layout.ticks.length >= 2, `${label}: time axis retains visible start and end labels`);
