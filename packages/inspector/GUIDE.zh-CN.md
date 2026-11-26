@@ -1,4 +1,4 @@
-<!-- translation: {"version":1,"source":"packages/inspector/GUIDE.md","sourceHash":"42802dc0403d75964cc19ad41ef88d88a92503686a8628a4222f660636edaed5","state":"ready"} -->
+<!-- translation: {"version":1,"source":"packages/inspector/GUIDE.md","sourceHash":"5c5f24d69023ceef8b71fa69261947d82c95167ae2f7d592d2a8b7d3ac290a0f","state":"ready"} -->
 
 <a id="zenfginspector-usage"></a>
 
@@ -226,12 +226,12 @@ Overview 将资源池复用标为累计值：复用/获取计数器覆盖资源�
 
 #### 阅读分组
 
-打开 **Declarations**，可查看位于声明分组内的资源入口；使用 **Groups** 和展开控件浏览捕获到的层级。跨组使用不会移动入口；捕获的边界关系会计入组的 Inputs/Outputs。**Imported** 表示调用方拥有的原生存储，不表示从其他诊断分组借用。相同标签仍对应不同分组。
+Frame Flow 在顶层绘制资源输出根。启用 **Groups** 时，资源入口和通道按录制时的分组显示。打开 **Declarations** 可查看资源入口，使用展开控件可浏览捕获的层级。跨组使用时，资源入口仍留在其录制分组内。捕获的边界关系会计入组的 Inputs/Outputs。**Imported** 表示调用方拥有的原生存储，不表示从其他诊断分组借用。相同标签仍对应不同分组。
 
 分组描述诊断归属，不决定保留、分配隔离或 GPU 内存独占所有权。共享/别名分配可能同时计入多个分组摘要。完整的显示和选择行为见 [Frame Flow 指南](#frame-flow-interaction)。
 <!-- skill:group-view:end -->
 
-Graph 是单一的 **Frame Flow** 视图：资源声明 → 保留通道的依赖 → 显式资源输出。资源入口归属于其声明分组；输出根保持在顶层，并使用编译器提供的最终生产者和初始内容贡献信息。已裁剪通道仍可在列表和详情中查看，但不显示在图中。折叠分组会汇总关系，但不会丢弃底层语义。
+Graph 在单一的 **Frame Flow** 视图中展示资源声明、保留通道的依赖和显式资源输出。编译器提供输出根的最终生产者和初始内容贡献信息。列表和详情还会显示已裁剪通道。折叠分组会汇总关系并保留其底层语义。
 Graph 初始隐藏资源声明入口，以便聚焦通道依赖和输出。打开工具栏的 **Declarations** 开关即可显示入口。隐藏时，声明入口、相关关系（包括初始内容到输出的边）以及仅包含资源的分组都会从布局中移除；通道依赖和生产者到输出的边仍保留。宿主可设置 `showResourceDeclarations: true`，并通过 `FrameGraphInspectorOptions` 构造或挂载 Inspector，让声明默认可见；此选项只设置初始可见性。
 已知有初始内容贡献的输出显示 **With initial contents** 或 **Initial contents only**；不会推断不可用的 Legacy 来源。
 该开关会在当前 Inspector 实例的不同视图、捕获和导入之间保持状态。

@@ -1,4 +1,4 @@
-<!-- translation: {"version":1,"source":"crates/zenfg/docs/README.md","sourceHash":"352f24f45c1cb89290a6727c096b8c83207c1bd2d09f867e79c674f562f003fc","state":"ready"} -->
+<!-- translation: {"version":1,"source":"crates/zenfg/docs/README.md","sourceHash":"b3abfc19ea708cb9532bd545ed940c836cd08c3fe9f13b476a297c37c1257b04","state":"ready"} -->
 
 <a id="zenfg-usage"></a>
 
@@ -92,7 +92,7 @@ runtime       recording         retained CPU plan        optional, one-shot
 调试组会在报告和 Inspector 中标注声明和通道。录制通道的路径还可以生成可选的原生 GPU 标记。分组不会建立依赖、保留工作、拥有原生存储或隔离分配。资源池作用域用于另一项独立功能。
 
 - 使用简洁且有意义的名称对相关功能和阶段分组。例如，Atmosphere 可包含 sky、clouds、haze 和 lens flare，但不应把 Water 也归入其中。
-- 在不改变正确录制顺序的前提下，将功能内的图可见声明和通道放在一起。每次录制时在组合边界导入一次共享存储，并跨组复用其句柄。
+- 将功能专用资源（包括跨帧历史资源）与处理它们的通道放在相应的功能组内。整帧的关键输出目标，如当前表面纹理，优先在根层（调试组之外）注册。写入这些目标的通道按职责分组。每次录制时在组合边界导入一次共享存储，并跨组复用其句柄。
 - 保持录制和提交顺序。交错的功能可以使用 `atmosphere.environment`、`atmosphere.sky`、`atmosphere.air-haze` 和 `atmosphere.lens-flare` 等语义阶段标签；这些只是示例，并非必需名称。
 - Bloom 的重复通道适合使用外层 `bloom` 组，并可选用 `downsample`/`upsample` 阶段。通道应标注实际 mip/迭代编号，不要为每个 mip 单独嵌套一个组。对有意义的迭代可以编号。
 - 使用同步的 `with_debug_group()`，或成对调用 push/pop；编译前关闭所有组。每次 push/with 都会创建新组。返回的 `DebugGroupId` 不能再次传入来重开组；重复标签仍对应不同组，点分隔标签也不表示层级。
