@@ -94,9 +94,11 @@ the TSDoc preserved in the packaged source and declarations.
 
 #### Reading groups
 
-Enable **Declarations** to see resource entrances in their declaration groups,
-and use **Groups**/expansion controls to browse the captured hierarchy. Cross-group
-use does not move an entrance; captured boundary relationships contribute to group
+Frame Flow draws resource output roots at the top level and uses recorded group
+assignments for resource entrances and passes when **Groups** is enabled.
+Enable **Declarations** to see resource entrances and use the expansion controls
+to browse the captured hierarchy. Cross-group use leaves entrances in their
+recorded groups. Captured boundary relationships contribute to group
 Inputs/Outputs. **Imported** describes caller-owned native storage, not borrowing
 from another diagnostic group. Identical labels remain distinct groups.
 

@@ -99,9 +99,11 @@ Resource-pool scopes serve a separate purpose.
 
 - Group coherent features and useful phases with shallow, meaningful names.
   Atmosphere may cover sky, clouds, haze and lens flare without absorbing Water.
-- Keep feature-local graph-visible declarations and passes together where their
-  correct recording order permits. Import shared storage once per recording at
-  the composition boundary and reuse its handle across groups.
+- Keep feature-local resources, including temporal history, with the passes that
+  process them. Prefer registering frame-wide output targets such as the current
+  surface texture at the top level (outside debug groups). Group the passes that
+  write them by responsibility. Import shared storage once per recording at the
+  composition boundary and reuse its handle across groups.
 - Preserve recording and submission order. Interleaved features can use semantic
   phase labels such as `atmosphere.environment`, `atmosphere.sky`,
   `atmosphere.air-haze` and `atmosphere.lens-flare`; these are examples, not required names.

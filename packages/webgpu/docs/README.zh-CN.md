@@ -1,4 +1,4 @@
-<!-- translation: {"version":1,"source":"packages/webgpu/docs/README.md","sourceHash":"1533fb1c8493355062b25479b936c7f1c2056e43a22092694694d9798ec308ad","state":"ready"} -->
+<!-- translation: {"version":1,"source":"packages/webgpu/docs/README.md","sourceHash":"83d6dfca67ce3ed3c7740095da98ce6db2e1cee3c51cf0d62baad4ee8ae21a09","state":"ready"} -->
 
 <a id="zenfgwebgpu-usage"></a>
 
@@ -98,7 +98,7 @@ device lifetime       one recording        retained executable plan
 调试组会在报告和 Inspector 中为已录制的资源及通道添加标注。录制通道的路径还可以生成可选的原生 GPU 标记。分组不会创建依赖、保留工作、拥有资源或划分分配范围。应单独使用 `ResourcePoolScope` 管理资源池复用和驱逐。
 
 - 使用简洁且有意义的名称组织相关功能和阶段。例如，Atmosphere 可包含 sky、clouds、haze 和 lens flare；无关的 Water 工作应保留自己的归属。
-- 在原有录制位置，将功能内的图可见声明及其处理通道放入适当的组。共享资源应在每次录制的组合边界导入，并跨组复用其句柄。
+- 将功能专用资源（包括跨帧历史资源）与处理它们的通道放在相应的功能组内。整帧的关键输出目标，如当前交换链纹理，优先在根层（调试组之外）声明或导入。写入这些目标的通道按职责分组。每次录制时在组合边界导入一次共享存储，并跨组复用其句柄。
 - 保持正确的录制和提交顺序。某项功能与其他工作交错时，应使用 `atmosphere.environment`、`atmosphere.sky`、`atmosphere.air-haze` 和 `atmosphere.lens-flare` 这样的语义阶段，不要移动无关工作。这些只是标签示例，不是强制分类体系。
 - Bloom 多次执行的 downsample/upsample 通道适合用分组组织：使用外层 `bloom`，并可按需增加 `downsample`/`upsample` 阶段。通道应标注实际 mip 或迭代编号；不要为每个 mip 都建新组，也不要嵌套过深。真实迭代编号有用，随意编造的片段编号则没有。
 - 优先使用同步的 `withDebugGroup()`。手动调用 push/pop 时应成对使用，并在编译前关闭所有组。每次 push/with 都会创建独立的录制内分组；重复标签不会重新打开已有 ID，点号也不会建立层级关系。

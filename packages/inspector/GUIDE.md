@@ -382,9 +382,11 @@ snapshot details**.
 <!-- skill:group-view:start -->
 #### Reading groups
 
-Enable **Declarations** to see resource entrances in their declaration groups,
-and use **Groups**/expansion controls to browse the captured hierarchy. Cross-group
-use does not move an entrance; captured boundary relationships contribute to group
+Frame Flow draws resource output roots at the top level and uses recorded group
+assignments for resource entrances and passes when **Groups** is enabled.
+Enable **Declarations** to see resource entrances and use the expansion controls
+to browse the captured hierarchy. Cross-group use leaves entrances in their
+recorded groups. Captured boundary relationships contribute to group
 Inputs/Outputs. **Imported** describes caller-owned native storage, not borrowing
 from another diagnostic group. Identical labels remain distinct groups.
 
@@ -394,12 +396,11 @@ several group summaries. Read the [Frame Flow guide](#frame-flow-interaction) fo
 the complete display and selection behavior.
 <!-- skill:group-view:end -->
 
-Graph is a single **Frame Flow** view: resource declarations → retained pass
-dependencies → explicit resource outputs. Resource entrances belong to their
-declaration groups; output roots remain top-level and use compiler-supplied final
-producers and initial-content contributions. Culled passes remain in lists and
-details, not in the graph. Collapsed groups aggregate relationships without
-discarding their underlying semantics.
+Graph shows resource declarations, retained pass dependencies, and explicit
+resource outputs in a single **Frame Flow** view. The compiler supplies final
+producers and initial-content contributions for output roots. Lists and details
+also include culled passes. Collapsed groups aggregate relationships and preserve
+their underlying semantics.
 Graph starts with resource declaration entrances hidden, focusing on pass
 dependencies and outputs. Turn on the **Declarations** toolbar toggle to show
 them. When hidden, declaration entrances, their relationships (including

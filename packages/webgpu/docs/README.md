@@ -134,9 +134,11 @@ pool reuse and eviction.
 - Organize coherent features and useful phases with shallow, meaningful names.
   Atmosphere can include sky, clouds, haze and lens flare; unrelated Water work
   keeps its own attribution.
-- Put feature-local, graph-visible declarations and their processing passes in
-  the appropriate group at their original recording points. Shared imports stay
-  at the composition boundary of each recording; reuse their handles across groups.
+- Keep feature-local resources, including temporal history, with the passes that
+  process them. Prefer declaring or importing frame-wide output targets such as
+  the current swapchain texture at the top level (outside debug groups). Group
+  the passes that write them by responsibility. Import shared storage once per
+  recording at the composition boundary and reuse its handle across groups.
 - Preserve correct recording and submission order. When a feature is interleaved,
   use semantic segments such as `atmosphere.environment`, `atmosphere.sky`,
   `atmosphere.air-haze` and `atmosphere.lens-flare` instead of moving unrelated work.
