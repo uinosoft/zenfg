@@ -10,10 +10,10 @@
 <!-- generated:compatibility:start -->
 | ZenFG package | Version | Runtime/toolchain | Snapshot |
 | --- | --- | --- | --- |
-| `@zenfg/webgpu` | `0.2.0` | Native WebGPU; tooling Node >=24.0.0 <25 | produces 1.2 |
-| `@zenfg/snapshot` | `0.1.1` | ESM, ES2022 | reads Legacy V0, Legacy Candidate V1, 1.1 (migrated), 1.2 |
-| `@zenfg/inspector` | `0.2.0` | Modern DOM; no WebGPU dependency | reads through @zenfg/snapshot |
-| `zenfg` | `0.2.0` | Rust 1.98; wgpu 30.0.1 | produces 1.2 |
+| `@zenfg/webgpu` | `0.3.0` | Native WebGPU; tooling Node >=24.0.0 <25 | produces 1.2 |
+| `@zenfg/snapshot` | `0.1.2` | ESM, ES2022 | reads Legacy V0, Legacy Candidate V1, 1.1 (migrated), 1.2 |
+| `@zenfg/inspector` | `0.3.0` | Modern DOM; no WebGPU dependency | reads through @zenfg/snapshot |
+| `zenfg` | `0.3.0` | Rust 1.98; wgpu 30.0.1 | produces 1.2 |
 | `zenfg-snapshot` | `0.1.1` | Rust 1.98; no wgpu | reads Legacy V0, Legacy Candidate V1, 1.1 (migrated), 1.2 |
 <!-- generated:compatibility:end -->
 

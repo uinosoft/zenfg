@@ -5,6 +5,7 @@ import { usageText } from './docs/usage.mjs';
 import { checkSkill } from './docs/skills.mjs';
 import { assertLocalLinks, quickStart } from './docs/markdown.mjs';
 import { spawnSync } from 'node:child_process';
+import { createRequire } from 'node:module';
 import { npmCommand, pnpm, packPackage, assertPackedManifest, installedPackageVersion } from './package-manager.mjs';
 import {
     copyFileSync,
@@ -13,6 +14,7 @@ import {
     mkdirSync,
     mkdtempSync,
     readdirSync,
+    realpathSync,
     statSync,
     readFileSync,
     rmSync,
@@ -237,6 +239,7 @@ try {
         tarballs.push({
             name: packageSpec.name,
             path: join(temporaryDirectory, basename(packed.filename)),
+            source: JSON.parse(readFileSync(join(packageDirectory, 'package.json'), 'utf8')),
         });
     }
 
@@ -276,14 +279,13 @@ try {
     ].join(';');
     run(process.execPath, ['--input-type=module', '--eval', smokeTest], { cwd: consumerDirectory });
 
-    for (const { name } of tarballs) {
+    for (const { name, source } of tarballs) {
         const installedPackageDirectory = join(
             consumerDirectory,
             'node_modules',
             ...name.split('/'),
         );
         const packageJson = JSON.parse(readFileSync(join(installedPackageDirectory, 'package.json'), 'utf8'));
-        const source = JSON.parse(readFileSync(join(rootDir, packages.find(p => p.name === name).directory, 'package.json'), 'utf8'));
         assertPackedManifest(source, packageJson);
         if (Object.values(packageJson.dependencies ?? {}).some((value) => String(value).startsWith('workspace:'))) {
             throw new Error(`${packageJson.name} contains a workspace dependency in its published manifest.`);
@@ -387,14 +389,31 @@ try {
     const isolated = join(temporaryDirectory, 'pnpm-consumer');
     mkdirSync(isolated);
     writeFileSync(join(isolated, 'package.json'), JSON.stringify({ private: true, type: 'module', devDependencies: { typescript: installedPackageVersion('typescript') } }) + '\n');
+    // pnpm resolves transitive registry specs separately from direct tarball installs.
+    // Point exact internal dependency edges at the already validated candidate tarballs.
+    const candidates = new Map(tarballs.map(candidate => [candidate.name, candidate]));
+    const overrides = tarballs.flatMap(({ source }) => Object.entries(source.dependencies ?? {}).flatMap(([name, specifier]) => {
+        const dependency = candidates.get(name);
+        if (!dependency || specifier !== `workspace:${dependency.source.version}`) return [];
+        const selector = `${source.name}@${source.version}>${name}@${dependency.source.version}`;
+        const archive = 'file:' + relative(isolated, dependency.path).replaceAll('\\', '/');
+        return [`  ${JSON.stringify(selector)}: ${JSON.stringify(archive)}`];
+    }));
+    writeFileSync(join(isolated, 'pnpm-workspace.yaml'), ['nodeLinker: isolated', 'overrides:', ...overrides, ''].join('\n'));
     const storeBase = dirname(pnpm(['store', 'path', '--silent']).trim());
     pnpm(['add', '--ignore-scripts', '--store-dir', storeBase, ...tarballs.map(({ path }) => path)], { cwd: isolated });
     run(process.execPath, ['--input-type=module', '--eval', smokeTest], { cwd: isolated });
-    for (const { name } of tarballs) {
-        const source = JSON.parse(readFileSync(join(rootDir, packages.find(p => p.name === name).directory, 'package.json'), 'utf8'));
-        const installed = JSON.parse(readFileSync(join(isolated, 'node_modules', ...name.split('/'), 'package.json'), 'utf8'));
-        assertPackedManifest(source, installed);
+    const snapshotSchema = '@zenfg/snapshot/schema/v1.json';
+    const directSchema = realpathSync(createRequire(join(isolated, 'package.json')).resolve(snapshotSchema));
+    for (const { name, source } of tarballs) {
         const installedDirectory = join(isolated, 'node_modules', ...name.split('/'));
+        const manifestPath = realpathSync(join(installedDirectory, 'package.json'));
+        const installed = JSON.parse(readFileSync(manifestPath, 'utf8'));
+        assertPackedManifest(source, installed);
+        if (installed.dependencies?.['@zenfg/snapshot']
+            && realpathSync(createRequire(manifestPath).resolve(snapshotSchema)) !== directSchema) {
+            throw new Error(`${name} resolved Snapshot outside the candidate tarball installation.`);
+        }
         validateDeclarationMaps(name, installedDirectory);
         assertLocalLinks(installedDirectory);
         checkSkill(installedDirectory);

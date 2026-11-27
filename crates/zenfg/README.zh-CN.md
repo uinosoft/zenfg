@@ -13,8 +13,8 @@
 
 <!-- generated:badges:start -->
 [![zenfg published version](https://img.shields.io/crates/v/zenfg?include_prereleases)](https://crates.io/crates/zenfg)
-[![docs.rs](https://img.shields.io/docsrs/zenfg/0.2.0)](https://docs.rs/zenfg/0.2.0/)
-[![MIT license](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/uinosoft/zenfg/blob/cargo/zenfg/v0.2.0/LICENSE)
+[![docs.rs](https://img.shields.io/docsrs/zenfg/0.3.0)](https://docs.rs/zenfg/0.3.0/)
+[![MIT license](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/uinosoft/zenfg/blob/cargo/zenfg/v0.3.0/LICENSE)
 <!-- generated:badges:end -->
 
 `zenfg` 是适用于 wgpu、与渲染器无关的 FrameGraph 编译器和瞬态资源执行器。它会记录逻辑资源及其访问、校验内容流、构建依赖、裁剪无用工作、推导使用标志、规划瞬态资源别名，并可选择在调用方拥有的设备和队列上实例化保留的工作。
@@ -25,7 +25,7 @@
 
 <!-- generated:installation:start -->
 ```sh
-cargo add zenfg@=0.2.0
+cargo add zenfg@=0.3.0
 ```
 <!-- generated:installation:end -->
 
@@ -107,12 +107,12 @@ cargo add zenfg@=0.2.0
 ## 文档与版本
 
 <!-- generated:documentation:start -->
-包清单声明 **zenfg 0.2.0**. 注册表徽章显示当前发布渠道，并非已安装版本。
+包清单声明 **zenfg 0.3.0**. 注册表徽章显示当前发布渠道，并非已安装版本。
 
 - 已安装版本的准确 API：阅读包内的 `src/`, 或运行 `cargo doc --open` （在使用该包的项目中）。
 - [在线指南（开发分支）](https://uinosoft.github.io/zenfg/docs/zh-CN/packages/zenfg.html). 网站可能包含晚于此包版本的变更。
-- [此版本的 Rust API（英文）](https://docs.rs/zenfg/0.2.0/).
-- [此发布版本的源码与文档](https://github.com/uinosoft/zenfg/tree/cargo/zenfg/v0.2.0/crates/zenfg).
+- [此版本的 Rust API（英文）](https://docs.rs/zenfg/0.3.0/).
+- [此发布版本的源码与文档](https://github.com/uinosoft/zenfg/tree/cargo/zenfg/v0.3.0/crates/zenfg).
 - 使用约定由本包维护，请阅读包内指南。历史源码链接对应指定发布版本，可能早于当前开发分支。
 - [包升级说明](docs/MIGRATION.zh-CN.md).
 - [纯 Markdown 文档索引（开发分支）](https://uinosoft.github.io/zenfg/docs/zh-CN/llms.txt).

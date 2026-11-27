@@ -12,21 +12,46 @@ packages use independent versions; component tags identify each release.
 
 ## Unreleased
 
-- Document diagnostic grouping, repeated Bloom stages and the distinction between
-  native resource ownership and graph-visible access in runtime guides; derive
-  concise grouping/resource rules and Inspector display guidance into npm Skills.
+## Runtime and Inspector 0.3.0, npm Snapshot 0.1.2 - 2026-11-27
 
-- Keep runtime, Snapshot and Inspector usage/upgrade guidance beside their owning
-  packages. Ship deterministic, tracked Agent Skills in the three npm artifacts,
-  with package-contained references and pnpm discovery/approval checks. Rust guides
-  remain crate-owned; Rust Skill distribution is deferred. Preserve documentation
-  routes and historical release records without changing published versions.
+| Package | Version |
+| --- | --- |
+| `@zenfg/webgpu` | 0.3.0 |
+| `@zenfg/inspector` | 0.3.0 |
+| `zenfg` | 0.3.0 |
+| `@zenfg/snapshot` | 0.1.2 |
+
+`@zenfg/webgpu` and `@zenfg/inspector` depend on exactly `@zenfg/snapshot`
+0.1.2. `zenfg` continues to use `zenfg-snapshot` 0.1.1 with the `snapshot`
+feature. Existing captures retain Snapshot 1.2 compatibility.
+
+### Highlights
 
 - Add explicit runtime-owned resource-pool scopes and synchronous predicate
   eviction to `@zenfg/webgpu` and `zenfg`. Scopes isolate transient aliasing
   and reuse; predicates receive readonly physical specifications and idle
-  execution counts. Imported resources remain caller-owned. Clear-all defaults,
-  cumulative counters and the Snapshot 1.2 wire schema remain unchanged.
+  execution counts. The default pool domain, clear-all behavior and cumulative
+  counters remain available. Imported resources remain caller-owned.
+- Improve Inspector Overview and Passes with explicit CPU/GPU selection,
+  capture-wide timing scales and shares, and stable execution order and group
+  navigation. Clarify resource identities, logical sizes and access relations.
+  Sort physical allocations globally in Memory, expand their logical members,
+  show known lifetime coverage and restore focus across view updates.
+- Isolate Inspector graph theme measurement from host-page CSS for more
+  consistent resolution of theme values.
+- Ship package-owned English and Chinese guides and the first npm Agent Skills
+  for WebGPU, Inspector and Snapshot. Skills include package-local references and
+  support pnpm discovery and approval. The runtime guides cover diagnostic
+  grouping, repeated Bloom stages, native resource ownership and graph-visible
+  accesses. Rust usage guidance ships with `zenfg`.
+- Add a scoped-aliasing producer case to the npm Snapshot conformance corpus.
+
+### Component release notes
+
+- [@zenfg/webgpu 0.3.0](docs/releases/npm-webgpu-0.3.0.md)
+- [@zenfg/inspector 0.3.0](docs/releases/npm-inspector-0.3.0.md)
+- [@zenfg/snapshot 0.1.2](docs/releases/npm-snapshot-0.1.2.md)
+- [zenfg 0.3.0](docs/releases/cargo-zenfg-0.3.0.md)
 
 ## Runtime and Inspector 0.2.0, Snapshot packages 0.1.1 - 2026-10-10
 
@@ -254,7 +279,7 @@ release:
 The package versions are independent of the ZenFG FrameGraph Snapshot wire
 format, which is version `1.0` in this candidate.
 
-[Unreleased]: https://github.com/uinosoft/zenfg/compare/cargo/zenfg/v0.2.0...HEAD
+[Unreleased]: https://github.com/uinosoft/zenfg/compare/cargo/zenfg/v0.3.0...HEAD
 [0.1.0]: https://github.com/uinosoft/zenfg/tree/cargo%2Fzenfg%2Fv0.1.0
 [0.1.0-beta.4]: https://github.com/uinosoft/zenfg/tree/cargo%2Fzenfg%2Fv0.1.0-beta.4
 [0.1.0-beta.3]: https://github.com/uinosoft/zenfg/tree/cargo%2Fzenfg%2Fv0.1.0-beta.3

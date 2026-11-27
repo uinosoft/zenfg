@@ -90,12 +90,11 @@ and Cargo for Rust; install workspace dependencies with `pnpm install --frozen-l
 
 ## AI coding assistants
 
-Development builds provide English Agent Skills for
-[WebGPU integration](packages/webgpu/README.md#agent-skills),
-[Snapshot data](packages/snapshot/README.md#agent-skills), and
-[Inspector embedding](packages/inspector/README.md#agent-skills).
-Each package README explains release availability and pnpm installation/approval.
-This support is not yet available in the current npm releases.
+ZenFG packages include English Agent Skills for
+[WebGPU integration](packages/webgpu/README.md#agent-skills) starting in `@zenfg/webgpu@0.3.0`,
+[Snapshot data](packages/snapshot/README.md#agent-skills) starting in `@zenfg/snapshot@0.1.2`, and
+[Inspector embedding](packages/inspector/README.md#agent-skills) starting in `@zenfg/inspector@0.3.0`.
+Each package README explains how to install and approve its Skill with pnpm.
 
 ## Integration levels
 

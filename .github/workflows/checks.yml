@@ -153,10 +153,25 @@ jobs:
 
   release-preflight:
     runs-on: ubuntu-24.04
+    env:
+      CONTRACT_ARTIFACT_NAME: release-artifact-contract-${{ github.run_attempt }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
+      # Upload before the release checks so the artifact can become visible while they run.
+      - name: Create artifact contract fixture
+        run: |
+          mkdir -p target/artifact-contract
+          echo "zenfg artifact contract: $GITHUB_RUN_ID attempt $GITHUB_RUN_ATTEMPT" > target/artifact-contract/probe.txt
+      - id: contract-upload
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: ${{ env.CONTRACT_ARTIFACT_NAME }}
+          path: target/artifact-contract/
+          archive: true
+          retention-days: 1
+          if-no-files-found: error
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version-file: .node-version
@@ -183,22 +198,10 @@ jobs:
       - run: pnpm run release:check
       - run: pnpm run release:test
       - run: pnpm run release:assess --summary
-      - name: Create artifact contract fixture
-        run: |
-          mkdir -p target/artifact-contract
-          echo "zenfg artifact contract" > target/artifact-contract/probe.txt
-      - id: contract-upload
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: release-artifact-contract
-          path: target/artifact-contract/
-          archive: true
-          retention-days: 1
-          if-no-files-found: error
       - name: Download artifact by name
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
-          name: release-artifact-contract
+          name: ${{ env.CONTRACT_ARTIFACT_NAME }}
           path: target/artifact-by-name/
           digest-mismatch: error
       - name: Download artifact by ID
