@@ -1,4 +1,4 @@
-<!-- translation: {"version":1,"source":"CHANGELOG.md","sourceHash":"7f92adde93babff0aead9508f222f2620519c25c45d0027392c3788ea0fde72e","state":"ready"} -->
+<!-- translation: {"version":1,"source":"CHANGELOG.md","sourceHash":"1085ba4794f60a0840f9f4a74aadd65daf2874c5207e605c559cad3dc3d47b17","state":"ready"} -->
 
 <a id="changelog"></a>
 
@@ -17,11 +17,37 @@
 
 ## 未发布
 
-- 在运行时指南中说明诊断分组、重复的 Bloom 阶段，以及原生资源所有权与图中可见访问之间的区别；并将精简的分组/资源规则和 Inspector 展示指南整理为 npm Skills。
+<a id="runtime-and-inspector-030-npm-snapshot-012---2026-11-27"></a>
 
-- 将运行时、Snapshot 和 Inspector 的使用/升级指南放在所属包旁。在三个 npm 产物中随包发布可复现且纳入版本控制的 Agent Skills，并提供包内参考资料及 pnpm 发现/审批检查。Rust 指南继续归所属 crate 管理；Rust Skill 的分发暂缓。保留文档路由和历史发布记录，不更改已发布版本。
+## 运行时与 Inspector 0.3.0、npm Snapshot 0.1.2 - 2026-11-27
 
-- 为 `@zenfg/webgpu` 和 `zenfg` 增加显式的运行时资源池作用域及同步谓词驱逐。作用域隔离瞬态别名与复用；谓词接收只读物理规格和空闲执行次数。导入资源仍归调用方所有。全清默认行为、累计计数器和 Snapshot 1.2 线格式保持不变。
+| 包 | 版本 |
+| --- | --- |
+| `@zenfg/webgpu` | 0.3.0 |
+| `@zenfg/inspector` | 0.3.0 |
+| `zenfg` | 0.3.0 |
+| `@zenfg/snapshot` | 0.1.2 |
+
+`@zenfg/webgpu` 和 `@zenfg/inspector` 均精确依赖 `@zenfg/snapshot` 0.1.2。`zenfg` 继续使用 `zenfg-snapshot` 0.1.1，为 `snapshot` 特性提供支持。已有捕获数据仍兼容 Snapshot 1.2。
+
+<a id="highlights"></a>
+
+### 变更要点
+
+- 为 `@zenfg/webgpu` 和 `zenfg` 增加由运行时管理的显式资源池作用域和按谓词同步驱逐的能力。作用域将瞬态资源的别名复用与资源池复用隔离在各自范围内。谓词接收只读的物理规格和空闲执行次数。默认的资源池作用域、清空行为和累计计数器继续可用。导入资源仍归调用方所有。
+- 改善 Inspector 的 Overview 和 Passes 视图，支持显式选择 CPU 或 GPU 计时，计时刻度和占比均以整次捕获为基准，执行顺序和分组导航也保持稳定。明确资源标识、逻辑大小及访问关系。在 Memory 视图中统一排序物理分配，可展开其包含的逻辑资源，查看已知的生命周期覆盖范围。视图更新后会恢复焦点。
+- 将 Inspector 图主题的测量过程与宿主页面 CSS 隔离，使主题值的解析更加一致。
+- 在所属包中提供中英文指南，并首次为 WebGPU、Inspector 和 Snapshot 提供随 npm 包分发的 Agent Skills。Skills 包含包内参考资料，支持 pnpm 发现和审批。运行时指南介绍诊断分组、重复 Bloom 阶段、原生资源所有权和图中可见的访问。Rust 使用指南随 `zenfg` 发布。
+- 为 npm Snapshot 的一致性测试语料加入一个按作用域隔离别名复用的生产者用例。
+
+<a id="component-release-notes"></a>
+
+### 本次各包发布说明
+
+- [@zenfg/webgpu 0.3.0](docs/releases/npm-webgpu-0.3.0.md)
+- [@zenfg/inspector 0.3.0](docs/releases/npm-inspector-0.3.0.md)
+- [@zenfg/snapshot 0.1.2](docs/releases/npm-snapshot-0.1.2.md)
+- [zenfg 0.3.0](docs/releases/cargo-zenfg-0.3.0.md)
 
 <a id="runtime-and-inspector-020-snapshot-packages-011---2026-10-10"></a>
 
@@ -179,7 +205,7 @@ WebGPU 运行时现在会同时通过 TypeScript 类型和运行时检查强制�
 
 各包版本与 ZenFG FrameGraph Snapshot 线格式相互独立；此候选版本的线格式为 `1.0`。
 
-[Unreleased]: https://github.com/uinosoft/zenfg/compare/cargo/zenfg/v0.2.0...HEAD
+[Unreleased]: https://github.com/uinosoft/zenfg/compare/cargo/zenfg/v0.3.0...HEAD
 [0.1.0]: https://github.com/uinosoft/zenfg/tree/cargo%2Fzenfg%2Fv0.1.0
 [0.1.0-beta.4]: https://github.com/uinosoft/zenfg/tree/cargo%2Fzenfg%2Fv0.1.0-beta.4
 [0.1.0-beta.3]: https://github.com/uinosoft/zenfg/tree/cargo%2Fzenfg%2Fv0.1.0-beta.3

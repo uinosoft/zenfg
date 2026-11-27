@@ -12,7 +12,7 @@
 <!-- generated:badges:start -->
 [![@zenfg/inspector published latest version](https://img.shields.io/npm/v/%40zenfg%2Finspector/latest?label=npm)](https://www.npmjs.com/package/@zenfg/inspector)
 [![API Docs (development)](https://img.shields.io/badge/API_docs-development-blue)](https://uinosoft.github.io/zenfg/docs/api/inspector/)
-[![MIT license](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/uinosoft/zenfg/blob/npm/inspector/v0.2.0/LICENSE)
+[![MIT license](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/uinosoft/zenfg/blob/npm/inspector/v0.3.0/LICENSE)
 <!-- generated:badges:end -->
 
 `@zenfg/inspector` is an embeddable, renderer-independent DOM workbench for
@@ -23,16 +23,15 @@ no WebGPU, wgpu, engine, or host-UI dependency.
 
 <!-- generated:installation:start -->
 ```sh
-npm install @zenfg/inspector@0.2.0
+npm install @zenfg/inspector@0.3.0
 ```
 <!-- generated:installation:end -->
 
 ## Agent Skills
 
-This development package includes an English [zenfg-inspector Skill](./skills/zenfg-inspector/SKILL.md)
-for workbench embedding, live capture, import, themes, and cleanup.
-Skills support is unreleased: the published 0.2.0 package does not include it.
-Use a release that explicitly ships Skills, or a tarball built from this branch.
+Starting with `@zenfg/inspector@0.3.0`, this package includes the English
+[zenfg-inspector Skill](./skills/zenfg-inspector/SKILL.md) for workbench embedding,
+live capture, import, themes, and cleanup.
 
 With pnpm 12.11.0 or later (verified with 12.11.2), first install that package
 as a direct dependency of your application. Then run:
@@ -105,12 +104,12 @@ Read the [complete Quick Start](./GUIDE.md#quick-start) for imports, caller-owne
 ## Documentation and versions
 
 <!-- generated:documentation:start -->
-The package manifest declares **@zenfg/inspector 0.2.0**. Registry badges show the current published channel, not your installed version.
+The package manifest declares **@zenfg/inspector 0.3.0**. Registry badges show the current published channel, not your installed version.
 
 - Exact installed APIs: follow `package.json` → `exports` → `dist/*.d.ts`; declaration maps point to the included `src/`. Only declared export paths are public.
 - [Online guide (development branch)](https://uinosoft.github.io/zenfg/docs/packages/inspector.html). The site may describe changes newer than this package.
 - [TypeScript API (development branch)](https://uinosoft.github.io/zenfg/docs/api/inspector/).
-- [Source and documentation for this release](https://github.com/uinosoft/zenfg/tree/npm/inspector/v0.2.0/packages/inspector).
+- [Source and documentation for this release](https://github.com/uinosoft/zenfg/tree/npm/inspector/v0.3.0/packages/inspector).
 - Usage contracts are maintained in this package; follow its local guides. Historical source links describe the named release, which may precede current development changes.
 - [Package upgrade notes](./docs/MIGRATION.md).
 - [Plain Markdown documentation index (development branch)](https://uinosoft.github.io/zenfg/docs/llms.txt).

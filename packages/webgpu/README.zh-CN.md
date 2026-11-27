@@ -1,4 +1,4 @@
-<!-- translation: {"version":1,"source":"packages/webgpu/README.md","sourceHash":"d226eaca8b6caff23a8134000561ff837666e49b0c1f8a0c0c0d457529cf6903","state":"ready"} -->
+<!-- translation: {"version":1,"source":"packages/webgpu/README.md","sourceHash":"20abb04914f397a50037f6516a93ff5b6292ae8212192d88b51ef1bd5527c824","state":"ready"} -->
 
 # @zenfg/webgpu
 
@@ -14,7 +14,7 @@
 <!-- generated:badges:start -->
 [![@zenfg/webgpu published latest version](https://img.shields.io/npm/v/%40zenfg%2Fwebgpu/latest?label=npm)](https://www.npmjs.com/package/@zenfg/webgpu)
 [![API Docs (development)](https://img.shields.io/badge/API_docs-development-blue)](https://uinosoft.github.io/zenfg/docs/api/webgpu/)
-[![MIT license](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/uinosoft/zenfg/blob/npm/webgpu/v0.2.0/LICENSE)
+[![MIT license](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/uinosoft/zenfg/blob/npm/webgpu/v0.3.0/LICENSE)
 <!-- generated:badges:end -->
 
 `@zenfg/webgpu` 是一个轻量级 WebGPU FrameGraph，用于声明并执行逐帧 GPU 工作。它负责排列图节点、校验资源访问、裁剪未使用的工作、推导 WebGPU 使用标志、跟踪资源生命周期，并复用瞬态纹理和缓冲区。
@@ -25,16 +25,15 @@
 
 <!-- generated:installation:start -->
 ```sh
-npm install @zenfg/webgpu@0.2.0
+npm install @zenfg/webgpu@0.3.0
 ```
 <!-- generated:installation:end -->
 
 ## Agent Skills
 
-此开发版本随附英文 [zenfg-webgpu Skill](./skills/zenfg-webgpu/SKILL.md)，用于指导
-WebGPU 集成、资源访问、诊断分组和帧捕获。
-Skills 支持尚未发布：已发布的 0.2.0 包不包含此能力。
-请使用明确随包提供 Skills 的发布版本，或从此分支构建的 tarball。
+从 `@zenfg/webgpu@0.3.0` 开始，包内随附英文
+[zenfg-webgpu Skill](./skills/zenfg-webgpu/SKILL.md)，用于指导 WebGPU 集成、资源访问、
+诊断分组和帧捕获。
 
 使用 pnpm 12.11.0 或更高版本（已验证 12.11.2），先将上述包安装为应用的直接依赖，然后运行：
 
@@ -130,12 +129,12 @@ pnpm install
 ## 文档与版本
 
 <!-- generated:documentation:start -->
-包清单声明 **@zenfg/webgpu 0.2.0**. 注册表徽章显示当前发布渠道，并非已安装版本。
+包清单声明 **@zenfg/webgpu 0.3.0**. 注册表徽章显示当前发布渠道，并非已安装版本。
 
 - 已安装版本的准确 API：查看 `package.json` → `exports` → `dist/*.d.ts`; 声明映射指向包内的 `src/`. 只有声明的导出路径属于公共 API。
 - [在线指南（开发分支）](https://uinosoft.github.io/zenfg/docs/zh-CN/packages/webgpu.html). 网站可能包含晚于此包版本的变更。
 - [TypeScript API（开发分支，英文）](https://uinosoft.github.io/zenfg/docs/api/webgpu/).
-- [此发布版本的源码与文档](https://github.com/uinosoft/zenfg/tree/npm/webgpu/v0.2.0/packages/webgpu).
+- [此发布版本的源码与文档](https://github.com/uinosoft/zenfg/tree/npm/webgpu/v0.3.0/packages/webgpu).
 - 使用约定由本包维护，请阅读包内指南。历史源码链接对应指定发布版本，可能早于当前开发分支。
 - [包升级说明](docs/MIGRATION.zh-CN.md).
 - [纯 Markdown 文档索引（开发分支）](https://uinosoft.github.io/zenfg/docs/zh-CN/llms.txt).

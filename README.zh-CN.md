@@ -1,4 +1,4 @@
-<!-- translation: {"version":1,"source":"README.md","sourceHash":"dd80c688ba38c583d7e03de372cbd4388be41864ef82c7140c09f74da833c0bb","state":"ready"} -->
+<!-- translation: {"version":1,"source":"README.md","sourceHash":"ec4328f78bb26e3133f2ae97db87ef055a36fb19a503e2e72a5124563cfb7ed1","state":"ready"} -->
 
 <!-- readme-hero:start -->
 <p align="center">
@@ -96,12 +96,12 @@ ZenFG 通过显式 FrameGraph 协调渲染与计算工作。直接使用 WebGPU 
 
 ## 配合 AI 编程助手使用
 
-开发版本提供英文 Agent Skills，分别指导
+ZenFG 在 `@zenfg/webgpu@0.3.0`、`@zenfg/snapshot@0.1.2` 和 `@zenfg/inspector@0.3.0`
+开始随包提供英文 Agent Skills，分别指导
 [WebGPU 集成](packages/webgpu/README.zh-CN.md#agent-skills)、
 [Snapshot 数据处理](packages/snapshot/README.zh-CN.md#agent-skills)和
 [Inspector 嵌入](packages/inspector/README.zh-CN.md#agent-skills)。
-各包 README 说明了发布情况，以及使用 pnpm 安装和批准的步骤。
-当前已发布的 npm 版本尚未提供此能力。
+各包 README 说明如何使用 pnpm 安装和批准对应的 Skill。
 
 <a id="integration-levels"></a>
 

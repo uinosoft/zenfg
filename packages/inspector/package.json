@@ -1,6 +1,6 @@
 {
   "name": "@zenfg/inspector",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Embeddable Inspector for ZenFG Snapshot files and live captures",
   "type": "module",
   "sideEffects": [
@@ -32,7 +32,7 @@
     "skills"
   ],
   "dependencies": {
-    "@zenfg/snapshot": "workspace:0.1.1",
+    "@zenfg/snapshot": "workspace:0.1.2",
     "cytoscape": "^3.34.1",
     "elkjs": "^0.12.0"
   },

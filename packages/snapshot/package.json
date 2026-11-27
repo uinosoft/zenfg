@@ -1,6 +1,6 @@
 {
   "name": "@zenfg/snapshot",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Portable ZenFG Snapshot V1 types, codec, validator, schema, and conformance corpus",
   "type": "module",
   "sideEffects": false,

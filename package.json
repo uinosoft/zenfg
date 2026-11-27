@@ -49,7 +49,7 @@
   "devDependencies": {
     "@types/node": "^24.0.0",
     "@webgpu/types": "^0.1.69",
-    "@zenfg/snapshot": "workspace:0.1.1",
+    "@zenfg/snapshot": "workspace:0.1.2",
     "esbuild": "^0.28.0",
     "github-slugger": "2.0.0",
     "happy-dom": "^20.11.2",

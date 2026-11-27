@@ -1,4 +1,4 @@
-<!-- translation: {"version":1,"source":"packages/snapshot/README.md","sourceHash":"39f5c93225400a62a4a912cf594e4d51593f3ea14813da89e47139511bf3845e","state":"ready"} -->
+<!-- translation: {"version":1,"source":"packages/snapshot/README.md","sourceHash":"e2405680b8e775dc0535d798f108b028a346787904e960f3a30c5df34aec73ef","state":"ready"} -->
 
 # @zenfg/snapshot
 
@@ -12,7 +12,7 @@
 <!-- generated:badges:start -->
 [![@zenfg/snapshot published latest version](https://img.shields.io/npm/v/%40zenfg%2Fsnapshot/latest?label=npm)](https://www.npmjs.com/package/@zenfg/snapshot)
 [![API Docs (development)](https://img.shields.io/badge/API_docs-development-blue)](https://uinosoft.github.io/zenfg/docs/api/snapshot/)
-[![MIT license](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/uinosoft/zenfg/blob/npm/snapshot/v0.1.1/LICENSE)
+[![MIT license](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/uinosoft/zenfg/blob/npm/snapshot/v0.1.2/LICENSE)
 <!-- generated:badges:end -->
 
 `@zenfg/snapshot` 负责定义可移植、带版本的诊断约定，以便
@@ -33,16 +33,15 @@ Snapshot 1.1 输入会在迁移到 1.2 前先通过验证；其 CPU 计时
 
 <!-- generated:installation:start -->
 ```sh
-npm install @zenfg/snapshot@0.1.1
+npm install @zenfg/snapshot@0.1.2
 ```
 <!-- generated:installation:end -->
 
 ## Agent Skills
 
-此开发版本随附英文 [zenfg-snapshot Skill](./skills/zenfg-snapshot/SKILL.md)，用于指导
-Snapshot 解码、验证、迁移以及生产者职责边界。
-Skills 支持尚未发布：已发布的 0.1.1 包不包含此能力。
-请使用明确随包提供 Skills 的发布版本，或从此分支构建的 tarball。
+从 `@zenfg/snapshot@0.1.2` 开始，包内随附英文
+[zenfg-snapshot Skill](./skills/zenfg-snapshot/SKILL.md)，用于指导 Snapshot 解码、验证、
+迁移以及生产者职责边界。
 
 使用 pnpm 12.11.0 或更高版本（已验证 12.11.2），先将上述包安装为应用的直接依赖，然后运行：
 
@@ -192,12 +191,12 @@ JavaScript 安全整数。
 ## 文档与版本
 
 <!-- generated:documentation:start -->
-包清单声明 **@zenfg/snapshot 0.1.1**. 注册表徽章显示当前发布渠道，并非已安装版本。
+包清单声明 **@zenfg/snapshot 0.1.2**. 注册表徽章显示当前发布渠道，并非已安装版本。
 
 - 已安装版本的准确 API：查看 `package.json` → `exports` → `dist/*.d.ts`; 声明映射指向包内的 `src/`. 只有声明的导出路径属于公共 API。
 - [在线指南（开发分支）](https://uinosoft.github.io/zenfg/docs/zh-CN/packages/snapshot.html). 网站可能包含晚于此包版本的变更。
 - [TypeScript API（开发分支，英文）](https://uinosoft.github.io/zenfg/docs/api/snapshot/).
-- [此发布版本的源码与文档](https://github.com/uinosoft/zenfg/tree/npm/snapshot/v0.1.1/packages/snapshot).
+- [此发布版本的源码与文档](https://github.com/uinosoft/zenfg/tree/npm/snapshot/v0.1.2/packages/snapshot).
 - 使用约定由本包维护，请阅读包内指南。历史源码链接对应指定发布版本，可能早于当前开发分支。
 - [包升级说明](docs/MIGRATION.zh-CN.md).
 - [纯 Markdown 文档索引（开发分支）](https://uinosoft.github.io/zenfg/docs/zh-CN/llms.txt).

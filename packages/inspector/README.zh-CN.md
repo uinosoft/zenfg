@@ -1,4 +1,4 @@
-<!-- translation: {"version":1,"source":"packages/inspector/README.md","sourceHash":"e433f1b82aaf471c73616a6005443696f43fc3c6407e00ffca5784b2ee5c4deb","state":"ready"} -->
+<!-- translation: {"version":1,"source":"packages/inspector/README.md","sourceHash":"29214e05c3094e779ba176a9b6ca6d62687f3242105bcbac6bcaf1c02979637f","state":"ready"} -->
 
 # @zenfg/inspector
 
@@ -14,7 +14,7 @@
 <!-- generated:badges:start -->
 [![@zenfg/inspector published latest version](https://img.shields.io/npm/v/%40zenfg%2Finspector/latest?label=npm)](https://www.npmjs.com/package/@zenfg/inspector)
 [![API Docs (development)](https://img.shields.io/badge/API_docs-development-blue)](https://uinosoft.github.io/zenfg/docs/api/inspector/)
-[![MIT license](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/uinosoft/zenfg/blob/npm/inspector/v0.2.0/LICENSE)
+[![MIT license](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/uinosoft/zenfg/blob/npm/inspector/v0.3.0/LICENSE)
 <!-- generated:badges:end -->
 
 `@zenfg/inspector` 是用于检查 ZenFG Snapshot 数据的可嵌入式 DOM 工作台，与具体渲染器无关。它依赖 `@zenfg/snapshot`、Cytoscape 和 ELK，不依赖 WebGPU、wgpu、游戏引擎或宿主 UI。
@@ -25,16 +25,15 @@
 
 <!-- generated:installation:start -->
 ```sh
-npm install @zenfg/inspector@0.2.0
+npm install @zenfg/inspector@0.3.0
 ```
 <!-- generated:installation:end -->
 
 ## Agent Skills
 
-此开发版本随附英文 [zenfg-inspector Skill](./skills/zenfg-inspector/SKILL.md)，用于指导
-工作台嵌入、实时捕获、导入、主题和资源清理。
-Skills 支持尚未发布：已发布的 0.2.0 包不包含此能力。
-请使用明确随包提供 Skills 的发布版本，或从此分支构建的 tarball。
+从 `@zenfg/inspector@0.3.0` 开始，包内随附英文
+[zenfg-inspector Skill](./skills/zenfg-inspector/SKILL.md)，用于指导工作台嵌入、实时捕获、
+导入、主题和资源清理。
 
 使用 pnpm 12.11.0 或更高版本（已验证 12.11.2），先将上述包安装为应用的直接依赖，然后运行：
 
@@ -111,12 +110,12 @@ pnpm install
 ## 文档与版本
 
 <!-- generated:documentation:start -->
-包清单声明 **@zenfg/inspector 0.2.0**. 注册表徽章显示当前发布渠道，并非已安装版本。
+包清单声明 **@zenfg/inspector 0.3.0**. 注册表徽章显示当前发布渠道，并非已安装版本。
 
 - 已安装版本的准确 API：查看 `package.json` → `exports` → `dist/*.d.ts`; 声明映射指向包内的 `src/`. 只有声明的导出路径属于公共 API。
 - [在线指南（开发分支）](https://uinosoft.github.io/zenfg/docs/zh-CN/packages/inspector.html). 网站可能包含晚于此包版本的变更。
 - [TypeScript API（开发分支，英文）](https://uinosoft.github.io/zenfg/docs/api/inspector/).
-- [此发布版本的源码与文档](https://github.com/uinosoft/zenfg/tree/npm/inspector/v0.2.0/packages/inspector).
+- [此发布版本的源码与文档](https://github.com/uinosoft/zenfg/tree/npm/inspector/v0.3.0/packages/inspector).
 - 使用约定由本包维护，请阅读包内指南。历史源码链接对应指定发布版本，可能早于当前开发分支。
 - [包升级说明](docs/MIGRATION.zh-CN.md).
 - [纯 Markdown 文档索引（开发分支）](https://uinosoft.github.io/zenfg/docs/zh-CN/llms.txt).
